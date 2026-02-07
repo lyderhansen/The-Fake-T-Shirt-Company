@@ -37,6 +37,7 @@ from generators.generate_webex import generate_webex_logs
 from generators.generate_webex_ta import generate_webex_ta_logs
 from generators.generate_webex_api import generate_webex_api_logs
 from generators.generate_servicenow import generate_servicenow_logs
+from generators.generate_office_audit import generate_office_audit_logs
 
 # =============================================================================
 # GENERATOR REGISTRY
@@ -59,6 +60,7 @@ GENERATORS: Dict[str, Callable] = {
     "webex_ta": generate_webex_ta_logs,
     "webex_api": generate_webex_api_logs,
     "servicenow": generate_servicenow_logs,
+    "office_audit": generate_office_audit_logs,
 }
 
 # Group sources for easy selection
@@ -69,6 +71,7 @@ SOURCE_GROUPS = {
     "windows": ["wineventlog", "perfmon"],
     "linux": ["linux"],
     "web": ["access"],
+    "office": ["office_audit", "exchange"],
     "email": ["exchange"],
     "retail": ["orders", "servicebus"],
     "collaboration": ["webex", "webex_ta", "webex_api"],

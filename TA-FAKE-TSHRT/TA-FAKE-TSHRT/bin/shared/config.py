@@ -117,6 +117,7 @@ GENERATOR_OUTPUT_FILES = {
         "linux/interfaces.log",
     ],
     "servicenow": ["itsm/servicenow_incidents.log"],
+    "office_audit": ["cloud/office_audit.json"],
 }
 
 # =============================================================================

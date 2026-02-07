@@ -41,7 +41,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Attack scenarios
     "exfil": ScenarioDefinition(
         name="exfil",
-        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange"],
+        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit"],
         category="attack",
         description="APT-style data exfiltration over 14 days (phishing -> privilege abuse -> exfil)",
         demo_id="exfil",
@@ -124,7 +124,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Ransomware attempt - detected and stopped
     "ransomware_attempt": ScenarioDefinition(
         name="ransomware_attempt",
-        sources=["asa", "exchange", "wineventlog", "meraki", "servicenow"],
+        sources=["asa", "exchange", "wineventlog", "meraki", "servicenow", "office_audit"],
         category="attack",
         description="Ransomware attempt via phishing - detected and stopped by EDR (Day 8-9)",
         demo_id="ransomware_attempt",

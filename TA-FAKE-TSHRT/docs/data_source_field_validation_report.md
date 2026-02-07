@@ -1,6 +1,6 @@
 # Syntetisk Sikkerhetslogg-Validering — fake_tshrt
 
-Komplett validering av syntetiske logger i Splunk-indeksen `fake_tshrt` på tvers av fem plattformer: AWS CloudTrail, Meraki IDS/IPS, Azure AD/Entra ID, GCP Audit Logs og Cisco Webex.
+Komplett validering av syntetiske logger i Splunk-indeksen `fake_tshrt` på tvers av seks plattformer: AWS CloudTrail, Meraki IDS/IPS, Azure AD/Entra ID, GCP Audit Logs, Cisco Webex og Microsoft 365 Unified Audit Log.
 
 ---
 
@@ -224,26 +224,91 @@ Komplett validering av syntetiske logger i Splunk-indeksen `fake_tshrt` på tver
 
 ---
 
+## 6. Microsoft 365 Unified Audit Log (`FAKE:o365:management:activity`)
+
+**Antall hendelser:** 18 990 (14 dager, scale=1.0)
+**Workloads:** SharePoint (RecordType 6, ~25%), OneDrive (RecordType 7, ~35%), MicrosoftTeams (RecordType 25, ~40%)
+**Scenario-events:** exfil: 193, ransomware_attempt: 22
+
+### Tier 1 — Kritisk (bryter realisme umiddelbart)
+
+| # | Problem | Nåværende verdi | Korrekt verdi | Dokumentasjon |
+|---|---------|----------------|---------------|---------------|
+| 1 | **CommunicationType feil enum-verdier (Teams)** — Bruker `"Channel"` og `"OneOnOne"` som ikke finnes i ekte M365. | `"Channel"`, `"OneOnOne"` | `"TeamChat"`, `"PrivateChat"`, `"MeetingChat"` | [Office 365 Management API Schema](https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema) |
+| 2 | **Members.Role er integer, skal være string** — Bruker `"Role": 1` i stedet for strengverdier. | `"Role": 1` | `"Role": "Owner"` / `"Member"` / `"Guest"` | [MicrosoftTeamsMember Complex Type](https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#microsoftteamsmember-complex-type) |
+| 3 | **ChannelFileUploaded/ChannelFileAccessed er ikke ekte operasjoner** — Filer i Teams-kanaler logges som SharePoint-events (RecordType 6), IKKE som Teams-events (RecordType 25). ~35% av Teams-events bruker ugyldige operasjoner. | `"ChannelFileUploaded"`, `"ChannelFileAccessed"` | Bruk SharePoint RecordType 6 for kanal-filoperasjoner. Erstatt med ekte Teams-operasjoner som `"ChatCreated"`, `"MessageRead"`, `"TabAdded"` | [Audit log activities: Teams](https://learn.microsoft.com/en-us/purview/audit-log-activities#microsoft-teams-activities) |
+| 4 | **Mangler TeamGuid-felt (Teams)** — Påkrevd identifikator for alle Teams-events, brukes i Splunk-korrelasjon og dashboards. | Mangler | `"TeamGuid": "19:0571b31b...@thread.skype"` | [Office 365 Management API Schema](https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema) |
+| 5 | **Mangler ChannelGuid-felt (Teams)** — Primær kanal-identifikator i API-et. | Mangler | `"ChannelGuid": "19:f2cb1f55...@thread.skype"` | [Office 365 Management API Schema](https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema) |
+
+### Tier 2 — Viktig (merkbart for analytikere)
+
+| # | Problem | Detaljer |
+|---|---------|---------|
+| 6 | **UserKey-format feil for Teams-events** | SharePoint/OneDrive: UserKey er 16-tegns hex PUID (vår generering er nær riktig, men mangler `1003`-prefiks). Teams-events bruker Azure AD Object ID i GUID-format (`aff4cd58-1bb8-4899-94de-795f656b4a18`), ikke PUID. |
+| 7 | **Mangler Version-felt** | Alle ekte events har `"Version": 1`. Mangler i all output. |
+| 8 | **Mangler AADGroupId (Teams)** | Azure AD gruppe-GUID for teamet. Brukes i Sentinel og Splunk sikkerhet-workflows. |
+| 9 | **ClientIP bruker alltid interne RFC1918-adresser** | Ekte M365 logger viser offentlige IP-er (NAT gateway). En bedrift med 175 ansatte ville typisk hatt 1-3 eksterne IP-er per kontor, ikke individuelle 10.x.x.x-adresser. |
+| 10 | **ResultStatus alltid "Succeeded"** | 100% suksessrate. Ekte miljøer har ~2-5% `"Failed"` og `"PartiallySucceeded"` (tilgangsnektet, throttling). |
+| 11 | **Mangler MessageId for MessageSent** | Ekte MessageSent-events inkluderer `"MessageId"` (numerisk streng som `"1661368101750"`). |
+| 12 | **Members-objekt mangler felt** | Nåværende: bare `UPN` og `Role`. Ekte: også `DisplayName`, `Id` (Azure AD Object ID), `Email`. |
+
+### Tier 3 — Polering
+
+| # | Problem | Detaljer |
+|---|---------|---------|
+| 13 | **Mangler Site (Edm.Guid) felt** | SharePoint/OneDrive-events inkluderer ofte `Site` GUID i tillegg til `SiteUrl`. |
+| 14 | **TeamCreated/TeamDeleted-frekvens for hyppig** | 3% + 2% = ~33 events/dag i en 175-person bedrift. Realistisk: 1-2 per uke. |
+| 15 | **Mangler ChatThreadId for private chats** | Ekte private/gruppe-chat events inkluderer denne identifikatoren. |
+| 16 | **Mangler Scope-felt** | Common Schema har `"Scope"` (0=online, 1=onprem), valgfritt men vanlig. |
+| 17 | **UserKey PUID mangler standard-prefiks** | Ekte PUID starter med `1003` (MSA) eller `10032` (org). Vår hash gir tilfeldige prefikser. |
+
+### Hva som fungerer bra ✓
+
+- **Common schema-felt**: `Id` (UUID v4), `RecordType` (riktige heltall), `CreationTime` (ISO 8601 UTC), `Operation`, `OrganizationId`, `UserType`, `Workload`, `UserId` (UPN-format), `ClientIP` — alt korrekt typet og navngitt.
+- **RecordType-verdier**: 6 (SharePointFileOperation), 7 (OneDrive), 25 (MicrosoftTeams) er alle korrekte.
+- **SharePoint/OneDrive filoperasjoner**: `FileAccessed`, `FileModified`, `FileDownloaded`, `FileUploaded`, `FileCheckedOut/In`, `FileDeleted`, `SharingSet`, `FileSyncUploadedFull`, `FileRestored` — alle gyldige Microsoft-operasjoner.
+- **SharePoint-feltstruktur**: `SiteUrl`, `SourceRelativeUrl`, `SourceFileName`, `SourceFileExtension`, `ObjectId`, `ItemType`, `EventSource`, `UserAgent` — alt riktig navngitt.
+- **ObjectId URL-konstruksjon**: Korrekte maler for både SharePoint team-sites (`/sites/SiteName/Shared Documents/fil`) og OneDrive personal (`/personal/user_domain_com/Documents/fil`).
+- **User agents**: Realistisk blanding av nettlesere, Office-apper, OneDrive sync-klient. Matcher ekte M365-miljøer.
+- **Volumfordeling**: 25% SharePoint / 35% OneDrive / 40% Teams er en god tilnærming til ekte M365-aktivitet.
+- **Scenario-integrasjon**: Exfil-scenariet bruker korrekt threat actor IP, målretter Finance-dokumenter, og inkluderer `SharingSet` til ekstern e-post. Ransomware-scenariet med rask filmodifisering og IT-admin gjenoppretting er godt modellert.
+- **Deterministisk UserKey per bruker**: Konsistent per bruker via hash — korrekt oppførsel (PUID er statisk).
+- **Timestamp-format**: ISO 8601 UTC med `Z`-suffiks matcher API-spesifikasjonen.
+
+### Microsoft 365 Audit Log — Offisiell dokumentasjon
+
+- [Office 365 Management Activity API Schema](https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema) — Common schema, SharePoint Base schema, Teams schema med felt-definisjoner og komplekse typer
+- [Audit Log Detailed Properties](https://learn.microsoft.com/en-us/purview/audit-log-detailed-properties) — Alle felt per aktivitetstype
+- [Audit Log Activities: Teams](https://learn.microsoft.com/en-us/purview/audit-log-activities#microsoft-teams-activities) — Komplett liste over Teams-operasjoner
+- [Audit Log Activities: SharePoint](https://learn.microsoft.com/en-us/purview/audit-log-activities#sharepoint-file-activities) — SharePoint/OneDrive filoperasjoner
+- [Splunk Add-on for Microsoft Office 365](https://splunkbase.splunk.com/app/4055) — Splunkbase app 4055, sourcetype `o365:management:activity`
+
+---
+
 ## Oppsummering — Fellesproblemer på tvers av plattformer
 
-| Problem | AWS | Meraki | Azure | GCP | Webex |
-|---------|:---:|:------:|:-----:|:---:|:-----:|
-| Lesbare ID-er / feil ID-format | ✗ | — | ✗ | ✗ | ✗ |
-| demo_id/syntetisk markør | ✓ | ✗ | ✓ | ✗ | ✓ |
-| Ingen userAgent-variasjon | ✗ | — | ✗ | ✗ | ✗ |
-| Feil terminologi/felt-verdier | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Manglende standard-felt | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Angrepstrafikk inkludert | ✗ | ✓ | ✓ | ✓ | ✗ |
-| clientType/OS-mismatch | — | — | — | — | ✗ |
+| Problem | AWS | Meraki | Azure | GCP | Webex | M365 |
+|---------|:---:|:------:|:-----:|:---:|:-----:|:----:|
+| Lesbare ID-er / feil ID-format | ✗ | — | ✗ | ✗ | ✗ | ✓* |
+| demo_id/syntetisk markør | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ |
+| Ingen userAgent-variasjon | ✗ | — | ✗ | ✗ | ✗ | ✓ |
+| Feil terminologi/felt-verdier | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Manglende standard-felt | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Angrepstrafikk inkludert | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| clientType/OS-mismatch | — | — | — | — | ✗ | — |
 
 ✓ = OK, ✗ = Problem funnet, — = Ikke relevant
+\* M365 UserKey format er nær riktig for SP/OD men feil for Teams-events
 
-### Topp 7 fikser med størst effekt (oppdatert med Webex)
+### Topp 10 fikser med størst effekt (oppdatert med M365)
 
 1. **Fiks clientType/osType/hardwareType-mapping i Webex** — 70% av meeting quality-data har umulige kombinasjoner. Opprett en mapping-tabell som sikrer logisk konsistens: Webex Desktop → Windows/macOS, Webex Mobile (iOS) → iOS + iPhone/iPad, etc. Påvirker 339 + 211 = 550 events.
 2. **Fiks base64-enkoding av Webex actorId/actorOrgId** — Nåværende hybrid-format (delvis base64, delvis rå tekst) dekoder til korrupt data. Hele URI-en (`ciscospark://us/PEOPLE/<uuid>`) må base64-enkodes. Påvirker 483 audit-events.
 3. **Erstatt alle lesbare ID-er med ekte formater** — UUID-er for Azure, alfanumeriske for AWS principalId, hex for GCP insertId, UUID for Webex Department ID. Viktigste enkeltfiks på tvers av alle plattformer.
 4. **Fjern demo_id fra Meraki og GCP** — Avslører umiddelbart at data er syntetisk.
 5. **Varier userAgent** — Samme verdi for tusenvis av events er et rødt flagg. Gjelder AWS, Azure, GCP og Webex security audit.
-6. **Fiks CDR-feltformat i Webex** — Device MAC (fjern kolonner), Call ID (SIP-format), Department ID (UUID), Duration (integer). 
-7. **Legg til angrepstrafikk i AWS CloudTrail og Webex** — De to plattformene uten angrepsscenario. For Webex: legg til feilede innlogginger, brute force, og admin policy-endringer fra ukjente IP-er.
+6. **Fiks CDR-feltformat i Webex** — Device MAC (fjern kolonner), Call ID (SIP-format), Department ID (UUID), Duration (integer).
+7. **Fiks M365 Teams CommunicationType** — `"Channel"` → `"TeamChat"`, `"OneOnOne"` → `"PrivateChat"`. Legg til `"MeetingChat"`. Påvirker alle Teams-events (~40% av output).
+8. **Fjern M365 ChannelFileUploaded/ChannelFileAccessed** — Ikke ekte operasjoner. Filer i Teams-kanaler logges som SharePoint RecordType 6. Erstatt med ekte Teams-operasjoner. Påvirker ~35% av Teams-events.
+9. **Legg til TeamGuid/ChannelGuid i M365 Teams-events** — Påkrevde felt for korrelasjon i Splunk og Sentinel.
+10. **Legg til angrepstrafikk i AWS CloudTrail og Webex** — De to plattformene uten angrepsscenario. For Webex: legg til feilede innlogginger, brute force, og admin policy-endringer fra ukjente IP-er.

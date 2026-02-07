@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office), producing correlated events across 17 data source generators with injectable security/ops/network scenarios.
+**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office), producing correlated events across 18 data source generators with injectable security/ops/network scenarios.
 
 ## Network Architecture
 
@@ -66,7 +66,7 @@ The-Fake-T-Shirt-Company/
     │   ├── bin/                  # Python code
     │   │   ├── main_generate.py  # CLI orchestrator (parallel execution)
     │   │   ├── tui_generate.py   # Interactive TUI (curses-based)
-    │   │   ├── generators/       # 17 data source generators
+    │   │   ├── generators/       # 18 data source generators
     │   │   ├── scenarios/        # Scenario implementations + registry
     │   │   ├── shared/           # Config, company data, time utils
     │   │   └── output/           # Generated log files (gitignored)
@@ -96,7 +96,7 @@ The-Fake-T-Shirt-Company/
 
 ## Available Log Sources
 
-17 generators producing correlated log data:
+18 generators producing correlated log data:
 
 | Source | Generator | Output Format | Splunk Sourcetype |
 |--------|-----------|---------------|-------------------|
@@ -113,6 +113,7 @@ The-Fake-T-Shirt-Company/
 | Entra ID Sign-in | generate_entraid.py | JSON | azure:aad:signin |
 | Entra ID Audit | generate_entraid.py | JSON | azure:aad:audit |
 | Exchange | generate_exchange.py | CSV | ms:o365:reporting:messagetrace |
+| M365 Audit | generate_office_audit.py | JSON | o365:management:activity |
 | Cisco Webex | generate_webex.py | JSON | cisco:webex:events |
 | Webex TA | generate_webex_ta.py | JSON | cisco:webex:meetings:history:* |
 | Webex API | generate_webex_api.py | JSON | cisco:webex:* (5 types) |
@@ -161,6 +162,7 @@ The-Fake-T-Shirt-Company/
 - `windows` - wineventlog, perfmon
 - `linux` - linux
 - `web` - access
+- `office` - office_audit, exchange
 - `email` - exchange
 - `retail` - orders, servicebus
 - `collaboration` - webex, webex_ta, webex_api
@@ -220,12 +222,12 @@ Attack path: Atlanta (initial compromise) → Boston (primary target)
 | Persistence | 8-10 | Backdoor creation, data staging | Boston (BOS) |
 | Exfiltration | 11-14 | Data theft via cloud storage | Boston → External |
 
-Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
+Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit
 
 **ransomware_attempt** - Ransomware detected and stopped (Days 8-9)
 - Target: Brooklyn White (Austin, Sales Engineer)
 - Outcome: Blocked by EDR in 10 minutes
-- Affected sources: asa, exchange, wineventlog, meraki, servicenow
+- Affected sources: asa, exchange, wineventlog, meraki, servicenow, office_audit
 
 ### Ops Scenarios
 
