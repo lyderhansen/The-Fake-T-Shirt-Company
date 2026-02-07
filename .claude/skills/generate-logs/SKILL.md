@@ -1,8 +1,9 @@
 ---
 name: generate-logs
 description: Generate demo log data for Splunk. Use when you need to create synthetic logs for testing, demos, or training.
-argument-hint: "[--sources=X,Y] [--days=N] [--scenarios=TYPE]"
 allowed-tools: Bash(python3 *)
+metadata:
+  argument-hint: "[--sources=X,Y] [--days=N] [--scenarios=TYPE]"
 ---
 
 # Log Generation

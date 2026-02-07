@@ -7,7 +7,6 @@ Contains all shared constants and default settings.
 from datetime import date
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional
 
 # =============================================================================
 # DEFAULT SETTINGS
@@ -250,8 +249,3 @@ class Config:
     scale: float = DEFAULT_SCALE
     demo_id_enabled: bool = True
     scenarios: str = "all"
-    output_base: Optional[Path] = None
-
-    def __post_init__(self):
-        if self.output_base is None:
-            self.output_base = OUTPUT_BASE

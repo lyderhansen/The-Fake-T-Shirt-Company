@@ -443,7 +443,7 @@ _USER_DATA = {
     "dewayne.johnson": ("user-dewayne-johnson-id", "DeWayne Johnson", "ATL", 2, "Sales", "Regional Sales Manager", "margaret.taylor", False, True, "ATL-WS-DJOHNSON01", "10.20.30.70", "device-djohnson-001", "73.158.42"),
     "patricia.woods": ("user-patricia-woods-id", "Patricia Woods", "ATL", 2, "Sales", "Account Executive", "dewayne.johnson", False, True, "ATL-WS-PWOODS01", "10.20.30.71", "device-pwoods-001", "107.77.195"),
     "rodney.allen": ("user-rodney-allen-id", "Rodney Allen", "ATL", 2, "Sales", "Account Executive", "dewayne.johnson", False, True, "ATL-WS-RALLEN01", "10.20.30.72", "device-rallen-001", "108.28.163"),
-    "tanisha.brooks": ("user-tanisha-brooks-id", "Tanisha Brooks", "ATL", 2, "Sales", "Sales Development Rep", "dewayne.johnson", False, False, "ATL-WS-TBROOKS01", "10.20.30.73", "device-tbrooks-001", "174.63.88"),
+    "tanisha.brooks": ("user-tanisha-brooks-id", "Tanisha Brooks", "ATL", 2, "Sales", "Sales Development Rep", "dewayne.johnson", False, False, "ATL-WS-TBROOKS01", "10.20.30.73", "device-tabrooks-001", "174.63.88"),
     "calvin.mitchell": ("user-calvin-mitchell-id", "Calvin Mitchell", "ATL", 2, "Sales", "Sales Development Rep", "dewayne.johnson", False, False, "ATL-WS-CMITCHELL01", "10.20.30.74", "device-cmitchell-001", "68.105.12"),
 
     # ==========================================================================
@@ -467,7 +467,7 @@ _USER_DATA = {
     # ==========================================================================
     "tyrone.allen": ("user-tyrone-allen-id", "Tyrone Allen", "ATL", 2, "Operations", "Operations Manager", "frank.mitchell", False, True, "ATL-WS-TALLEN01", "10.20.30.95", "device-tallen-001", "107.77.195"),
     "sandra.lewis": ("user-sandra-lewis-id", "Sandra Lewis", "ATL", 2, "Operations", "Operations Coordinator", "tyrone.allen", False, False, "ATL-WS-SLEWIS01", "10.20.30.96", "device-slewis-001", "108.28.163"),
-    "maurice.johnson": ("user-maurice-johnson-id", "Maurice Johnson", "ATL", 2, "Operations", "Logistics Specialist", "tyrone.allen", False, False, "ATL-WS-MJOHNSON02", "10.20.30.97", "device-mjohnson-001", "174.63.88"),
+    "maurice.johnson": ("user-maurice-johnson-id", "Maurice Johnson", "ATL", 2, "Operations", "Logistics Specialist", "tyrone.allen", False, False, "ATL-WS-MJOHNSON02", "10.20.30.97", "device-majohnson-001", "174.63.88"),
 
     # ==========================================================================
     # ATLANTA HUB - FLOOR 2: LEGAL (2)
@@ -507,11 +507,11 @@ _USER_DATA = {
     "jackson.moore": ("user-jackson-moore-id", "Jackson Moore", "AUS", 1, "Engineering", "Senior Software Engineer", "amelia.collins", False, True, "AUS-WS-JMOORE01", "10.30.30.41", "device-jmoore-001", "73.158.42"),
     "logan.taylor": ("user-logan-taylor-id", "Logan Taylor", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-LTAYLOR01", "10.30.30.42", "device-ltaylor-001", "107.77.195"),
     "aiden.johnson": ("user-aiden-johnson-id", "Aiden Johnson", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-AJOHNSON01", "10.30.30.43", "device-ajohnson-001", "108.28.163"),
-    "lucas.brown": ("user-lucas-brown-id", "Lucas Brown", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-LBROWN02", "10.30.30.44", "device-lbrown-001", "174.63.88"),
+    "lucas.brown": ("user-lucas-brown-id", "Lucas Brown", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-LBROWN02", "10.30.30.44", "device-lucbrown-001", "174.63.88"),
     "oliver.davis": ("user-oliver-davis-id", "Oliver Davis", "AUS", 1, "Engineering", "Frontend Developer", "amelia.collins", False, True, "AUS-WS-ODAVIS01", "10.30.30.45", "device-odavis-001", "68.105.12"),
     "elijah.miller": ("user-elijah-miller-id", "Elijah Miller", "AUS", 1, "Engineering", "Backend Developer", "amelia.collins", False, True, "AUS-WS-EMILLER01", "10.30.30.46", "device-emiller-001", "71.222.45"),
     "liam.wilson": ("user-liam-wilson-id", "Liam Wilson", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-LWILSON01", "10.30.30.47", "device-lwilson-001", "73.158.42"),
-    "ethan.martinez": ("user-ethan-martinez-id", "Ethan Martinez", "AUS", 1, "Engineering", "DevOps Engineer", "amelia.collins", False, True, "AUS-WS-EMARTINEZ02", "10.30.30.48", "device-emartinez-001", "107.77.195"),
+    "ethan.martinez": ("user-ethan-martinez-id", "Ethan Martinez", "AUS", 1, "Engineering", "DevOps Engineer", "amelia.collins", False, True, "AUS-WS-EMARTINEZ02", "10.30.30.48", "device-etmartinez-001", "107.77.195"),
     "sebastian.lee": ("user-sebastian-lee-id", "Sebastian Lee", "AUS", 1, "Engineering", "QA Engineer", "amelia.collins", False, True, "AUS-WS-SLEE01", "10.30.30.49", "device-slee-001", "108.28.163"),
     "benjamin.garcia": ("user-benjamin-garcia-id", "Benjamin Garcia", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-BGARCIA01", "10.30.30.50", "device-bgarcia-001", "174.63.88"),
     "william.rodriguez": ("user-william-rodriguez-id", "William Rodriguez", "AUS", 1, "Engineering", "Software Engineer", "amelia.collins", False, True, "AUS-WS-WRODRIGUEZ01", "10.30.30.51", "device-wrodriguez-001", "68.105.12"),

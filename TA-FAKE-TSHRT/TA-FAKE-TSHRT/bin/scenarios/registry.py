@@ -10,14 +10,19 @@ from dataclasses import dataclass
 
 @dataclass
 class ScenarioDefinition:
-    """Definition of a scenario."""
+    """Definition of a scenario.
+
+    Days are 0-indexed to match generator loops (range(days)):
+        day 0 = first day of generation (e.g., Jan 1)
+        day 13 = last day of a 14-day run (e.g., Jan 14)
+    """
     name: str
     sources: List[str]
     category: str
     description: str
     demo_id: str
-    start_day: int = 1
-    end_day: int = 14
+    start_day: int = 0
+    end_day: int = 13
     server: Optional[str] = None
     implemented: bool = True
 
@@ -63,8 +68,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         category="ops",
         description="Server disk gradually filling up, resolved Day 5 (MON-ATL-01)",
         demo_id="disk_filling",
-        start_day=1,
-        end_day=5,
+        start_day=0,
+        end_day=4,
         server="MON-ATL-01",
         implemented=True
     ),
@@ -74,8 +79,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         category="ops",
         description="Application memory leak causing OOM crash Day 9, restart (WEB-01)",
         demo_id="memory_leak",
-        start_day=6,
-        end_day=9,
+        start_day=5,
+        end_day=8,
         server="WEB-01",
         implemented=True
     ),
@@ -85,8 +90,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         category="ops",
         description="SQL-PROD-01 backup job stuck causing cascading DB failures (Day 11-12)",
         demo_id="cpu_runaway",
-        start_day=11,
-        end_day=12,
+        start_day=10,
+        end_day=11,
         server="SQL-PROD-01",
         implemented=True
     ),
@@ -106,8 +111,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         category="network",
         description="Firewall rule misconfiguration causing outage (Day 7)",
         demo_id="firewall_misconfig",
-        start_day=7,
-        end_day=7,
+        start_day=6,
+        end_day=6,
         implemented=True
     ),
     "certificate_expiry": ScenarioDefinition(
@@ -116,8 +121,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         category="network",
         description="SSL certificate expires causing 7-hour outage (Day 12, 00:00-07:00)",
         demo_id="certificate_expiry",
-        start_day=12,
-        end_day=12,
+        start_day=11,
+        end_day=11,
         implemented=True
     ),
 
@@ -128,8 +133,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         category="attack",
         description="Ransomware attempt via phishing - detected and stopped by EDR (Day 8-9)",
         demo_id="ransomware_attempt",
-        start_day=8,
-        end_day=9,
+        start_day=7,
+        end_day=8,
         implemented=True
     ),
 }

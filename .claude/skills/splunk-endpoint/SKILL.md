@@ -1,7 +1,8 @@
 ---
 name: splunk-endpoint
 description: Create a new REST endpoint for the Splunk TA. Use when adding new functionality to the admin dashboard.
-argument-hint: "<endpoint-name>"
+metadata:
+    argument-hint: "<endpoint-name>"
 ---
 
 # Create Splunk REST Endpoint

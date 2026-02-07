@@ -1,7 +1,8 @@
 ---
 name: add-generator
 description: Create a new log generator following project patterns. Use when adding support for a new log source like Palo Alto, CrowdStrike, Okta, etc.
-argument-hint: "<source-name>"
+metadata:
+    argument-hint: "<source-name>"
 ---
 
 # Create New Generator

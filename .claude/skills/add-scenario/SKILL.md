@@ -1,7 +1,8 @@
 ---
 name: add-scenario
 description: Create a new attack or operational scenario. Use when adding coordinated events across multiple log sources.
-argument-hint: "<scenario-name> [attack|ops|network]"
+metadata:
+    argument-hint: "<scenario-name> [attack|ops|network]"
 ---
 
 # Create New Scenario

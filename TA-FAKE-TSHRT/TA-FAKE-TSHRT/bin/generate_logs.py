@@ -108,11 +108,12 @@ class GenerateHandler(PersistentServerConnectionApplication):
                     'individual': [
                         'asa', 'meraki', 'aws', 'gcp', 'entraid', 'exchange',
                         'webex', 'webex_ta', 'webex_api', 'wineventlog', 'perfmon',
-                        'linux', 'access', 'orders', 'servicebus', 'servicenow'
+                        'linux', 'access', 'orders', 'servicebus', 'servicenow',
+                        'office_audit'
                     ],
                     'groups': [
                         'all', 'cloud', 'network', 'windows', 'linux',
-                        'web', 'email', 'retail', 'collaboration', 'itsm'
+                        'web', 'email', 'office', 'retail', 'collaboration', 'itsm'
                     ]
                 },
                 'scenarios': {
@@ -193,6 +194,7 @@ class GenerateHandler(PersistentServerConnectionApplication):
                 f'--orders-per-day={orders_per_day}',
                 f'--meraki-health-interval={meraki_health_interval}',
                 f'--parallel={parallel}',
+                '--no-test',
                 '--quiet'
             ]
 
