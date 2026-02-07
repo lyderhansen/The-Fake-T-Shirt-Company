@@ -1,0 +1,1399 @@
+
+<dashboard version="2" theme="dark">
+    <label>Boston - Floor Plan</label>
+    <description></description>
+    <definition><![CDATA[
+{
+	"title": "Boston - Floor Plan",
+	"description": "",
+	"inputs": {
+		"input_global_trp": {
+			"options": {
+				"defaultValue": "-24h@h,now",
+				"token": "global_time"
+			},
+			"title": "Global Time Range",
+			"type": "input.timerange"
+		}
+	},
+	"defaults": {
+		"dataSources": {
+			"ds.search": {
+				"options": {
+					"queryParameters": {
+						"earliest": "$global_time.earliest$",
+						"latest": "$global_time.latest$"
+					},
+					"refresh": "10m",
+					"refreshType": "delay"
+				}
+			}
+		},
+		"visualizations": {
+			"global": {
+				"showProgressBar": true
+			}
+		}
+	},
+	"visualizations": {
+		"viz_1nPJJP1a": {
+			"options": {
+				"fillColor": "#31373e90",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_34Tggeq9": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": 20,
+						"value": "#C723CC"
+					},
+					{
+						"from": 20,
+						"to": 27,
+						"value": "#FF9D66"
+					},
+					{
+						"from": 27,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_EZQiTdt0"
+			},
+			"options": {
+				"backgroundColor": "transparent",
+				"legendDisplay": "off",
+				"seriesColors": [
+					"#CB2196",
+					"#813193",
+					"#0051B5",
+					"#008C80",
+					"#99B100",
+					"#FFA476",
+					"#FF6ACE",
+					"#AE8CFF",
+					"#00689D",
+					"#00490A",
+					"#465D00",
+					"#9D6300",
+					"#F6540B",
+					"#FF969E",
+					"#E47BFE"
+				],
+				"showYAxisExtendedRange": false,
+				"showYMajorGridLines": false,
+				"xAxisLabelVisibility": "hide",
+				"xAxisMajorTickVisibility": "hide",
+				"xAxisTitleVisibility": "hide",
+				"y": "> primary | frameBySeriesNames('avg_rssi')",
+				"y2AxisLabelVisibility": "hide",
+				"y2AxisMajorTickVisibility": "hide",
+				"y2AxisMinorTickVisibility": "hide",
+				"y2AxisTitleVisibility": "hide",
+				"yAxisLabelVisibility": "hide",
+				"yAxisMajorTickVisibility": "hide",
+				"yAxisMinorTickVisibility": "hide",
+				"yAxisTitleVisibility": "hide"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "",
+			"type": "splunk.area"
+		},
+		"viz_5osM2Cfn": {
+			"containerOptions": {},
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_H2OQj9kx"
+			},
+			"options": {
+				"backgroundColor": "#00000060",
+				"xAxisTitleVisibility": "hide",
+				"yAxisTitleVisibility": "hide"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Clients by Accespoint",
+			"type": "splunk.line"
+		},
+		"viz_6BVQcWUu": {
+			"containerOptions": {
+				"description": {
+					"color": "#dc4e41"
+				},
+				"title": {
+					"color": "#f1813f"
+				}
+			},
+			"context": {
+				"areaColorsEditorConfig": [
+					{
+						"to": 40,
+						"value": "#ee4477"
+					},
+					{
+						"from": 40,
+						"to": 60,
+						"value": "#FF7777"
+					},
+					{
+						"from": 60,
+						"to": 80,
+						"value": "#FFC355"
+					},
+					{
+						"from": 80,
+						"value": "#d5ffce"
+					}
+				]
+			},
+			"dataSources": {
+				"primary": "ds_oGUlblLB"
+			},
+			"options": {
+				"areaColors": "> areaValues | rangeValue(areaColorsEditorConfig)",
+				"areaIds": "> primary | seriesByName('portId')",
+				"areaValues": "> primary | seriesByName('score')",
+				"backgroundColor": "transparent",
+				"svg": "splunk-enterprise-kvstore://698799c8d107ede32f0c8e67"
+			},
+			"type": "splunk.choropleth.svg"
+		},
+		"viz_9OhZISjh": {
+			"containerOptions": {
+				"description": {
+					"color": "#dc4e41"
+				},
+				"title": {
+					"color": "#f1813f"
+				}
+			},
+			"context": {
+				"areaColorsEditorConfig": [
+					{
+						"to": 40,
+						"value": "#ee4477"
+					},
+					{
+						"from": 40,
+						"to": 60,
+						"value": "#FF7777"
+					},
+					{
+						"from": 60,
+						"to": 80,
+						"value": "#FFC355"
+					},
+					{
+						"from": 80,
+						"value": "#d5ffce"
+					}
+				]
+			},
+			"dataSources": {
+				"primary": "ds_jojfd2TT"
+			},
+			"options": {
+				"areaColors": "> areaValues | rangeValue(areaColorsEditorConfig)",
+				"areaIds": "> primary | seriesByName('portId')",
+				"areaValues": "> primary | seriesByName('score')",
+				"backgroundColor": "transparent",
+				"svg": "splunk-enterprise-kvstore://698799c3d107ede32f0c8e66"
+			},
+			"type": "splunk.choropleth.svg"
+		},
+		"viz_9X8lggem": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": 60,
+						"value": "#EEE8CE"
+					},
+					{
+						"from": 60,
+						"value": "#C723CC"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				0,
+				0
+			],
+			"dataSources": {
+				"primary": "ds_9KYZwnOj"
+			},
+			"options": {
+				"backgroundColor": "#00000070",
+				"majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+				"majorValue": "> sparklineValues | lastPoint()",
+				"sparklineDisplay": "off",
+				"sparklineValues": "> primary | seriesByName('avg_latency')",
+				"trendValue": "> sparklineValues | delta(-2)"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Latency",
+			"type": "splunk.singlevalue"
+		},
+		"viz_9iW3cfzx": {
+			"options": {
+				"fillColor": "#00000060",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_BdEKCEzp": {
+			"options": {
+				"fillColor": "#00000060",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_DsxRMOMx": {
+			"options": {
+				"fillColor": "#00000040",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_HEfDBSvS": {
+			"cornerRadius": [
+				15,
+				15,
+				15,
+				15
+			],
+			"dataSources": {
+				"primary": "ds_Qw2xSnqT"
+			},
+			"options": {
+				"backgroundColor": "#482c4c99",
+				"majorValue": "> sparklineValues | lastPoint()",
+				"sparklineValues": "> primary | seriesByName('MS-BOS-1F-IDF1')",
+				"trendValue": "> sparklineValues | delta(-2)",
+				"unit": "Mbps"
+			},
+			"type": "splunk.singlevalue"
+		},
+		"viz_HIIAZf6S": {
+			"options": {
+				"fillColor": "#00000040",
+				"rx": 35,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_LaN4sKMw": {
+			"containerOptions": {
+				"description": {
+					"color": "#dc4e41"
+				},
+				"title": {
+					"color": "#f1813f"
+				}
+			},
+			"context": {
+				"areaColorsEditorConfig": [
+					{
+						"to": 40,
+						"value": "#ee4477"
+					},
+					{
+						"from": 40,
+						"to": 60,
+						"value": "#FF7777"
+					},
+					{
+						"from": 60,
+						"to": 80,
+						"value": "#FFC355"
+					},
+					{
+						"from": 80,
+						"value": "#d5ffce"
+					}
+				]
+			},
+			"dataSources": {
+				"primary": "ds_F18I7npk"
+			},
+			"options": {
+				"areaColors": "> areaValues | rangeValue(areaColorsEditorConfig)",
+				"areaIds": "> primary | seriesByName('portId')",
+				"areaValues": "> primary | seriesByName('score')",
+				"backgroundColor": "transparent",
+				"svg": "splunk-enterprise-kvstore://698799bdd107ede32f0c8e65"
+			},
+			"type": "splunk.choropleth.svg"
+		},
+		"viz_LwgI9VeL": {
+			"options": {
+				"fillColor": "#00000060",
+				"rx": 35,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_QqdoZmi0": {
+			"options": {
+				"fillColor": "#00000060",
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_T6P29oUw": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": 20,
+						"value": "#C723CC"
+					},
+					{
+						"from": 20,
+						"to": 27,
+						"value": "#FF9D66"
+					},
+					{
+						"from": 27,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_EyIGsRyq"
+			},
+			"options": {
+				"backgroundColor": "transparent",
+				"legendDisplay": "off",
+				"seriesColors": [
+					"#009CEB",
+					"#00CDAF",
+					"#DD9900",
+					"#FF677B",
+					"#CB2196",
+					"#813193",
+					"#0051B5",
+					"#008C80",
+					"#99B100",
+					"#FFA476",
+					"#FF6ACE",
+					"#AE8CFF",
+					"#00689D",
+					"#00490A",
+					"#465D00",
+					"#9D6300",
+					"#F6540B",
+					"#FF969E",
+					"#E47BFE"
+				],
+				"showYAxisExtendedRange": false,
+				"showYMajorGridLines": false,
+				"xAxisLabelVisibility": "hide",
+				"xAxisMajorTickVisibility": "hide",
+				"xAxisTitleVisibility": "hide",
+				"y": "> primary | frameBySeriesNames('avg_latency')",
+				"y2AxisLabelVisibility": "hide",
+				"y2AxisMajorTickVisibility": "hide",
+				"y2AxisMinorTickVisibility": "hide",
+				"y2AxisTitleVisibility": "hide",
+				"yAxisLabelVisibility": "hide",
+				"yAxisMajorTickVisibility": "hide",
+				"yAxisMinorTickVisibility": "hide",
+				"yAxisTitleVisibility": "hide"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "",
+			"type": "splunk.area"
+		},
+		"viz_TGOM4unr": {
+			"options": {
+				"icon": "splunk-enterprise-kvstore://698496d7f013f2da1c0922a1",
+				"showValue": false
+			},
+			"type": "splunk.singlevalueicon"
+		},
+		"viz_Uj0yFcc8": {
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_tzdJWW5w"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"majorColor": "#909090",
+				"shouldAbbreviateTrendValue": true
+			},
+			"type": "splunk.singlevalue"
+		},
+		"viz_VSo8cR5R": {
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_oQGbcWPV"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"majorColor": "#909090",
+				"shouldAbbreviateTrendValue": true
+			},
+			"type": "splunk.singlevalue"
+		},
+		"viz_Wpu6z7vb": {
+			"options": {
+				"fillColor": "#00000060",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_bdgzHpSt": {
+			"cornerRadius": [
+				15,
+				15,
+				15,
+				15
+			],
+			"dataSources": {
+				"primary": "ds_Is5IK8c7"
+			},
+			"options": {
+				"backgroundColor": "#482c4c99",
+				"majorValue": "> sparklineValues | lastPoint()",
+				"sparklineValues": "> primary | seriesByName('MS-BOS-2F-IDF1')",
+				"trendValue": "> sparklineValues | delta(-2)",
+				"unit": "Mbps"
+			},
+			"type": "splunk.singlevalue"
+		},
+		"viz_jPGRdaQI": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": 20,
+						"value": "#C723CC"
+					},
+					{
+						"from": 20,
+						"to": 27,
+						"value": "#FF9D66"
+					},
+					{
+						"from": 27,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				0,
+				0
+			],
+			"dataSources": {
+				"primary": "ds_La6bNUTw"
+			},
+			"options": {
+				"backgroundColor": "#00000070",
+				"majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+				"sparklineDisplay": "off"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Signal Quality - SNR",
+			"type": "splunk.singlevalue"
+		},
+		"viz_l6q0v8ui": {
+			"options": {
+				"fontColor": "#cccccc",
+				"markdown": "\n### RSSI (Received Signal Strength Indicator)\n\nHow strong the signal you recieve is, measured in dBm \n\n(negative number)\n\n\nCloser to 0 the better\n\nE.g.\n40 dBm = Great\n80 dBm = Weak\n\n### SNR (Signal-to-Noise Ratio)\nHow clean the signal is \nMeasured in db\n\nthe higher the better\n\nE.g:\n40 dB = Great\n10 dB = bad"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_mi5r6Bo9": {
+			"cornerRadius": [
+				15,
+				15,
+				15,
+				15
+			],
+			"dataSources": {
+				"primary": "ds_zw6ccwSf"
+			},
+			"options": {
+				"backgroundColor": "#482c4c99",
+				"majorValue": "> sparklineValues | lastPoint()",
+				"sparklineValues": "> primary | seriesByName('MS-BOS-2F-IDF1')",
+				"trendValue": "> sparklineValues | delta(-2)",
+				"unit": "Mbps"
+			},
+			"type": "splunk.singlevalue"
+		},
+		"viz_rPaUgIu5": {
+			"options": {
+				"fillColor": "#00000060",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_tAKbWQyW": {
+			"options": {
+				"fillColor": "#31373e50",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_tSdVO4jq": {
+			"options": {
+				"fillColor": "#00000060",
+				"rx": 10,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_uK5B8Lin": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": 40,
+						"value": "#C723CC"
+					},
+					{
+						"from": 40,
+						"to": 60,
+						"value": "#EE4477"
+					},
+					{
+						"from": 60,
+						"to": 80,
+						"value": "#FF9D66"
+					},
+					{
+						"from": 80,
+						"to": 100,
+						"value": "#F2DD88"
+					},
+					{
+						"from": 100,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_RgCncfz4"
+			},
+			"options": {
+				"backgroundColor": "#00000070",
+				"majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+				"sparklineDisplay": "off"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Accesspoint - Health",
+			"type": "splunk.singlevalue"
+		},
+		"viz_uKwbU75Y": {
+			"options": {
+				"icon": "splunk-enterprise-kvstore://698496d7f013f2da1c0922a1",
+				"showValue": false
+			},
+			"type": "splunk.singlevalueicon"
+		},
+		"viz_uqqcgHK6": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": 20,
+						"value": "#C723CC"
+					},
+					{
+						"from": 20,
+						"to": 27,
+						"value": "#FF9D66"
+					},
+					{
+						"from": 27,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_OhoJlUQN"
+			},
+			"options": {
+				"backgroundColor": "transparent",
+				"legendDisplay": "off",
+				"seriesColors": [
+					"#00CDAF",
+					"#DD9900",
+					"#FF677B",
+					"#CB2196",
+					"#813193",
+					"#0051B5",
+					"#008C80",
+					"#99B100",
+					"#FFA476",
+					"#FF6ACE",
+					"#AE8CFF",
+					"#00689D",
+					"#00490A",
+					"#465D00",
+					"#9D6300",
+					"#F6540B",
+					"#FF969E",
+					"#E47BFE"
+				],
+				"showYAxisExtendedRange": false,
+				"showYMajorGridLines": false,
+				"xAxisLabelVisibility": "hide",
+				"xAxisMajorTickVisibility": "hide",
+				"xAxisTitleVisibility": "hide",
+				"y": "> primary | frameBySeriesNames('avg_snr')",
+				"y2AxisLabelVisibility": "hide",
+				"y2AxisMajorTickVisibility": "hide",
+				"y2AxisMinorTickVisibility": "hide",
+				"y2AxisTitleVisibility": "hide",
+				"yAxisLabelVisibility": "hide",
+				"yAxisMajorTickVisibility": "hide",
+				"yAxisMinorTickVisibility": "hide",
+				"yAxisTitleVisibility": "hide"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "",
+			"type": "splunk.area"
+		},
+		"viz_vxkHmkzD": {
+			"options": {
+				"fillColor": "#00000040",
+				"rx": 35,
+				"strokeColor": "transparent"
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_yNQY7mJq": {
+			"cornerRadius": [
+				10,
+				10,
+				10,
+				10
+			],
+			"dataSources": {
+				"primary": "ds_UZK7thVo"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"majorColor": "#909090",
+				"shouldAbbreviateTrendValue": true
+			},
+			"type": "splunk.singlevalue"
+		},
+		"viz_z1q1eRtq": {
+			"context": {
+				"areaColorsEditorConfig": [
+					{
+						"to": 20,
+						"value": "#C723CC"
+					},
+					{
+						"from": 20,
+						"to": 40,
+						"value": "#EE4477"
+					},
+					{
+						"from": 40,
+						"to": 60,
+						"value": "#FF9D66"
+					},
+					{
+						"from": 60,
+						"to": 80,
+						"value": "#F2DD88"
+					},
+					{
+						"from": 80,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"dataSources": {
+				"primary": "ds_PEoKMalK"
+			},
+			"options": {
+				"areaColors": "> areaValues | rangeValue(areaColorsEditorConfig)",
+				"areaIds": "> primary | seriesByName('id')",
+				"areaValues": "> primary | seriesByName('signal_health')",
+				"backgroundColor": "transparent",
+				"svg": "splunk-enterprise-kvstore://69879980d107ede32f0c8e62"
+			},
+			"type": "splunk.choropleth.svg"
+		},
+		"viz_zKkGz6Wa": {
+			"containerOptions": {},
+			"context": {
+				"majorColorEditorConfig": [
+					{
+						"to": -70,
+						"value": "#C723CC"
+					},
+					{
+						"from": -70,
+						"to": -50,
+						"value": "#FF9D66"
+					},
+					{
+						"from": -50,
+						"value": "#EEE8CE"
+					}
+				]
+			},
+			"cornerRadius": [
+				10,
+				10,
+				0,
+				0
+			],
+			"dataSources": {
+				"primary": "ds_TPbSgZdj"
+			},
+			"options": {
+				"backgroundColor": "#00000070",
+				"majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+				"majorValue": "> sparklineValues | lastPoint()",
+				"sparklineDisplay": "off",
+				"sparklineValues": "> primary | seriesByName('avg_rssi')",
+				"trendValue": "> sparklineValues | delta(-2)"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Signal Strength - RSSI",
+			"type": "splunk.singlevalue"
+		}
+	},
+	"dataSources": {
+		"ds_9KYZwnOj": {
+			"name": "Overall signal copy 2",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+			},
+			"type": "ds.search"
+		},
+		"ds_EZQiTdt0": {
+			"name": "Overall signal copy 4",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency\n| eval avg_rssi=avg_rssi*-1"
+			},
+			"type": "ds.search"
+		},
+		"ds_EyIGsRyq": {
+			"name": "Overall signal copy 5",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency\n| eval avg_rssi=avg_rssi*-1"
+			},
+			"type": "ds.search"
+		},
+		"ds_F18I7npk": {
+			"name": "port health third floor",
+			"options": {
+				"extend": "ds_yod6Pz8K",
+				"query": "| search deviceName=\"MS-BOS-3F-IDF1\""
+			},
+			"type": "ds.chain"
+		},
+		"ds_H2OQj9kx": {
+			"name": "Connected Clients",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n\n\n| eval id=case(match(area,\"Break Room\"),\"break_room\",\n    match(area,\"Lobby\"),\"lobby\", \n    match(area,\"Exec Reception\"),\"security\",\n    match(area,\"Reception\"),\"reception\", \n    match(area,\"Shipping\"),\"meeting_room_shipping\", \n    match(area,\"Operations\"),\"Security\",\n    match(area,\"Cafeteria\"),\"meeting_room_beacon\",\n    match(area,\"Finance East\"),\"server_room\",\n    match(area,\"Finance West\"),\"meeting_room_harbor\",\n    match(area,\"HR\"),\"parking\",\n    match(area,\"Marketing\"),\"corridor\",\n    match(area,\"CEO Office\"),\"outline\",\n    match(area,\"Legal\"),\"elevator\",\n    1==1, \"aaa\") \n| timechart span=10m sum(eventData.clientCount) as clients by id limit=10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_HjATlWkb": {
+			"name": "Overall signal copy 6",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+			},
+			"type": "ds.search"
+		},
+		"ds_Is5IK8c7": {
+			"name": "switch thruput first floor copy 7",
+			"options": {
+				"extend": "ds_k1ZEOAOT",
+				"query": "| table _time \"MS-BOS-2F-IDF1\""
+			},
+			"type": "ds.chain"
+		},
+		"ds_La6bNUTw": {
+			"name": "Overall signal",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+			},
+			"type": "ds.search"
+		},
+		"ds_OhoJlUQN": {
+			"name": "Overall signal copy 3",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+			},
+			"type": "ds.search"
+		},
+		"ds_PEoKMalK": {
+			"name": "Boston AP floor 1",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr') \n| eval rssi=tonumber('eventData.signalQuality.rssi')\n    ``` Normaliser SNR til 0-1 ```\n| eval snr_score=case(\n    snr<20, 0,\n    snr>27, 1,\n    true(), (snr-20)/7\n  )\n\n``` Normaliser RSSI til 0-1 ```\n| eval rssi_score=case(\n    rssi<-70, 0,\n    rssi>-50, 1,\n    true(), (rssi+70)/20\n  )\n\n``` Slå sammen til 0-100 ```\n| eval signal_health=round(100*(0.6*snr_score + 0.4*rssi_score), 1)\n\n``` (valgfritt) klassifisering ```\n| eval signal_state=case(\n    signal_health>=80, \"good\",\n    signal_health>=50, \"fair\",\n    true(), \"poor\"\n    ) \n| table occurredAt deviceSerial deviceName area floor snr rssi signal_health signal_state host area \n| eval id=case(match(area,\"Break Room\"),\"break_room\",\n    match(area,\"Lobby\"),\"lobby\", \n    match(area,\"Exec Reception\"),\"security\",\n    match(area,\"Reception\"),\"reception\", \n    match(area,\"Shipping\"),\"meeting_room_shipping\", \n    match(area,\"Operations\"),\"Security\",\n    match(area,\"Cafeteria\"),\"meeting_room_beacon\",\n    match(area,\"Finance East\"),\"server_room\",\n    match(area,\"Finance West\"),\"meeting_room_harbor\",\n    match(area,\"HR\"),\"parking\",\n    match(area,\"Marketing\"),\"corridor\",\n    match(area,\"CEO Office\"),\"outline\",\n    match(area,\"Legal\"),\"elevator\",\n    1==1, \"aaa\") \n| stats latest(signal_health) as signal_health by area id",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_Qw2xSnqT": {
+			"name": "switch thruput first floor",
+			"options": {
+				"extend": "ds_k1ZEOAOT",
+				"query": "| table _time \"MS-BOS-1F-IDF1\""
+			},
+			"type": "ds.chain"
+		},
+		"ds_RgCncfz4": {
+			"name": "Average Health",
+			"options": {
+				"extend": "ds_PEoKMalK",
+				"query": "| stats avg(signal_health) as avg"
+			},
+			"type": "ds.chain"
+		},
+		"ds_TPbSgZdj": {
+			"name": "Overall signal copy 1",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+			},
+			"type": "ds.search"
+		},
+		"ds_UBFoIgFy": {
+			"name": "Floor 1 makeresults",
+			"options": {
+				"query": "| makeresults \n| eval value=\"10\", id=\"outline\" \n| append \n    [| makeresults \n    | eval value=\"20\", id=\"break_room\"] \n| append \n    [| makeresults \n    | eval value=\"30\", id=\"security\"] \n| append \n    [| makeresults \n    | eval value=\"40\", id=\"server_room\"] \n| append \n    [| makeresults \n    | eval value=\"50\", id=\"meeting_room_shipping\"] \n| append \n    [| makeresults \n    | eval value=\"60\", id=\"meeting_room_beacon\"] \n| append \n    [| makeresults \n    | eval value=\"70\", id=\"corridor\"] \n| append \n    [| makeresults \n    | eval value=\"80\", id=\"meeting_room_harbor\"] \n| append \n    [| makeresults \n    | eval value=\"90\", id=\"lobby\"] \n| append \n    [| makeresults \n    | eval value=\"100\", id=\"reception\"] \n| append \n    [| makeresults \n    | eval value=\"100\", id=\"Security\"] \n| append \n    [| makeresults \n    | eval value=\"100\", id=\"elevator\"] \n| append \n    [| makeresults \n    | eval value=\"100\", id=\"parking\"]"
+			},
+			"type": "ds.search"
+		},
+		"ds_UZK7thVo": {
+			"name": "Makersults first floor",
+			"options": {
+				"query": "| makeresults\n    | eval data=\"First Floor\""
+			},
+			"type": "ds.search"
+		},
+		"ds_jojfd2TT": {
+			"name": "port health second floor",
+			"options": {
+				"extend": "ds_yod6Pz8K",
+				"query": "| search deviceName=\"MS-BOS-2F-IDF1\""
+			},
+			"type": "ds.chain"
+		},
+		"ds_k1ZEOAOT": {
+			"name": "Switch thruput",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:meraki:switches:health\" host=*bos* deviceModel=\"MS225-48\" \n| spath path=eventData.status output=status \n| spath path=eventData.trafficInKbps.total output=traffic_total \n| spath path=eventData.trafficInKbps.sent output=traffic_sent \n| spath path=eventData.trafficInKbps.recv output=traffic_recv \n| where status=\"Connected\" \n| stats \n    sum(traffic_total) as total_kbps,\n    sum(traffic_sent) as sent_kbps,\n    sum(traffic_recv) as recv_kbps,\n    dc(eventData.portId) as active_ports\n    by deviceName, _time\n| eval total_mbps = round(total_kbps / 1000, 2) \n| eval sent_mbps = round(sent_kbps / 1000, 2) \n| eval recv_mbps = round(recv_kbps / 1000, 2) \n| timechart span=5m avg(total_mbps) as \"Throughput (Mbps)\" by deviceName"
+			},
+			"type": "ds.search"
+		},
+		"ds_oGUlblLB": {
+			"name": "port health first floort",
+			"options": {
+				"extend": "ds_yod6Pz8K",
+				"query": "| search deviceName=\"MS-BOS-1F-IDF1\""
+			},
+			"type": "ds.chain"
+		},
+		"ds_oQGbcWPV": {
+			"name": "Makersults Second floor",
+			"options": {
+				"query": "| makeresults\n    | eval data=\"Second Floor\""
+			},
+			"type": "ds.search"
+		},
+		"ds_sntsy3o4": {
+			"name": "Search_1",
+			"options": {
+				"query": "| makeresults \n| eval id=\"AAA\", value=\"10\" \n| append \n    [| makeresults \n    | eval id=\"BBB\", value=\"30\"] \n| append \n    [| makeresults \n    | eval id=\"CCC\", value=\"50\"] \n| append \n    [| makeresults \n    | eval id=\"DDD\", value=\"80\"] \n| append \n    [| makeresults \n    | eval id=\"EEE\", value=\"100\"]"
+			},
+			"type": "ds.search"
+		},
+		"ds_tzdJWW5w": {
+			"name": "Makersults Third floor",
+			"options": {
+				"query": "| makeresults\n    | eval data=\"Third Floor\""
+			},
+			"type": "ds.search"
+		},
+		"ds_ujbe9oos": {
+			"name": "port healh",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" host=*-bos-1f* host=\"MS-BOS-1F-IDF1\" sourcetype=\"FAKE:meraki:switches:health\"  \"eventData.status\"=Connected \n| stats latest(eventData.usageInKb.total) as kbps_total by eventData.portId\n| rename eventData.portId as portId\n| sort portId",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_yod6Pz8K": {
+			"name": "ports health all",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:meraki:switches:health\" host=*bos* deviceModel=\"MS225-48\"\n\n| spath path=eventData.portId output=portId\n| spath path=eventData.status output=status\n| spath path=eventData.enabled output=enabled\n| spath path=eventData.speed output=speed\n| spath path=eventData.duplex output=duplex\n| spath path=eventData.trafficInKbps.total output=traffic_kbps\n| spath path=eventData.usageInKb.total output=usage_kb\n| spath path=eventData.clientCount output=clients\n| spath path=eventData.errors{} output=errors\n| spath path=eventData.warnings{} output=warnings\n| spath path=eventData.powerUsageInWh output=poe_watts\n| eval port_num = tonumber(portId)\n| eval health_status = case(\n    status=\"Disconnected\", \"Offline\",\n    mvcount(errors) > 0, \"Critical\",\n    mvcount(warnings) > 0, \"Warning\",\n    traffic_kbps > 800000, \"High Load\",\n    1=1, \"Healthy\"\n)\n| eval health_score = case(\n    status=\"Disconnected\", 0,\n    mvcount(errors) > 0, 30,\n    mvcount(warnings) > 0, 70,\n    traffic_kbps > 800000, 80,\n    1=1, 100\n)\n| stats \n    latest(status) as status,\n    latest(health_status) as health,\n    latest(health_score) as score,\n    latest(speed) as speed,\n    latest(clients) as clients,\n    latest(traffic_kbps) as traffic_kbps,\n    latest(errors) as errors,\n    latest(warnings) as warnings\n  by deviceName, portId\n| sort deviceName, port_num\n| table deviceName, portId, status, health, score, speed, clients, traffic_kbps, errors, warnings\n| eval portId=\"port\".portId"
+			},
+			"type": "ds.search"
+		},
+		"ds_zw6ccwSf": {
+			"name": "switch thruput first floor copy 8",
+			"options": {
+				"extend": "ds_k1ZEOAOT",
+				"query": "| table _time \"MS-BOS-2F-IDF1\""
+			},
+			"type": "ds.chain"
+		}
+	},
+	"layout": {
+		"globalInputs": [
+			"input_global_trp"
+		],
+		"layoutDefinitions": {
+			"layout_SnrmIC29": {
+				"options": {
+					"backgroundImage": {
+						"sizeType": "contain",
+						"src": "splunk-enterprise-kvstore://6984b91bf53ea21ae408c8d9",
+						"x": 0,
+						"y": 0
+					},
+					"height": 1000,
+					"width": 2000
+				},
+				"structure": [
+					{
+						"item": "viz_QqdoZmi0",
+						"position": {
+							"h": 1000,
+							"w": 2000,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_HIIAZf6S",
+						"position": {
+							"h": 260,
+							"w": 1980,
+							"x": 100,
+							"y": 390
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_LwgI9VeL",
+						"position": {
+							"h": 260,
+							"w": 1980,
+							"x": 100,
+							"y": 690
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_9OhZISjh",
+						"position": {
+							"h": 390,
+							"w": 1700,
+							"x": 290,
+							"y": 300
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_6BVQcWUu",
+						"position": {
+							"h": 390,
+							"w": 1700,
+							"x": 290,
+							"y": 600
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_vxkHmkzD",
+						"position": {
+							"h": 260,
+							"w": 1980,
+							"x": 100,
+							"y": 90
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_LaN4sKMw",
+						"position": {
+							"h": 390,
+							"w": 1700,
+							"x": 290,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_HEfDBSvS",
+						"position": {
+							"h": 70,
+							"w": 230,
+							"x": 1660,
+							"y": 800
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_bdgzHpSt",
+						"position": {
+							"h": 70,
+							"w": 210,
+							"x": 1670,
+							"y": 500
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_mi5r6Bo9",
+						"position": {
+							"h": 70,
+							"w": 230,
+							"x": 1660,
+							"y": 200
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_yNQY7mJq",
+						"position": {
+							"h": 70,
+							"w": 180,
+							"x": 110,
+							"y": 830
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_VSo8cR5R",
+						"position": {
+							"h": 70,
+							"w": 180,
+							"x": 110,
+							"y": 530
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_Uj0yFcc8",
+						"position": {
+							"h": 70,
+							"w": 180,
+							"x": 120,
+							"y": 230
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_TGOM4unr",
+						"position": {
+							"h": 190,
+							"w": 210,
+							"x": 1790,
+							"y": 810
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			},
+			"layout_m9Ck3sb8": {
+				"options": {
+					"height": 1000,
+					"width": 2000,
+					"backgroundImage": {
+						"sizeType": "cover",
+						"x": 0,
+						"y": 0,
+						"src": "splunk-enterprise-kvstore://69879997d107ede32f0c8e63"
+					}
+				},
+				"structure": [
+					{
+						"item": "viz_DsxRMOMx",
+						"position": {
+							"h": 1000,
+							"w": 2000,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_z1q1eRtq",
+						"position": {
+							"h": 1014,
+							"w": 2013,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_rPaUgIu5",
+						"position": {
+							"h": 110,
+							"w": 220,
+							"x": 520,
+							"y": 170
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_BdEKCEzp",
+						"position": {
+							"h": 250,
+							"w": 700,
+							"x": 38,
+							"y": 299
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_5osM2Cfn",
+						"position": {
+							"h": 250,
+							"w": 700,
+							"x": 30,
+							"y": 290
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_uKwbU75Y",
+						"position": {
+							"h": 250,
+							"w": 250,
+							"x": 1730,
+							"y": 710
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_T6P29oUw",
+						"position": {
+							"h": 60,
+							"w": 240,
+							"x": 500,
+							"y": 221
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_9X8lggem",
+						"position": {
+							"h": 120,
+							"w": 220,
+							"x": 510,
+							"y": 146
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_Wpu6z7vb",
+						"position": {
+							"h": 110,
+							"w": 220,
+							"x": 280,
+							"y": 170
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_34Tggeq9",
+						"position": {
+							"h": 60,
+							"w": 240,
+							"x": 260,
+							"y": 220
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_zKkGz6Wa",
+						"position": {
+							"h": 120,
+							"w": 220,
+							"x": 270,
+							"y": 146
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_tSdVO4jq",
+						"position": {
+							"h": 110,
+							"w": 220,
+							"x": 40,
+							"y": 170
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_uqqcgHK6",
+						"position": {
+							"h": 60,
+							"w": 240,
+							"x": 20,
+							"y": 223
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_jPGRdaQI",
+						"position": {
+							"h": 120,
+							"w": 220,
+							"x": 30,
+							"y": 150
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_9iW3cfzx",
+						"position": {
+							"h": 90,
+							"w": 700,
+							"x": 40,
+							"y": 40
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_uK5B8Lin",
+						"position": {
+							"h": 90,
+							"w": 700,
+							"x": 30,
+							"y": 30
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_1nPJJP1a",
+						"position": {
+							"h": 250,
+							"w": 390,
+							"x": 340,
+							"y": 720
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_tAKbWQyW",
+						"position": {
+							"h": 250,
+							"w": 390,
+							"x": 350,
+							"y": 730
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_l6q0v8ui",
+						"position": {
+							"h": 230,
+							"w": 360,
+							"x": 360,
+							"y": 730
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			}
+		},
+		"options": {},
+		"tabs": {
+			"items": [
+				{
+					"label": "Boston 1st floor",
+					"layoutId": "layout_m9Ck3sb8"
+				},
+				{
+					"label": "Network Ports",
+					"layoutId": "layout_SnrmIC29"
+				}
+			]
+		}
+	}
+}
+    ]]></definition>
+</dashboard>
