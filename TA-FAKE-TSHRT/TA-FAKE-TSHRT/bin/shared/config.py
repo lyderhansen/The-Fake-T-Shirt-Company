@@ -27,7 +27,11 @@ DEFAULT_MERAKI_HEALTH_INTERVAL = 5
 # =============================================================================
 
 # Base output directory (relative to script location)
-OUTPUT_BASE = Path(__file__).parent.parent / "output"
+# Production mode writes here (where Splunk inputs.conf reads from)
+OUTPUT_BASE_PRODUCTION = Path(__file__).parent.parent / "output"
+
+# Default output base — can be overridden by set_output_base()
+OUTPUT_BASE = OUTPUT_BASE_PRODUCTION
 
 # Output subdirectories
 OUTPUT_DIRS = {
@@ -207,6 +211,31 @@ def get_output_path(category: str, filename: str) -> Path:
     """Get the full output path for a given category and filename."""
     ensure_output_dirs()
     return OUTPUT_DIRS.get(category, OUTPUT_BASE) / filename
+
+
+def set_output_base(base_path: Path):
+    """
+    Redirect all generator output to a different base directory.
+
+    Called by main_generate.py to switch between test mode (output/tmp/)
+    and production mode (output/). Must be called BEFORE any generator
+    calls get_output_path().
+
+    All generators use get_output_path() which reads OUTPUT_BASE/OUTPUT_DIRS,
+    so changing these globals redirects ALL output without modifying generators.
+    """
+    global OUTPUT_BASE, OUTPUT_DIRS
+    OUTPUT_BASE = base_path
+    OUTPUT_DIRS = {
+        "network": OUTPUT_BASE / "network",
+        "cloud": OUTPUT_BASE / "cloud",
+        "windows": OUTPUT_BASE / "windows",
+        "linux": OUTPUT_BASE / "linux",
+        "web": OUTPUT_BASE / "web",
+        "retail": OUTPUT_BASE / "retail",
+        "servicebus": OUTPUT_BASE / "servicebus",
+        "itsm": OUTPUT_BASE / "itsm",
+    }
 
 
 # =============================================================================

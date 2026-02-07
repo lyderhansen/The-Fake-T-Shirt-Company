@@ -143,6 +143,10 @@ The-Fake-T-Shirt-Company/
 --parallel=N             Parallel workers (default: 4)
 --quiet                  Suppress progress output
 
+# Output mode
+--test                   Write to output/tmp/ (DEFAULT - safe for testing)
+--no-test                Write to output/ (production - for Splunk ingestion)
+
 # Perfmon-specific
 --clients=N              Client workstations (default: 5, max: 175)
 --full-metrics           Include disk/network for clients
@@ -153,6 +157,15 @@ The-Fake-T-Shirt-Company/
 # Meraki-specific
 --meraki-health-interval Health metric frequency (5/10/15/30 min)
 ```
+
+### Output Modes
+
+By default, all generators write to `output/tmp/` (test mode). This prevents accidentally overwriting Splunk-monitored files during development and testing.
+
+- `--test` (default): Writes to `output/tmp/` - safe for testing, won't affect Splunk
+- `--no-test`: Writes to `output/` - production mode, Splunk's `inputs.conf` reads from here
+
+The TUI also has a `[TEST]/[PROD]` toggle in the Configuration section.
 
 ### Source Groups
 
@@ -171,8 +184,11 @@ The-Fake-T-Shirt-Company/
 ### Common Commands
 
 ```bash
-# Generate all sources with all scenarios
+# Generate all sources (test mode - output/tmp/)
 python3 bin/main_generate.py --all --scenarios=all --days=14
+
+# Generate for Splunk (production mode - output/)
+python3 bin/main_generate.py --all --scenarios=all --days=14 --no-test
 
 # Generate specific sources
 python3 bin/main_generate.py --sources=asa,entraid,aws --scenarios=exfil --days=14

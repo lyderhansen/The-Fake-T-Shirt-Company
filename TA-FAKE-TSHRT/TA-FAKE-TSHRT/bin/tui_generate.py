@@ -3,18 +3,16 @@
 Interactive TUI for Splunk Log Generator using curses (Python stdlib).
 No external dependencies required!
 
-Layout (2x2 grid):
-  ┌─────────────────────────────────────────────────────────────┐
-  │ ► SOURCES              │ ► SCENARIOS                        │
-  │   [x] all              │   [x] all                          │
-  │   [ ] network          │   [ ] exfil                        │
-  │   ...                  │   ...                              │
-  ├────────────────────────┼────────────────────────────────────┤
-  │ ► CONFIGURATION        │ ► MERAKI HEALTH                    │
-  │   Start Date: [26-01-01│   [x] Enable Health Metrics        │
-  │   Days: [14]           │   Interval: [5] min                │
-  │   ...                  │   [x] MR AP Health (~10K/dag)      │
-  └────────────────────────┴────────────────────────────────────┘
+Layout (2x2 grid with double-line box drawing):
+  ╔══════════════════════════════╦═══════════════════════════════╗
+  ║  SOURCES                     ║  SCENARIOS                    ║
+  ║  [x] all          All 17 gen ║  [x] all        All 7 scen   ║
+  ║  [ ] cloud        aws, gcp.. ║  [ ] exfil      14-day APT   ║
+  ╠══════════════════════════════╬═══════════════════════════════╣
+  ║  CONFIGURATION               ║  MERAKI HEALTH                ║
+  ║  [TEST] Output -> tmp/       ║  [x] Enable Health            ║
+  ║  Start Date: 2026-01-01      ║  Interval: 5 min              ║
+  ╚══════════════════════════════╩═══════════════════════════════╝
 
 Usage:
     python3 tui_generate.py
@@ -22,7 +20,9 @@ Usage:
 """
 
 import curses
+import math
 import sys
+import time as time_mod
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -31,7 +31,10 @@ from main_generate import GENERATORS, SOURCE_GROUPS
 from scenarios.registry import IMPLEMENTED_SCENARIOS
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE
 
-# ASCII art logo for The Fake T-Shrt Co
+# ═══════════════════════════════════════════════════════════════════════
+# ASCII ART
+# ═══════════════════════════════════════════════════════════════════════
+
 LOGO_ASCII = [
     "  _____ _            _____     _          _____     ____  _          _      ____",
     " |_   _| |__   ___  |  ___|_ _| | _____  |_   _|__ / ___|| |__  _ __| |_   / ___|___",
@@ -40,7 +43,6 @@ LOGO_ASCII = [
     "   |_| |_| |_|\\___| |_|  \\__,_|_|\\_\\___|   |_|    |____/|_| |_|_|   \\__|  \\____\\___/",
 ]
 
-# Flying T-shirt ASCII art
 TSHIRT_ASCII = [
     "   ___ ___",
     " /| |/|\\| |\\",
@@ -49,6 +51,36 @@ TSHIRT_ASCII = [
     "  |   |.  |",
     "  |___|.__|",
 ]
+
+# ═══════════════════════════════════════════════════════════════════════
+# BOX DRAWING CHARACTERS
+# ═══════════════════════════════════════════════════════════════════════
+
+# Double-line box drawing
+BOX_TL = "╔"    # Top-left
+BOX_TR = "╗"    # Top-right
+BOX_BL = "╚"    # Bottom-left
+BOX_BR = "╝"    # Bottom-right
+BOX_H = "═"     # Horizontal
+BOX_V = "║"     # Vertical
+BOX_TJ = "╦"    # Top junction
+BOX_BJ = "╩"    # Bottom junction
+BOX_LJ = "╠"    # Left junction
+BOX_RJ = "╣"    # Right junction
+BOX_CJ = "╬"    # Center junction (cross)
+
+# Single-line for internal dividers
+LINE_H = "─"
+LINE_V = "│"
+
+# Section icons (safe Unicode — single-width characters)
+ICON_SOURCES = ">"
+ICON_SCENARIOS = "*"
+ICON_CONFIG = "#"
+ICON_MERAKI = "~"
+
+# Braille spinner frames for generation progress
+SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
 class MenuItem:
@@ -73,38 +105,38 @@ class TUIApp:
     def __init__(self, stdscr):
         self.stdscr = stdscr
         self.current_row = 0
-        self.current_section = 0  # 0=sources, 1=scenarios, 2=config, 3=meraki
-        self.editing_config = None  # Which config field is being edited
+        self.current_section = 0
+        self.editing_config = None
         self.edit_buffer = ""
 
         # Animation state
-        self.tshirt_x = -15  # Start off-screen left
+        self.tshirt_x = -15
+        self.tshirt_y_offset = 0.0
         self.last_anim_time = 0
+        self.logo_pulse = False
+        self.logo_pulse_time = 0
 
         # Initialize colors
         curses.start_color()
         curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)    # Selected row
-        curses.init_pair(2, curses.COLOR_GREEN, -1)                   # Checked item
-        curses.init_pair(3, curses.COLOR_YELLOW, -1)                  # Header
-        curses.init_pair(4, curses.COLOR_CYAN, -1)                    # Config values
-        curses.init_pair(5, curses.COLOR_RED, -1)                     # Warning
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)     # Highlighted row
+        curses.init_pair(2, curses.COLOR_GREEN, -1)                    # Selected/checked
+        curses.init_pair(3, curses.COLOR_YELLOW, -1)                   # Headers/titles
+        curses.init_pair(4, curses.COLOR_CYAN, -1)                     # Config values
+        curses.init_pair(5, curses.COLOR_RED, -1)                      # Warnings
+        curses.init_pair(6, curses.COLOR_MAGENTA, -1)                  # Box borders
+        curses.init_pair(7, curses.COLOR_BLACK, curses.COLOR_YELLOW)   # Test mode badge
+        curses.init_pair(8, curses.COLOR_BLACK, curses.COLOR_GREEN)    # Production mode badge
 
-        # Build source menu items - groups first, then individual sources
+        # Build source menu items
         self.sources = [MenuItem("all", "all", f"All {len(GENERATORS)} gen", selected=True)]
-
-        # Add groups
         for grp, srcs in SOURCE_GROUPS.items():
             if grp != "all":
                 desc = ", ".join(srcs[:2])
                 if len(srcs) > 2:
                     desc += ".."
                 self.sources.append(MenuItem(f"grp:{grp}", grp, f"[grp] {desc}"))
-
-        # Add separator
-        self.sources.append(MenuItem("---", "─" * 18, ""))
-
-        # Add individual sources
+        self.sources.append(MenuItem("---", LINE_H * 18, ""))
         for source in GENERATORS.keys():
             self.sources.append(MenuItem(source, source, ""))
 
@@ -118,8 +150,9 @@ class TUIApp:
             for s in IMPLEMENTED_SCENARIOS
         ])
 
-        # Configuration values
+        # Configuration values (test_mode is first item)
         self.config = [
+            MenuItem("test_mode", "Output Mode", "", selected=True),   # True = TEST, False = PROD
             MenuItem("start_date", "Start Date", DEFAULT_START_DATE),
             MenuItem("days", "Days", str(DEFAULT_DAYS)),
             MenuItem("scale", "Scale", str(DEFAULT_SCALE)),
@@ -153,7 +186,7 @@ class TUIApp:
         """Safely add string, ignoring errors for small terminals."""
         try:
             h, w = self.stdscr.getmaxyx()
-            if row < h - 1 and col < w:
+            if row < h - 1 and col < w and row >= 0:
                 self.stdscr.addstr(row, col, text[:w - col - 1], attr)
         except curses.error:
             pass
@@ -166,134 +199,167 @@ class TUIApp:
         mr_enabled = self.meraki[0].selected and self.meraki[2].selected
         ms_enabled = self.meraki[0].selected and self.meraki[3].selected
 
-        # 36 APs, 440 ports
         mr_events = (36 * samples_per_hour * 24) if mr_enabled else 0
         ms_events = (440 * samples_per_hour * 24) if ms_enabled else 0
         total = mr_events + ms_events
 
         return mr_events, ms_events, total
 
+    # ═══════════════════════════════════════════════════════════════════
+    # DRAWING
+    # ═══════════════════════════════════════════════════════════════════
+
     def draw(self):
-        """Draw the entire TUI with 2x2 grid layout."""
-        self.stdscr.clear()
+        """Draw the entire TUI with 2x2 grid layout and double-line borders."""
+        self.stdscr.erase()
         h, w = self.stdscr.getmaxyx()
 
-        # Calculate column widths
+        if w < 60 or h < 20:
+            self.safe_addstr(h // 2, 2, "Terminal too small! Need 60x20 minimum.", curses.color_pair(5))
+            self.stdscr.refresh()
+            return
+
+        border_attr = curses.color_pair(6)
+
+        # Calculate layout
         mid_col = w // 2
-        left_width = mid_col - 2
-        right_width = w - mid_col - 3
+        inner_left = mid_col - 2
+        inner_right = w - mid_col - 3
 
-        # Title bar
-        title = " Splunk Log Generator - Interactive Mode "
-        self.stdscr.attron(curses.color_pair(3) | curses.A_BOLD)
-        try:
-            self.stdscr.addstr(0, 0, "─" * (w - 1))
-            self.stdscr.addstr(0, max(0, (w - len(title)) // 2), title[:w - 1])
-        except curses.error:
-            pass
-        self.stdscr.attroff(curses.color_pair(3) | curses.A_BOLD)
+        # Row positions
+        top_border = 0
+        title_row = 1
+        content_start = 2
 
-        # Calculate vertical positions
-        top_row = 2
-        # Calculate max items in each row
+        # Calculate section heights
         max_top_items = max(len(self.sources), len(self.scenarios))
         max_bottom_items = max(len(self.config), len(self.meraki))
 
-        # Row heights (header + divider + items)
-        top_height = min(max_top_items + 2, (h - 10) // 2)
-        mid_row = top_row + top_height + 1
-        bottom_height = min(max_bottom_items + 2, h - mid_row - 10)
+        top_height = min(max_top_items + 2, (h - 14) // 2)
+        mid_border = content_start + top_height
+        bottom_height = min(max_bottom_items + 2, h - mid_border - 12)
+        bottom_border = mid_border + 1 + bottom_height
 
-        # ================= TOP ROW =================
+        # ═══════════ TOP BORDER ═══════════
+        top_line = BOX_TL + BOX_H * (mid_col - 1) + BOX_TJ + BOX_H * (w - mid_col - 2) + BOX_TR
+        self.safe_addstr(top_border, 0, top_line, border_attr)
 
-        # SOURCES (top-left)
-        self._draw_section(
-            row=top_row,
+        # ═══════════ TITLE ═══════════
+        is_test = self.config[0].selected
+        if is_test:
+            mode_badge = " TEST "
+            badge_attr = curses.color_pair(7) | curses.A_BOLD
+        else:
+            mode_badge = " PROD "
+            badge_attr = curses.color_pair(8) | curses.A_BOLD
+
+        title = " Splunk Log Generator "
+        self.safe_addstr(title_row, 0, BOX_V, border_attr)
+        self.safe_addstr(title_row, 2, title, curses.color_pair(3) | curses.A_BOLD)
+        # Mode badge on the right
+        badge_col = w - len(mode_badge) - 3
+        self.safe_addstr(title_row, badge_col, mode_badge, badge_attr)
+        self.safe_addstr(title_row, w - 1, BOX_V, border_attr)
+
+        # ═══════════ SECTION DIVIDER UNDER TITLE ═══════════
+        div_line = BOX_LJ + BOX_H * (mid_col - 1) + BOX_CJ + BOX_H * (w - mid_col - 2) + BOX_RJ
+        self.safe_addstr(content_start, 0, div_line, border_attr)
+
+        # ═══════════ TOP-LEFT: SOURCES ═══════════
+        self._draw_section_content(
+            start_row=content_start + 1,
             col=2,
-            width=left_width,
-            height=top_height,
-            title="SOURCES",
+            width=inner_left,
+            height=top_height - 1,
+            title=f"{ICON_SOURCES} SOURCES",
             items=self.sources,
             section_id=self.SECTION_SOURCES,
-            show_checkbox=True
+            show_checkbox=True,
         )
 
-        # Vertical divider
-        for r in range(top_row, top_row + top_height):
-            self.safe_addstr(r, mid_col, "│")
-
-        # SCENARIOS (top-right)
-        self._draw_section(
-            row=top_row,
+        # ═══════════ TOP-RIGHT: SCENARIOS ═══════════
+        self._draw_section_content(
+            start_row=content_start + 1,
             col=mid_col + 2,
-            width=right_width,
-            height=top_height,
-            title="SCENARIOS",
+            width=inner_right,
+            height=top_height - 1,
+            title=f"{ICON_SCENARIOS} SCENARIOS",
             items=self.scenarios,
             section_id=self.SECTION_SCENARIOS,
-            show_checkbox=True
+            show_checkbox=True,
         )
 
-        # ================= HORIZONTAL DIVIDER =================
-        self.safe_addstr(mid_row, 2, "─" * (left_width - 1))
-        self.safe_addstr(mid_row, mid_col, "┼")
-        self.safe_addstr(mid_row, mid_col + 1, "─" * (right_width))
+        # Vertical dividers for top section
+        for r in range(content_start + 1, mid_border):
+            self.safe_addstr(r, 0, BOX_V, border_attr)
+            self.safe_addstr(r, mid_col, LINE_V, border_attr)
+            self.safe_addstr(r, w - 1, BOX_V, border_attr)
 
-        # ================= BOTTOM ROW =================
+        # ═══════════ MIDDLE BORDER ═══════════
+        mid_line = BOX_LJ + BOX_H * (mid_col - 1) + BOX_CJ + BOX_H * (w - mid_col - 2) + BOX_RJ
+        self.safe_addstr(mid_border, 0, mid_line, border_attr)
 
-        # CONFIG (bottom-left)
+        # ═══════════ BOTTOM-LEFT: CONFIG ═══════════
         self._draw_config_section(
-            row=mid_row + 1,
+            start_row=mid_border + 1,
             col=2,
-            width=left_width,
+            width=inner_left,
             height=bottom_height,
-            title="CONFIGURATION",
+            title=f"{ICON_CONFIG} CONFIGURATION",
             items=self.config,
-            section_id=self.SECTION_CONFIG
+            section_id=self.SECTION_CONFIG,
         )
 
-        # Vertical divider
-        for r in range(mid_row + 1, mid_row + 1 + bottom_height):
-            self.safe_addstr(r, mid_col, "│")
-
-        # MERAKI HEALTH (bottom-right)
+        # ═══════════ BOTTOM-RIGHT: MERAKI HEALTH ═══════════
         self._draw_meraki_section(
-            row=mid_row + 1,
+            start_row=mid_border + 1,
             col=mid_col + 2,
-            width=right_width,
+            width=inner_right,
             height=bottom_height,
-            title="MERAKI HEALTH",
-            section_id=self.SECTION_MERAKI
+            section_id=self.SECTION_MERAKI,
         )
 
-        # ================= VOLUME INFO (in Meraki column) =================
-        mr_events, ms_events, total = self._calc_health_volume()
-        volume_row = mid_row + 1 + bottom_height + 1
-        if volume_row < h - 8:
-            volume_str = f"Health Volume: ~{total:,}/day"
-            if total > 100000:
-                volume_str += " (high)"
-                self.safe_addstr(volume_row, mid_col + 2, volume_str, curses.color_pair(5) | curses.A_BOLD)
-            else:
-                self.safe_addstr(volume_row, mid_col + 2, volume_str, curses.color_pair(4))
+        # Vertical dividers for bottom section
+        for r in range(mid_border + 1, bottom_border):
+            self.safe_addstr(r, 0, BOX_V, border_attr)
+            self.safe_addstr(r, mid_col, LINE_V, border_attr)
+            self.safe_addstr(r, w - 1, BOX_V, border_attr)
 
-        # ================= PREVIEW =================
-        preview_row = volume_row + 2
-        if preview_row < h - 6:
+        # ═══════════ BOTTOM BORDER ═══════════
+        bot_line = BOX_BL + BOX_H * (mid_col - 1) + BOX_BJ + BOX_H * (w - mid_col - 2) + BOX_BR
+        self.safe_addstr(bottom_border, 0, bot_line, border_attr)
+
+        # ═══════════ STATUS LINE ═══════════
+        status_row = bottom_border + 1
+        if status_row < h - 4:
+            self._draw_status_line(status_row, w)
+
+        # ═══════════ PREVIEW COMMAND ═══════════
+        preview_row = status_row + 1
+        if preview_row < h - 3:
             preview = self._build_preview_cmd()
             self.safe_addstr(preview_row, 2, preview[:w - 4], curses.A_DIM)
 
-        # ================= LOGO & ANIMATION =================
+        # ═══════════ LOGO & ANIMATION ═══════════
         logo_start_row = h - len(LOGO_ASCII) - 2
         if logo_start_row > preview_row + 2:
+            logo_attr = curses.color_pair(3)
+            if self.logo_pulse:
+                logo_attr |= curses.A_BOLD
             for i, line in enumerate(LOGO_ASCII):
-                self.safe_addstr(logo_start_row + i, 2, line, curses.color_pair(3))
+                self.safe_addstr(logo_start_row + i, 2, line, logo_attr)
 
-            # Flying T-shirt animation
+            # Flying T-shirt with sine wave motion
             tshirt_row = logo_start_row - len(TSHIRT_ASCII) - 1
-            if tshirt_row > preview_row + 1:
+            y_offset = int(self.tshirt_y_offset)
+            if tshirt_row + y_offset > preview_row + 1:
                 for i, line in enumerate(TSHIRT_ASCII):
                     x_pos = self.tshirt_x
+                    draw_row = tshirt_row + i + y_offset
+
+                    if draw_row >= h - 1 or draw_row <= preview_row:
+                        continue
+
                     if x_pos < 0:
                         visible_line = line[-x_pos:] if -x_pos < len(line) else ""
                         draw_x = 2
@@ -305,10 +371,19 @@ class TUIApp:
                         draw_x = 2 + x_pos
 
                     if visible_line and draw_x < w - 2:
-                        self.safe_addstr(tshirt_row + i, draw_x, visible_line, curses.color_pair(4) | curses.A_BOLD)
+                        self.safe_addstr(draw_row, draw_x, visible_line, curses.color_pair(4) | curses.A_BOLD)
 
-        # ================= FOOTER =================
-        footer = " [G]enerate  [Q]uit  [↑↓jk]Nav  [←→hl]Col  [Space]Toggle  [Tab]Section  [Enter]Edit "
+        # ═══════════ FOOTER ═══════════
+        footer_parts = [
+            " \u2191\u2193 Navigate",
+            "\u2190\u2192 Column",
+            "Tab Section",
+            "Space Toggle",
+            "Enter Edit",
+            "G Generate",
+            "Q Quit ",
+        ]
+        footer = " " + (" " + LINE_V + " ").join(footer_parts) + " "
         try:
             self.stdscr.attron(curses.A_REVERSE)
             self.stdscr.addstr(h - 1, 0, footer[:w - 1].ljust(w - 1))
@@ -318,23 +393,63 @@ class TUIApp:
 
         self.stdscr.refresh()
 
-    def _draw_section(self, row, col, width, height, title, items, section_id, show_checkbox=True):
-        """Draw a generic section with checkbox items."""
+    def _draw_status_line(self, row, w):
+        """Draw the status bar with mode, output path, and source count."""
+        is_test = self.config[0].selected
+        sources_str = self._get_sources_str()
+        if sources_str == "all":
+            src_count = len(GENERATORS)
+        else:
+            src_count = len(sources_str.split(","))
+
+        output_dir = "output/tmp/" if is_test else "output/"
+        mode_str = "TEST" if is_test else "PROD"
+
+        if is_test:
+            mode_attr = curses.color_pair(7) | curses.A_BOLD
+        else:
+            mode_attr = curses.color_pair(8) | curses.A_BOLD
+
+        col = 2
+        self.safe_addstr(row, col, f" {mode_str} ", mode_attr)
+        col += len(mode_str) + 3
+        self.safe_addstr(row, col, f" {LINE_V} Output: ", curses.A_DIM)
+        col += 11
+        self.safe_addstr(row, col, output_dir, curses.color_pair(4))
+        col += len(output_dir) + 1
+        self.safe_addstr(row, col, f"{LINE_V} Sources: ", curses.A_DIM)
+        col += 11
+        self.safe_addstr(row, col, str(src_count), curses.color_pair(4))
+
+        # Meraki health volume
+        mr_events, ms_events, total = self._calc_health_volume()
+        if total > 0:
+            col += len(str(src_count)) + 1
+            self.safe_addstr(row, col, f"{LINE_V} Health: ", curses.A_DIM)
+            col += 10
+            vol_str = f"~{total:,}/day"
+            vol_attr = curses.color_pair(5) if total > 100000 else curses.color_pair(4)
+            self.safe_addstr(row, col, vol_str, vol_attr)
+
+    def _draw_section_content(self, start_row, col, width, height, title, items, section_id, show_checkbox=True):
+        """Draw a section with header and checkbox items."""
         is_active = self.current_section == section_id
-        header = f"► {title}" if is_active else f"  {title}"
-        self.safe_addstr(row, col, header, curses.A_BOLD | (curses.color_pair(3) if is_active else 0))
-        self.safe_addstr(row + 1, col, "─" * (width - 1))
+        icon_attr = curses.color_pair(3) | curses.A_BOLD if is_active else curses.A_BOLD
+        self.safe_addstr(start_row, col, title, icon_attr)
 
         for i, item in enumerate(items):
-            item_row = row + 2 + i
-            if item_row >= row + height:
+            item_row = start_row + 1 + i
+            if item_row >= start_row + height:
                 break
 
             if show_checkbox:
-                checkbox = "[x]" if item.selected else "[ ]"
-                text = f"{checkbox} {item.label:<12}"
-                if item.description:
-                    text += f" {item.description}"
+                if item.key == "---":
+                    text = f"  {item.label}"
+                else:
+                    checkbox = "[x]" if item.selected else "[ ]"
+                    text = f"{checkbox} {item.label:<12}"
+                    if item.description:
+                        text += f" {item.description}"
             else:
                 text = f"  {item.label}"
 
@@ -342,24 +457,44 @@ class TUIApp:
 
             if i == self.current_row and is_active:
                 self.safe_addstr(item_row, col, text, curses.color_pair(1))
-            elif item.selected and show_checkbox:
+            elif item.selected and show_checkbox and item.key != "---":
                 self.safe_addstr(item_row, col, text, curses.color_pair(2))
             else:
                 self.safe_addstr(item_row, col, text)
 
-    def _draw_config_section(self, row, col, width, height, title, items, section_id):
-        """Draw configuration section with editable values."""
+    def _draw_config_section(self, start_row, col, width, height, title, items, section_id):
+        """Draw configuration section with test mode toggle and editable values."""
         is_active = self.current_section == section_id
-        header = f"► {title}" if is_active else f"  {title}"
-        self.safe_addstr(row, col, header, curses.A_BOLD | (curses.color_pair(3) if is_active else 0))
-        self.safe_addstr(row + 1, col, "─" * (width - 1))
+        icon_attr = curses.color_pair(3) | curses.A_BOLD if is_active else curses.A_BOLD
+        self.safe_addstr(start_row, col, title, icon_attr)
 
         for i, item in enumerate(items):
-            item_row = row + 2 + i
-            if item_row >= row + height:
+            item_row = start_row + 1 + i
+            if item_row >= start_row + height:
                 break
 
             is_checkbox = item.key in ("full_metrics", "show_files")
+            is_test_toggle = item.key == "test_mode"
+
+            if is_test_toggle:
+                # Special rendering for test mode toggle
+                if item.selected:
+                    badge = "[TEST]"
+                    badge_attr = curses.color_pair(7) | curses.A_BOLD
+                    desc = " Output " + chr(0x2192) + " tmp/"
+                else:
+                    badge = "[PROD]"
+                    badge_attr = curses.color_pair(8) | curses.A_BOLD
+                    desc = " Output " + chr(0x2192) + " output/"
+
+                if i == self.current_row and is_active:
+                    # Full row highlight when selected
+                    full_text = f"{badge}{desc}"
+                    self.safe_addstr(item_row, col, full_text[:width - 1], curses.color_pair(1))
+                else:
+                    self.safe_addstr(item_row, col, badge, badge_attr)
+                    self.safe_addstr(item_row, col + len(badge), desc[:width - len(badge) - 1])
+                continue
 
             if is_checkbox:
                 checkbox = "[x]" if item.selected else "[ ]"
@@ -378,18 +513,18 @@ class TUIApp:
             else:
                 self.safe_addstr(item_row, col, text)
 
-    def _draw_meraki_section(self, row, col, width, height, title, section_id):
-        """Draw Meraki health configuration section with volume info."""
+    def _draw_meraki_section(self, start_row, col, width, height, section_id):
+        """Draw Meraki health configuration section."""
         is_active = self.current_section == section_id
-        header = f"► {title}" if is_active else f"  {title}"
-        self.safe_addstr(row, col, header, curses.A_BOLD | (curses.color_pair(3) if is_active else 0))
-        self.safe_addstr(row + 1, col, "─" * (width - 1))
+        title = f"{ICON_MERAKI} MERAKI HEALTH"
+        icon_attr = curses.color_pair(3) | curses.A_BOLD if is_active else curses.A_BOLD
+        self.safe_addstr(start_row, col, title, icon_attr)
 
         mr_events, ms_events, total = self._calc_health_volume()
 
         for i, item in enumerate(self.meraki):
-            item_row = row + 2 + i
-            if item_row >= row + height:
+            item_row = start_row + 1 + i
+            if item_row >= start_row + height:
                 break
 
             is_checkbox = item.key in ("meraki_health_enabled", "meraki_mr_health", "meraki_ms_health")
@@ -397,7 +532,6 @@ class TUIApp:
 
             if is_checkbox:
                 checkbox = "[x]" if item.selected else "[ ]"
-                # Add volume info for MR/MS
                 if item.key == "meraki_mr_health":
                     text = f"{checkbox} {item.label} (~{mr_events:,}/d)"
                 elif item.key == "meraki_ms_health":
@@ -414,7 +548,6 @@ class TUIApp:
 
             text = text[:width - 1]
 
-            # Color based on volume
             if i == self.current_row and is_active:
                 self.safe_addstr(item_row, col, text, curses.color_pair(1))
             elif is_checkbox and item.selected:
@@ -422,19 +555,28 @@ class TUIApp:
             else:
                 self.safe_addstr(item_row, col, text)
 
+    # ═══════════════════════════════════════════════════════════════════
+    # COMMAND PREVIEW
+    # ═══════════════════════════════════════════════════════════════════
+
     def _build_preview_cmd(self) -> str:
         """Build preview command string."""
         sources_str = self._get_sources_str()
         scenarios_str = self._get_scenarios_str()
-        days = self.config[1].description
-        scale = self.config[2].description
-        clients = self.config[3].description
-        client_interval = self.config[4].description
-        orders_per_day = self.config[5].description
-        full_metrics = self.config[6].selected
-        show_files = self.config[7].selected
+        days = self.config[2].description
+        scale = self.config[3].description
+        clients = self.config[4].description
+        client_interval = self.config[5].description
+        orders_per_day = self.config[6].description
+        full_metrics = self.config[7].selected
+        show_files = self.config[8].selected
+        is_test = self.config[0].selected
 
         preview = f"--sources={sources_str} --scenarios={scenarios_str} --days={days}"
+
+        # Test mode (only show --no-test since --test is default)
+        if not is_test:
+            preview += " --no-test"
 
         # Configuration options (only show non-defaults)
         if scale != "1.0":
@@ -486,17 +628,87 @@ class TUIApp:
         individual = [s for s in selected if s not in ("all", "none")]
         return ",".join(individual) if individual else "none"
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ANIMATION
+    # ═══════════════════════════════════════════════════════════════════
+
     def update_animation(self):
-        """Update animation state."""
-        import time
-        current_time = time.time()
+        """Update animation state with sine wave T-shirt and pulsing logo."""
+        current_time = time_mod.time()
 
         if current_time - self.last_anim_time > 0.1:
             self.last_anim_time = current_time
             h, w = self.stdscr.getmaxyx()
+
+            # T-shirt horizontal movement
             self.tshirt_x += 2
             if self.tshirt_x > w:
                 self.tshirt_x = -15
+
+            # Sine wave vertical offset (gentle wave: amplitude 2, period ~3 seconds)
+            self.tshirt_y_offset = math.sin(current_time * 2.0) * 2.0
+
+        # Logo pulse (toggle bold every 2 seconds)
+        if current_time - self.logo_pulse_time > 2.0:
+            self.logo_pulse_time = current_time
+            self.logo_pulse = not self.logo_pulse
+
+    # ═══════════════════════════════════════════════════════════════════
+    # COUNTDOWN ANIMATION
+    # ═══════════════════════════════════════════════════════════════════
+
+    def show_countdown(self):
+        """Show a 3-2-1 countdown before generation starts."""
+        h, w = self.stdscr.getmaxyx()
+        center_y = h // 2
+        center_x = w // 2
+
+        digits = [
+            # 3
+            [
+                " ████ ",
+                "    █ ",
+                " ████ ",
+                "    █ ",
+                " ████ ",
+            ],
+            # 2
+            [
+                " ████ ",
+                "    █ ",
+                " ████ ",
+                " █    ",
+                " ████ ",
+            ],
+            # 1
+            [
+                "   █  ",
+                "   █  ",
+                "   █  ",
+                "   █  ",
+                "   █  ",
+            ],
+        ]
+
+        for digit in digits:
+            self.stdscr.erase()
+            dy = center_y - len(digit) // 2
+            for i, line in enumerate(digit):
+                dx = center_x - len(line) // 2
+                self.safe_addstr(dy + i, dx, line, curses.color_pair(3) | curses.A_BOLD)
+            self.stdscr.refresh()
+            curses.napms(600)
+
+        # GO!
+        self.stdscr.erase()
+        go_text = "GENERATING..."
+        self.safe_addstr(center_y, center_x - len(go_text) // 2, go_text, curses.color_pair(2) | curses.A_BOLD)
+        self.stdscr.refresh()
+        curses.napms(400)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # EVENT LOOP
+    # ═══════════════════════════════════════════════════════════════════
 
     def run(self):
         """Main event loop."""
@@ -544,7 +756,7 @@ class TUIApp:
                 if self.current_section == self.SECTION_SOURCES and items[self.current_row].key == "---":
                     self.current_row = min(len(items) - 1, self.current_row + 1)
 
-            # Horizontal navigation (switch columns)
+            # Horizontal navigation
             elif key in (curses.KEY_LEFT, ord('h')):
                 if self.current_section == self.SECTION_SCENARIOS:
                     self.current_section = self.SECTION_SOURCES
@@ -568,7 +780,7 @@ class TUIApp:
                 elif self.current_section == self.SECTION_SCENARIOS:
                     items[self.current_row].selected = not items[self.current_row].selected
                 elif self.current_section == self.SECTION_CONFIG:
-                    if self.config[self.current_row].key in ("full_metrics", "show_files"):
+                    if self.config[self.current_row].key in ("full_metrics", "show_files", "test_mode"):
                         self.config[self.current_row].selected = not self.config[self.current_row].selected
                 elif self.current_section == self.SECTION_MERAKI:
                     if self.meraki[self.current_row].key in ("meraki_health_enabled", "meraki_mr_health", "meraki_ms_health"):
@@ -577,7 +789,7 @@ class TUIApp:
             # Edit config value
             elif key in (curses.KEY_ENTER, ord('\n'), ord('\r')):
                 if self.current_section == self.SECTION_CONFIG:
-                    if self.config[self.current_row].key not in ("full_metrics", "show_files"):
+                    if self.config[self.current_row].key not in ("full_metrics", "show_files", "test_mode"):
                         self.editing_config = self.current_row
                         self.edit_buffer = self.config[self.current_row].description
                 elif self.current_section == self.SECTION_MERAKI:
@@ -585,7 +797,7 @@ class TUIApp:
                         self.editing_config = self.current_row
                         self.edit_buffer = self.meraki[self.current_row].description
 
-            # Tab to switch sections (cycles through all 4)
+            # Tab to switch sections
             elif key == ord('\t'):
                 self.current_section = (self.current_section + 1) % 4
                 self.current_row = 0
@@ -595,6 +807,7 @@ class TUIApp:
 
             # Generate
             elif key in (ord('g'), ord('G')):
+                self.show_countdown()
                 return self.collect_config()
 
             # Quit
@@ -608,14 +821,15 @@ class TUIApp:
         return {
             "sources": self._get_sources_str(),
             "scenarios": self._get_scenarios_str(),
-            "start_date": self.config[0].description,
-            "days": self.config[1].description,
-            "scale": self.config[2].description,
-            "clients": self.config[3].description,
-            "client_interval": self.config[4].description,
-            "orders_per_day": self.config[5].description,
-            "full_metrics": self.config[6].selected,
-            "show_files": self.config[7].selected,
+            "test_mode": self.config[0].selected,
+            "start_date": self.config[1].description,
+            "days": self.config[2].description,
+            "scale": self.config[3].description,
+            "clients": self.config[4].description,
+            "client_interval": self.config[5].description,
+            "orders_per_day": self.config[6].description,
+            "full_metrics": self.config[7].selected,
+            "show_files": self.config[8].selected,
             # Meraki health options
             "meraki_health_enabled": self.meraki[0].selected,
             "meraki_health_interval": self.meraki[1].description,
@@ -633,9 +847,13 @@ def main():
         return
 
     if result:
+        is_test = result.get('test_mode', True)
+        mode_label = "TEST (output/tmp/)" if is_test else "PRODUCTION (output/)"
+
         print("\n" + "=" * 60)
         print("  Generating logs with configuration:")
         print("=" * 60)
+        print(f"  Mode:            {mode_label}")
         print(f"  Sources:         {result['sources']}")
         print(f"  Scenarios:       {result['scenarios']}")
         print(f"  Start Date:      {result['start_date']}")
@@ -666,6 +884,8 @@ def main():
             f"--orders-per-day={result['orders_per_day']}",
             f"--meraki-health-interval={result['meraki_health_interval']}",
         ]
+        if not is_test:
+            sys.argv.append("--no-test")
         if result['full_metrics']:
             sys.argv.append("--full-metrics")
         if result['show_files']:

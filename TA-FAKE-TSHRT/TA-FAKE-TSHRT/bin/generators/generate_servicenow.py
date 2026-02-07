@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path, OUTPUT_DIRS, OUTPUT_BASE
+from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
 from shared.time_utils import date_add
 from shared.company import USERS, SERVERS, LOCATIONS, USER_KEYS, TENANT
 
@@ -827,13 +827,11 @@ def generate_servicenow_logs(
     # Parse start date
     base_date = datetime.strptime(start_date, "%Y-%m-%d")
 
-    # Ensure output directory exists
-    itsm_dir = OUTPUT_BASE / "itsm"
-    itsm_dir.mkdir(parents=True, exist_ok=True)
-
-    # Output file
+    # Determine output path
     if output_file is None:
-        output_file = itsm_dir / FILE_SERVICENOW
+        output_file = get_output_path("itsm", FILE_SERVICENOW)
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     all_events = []
 

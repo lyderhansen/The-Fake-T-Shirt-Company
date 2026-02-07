@@ -18,7 +18,11 @@ from typing import Dict, List, Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, OUTPUT_BASE, GENERATOR_OUTPUT_FILES
+from shared.config import (
+    DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE,
+    OUTPUT_BASE, OUTPUT_BASE_PRODUCTION, GENERATOR_OUTPUT_FILES,
+    set_output_base,
+)
 
 # Import generators
 from generators.generate_asa import generate_asa_logs
@@ -136,7 +140,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 main_generate.py --all                              # All sources, default scenario (exfil)
+  python3 main_generate.py --all                              # All sources (test mode, output/tmp/)
+  python3 main_generate.py --all --no-test                    # All sources (production, output/)
   python3 main_generate.py --all --scenarios=all              # All sources, all scenarios
   python3 main_generate.py --sources=asa,entraid              # Specific sources
   python3 main_generate.py --sources=cloud                    # All cloud sources
@@ -145,6 +150,10 @@ Examples:
   python3 main_generate.py --scenarios=attack                 # All attack scenarios
   python3 main_generate.py --sources=perfmon --clients=20 --full-metrics
   python3 main_generate.py --all --show-files                 # Show output file paths in progress
+
+Output Modes:
+  --test (default)  Write to output/tmp/ — safe for testing, won't affect Splunk
+  --no-test         Write to output/ — production mode, Splunk reads from here
 
 Source Groups:
   all           - All sources (16 generators)
@@ -213,6 +222,10 @@ Output Directories:
 
     parser.add_argument("--all", action="store_true", help="Generate all log sources")
     parser.add_argument("--tui", action="store_true", help="Launch interactive TUI interface")
+    parser.add_argument("--test", action="store_true", default=True,
+                        help="Test mode: write to output/tmp/ (default)")
+    parser.add_argument("--no-test", dest="test", action="store_false",
+                        help="Production mode: write to output/ (for Splunk ingestion)")
     parser.add_argument("--sources", default="all", help="Comma-separated sources or groups")
     parser.add_argument("--start-date", default=DEFAULT_START_DATE, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help="Number of days")
@@ -248,6 +261,15 @@ Output Directories:
                         help="Disable MS switch port health metrics (~127K events/day)")
 
     args = parser.parse_args()
+
+    # Configure output directory based on test mode
+    # Must happen BEFORE any generator runs (they use get_output_path() from config)
+    if args.test:
+        test_base = OUTPUT_BASE_PRODUCTION / "tmp"
+        set_output_base(test_base)
+
+    # Re-import OUTPUT_BASE after potential override
+    from shared.config import OUTPUT_BASE as current_output_base
 
     # Launch TUI if requested
     if args.tui:
@@ -292,9 +314,11 @@ Output Directories:
 
     # Print banner
     if not args.quiet:
+        mode_label = "TEST (output/tmp/)" if args.test else "PRODUCTION (output/)"
         print("=" * 70)
         print("  Splunk Log Generator (Python)")
         print("=" * 70)
+        print(f"  Mode:        {mode_label}")
         print(f"  Start Date:  {args.start_date}")
         print(f"  Days:        {args.days}")
         print(f"  Scale:       {args.scale}")
@@ -304,7 +328,7 @@ Output Directories:
             print(f"  Phase 2:     {', '.join(phase2_sources)} (depends on phase 1)")
         else:
             print(f"  Sources:     {', '.join(phase1_sources)}")
-        print(f"  Output:      {OUTPUT_BASE}/")
+        print(f"  Output:      {current_output_base}/")
         print("=" * 70)
         print()
 
@@ -383,7 +407,7 @@ Output Directories:
                         if args.show_files:
                             files = GENERATOR_OUTPUT_FILES.get(result['name'], [result['name']])
                             for f in files:
-                                file_path = OUTPUT_BASE / f
+                                file_path = current_output_base / f
                                 if file_path.exists():
                                     line_count = sum(1 for _ in open(file_path))
                                     print(f"       → output/{f:45} {line_count:>10,}")
@@ -405,7 +429,7 @@ Output Directories:
                     if args.show_files:
                         files = GENERATOR_OUTPUT_FILES.get(name, [name])
                         for f in files:
-                            file_path = OUTPUT_BASE / f
+                            file_path = current_output_base / f
                             if file_path.exists():
                                 line_count = sum(1 for _ in open(file_path))
                                 print(f"       → output/{f:45} {line_count:>10,}")
