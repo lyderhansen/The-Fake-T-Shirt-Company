@@ -1,0 +1,307 @@
+<dashboard version="1.1" theme="dark">
+  <label>Input Manager</label>
+  <description>Manage data inputs for TA-FAKE-TSHRT</description>
+
+  <row>
+    <panel>
+      <title>Data Input Status</title>
+      <table id="inputs-table">
+        <search>
+          <query>
+            | rest /services/data/inputs/monitor splunk_server=local
+            | search title="*TA-FAKE-TSHRT*output*"
+            | rex field=title ".*/output/(?&lt;category&gt;[^/]+)/(?&lt;filename&gt;.+)$"
+            | eval status=if(disabled=1, "Disabled", "Enabled")
+            | eval status_icon=if(disabled=1, "x", "check")
+            | table title, category, filename, sourcetype, index, status, disabled
+            | sort category, filename
+          </query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">50</option>
+        <option name="wrap">false</option>
+        <format type="color" field="status">
+          <colorPalette type="map">{"Enabled":#5CC05C,"Disabled":#DC4E41}</colorPalette>
+        </format>
+        <drilldown>
+          <set token="selected_input">$row.title$</set>
+          <set token="selected_disabled">$row.disabled$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Quick Actions</title>
+      <html>
+        <style>
+          .actions-panel {
+            padding: 20px;
+          }
+          .action-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+          }
+          .enable-btn {
+            background: #5CC05C;
+            color: white;
+          }
+          .enable-btn:hover {
+            background: #4AA84A;
+          }
+          .disable-btn {
+            background: #DC4E41;
+            color: white;
+          }
+          .disable-btn:hover {
+            background: #B33D33;
+          }
+          .bulk-btn {
+            background: #F8BE34;
+            color: #333;
+          }
+          .bulk-btn:hover {
+            background: #E5AB21;
+          }
+          .selected-input {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+          }
+          .status-msg {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+          }
+          .status-success {
+            background: #1a3a1a;
+            border: 1px solid #5CC05C;
+            color: #5CC05C;
+          }
+          .status-error {
+            background: #3a1a1a;
+            border: 1px solid #DC4E41;
+            color: #DC4E41;
+          }
+          .section-title {
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+          }
+          .divider {
+            border-top: 1px solid #333;
+            margin: 20px 0;
+          }
+        </style>
+        <div class="actions-panel">
+          <div class="section-title">Selected Input</div>
+          <div class="selected-input" id="selected-display">
+            Click a row in the table to select an input
+          </div>
+
+          <button class="action-btn enable-btn" id="enable-btn" disabled="disabled">
+            Enable Selected
+          </button>
+          <button class="action-btn disable-btn" id="disable-btn" disabled="disabled">
+            Disable Selected
+          </button>
+
+          <div class="divider"></div>
+
+          <div class="section-title">Bulk Actions</div>
+          <button class="action-btn bulk-btn" id="bulk-enable-btn">
+            Enable All Inputs
+          </button>
+          <button class="action-btn bulk-btn" id="bulk-disable-btn">
+            Disable All Inputs
+          </button>
+
+          <div id="status-msg" class="status-msg" style="display:none;"></div>
+        </div>
+
+        <script>
+          require(['jquery', 'splunkjs/mvc', 'splunkjs/mvc/simplexml/ready!'], function($, mvc) {
+            var tokens = mvc.Components.get("default");
+            var selectedInput = null;
+            var selectedDisabled = null;
+
+            // Watch for token changes (row selection)
+            tokens.on("change:selected_input", function() {
+              selectedInput = tokens.get("selected_input");
+              selectedDisabled = tokens.get("selected_disabled");
+
+              if (selectedInput) {
+                $('#selected-display').text(selectedInput);
+                $('#enable-btn').prop('disabled', selectedDisabled === "0");
+                $('#disable-btn').prop('disabled', selectedDisabled === "1");
+              }
+            });
+
+            function showStatus(message, isError) {
+              var msg = $('#status-msg');
+              msg.removeClass('status-success status-error');
+              msg.addClass(isError ? 'status-error' : 'status-success');
+              msg.text(message);
+              msg.show();
+              setTimeout(function() { msg.fadeOut(); }, 5000);
+            }
+
+            // Use jQuery .on() instead of onclick (SimpleXML strips onclick attributes)
+            function toggleInput(disable) {
+              if (!selectedInput) {
+                showStatus('No input selected', true);
+                return;
+              }
+
+              var action = disable ? 'disable' : 'enable';
+              var encodedInput = encodeURIComponent(selectedInput);
+
+              $.ajax({
+                url: Splunk.util.make_url('/splunkd/__raw/servicesNS/nobody/TA-FAKE-TSHRT/data/inputs/monitor/' + encodedInput + '/' + action),
+                method: 'POST',
+                data: { output_mode: 'json' },
+                success: function() {
+                  showStatus('Input ' + action + 'd successfully', false);
+                  // Refresh the table
+                  mvc.Components.get('inputs-table').startSearch();
+                },
+                error: function(xhr) {
+                  showStatus('Error: ' + xhr.responseText, true);
+                }
+              });
+            }
+
+            function bulkAction(action) {
+              var confirmMsg = action === 'enable'
+                ? 'Enable ALL inputs for TA-FAKE-TSHRT?'
+                : 'Disable ALL inputs for TA-FAKE-TSHRT?';
+
+              if (!confirm(confirmMsg)) {
+                return;
+              }
+
+              // Get all inputs first
+              $.ajax({
+                url: Splunk.util.make_url('/splunkd/__raw/servicesNS/nobody/TA-FAKE-TSHRT/data/inputs/monitor'),
+                method: 'GET',
+                data: { output_mode: 'json', count: 0 },
+                success: function(data) {
+                  var inputs = data.entry || [];
+                  var count = 0;
+                  var total = inputs.length;
+
+                  inputs.forEach(function(input) {
+                    var name = encodeURIComponent(input.name);
+                    $.ajax({
+                      url: Splunk.util.make_url('/splunkd/__raw/servicesNS/nobody/TA-FAKE-TSHRT/data/inputs/monitor/' + name + '/' + action),
+                      method: 'POST',
+                      data: { output_mode: 'json' },
+                      async: false,
+                      success: function() { count++; }
+                    });
+                  });
+
+                  showStatus(action.charAt(0).toUpperCase() + action.slice(1) + 'd ' + count + ' of ' + total + ' inputs', false);
+                  mvc.Components.get('inputs-table').startSearch();
+                },
+                error: function(xhr) {
+                  showStatus('Error: ' + xhr.responseText, true);
+                }
+              });
+            }
+
+            // Bind click handlers using jQuery .on()
+            $('#enable-btn').on('click', function() { toggleInput(false); });
+            $('#disable-btn').on('click', function() { toggleInput(true); });
+            $('#bulk-enable-btn').on('click', function() { bulkAction('enable'); });
+            $('#bulk-disable-btn').on('click', function() { bulkAction('disable'); });
+          });
+        </script>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events Indexed per Sourcetype (Last 24h)</title>
+      <chart>
+        <search>
+          <query>
+            index=fake_tshrt earliest=-24h
+            | stats count by sourcetype
+            | sort -count
+          </query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Events Over Time by Category (Last 24h)</title>
+      <chart>
+        <search>
+          <query>
+            index=fake_tshrt earliest=-24h
+            | eval category=case(
+                match(sourcetype, "(?i)asa|meraki"), "Network",
+                match(sourcetype, "(?i)aws|gcp|azure|entraid"), "Cloud",
+                match(sourcetype, "(?i)win|perfmon"), "Windows",
+                match(sourcetype, "(?i)linux|vmstat|df|iostat"), "Linux",
+                match(sourcetype, "(?i)webex|exchange"), "Collaboration",
+                match(sourcetype, "(?i)access|orders|servicebus"), "Web/Retail",
+                1=1, "Other"
+            )
+            | timechart span=1h count by category
+          </query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Input Categories Summary</title>
+      <table>
+        <search>
+          <query>
+            | rest /services/data/inputs/monitor splunk_server=local
+            | search title="*TA-FAKE-TSHRT*output*"
+            | rex field=title ".*/output/(?&lt;category&gt;[^/]+)/"
+            | stats
+                count as "Total Inputs",
+                sum(eval(if(disabled=0, 1, 0))) as "Enabled",
+                sum(eval(if(disabled=1, 1, 0))) as "Disabled"
+              by category
+            | rename category as "Category"
+            | sort Category
+          </query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+</dashboard>

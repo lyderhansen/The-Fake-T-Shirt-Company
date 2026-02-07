@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="outline" xmlns="http://www.w3.org/2000/svg" width="2014" height="1008.88" viewBox="0 0 2014 1008.88">
+  <path id="break_room" d="M1128.1,620.54l179.51,72.4-130.26,49.25v87.53l-196.13-82.49v-77.44l146.87-49.25Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="security" d="M1395.12,532.91l171.62,62.01-251.32,93.47-178.03-71.51,257.72-83.97Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="server_room" d="M1697.89,537.36l206.51,72.1-131.15,53.71-206.51-77.15,131.15-48.66Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="meeting_room_shipping" d="M1403.85,524.3l189.01-74.48,157.56,58.45-198.8,74.18-147.76-54.3v-3.86Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="meeting_room_beacon" d="M1765.84,381.58l126.1,45.4-32.94,12.17v28.19l-95.54,35.9-159.34-56.97,161.71-64.68Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="corridor" d="M1310.08,422.83l169.13,64.68-218.68,76.26-169.13-61.72,218.68-79.22Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="meeting_room_harbor" d="M887.86,571.18l193.75-66.76,88.42,34.72-14.84,5.34,11.87,4.45,16.32-6.82,68.24,27-270.41,91.39-93.37-37.98v-51.33Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="lobby" d="M1162.91,337.37l249.24-88.12,293.45,110.08-26.7,10.68,14.54,5.64,22.55-11.57,42.43,14.84-270.31,103.26-181-68.24-138.86,48.96v-37.39l-125.51-48.07,120.17-40.06Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="reception" d="M981.92,315.71l11.57-5.04-.3-24.03,69.13-21.96,152.21-50.74,9.2,3.56,117.8-39.76,68.84,27-17.51,6.82,9.2,2.67v32.34l-373.56,126.7-102.07-40.06,55.49-17.51Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="Security" d="M1546.27,154.59l229.95,86.64-54.3,21.36,8.6,3.56v29.08l-60.83,22.25-242.71-90.79v-20.18l-12.76-6.53,132.04-45.4Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="elevator" d="M1786.31,244.2l57.27,22.55-43.02,16.91-.3,70.02-25.22,18.99,1.19-21.36-55.49-17.51,30.86-15.13-10.98-7.71-1.19-47.47,46.88-19.29Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+  <path id="parking" d="M1186.26,745.65l390.87-145.39,195.44,72.7v104.74l-92.18,38.38-.4-18.99-10.29-5.93-185.94,79.52.4,22.95-13.45,2.77-82.29,30.86-161.41-64.09-16.62,6.33-20.87-8.94-3.27-114.89Z" fill="#6d6e71" opacity=".5" stroke="#6f6f6f" stroke-miterlimit="10" stroke-width="0"/>
+</svg>

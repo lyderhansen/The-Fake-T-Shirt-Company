@@ -1,0 +1,131 @@
+message_id,vendor_class,vendor_definition
+109*,aaa/auth,User Authentication
+113*,aaa/auth,User Authentication
+106*,acl,Access Lists
+415*,appfw,Application Firewall
+110*,bridge,Transparent Firewall
+220*,bridge,Transparent Firewall
+717*,ca,PKI Certification Authority
+723*,citrix,Web VPN
+747*,clst,Clustering
+323*,cmgr,Card Management
+111*,config,Command Interface
+112*,config,Command Interface
+208*,config,Command Interface
+308*,config,Command Interface
+776*,cts,Cisco TrustSec
+734*,dap,Dynamic Access Policies
+333*,eap,Network Admission Control
+334*,eapoudp,Network Admission Control
+336*,eigrp,EIGRP Routing
+719*,email,E-mail Proxy
+735*,envmon,Environment Monitoring
+101*,ha,High Availability (Failover)
+102*,ha,High Availability (Failover)
+103*,ha,High Availability (Failover)
+104*,ha,High Availability (Failover)
+105*,ha,High Availability (Failover)
+210*,ha,High Availability (Failover)
+311*,ha,High Availability (Failover)
+709*,ha,High Availability (Failover)
+727*,ha,High Availability (Failover)
+746*,id,Identity-based Firewall
+400*,ids,Intrusion Detection System
+733*,ids,Intrusion Detection System
+750*,ikev2,IKEv2 Toolkit
+751*,ikev2,IKEv2 Toolkit
+752*,ikev2,IKEv2 Toolkit
+209*,ip,IP Stack
+215*,ip,IP Stack
+313*,ip,IP Stack
+317*,ip,IP Stack
+408*,ip,IP Stack
+735*,ipaa,IP Address Assignment
+400*,ips,Intrusion Protection System
+401*,ips,Intrusion Protection System
+420*,ips,Intrusion Protection System
+325*,ipv6,IPv6
+338*,l4tm,"Denylists, Allowlists, and Graylists"
+728*,lb,Load Balancing
+444*,lic,Licensing
+731*,nac policy,Network Admission Control Policy
+732*,nac settings,Network Admission Control Settings
+713*,nap,Network Access Point
+319*,np,Network Processor
+725*,npssl,NP SSL
+318*,ospf,OSPF Routing
+409*,ospf,OSPF Routing
+503*,ospf,OSPF Routing
+613*,ospf,OSPF Routing
+742*,passwd,Password Encryption
+337*,pp,Phone Proxy
+107*,rip,RIP Routing
+312*,rip,RIP Routing
+321*,rm,Resource Manager
+120*,sch,Smart Call Home
+106*,session,User Session
+108*,session,User Session
+201*,session,User Session
+202*,session,User Session
+204*,session,User Session
+302*,session,User Session
+303*,session,User Session
+304*,session,User Session
+305*,session,User Session
+314*,session,User Session
+405*,session,User Session
+406*,session,User Session
+407*,session,User Session
+500*,session,User Session
+502*,session,User Session
+607*,session,User Session
+608*,session,User Session
+609*,session,User Session
+616*,session,User Session
+620*,session,User Session
+703*,session,User Session
+710*,session,User Session
+212*,snmp,SNMP
+775*,ssafe,ScanSafe
+725*,ssl,Secure Socket Layer
+722*,svc,SSL VPN Client
+199*,sys,System
+211*,sys,System
+214*,sys,System
+216*,sys,System
+306*,sys,System
+307*,sys,System
+315*,sys,System
+414*,sys,System
+604*,sys,System
+605*,sys,System
+606*,sys,System
+610*,sys,System
+612*,sys,System
+614*,sys,System
+615*,sys,System
+701*,sys,System
+711*,sys,System
+741*,sys,System
+733*,td,Threat Detection
+339*,vipr,UC-IME
+730*,vn,VLAN Mapping
+213*,vpdn,PPTP and L2TP Sessions
+403*,vpdn,PPTP and L2TP Sessions
+603*,vpdn,PPTP and L2TP Sessions
+316*,vpn,IKE and IPsec
+320*,vpn,IKE and IPsec
+402*,vpn,IKE and IPsec
+404*,vpn,IKE and IPsec
+501*,vpn,IKE and IPsec
+602*,vpn,IKE and IPsec
+702*,vpn,IKE and IPsec
+713*,vpn,IKE and IPsec
+714*,vpn,IKE and IPsec
+715*,vpn,IKE and IPsec
+611*,vpnc,VPN Client
+720*,vpnfo,VPN Failover
+718*,vpnlb,VPN Load Balancing
+721*,webfo,Web-based Failover
+716*,webvpn,Web-based VPN
+305*,xlate,NAT and PAT

@@ -1,0 +1,68 @@
+<nav search_view="search" color="#5CC05C">
+  <view name="overview" default="true"/>
+  <view name="itops_discovery"/>
+  <view name="security_discovery"/>
+  <view name="network_discovery"/>
+  <collection label="Scenarios">
+    <view name="scenarios"/>
+    <divider/>
+    <collection label="Security">
+      <view name="scenario_exfil"/>
+      <view name="scenario_ransomware"/>
+    </collection>
+    <collection label="Operations">
+      <view name="scenario_cpu_runaway"/>
+      <view name="scenario_memory_leak"/>
+      <view name="scenario_disk_filling"/>
+    </collection>
+    <collection label="Network">
+      <view name="scenario_firewall_misconfig"/>
+      <view name="scenario_certificate_expiry"/>
+    </collection>
+  </collection>
+  <collection label="Data Sources">
+    <view name="data_sources"/>
+    <divider/>
+    <collection label="Network">
+      <view name="source_cisco_asa"/>
+      <view name="source_meraki"/>
+      <view name="sdwan_health"/>
+      <view name="wireless_health"/>
+    </collection>
+    <collection label="Cloud">
+      <view name="source_aws_cloudtrail"/>
+      <view name="source_gcp_audit"/>
+      <view name="source_entraid"/>
+    </collection>
+    <collection label="Collaboration">
+      <view name="source_exchange"/>
+      <view name="source_webex"/>
+      <view name="webex_quality"/>
+      <view name="meeting_room_analytics"/>
+    </collection>
+    <collection label="Endpoints">
+      <view name="source_perfmon"/>
+      <view name="source_wineventlog"/>
+      <view name="source_linux"/>
+    </collection>
+    <collection label="Infrastructure">
+      <view name="environmental"/>
+    </collection>
+    <collection label="Applications">
+      <view name="source_access"/>
+      <view name="source_orders"/>
+      <view name="source_servicebus"/>
+      <view name="source_servicenow"/>
+    </collection>
+  </collection>
+  <collection label="Documentation">
+    <view name="getting_started"/>
+  </collection>
+  <collection label="Admin">
+    <view name="admin_generator"/>
+    <view name="admin_inputs"/>
+    <view name="admin_data"/>
+  </collection>
+  <a href="/app/TA-FAKE-TSHRT/search">Search</a>
+  <view name="dashboards"/>
+</nav>

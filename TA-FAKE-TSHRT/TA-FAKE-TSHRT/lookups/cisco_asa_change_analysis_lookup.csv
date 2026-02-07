@@ -1,0 +1,16 @@
+message_id,change_class,change_description,change_type,object_type
+111010,,Configuration Change,AAA,object
+500001,change,ActiveX content modified,filesystem,object
+500002,change,Java content modified,filesystem,object
+502101,change,New user added to local dbase,AAA,user
+502102,change,User deleted from local dbase,AAA,user
+502103,,User priv level changed,AAA,user
+502111,change,New group policy added,group policy,policy
+502112,change,New group policy deleted,group policy,policy
+504001,change,Security context added,Security context,context
+504002,change,Security context removed,Security context,context
+5050*,,Module Change,Product Module,module
+506001,,Filesystem change,filesystem,object
+111001,,Filesystem change,filesystem,object
+111009,,Command implementation,command,command
+771002,,Filesystem change,filesystem,object

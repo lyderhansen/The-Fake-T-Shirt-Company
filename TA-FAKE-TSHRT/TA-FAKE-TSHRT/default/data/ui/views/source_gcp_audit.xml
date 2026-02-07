@@ -1,0 +1,239 @@
+<dashboard version="1.1" theme="dark">
+  <label>GCP Audit</label>
+  <description>Google Cloud Platform audit logs from faketshirtcompany-prod-01</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d2d 100%); border-radius: 8px; border-left: 4px solid #4285f4;">
+          <h2 style="color: #4285f4; margin-top: 0;">GCP Audit Logs</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Google Cloud Platform audit logs tracking administrative actions, data access, and system events.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sourcetype:</span> <code style="color: #5CC05C;">FAKE:google:gcp:pubsub:audit</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Project:</span> <strong style="color: #fff;">faketshirtcompany-prod-01</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Region:</span> <strong style="color: #fff;">us-central1</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Format:</span> <strong style="color: #fff;">JSON</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:google:gcp:*" by _time span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"count": 0x4285f4}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top Services</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*"
+| rex field=methodName "(?&lt;service&gt;^[^.]+)"
+| stats count by service
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:google:gcp:*"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x4285f4","0x4285f4"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Principals</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*" | stats dc(principalEmail)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>IAM Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*" methodName="*iam*" | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Storage Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*" methodName="*storage*" | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Key Fields</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Field</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Description</th>
+            </tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">timestamp</td><td style="padding: 8px; border: 1px solid #444;">Event timestamp</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">methodName</td><td style="padding: 8px; border: 1px solid #444;">API method (e.g., storage.objects.get)</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">principalEmail</td><td style="padding: 8px; border: 1px solid #444;">User/service account performing action</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">resourceName</td><td style="padding: 8px; border: 1px solid #444;">Target resource</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">callerIp</td><td style="padding: 8px; border: 1px solid #444;">IP of requester</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">serviceName</td><td style="padding: 8px; border: 1px solid #444;">GCP service</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">demo_id</td><td style="padding: 8px; border: 1px solid #444;">Scenario identifier</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Sensitive Resources</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #dc4e41; margin-top: 0;">Storage Buckets</h4>
+          <ul style="color: #ccc; line-height: 2;">
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">faketshirtco-confidential</code> - Sensitive data</li>
+          </ul>
+
+          <h4 style="color: #dc4e41; margin-top: 15px;">Malicious Service Account Key (Exfil)</h4>
+          <p style="color: #ccc;"><code style="background: #333; padding: 2px 6px; border-radius: 3px;">malicious-key-001</code></p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top Methods</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*"
+| stats count by methodName
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Top Principals</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*"
+| stats count by principalEmail
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Use Cases</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Common SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Service Account Key Creation</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:google:gcp:*" methodName="*CreateServiceAccountKey*"
+| table _time, principalEmail, resourceName</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Storage Access</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:google:gcp:*" methodName="storage.objects.*"
+| stats count by methodName, principalEmail</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">IAM Changes</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:google:gcp:*" methodName="*iam*"
+| table _time, methodName, principalEmail, resourceName</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sample Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:google:gcp:*"
+| table _time, methodName, principalEmail, callerIp, resourceName, demo_id
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

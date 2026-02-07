@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1536" height="1024" viewBox="0 0 1536 1024"
+     style="position:absolute; inset:0; pointer-events:auto;">
+
+  <style>
+    .hotspot { fill: rgba(111,183,176,0.00); stroke: rgba(230,182,196,0.00); stroke-width: 2; cursor: pointer; }
+    .hotspot:hover { fill: rgba(111,183,176,0.22); stroke: rgba(230,182,196,0.90); }
+    .hotspot:active { fill: rgba(230,182,196,0.22); stroke: rgba(230,182,196,1.0); }
+  </style>
+
+  <!-- MAIN CORRIDOR (teal gulv) -->
+  <polygon class="hotspot" id="corridor-main" data-type="corridor"
+    points="470,340 1120,180 1245,250 595,410" />
+
+  <!-- CORE: ELEVATOR BANK (venstre topp) -->
+  <polygon class="hotspot" id="core-elevators" data-type="core"
+    points="70,345 430,205 560,260 205,410" />
+
+  <!-- CORE: STAIR A (topp midt/venstre) -->
+  <polygon class="hotspot" id="core-stair-a" data-type="core"
+    points="455,235 650,150 770,220 575,305" />
+
+  <!-- OPS / DRIFTSSENTER (topp høyre, skjermer) -->
+  <polygon class="hotspot" id="room-ops" data-type="room"
+    points="950,150 1445,340 1385,540 905,350" />
+
+  <!-- CORE: STAIR B (helt høyre) -->
+  <polygon class="hotspot" id="core-stair-b" data-type="core"
+    points="1310,385 1500,330 1536,392 1340,472" />
+
+  <!-- LOBBY / VENTEOMRÅDE (nede venstre, sofa/bord) -->
+  <polygon class="hotspot" id="room-lobby" data-type="room"
+    points="170,600 640,420 770,520 310,705" />
+
+  <!-- SHIPPING / MOTTAK (nede midt, bokser/bord) -->
+  <polygon class="hotspot" id="room-shipping" data-type="room"
+    points="640,675 1035,555 1145,645 750,770" />
+
+  <!-- IDF / SERVERROM (nede høyre, rack) -->
+  <polygon class="hotspot" id="room-idf" data-type="room"
+    points="1110,605 1505,430 1536,610 1140,792" />
+
+</svg>

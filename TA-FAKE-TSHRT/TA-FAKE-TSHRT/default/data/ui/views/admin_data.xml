@@ -1,0 +1,352 @@
+<dashboard version="1.1" theme="dark">
+  <label>Data Admin</label>
+  <description>Manage demo data in the fake_tshrt index</description>
+
+  <row>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt</query>
+          <earliest>0</earliest>
+          <latest>now</latest>
+          <refresh>60s</refresh>
+        </search>
+        <option name="underLabel">Events in Index</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["#5CC05C","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[100000,1000000]</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Time Range</title>
+      <single>
+        <search>
+          <query>
+            | tstats min(_time) as earliest max(_time) as latest where index=fake_tshrt
+            | eval range=strftime(earliest,"%Y-%m-%d")." to ".strftime(latest,"%Y-%m-%d")
+            | fields range
+          </query>
+          <earliest>0</earliest>
+          <latest>now</latest>
+          <refresh>60s</refresh>
+        </search>
+        <option name="underLabel">Data Time Span</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Disk Usage</title>
+      <single>
+        <search>
+          <query>
+            | dbinspect index=fake_tshrt
+            | stats sum(sizeOnDiskMB) as MB
+            | eval size=if(MB>=1024, round(MB/1024,1)." GB", round(MB,1)." MB")
+            | fields size
+          </query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+          <refresh>60s</refresh>
+        </search>
+        <option name="underLabel">Index Size</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Sourcetypes</title>
+      <single>
+        <search>
+          <query>
+            | tstats dc(sourcetype) as count where index=fake_tshrt
+          </query>
+          <earliest>0</earliest>
+          <latest>now</latest>
+          <refresh>60s</refresh>
+        </search>
+        <option name="underLabel">Unique Sourcetypes</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events by Sourcetype</title>
+      <chart>
+        <search>
+          <query>
+            | tstats count where index=fake_tshrt by sourcetype
+            | sort -count
+            | head 20
+          </query>
+          <earliest>0</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Events by Scenario (demo_id)</title>
+      <chart>
+        <search>
+          <query>
+            index=fake_tshrt demo_id=*
+            | stats count by demo_id
+            | sort -count
+          </query>
+          <earliest>0</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Data Management</title>
+      <html>
+        <style>
+          .admin-panel {
+            padding: 20px;
+          }
+          .warning-box {
+            background: #3a2a1a;
+            border: 1px solid #F8BE34;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+          }
+          .warning-box h4 {
+            color: #F8BE34;
+            margin: 0 0 10px 0;
+          }
+          .warning-box p {
+            color: #ccc;
+            margin: 5px 0;
+            font-size: 13px;
+          }
+          .danger-box {
+            background: #3a1a1a;
+            border: 1px solid #DC4E41;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+          }
+          .danger-box h4 {
+            color: #DC4E41;
+            margin: 0 0 10px 0;
+          }
+          .delete-btn {
+            background: #DC4E41;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 15px;
+          }
+          .delete-btn:hover {
+            background: #B33D33;
+          }
+          .delete-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+          }
+          .status-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+          }
+          .status-success {
+            background: #1a3a1a;
+            border: 1px solid #5CC05C;
+            color: #5CC05C;
+          }
+          .status-error {
+            background: #3a1a1a;
+            border: 1px solid #DC4E41;
+            color: #DC4E41;
+          }
+          .status-progress {
+            background: #2a2a1a;
+            border: 1px solid #F8BE34;
+            color: #F8BE34;
+          }
+          .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+          }
+          .info-list li {
+            padding: 5px 0;
+            color: #999;
+            font-size: 12px;
+          }
+          .info-list li:before {
+            content: "•";
+            color: #5CC05C;
+            margin-right: 8px;
+          }
+        </style>
+        <div class="admin-panel">
+          <div class="warning-box">
+            <h4>About Index Reset</h4>
+            <p>This operation will <strong>delete all data</strong> in the fake_tshrt index and recreate it empty.</p>
+            <ul class="info-list">
+              <li>Frees disk space immediately (unlike | delete)</li>
+              <li>No Splunk restart required</li>
+              <li>Inputs will be temporarily disabled during reset</li>
+              <li>After reset, generate new logs using the Log Generator dashboard</li>
+            </ul>
+          </div>
+
+          <div class="danger-box">
+            <h4>Reset Index (Delete All Data)</h4>
+            <p>This action <strong>CANNOT be undone</strong>. All events in fake_tshrt will be permanently deleted.</p>
+
+            <button class="delete-btn" id="reset-btn">
+              Delete All Data and Reset Index
+            </button>
+
+            <div id="status-box" class="status-box" style="display:none;"></div>
+          </div>
+        </div>
+
+        <script>
+          require(['jquery', 'splunkjs/mvc', 'splunkjs/mvc/simplexml/ready!'], function($, mvc) {
+
+            function setStatus(message, type) {
+              var box = $('#status-box');
+              box.removeClass('status-success status-error status-progress');
+              box.addClass('status-' + type);
+              box.text(message);
+              box.show();
+            }
+
+            // Use jQuery .on() instead of onclick (SimpleXML strips onclick attributes)
+            $('#reset-btn').on('click', function() {
+              // Three-step confirmation
+              if (!confirm('WARNING: This will delete ALL data in the fake_tshrt index.\n\nThis action cannot be undone!\n\nContinue?')) {
+                return;
+              }
+
+              var confirmText = prompt('To confirm, type DELETE in the box below:');
+              if (confirmText !== 'DELETE') {
+                alert('Reset cancelled. You must type DELETE exactly to confirm.');
+                return;
+              }
+
+              if (!confirm('FINAL CONFIRMATION\n\nYou are about to permanently delete all data in fake_tshrt.\n\nProceed with deletion?')) {
+                return;
+              }
+
+              // Disable button and show progress
+              $('#reset-btn').prop('disabled', true);
+              setStatus('Resetting index... This may take a moment.', 'progress');
+
+              $.ajax({
+                url: Splunk.util.make_url('/splunkd/__raw/services/ta_fake_tshrt/delete'),
+                method: 'POST',
+                data: {
+                  confirm: 'true',
+                  output_mode: 'json'
+                },
+                success: function(data) {
+                  var result = data.entry[0].content;
+                  if (result.status === 'success') {
+                    setStatus('SUCCESS!\n\n' + result.message +
+                      '\n\nInputs disabled: ' + (result.inputs_disabled || 'N/A') +
+                      '\nInputs re-enabled: ' + (result.inputs_enabled || 'N/A') +
+                      '\n\nThe page will refresh in 3 seconds...', 'success');
+                    setTimeout(function() { location.reload(); }, 3000);
+                  } else {
+                    setStatus('FAILED: ' + (result.error || 'Unknown error'), 'error');
+                    $('#reset-btn').prop('disabled', false);
+                  }
+                },
+                error: function(xhr) {
+                  setStatus('ERROR: ' + xhr.responseText, 'error');
+                  $('#reset-btn').prop('disabled', false);
+                }
+              });
+            });
+          });
+        </script>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events by Day</title>
+      <chart>
+        <search>
+          <query>
+            | tstats count where index=fake_tshrt by _time span=1d
+            | timechart span=1d sum(count) as Events
+          </query>
+          <earliest>0</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Index Details</title>
+      <table>
+        <search>
+          <query>
+            | rest /services/data/indexes/fake_tshrt splunk_server=local
+            | table title, currentDBSizeMB, totalEventCount, maxDataSize, frozenTimePeriodInSecs, homePath, coldPath
+            | eval retention_days=round(frozenTimePeriodInSecs/86400, 0)
+            | eval currentDBSizeMB=round(currentDBSizeMB, 1)." MB"
+            | rename
+                title as "Index",
+                currentDBSizeMB as "Size",
+                totalEventCount as "Events",
+                maxDataSize as "Max Size",
+                retention_days as "Retention (days)",
+                homePath as "Home Path",
+                coldPath as "Cold Path"
+          </query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Indexing Activity</title>
+      <table>
+        <search>
+          <query>
+            index=_internal sourcetype=splunkd component=Metrics group=per_index_thruput series=fake_tshrt
+            | timechart span=5m sum(ev) as "Events Indexed" sum(kb) as "KB Indexed"
+            | tail 20
+            | reverse
+          </query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+</dashboard>

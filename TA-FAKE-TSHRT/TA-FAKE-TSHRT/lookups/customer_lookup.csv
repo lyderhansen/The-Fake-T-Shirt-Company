@@ -1,0 +1,501 @@
+customer_id,customer_name,email,segment,country,location,signup_date
+CUST-00001,John Davis,john.davis@example.com,vip,United States,"San Antonio, TX",2024-02-04
+CUST-00002,Robert Anderson,robert.anderson@example.com,vip,United States,"Tampa, FL",2023-03-07
+CUST-00003,Michael Perez,michael.perez@example.com,vip,United States,"Albany, NY",2024-04-10
+CUST-00004,David Lewis,david.lewis@example.com,vip,United States,"Reading, PA",2023-05-13
+CUST-00005,William Scott,william.scott@example.com,vip,United States,"Chicago, IL",2024-06-16
+CUST-00006,Richard Nelson,richard.nelson@example.com,returning,United States,"Cleveland, OH",2024-01-19
+CUST-00007,Joseph Roberts,joseph.roberts@example.com,returning,United States,"Columbus, GA",2024-02-22
+CUST-00008,Thomas Miller,thomas.miller@example.com,vip,United States,"Durham, NC",2023-09-25
+CUST-00009,Christopher Wilson,christopher.wilson@example.com,returning,United States,"Ann Arbor, MI",2024-04-28
+CUST-00010,Mary Lee,mary.lee@example.com,returning,United States,"Newark, NJ",2024-05-03
+CUST-00011,Patricia Ramirez,patricia.ramirez@example.com,returning,United States,"Norfolk, VA",2024-06-06
+CUST-00012,Jennifer Wright,jennifer.wright@example.com,vip,United States,"Tacoma, WA",2023-01-09
+CUST-00013,Linda Adams,linda.adams@example.com,returning,United States,"Chandler, AZ",2024-02-12
+CUST-00014,Elizabeth Carter,elizabeth.carter@example.com,returning,United States,"Lowell, MA",2024-03-15
+CUST-00015,Barbara Garcia,barbara.garcia@example.com,vip,United States,"Nashville, TN",2024-04-18
+CUST-00016,Susan Gonzalez,susan.gonzalez@example.com,returning,United States,"Fort Wayne, IN",2024-05-21
+CUST-00017,Jessica Martin,jessica.martin@example.com,returning,United States,"Springfield, MO",2024-06-24
+CUST-00018,Sarah Clark,sarah.clark@example.com,returning,United States,"Gaithersburg, MD",2024-01-27
+CUST-00019,Karen King,karen.king@example.com,vip,United States,"Lakewood, CO",2024-08-02
+CUST-00020,Jason Green,jason.green@example.com,returning,United States,"Los Angeles, CA",2024-03-05
+CUST-00021,Ryan Mitchell,ryan.mitchell@example.com,returning,United States,"San Antonio, TX",2024-04-08
+CUST-00022,Jacob Jones,jacob.jones@example.com,returning,United States,"Tampa, FL",2024-05-11
+CUST-00023,Gary Lopez,gary.lopez@example.com,vip,United States,"Albany, NY",2024-12-14
+CUST-00024,Nicholas Jackson,nicholas.jackson@example.com,returning,United States,"Reading, PA",2024-01-17
+CUST-00025,Eric Sanchez,eric.sanchez@example.com,returning,United States,"Chicago, IL",2024-02-20
+CUST-00026,Jonathan Allen,jonathan.allen@example.com,returning,United States,"Cleveland, OH",2024-03-23
+CUST-00027,Stephen Flores,stephen.flores@example.com,vip,United States,"Columbus, GA",2024-04-26
+CUST-00028,Larry Campbell,larry.campbell@example.com,returning,United States,"Durham, NC",2024-05-01
+CUST-00029,Justin Brown,justin.brown@example.com,returning,United States,"Ann Arbor, MI",2024-06-04
+CUST-00030,Brandon Hernandez,brandon.hernandez@example.com,returning,United States,"Newark, NJ",2024-01-07
+CUST-00031,Raymond Moore,raymond.moore@example.com,vip,United States,"Norfolk, VA",2024-08-10
+CUST-00032,Samuel Harris,samuel.harris@example.com,returning,United States,"Tacoma, WA",2024-03-13
+CUST-00033,Benjamin Young,benjamin.young@example.com,returning,United States,"Chandler, AZ",2024-04-16
+CUST-00034,Gregory Hill,gregory.hill@example.com,returning,United States,"Lowell, MA",2024-05-19
+CUST-00035,Frank Rivera,frank.rivera@example.com,vip,United States,"Nashville, TN",2024-12-22
+CUST-00036,Alexander Williams,alexander.williams@example.com,returning,United States,"Fort Wayne, IN",2024-01-25
+CUST-00037,Patrick Martinez,patrick.martinez@example.com,returning,United States,"Springfield, MO",2024-02-28
+CUST-00038,Jack Taylor,jack.taylor@example.com,returning,United States,"Gaithersburg, MD",2024-03-03
+CUST-00039,Dennis White,dennis.white@example.com,returning,United States,"Lakewood, CO",2024-04-06
+CUST-00040,Amanda Walker,amanda.walker@example.com,returning,United States,"Los Angeles, CA",2024-05-09
+CUST-00041,Melissa Nguyen,melissa.nguyen@example.com,returning,United States,"San Antonio, TX",2024-06-12
+CUST-00042,Deborah Hall,deborah.hall@example.com,vip,United States,"Tampa, FL",2023-07-15
+CUST-00043,Stephanie Johnson,stephanie.johnson@example.com,returning,United States,"Albany, NY",2024-02-18
+CUST-00044,Rebecca Rodriguez,rebecca.rodriguez@example.com,returning,United States,"Reading, PA",2024-03-21
+CUST-00045,Sharon Thomas,sharon.thomas@example.com,returning,United States,"Chicago, IL",2024-04-24
+CUST-00046,Laura Thompson,laura.thompson@example.com,returning,United States,"Cleveland, OH",2024-05-27
+CUST-00047,Cynthia Robinson,cynthia.robinson@example.com,returning,United States,"Columbus, GA",2024-06-02
+CUST-00048,Kathleen Torres,kathleen.torres@example.com,vip,United States,"Durham, NC",2023-01-05
+CUST-00049,Amy Baker,amy.baker@example.com,returning,United States,"Ann Arbor, MI",2024-02-08
+CUST-00050,Angela Smith,angela.smith@example.com,returning,United States,"Newark, NJ",2024-03-11
+CUST-00051,Shirley Davis,shirley.davis@example.com,returning,United States,"Norfolk, VA",2024-04-14
+CUST-00052,Anna Anderson,anna.anderson@example.com,returning,United States,"Tacoma, WA",2024-05-17
+CUST-00053,Brenda Perez,brenda.perez@example.com,returning,United States,"Chandler, AZ",2024-06-20
+CUST-00054,Pamela Lewis,pamela.lewis@example.com,returning,United States,"Lowell, MA",2024-01-23
+CUST-00055,Emma Scott,emma.scott@example.com,returning,United States,"Nashville, TN",2024-02-26
+CUST-00056,Nicole Nelson,nicole.nelson@example.com,vip,United States,"Fort Wayne, IN",2023-09-01
+CUST-00057,Helen Roberts,helen.roberts@example.com,returning,United States,"Springfield, MO",2024-04-04
+CUST-00058,Samantha Miller,samantha.miller@example.com,returning,United States,"Gaithersburg, MD",2024-05-07
+CUST-00059,Katherine Wilson,katherine.wilson@example.com,returning,United States,"Lakewood, CO",2024-06-10
+CUST-00060,James Lee,james.lee@example.com,returning,United States,"Los Angeles, CA",2024-01-13
+CUST-00061,John Ramirez,john.ramirez@example.com,returning,United States,"San Antonio, TX",2024-02-16
+CUST-00062,Robert Wright,robert.wright@example.com,returning,United States,"Tampa, FL",2024-03-19
+CUST-00063,Michael Adams,michael.adams@example.com,vip,United States,"Albany, NY",2024-04-22
+CUST-00064,David Carter,david.carter@example.com,returning,United States,"Reading, PA",2024-05-25
+CUST-00065,William Garcia,william.garcia@example.com,returning,United States,"Chicago, IL",2024-06-28
+CUST-00066,Richard Gonzalez,richard.gonzalez@example.com,returning,United States,"Cleveland, OH",2024-01-03
+CUST-00067,Joseph Martin,joseph.martin@example.com,returning,United States,"Columbus, GA",2024-02-06
+CUST-00068,Thomas Clark,thomas.clark@example.com,returning,United States,"Durham, NC",2024-03-09
+CUST-00069,Christopher King,christopher.king@example.com,returning,United States,"Ann Arbor, MI",2024-04-12
+CUST-00070,Olivia Johnson,olivia.johnson@example.com,returning,United Kingdom,"London, UK",2024-05-15
+CUST-00071,Amelia Watson,amelia.watson@example.com,vip,United Kingdom,"Manchester, UK",2024-12-18
+CUST-00072,Isla Brown,isla.brown@example.com,returning,United Kingdom,"Birmingham, UK",2024-01-21
+CUST-00073,Ava Lewis,ava.lewis@example.com,returning,United Kingdom,"Leeds, UK",2024-02-24
+CUST-00074,Emily Jackson,emily.jackson@example.com,returning,United Kingdom,"Glasgow, UK",2024-03-27
+CUST-00075,Sophia Davies,sophia.davies@example.com,returning,United Kingdom,"Liverpool, UK",2024-04-02
+CUST-00076,Grace Walker,grace.walker@example.com,returning,United Kingdom,"Bristol, UK",2024-05-05
+CUST-00077,Mia Wright,mia.wright@example.com,returning,United Kingdom,"Edinburgh, UK",2024-06-08
+CUST-00078,Lena Wagner,lena.wagner@example.com,returning,Germany,"Dortmund, Germany",2024-01-11
+CUST-00079,Lea Klein,lea.klein@example.com,vip,Germany,"Essen, Germany",2024-08-14
+CUST-00080,Maximilian Muller,maximilian.muller@example.com,returning,Germany,"Berlin, Germany",2024-03-17
+CUST-00081,Alexander Becker,alexander.becker@example.com,returning,Germany,"Hamburg, Germany",2024-04-20
+CUST-00082,Paul Wolf,paul.wolf@example.com,returning,Germany,"Munich, Germany",2024-05-23
+CUST-00083,Leon Schmidt,leon.schmidt@example.com,returning,Germany,"Cologne, Germany",2024-06-26
+CUST-00084,Adam Leroy,adam.leroy@example.com,returning,France,"Nice, France",2024-01-01
+CUST-00085,Lucas David,lucas.david@example.com,returning,France,"Nantes, France",2024-02-04
+CUST-00086,Leo Dubois,leo.dubois@example.com,returning,France,"Strasbourg, France",2024-03-07
+CUST-00087,Hugo Moreau,hugo.moreau@example.com,returning,France,"Montpellier, France",2024-04-10
+CUST-00088,Milan Hendriks,milan.hendriks@example.com,vip,Netherlands,"Breda, Netherlands",2023-05-13
+CUST-00089,Luuk van den Berg,luuk.van.den.berg@example.com,returning,Netherlands,"Nijmegen, Netherlands",2024-06-16
+CUST-00090,Anna Johnsen,anna.johnsen@example.com,returning,Norway,"Oslo, Norway",2024-01-19
+CUST-00091,Kari Solberg,kari.solberg@example.com,returning,Norway,"Bergen, Norway",2024-02-22
+CUST-00092,Ingrid Andersen,ingrid.andersen@example.com,returning,Norway,"Trondheim, Norway",2024-03-25
+CUST-00093,Marit Pettersen,marit.pettersen@example.com,returning,Norway,"Stavanger, Norway",2024-04-28
+CUST-00094,Liv Dahl,liv.dahl@example.com,returning,Norway,"Drammen, Norway",2024-05-03
+CUST-00095,Silje Pedersen,silje.pedersen@example.com,returning,Norway,"Fredrikstad, Norway",2024-06-06
+CUST-00096,Hilde Eriksen,hilde.eriksen@example.com,returning,Norway,"Kristiansand, Norway",2024-01-09
+CUST-00097,Mette Moen,mette.moen@example.com,vip,Norway,"Tromso, Norway",2024-02-12
+CUST-00098,Line Nilsen,line.nilsen@example.com,returning,Norway,"Sandnes, Norway",2024-03-15
+CUST-00099,Kristin Berg,kristin.berg@example.com,returning,Norway,"Sarpsborg, Norway",2024-04-18
+CUST-00100,Amanda Smith,amanda.smith@example.com,returning,United States,"Los Angeles, CA",2024-05-21
+CUST-00101,Melissa Davis,melissa.davis@example.com,new,United States,"San Antonio, TX",2025-06-24
+CUST-00102,Deborah Anderson,deborah.anderson@example.com,new,United States,"Tampa, FL",2025-01-27
+CUST-00103,Stephanie Perez,stephanie.perez@example.com,new,United States,"Albany, NY",2025-02-02
+CUST-00104,Rebecca Lewis,rebecca.lewis@example.com,new,United States,"Reading, PA",2025-03-05
+CUST-00105,Sharon Scott,sharon.scott@example.com,vip,United States,"Chicago, IL",2024-10-08
+CUST-00106,Laura Nelson,laura.nelson@example.com,new,United States,"Cleveland, OH",2025-05-11
+CUST-00107,Cynthia Roberts,cynthia.roberts@example.com,new,United States,"Columbus, GA",2025-06-14
+CUST-00108,Kathleen Miller,kathleen.miller@example.com,new,United States,"Durham, NC",2025-01-17
+CUST-00109,Amy Wilson,amy.wilson@example.com,new,United States,"Ann Arbor, MI",2025-02-20
+CUST-00110,Angela Lee,angela.lee@example.com,new,United States,"Newark, NJ",2025-03-23
+CUST-00111,Shirley Ramirez,shirley.ramirez@example.com,new,United States,"Norfolk, VA",2025-04-26
+CUST-00112,Anna Wright,anna.wright@example.com,new,United States,"Tacoma, WA",2025-05-01
+CUST-00113,Brenda Adams,brenda.adams@example.com,new,United States,"Chandler, AZ",2025-06-04
+CUST-00114,Pamela Carter,pamela.carter@example.com,new,United States,"Lowell, MA",2025-01-07
+CUST-00115,Emma Garcia,emma.garcia@example.com,new,United States,"Nashville, TN",2025-02-10
+CUST-00116,Nicole Gonzalez,nicole.gonzalez@example.com,new,United States,"Fort Wayne, IN",2025-03-13
+CUST-00117,Helen Martin,helen.martin@example.com,new,United States,"Springfield, MO",2025-04-16
+CUST-00118,Samantha Clark,samantha.clark@example.com,vip,United States,"Gaithersburg, MD",2023-11-19
+CUST-00119,Katherine King,katherine.king@example.com,new,United States,"Lakewood, CO",2025-06-22
+CUST-00120,James Green,james.green@example.com,new,United States,"Los Angeles, CA",2025-01-25
+CUST-00121,John Mitchell,john.mitchell@example.com,new,United States,"San Antonio, TX",2025-02-28
+CUST-00122,Robert Jones,robert.jones@example.com,new,United States,"Tampa, FL",2025-03-03
+CUST-00123,Michael Lopez,michael.lopez@example.com,new,United States,"Albany, NY",2025-04-06
+CUST-00124,David Jackson,david.jackson@example.com,new,United States,"Reading, PA",2025-05-09
+CUST-00125,William Sanchez,william.sanchez@example.com,new,United States,"Chicago, IL",2025-06-12
+CUST-00126,Richard Allen,richard.allen@example.com,new,United States,"Cleveland, OH",2025-01-15
+CUST-00127,Joseph Flores,joseph.flores@example.com,vip,United States,"Columbus, GA",2024-08-18
+CUST-00128,Thomas Campbell,thomas.campbell@example.com,new,United States,"Durham, NC",2025-03-21
+CUST-00129,Christopher Brown,christopher.brown@example.com,new,United States,"Ann Arbor, MI",2025-04-24
+CUST-00130,Mary Hernandez,mary.hernandez@example.com,new,United States,"Newark, NJ",2025-05-27
+CUST-00131,Patricia Moore,patricia.moore@example.com,new,United States,"Norfolk, VA",2025-06-02
+CUST-00132,Jennifer Harris,jennifer.harris@example.com,new,United States,"Tacoma, WA",2025-01-05
+CUST-00133,Linda Young,linda.young@example.com,new,United States,"Chandler, AZ",2025-02-08
+CUST-00134,Elizabeth Hill,elizabeth.hill@example.com,new,United States,"Lowell, MA",2025-03-11
+CUST-00135,Barbara Rivera,barbara.rivera@example.com,new,United States,"Nashville, TN",2025-04-14
+CUST-00136,Susan Williams,susan.williams@example.com,new,United States,"Fort Wayne, IN",2025-05-17
+CUST-00137,Jessica Martinez,jessica.martinez@example.com,new,United States,"Springfield, MO",2025-06-20
+CUST-00138,Sarah Taylor,sarah.taylor@example.com,new,United States,"Gaithersburg, MD",2025-01-23
+CUST-00139,Karen White,karen.white@example.com,vip,United States,"Lakewood, CO",2024-08-26
+CUST-00140,Jason Walker,jason.walker@example.com,new,United States,"Los Angeles, CA",2025-03-01
+CUST-00141,Ryan Nguyen,ryan.nguyen@example.com,new,United States,"San Antonio, TX",2025-04-04
+CUST-00142,Jacob Hall,jacob.hall@example.com,new,United States,"Tampa, FL",2025-05-07
+CUST-00143,Gary Johnson,gary.johnson@example.com,new,United States,"Albany, NY",2025-06-10
+CUST-00144,Nicholas Rodriguez,nicholas.rodriguez@example.com,new,United States,"Reading, PA",2025-01-13
+CUST-00145,Eric Thomas,eric.thomas@example.com,new,United States,"Chicago, IL",2025-02-16
+CUST-00146,Jonathan Thompson,jonathan.thompson@example.com,new,United States,"Cleveland, OH",2025-03-19
+CUST-00147,Stephen Robinson,stephen.robinson@example.com,new,United States,"Columbus, GA",2025-04-22
+CUST-00148,Larry Torres,larry.torres@example.com,vip,United States,"Durham, NC",2023-05-25
+CUST-00149,Justin Baker,justin.baker@example.com,new,United States,"Ann Arbor, MI",2025-06-28
+CUST-00150,Brandon Smith,brandon.smith@example.com,new,United States,"Newark, NJ",2025-01-03
+CUST-00151,Raymond Davis,raymond.davis@example.com,new,United States,"Norfolk, VA",2025-02-06
+CUST-00152,Samuel Anderson,samuel.anderson@example.com,new,United States,"Tacoma, WA",2025-03-09
+CUST-00153,Benjamin Perez,benjamin.perez@example.com,new,United States,"Chandler, AZ",2025-04-12
+CUST-00154,Gregory Lewis,gregory.lewis@example.com,new,United States,"Lowell, MA",2025-05-15
+CUST-00155,Frank Scott,frank.scott@example.com,new,United States,"Nashville, TN",2025-06-18
+CUST-00156,Alexander Nelson,alexander.nelson@example.com,new,United States,"Fort Wayne, IN",2025-01-21
+CUST-00157,Patrick Roberts,patrick.roberts@example.com,new,United States,"Springfield, MO",2025-02-24
+CUST-00158,Jack Miller,jack.miller@example.com,new,United States,"Gaithersburg, MD",2025-03-27
+CUST-00159,Dennis Wilson,dennis.wilson@example.com,new,United States,"Lakewood, CO",2025-04-02
+CUST-00160,Amanda Lee,amanda.lee@example.com,new,United States,"Los Angeles, CA",2025-05-05
+CUST-00161,Melissa Ramirez,melissa.ramirez@example.com,new,United States,"San Antonio, TX",2025-06-08
+CUST-00162,Deborah Wright,deborah.wright@example.com,vip,United States,"Tampa, FL",2023-07-11
+CUST-00163,Stephanie Adams,stephanie.adams@example.com,new,United States,"Albany, NY",2025-02-14
+CUST-00164,Rebecca Carter,rebecca.carter@example.com,new,United States,"Reading, PA",2025-03-17
+CUST-00165,Sharon Garcia,sharon.garcia@example.com,new,United States,"Chicago, IL",2025-04-20
+CUST-00166,Laura Gonzalez,laura.gonzalez@example.com,new,United States,"Cleveland, OH",2025-05-23
+CUST-00167,Cynthia Martin,cynthia.martin@example.com,new,United States,"Columbus, GA",2025-06-26
+CUST-00168,Kathleen Clark,kathleen.clark@example.com,new,United States,"Durham, NC",2025-01-01
+CUST-00169,Amy King,amy.king@example.com,new,United States,"Ann Arbor, MI",2025-02-04
+CUST-00170,Olivia Johnson,olivia.johnson@example.com,new,United Kingdom,"London, UK",2025-03-07
+CUST-00171,Amelia Watson,amelia.watson@example.com,new,United Kingdom,"Manchester, UK",2025-04-10
+CUST-00172,Isla Brown,isla.brown@example.com,new,United Kingdom,"Birmingham, UK",2025-05-13
+CUST-00173,Ava Lewis,ava.lewis@example.com,new,United Kingdom,"Leeds, UK",2025-06-16
+CUST-00174,Emily Jackson,emily.jackson@example.com,new,United Kingdom,"Glasgow, UK",2025-01-19
+CUST-00175,Sophia Davies,sophia.davies@example.com,vip,United Kingdom,"Liverpool, UK",2024-08-22
+CUST-00176,Grace Walker,grace.walker@example.com,new,United Kingdom,"Bristol, UK",2025-03-25
+CUST-00177,Mia Wright,mia.wright@example.com,new,United Kingdom,"Edinburgh, UK",2025-04-28
+CUST-00178,Lena Wagner,lena.wagner@example.com,new,Germany,"Dortmund, Germany",2025-05-03
+CUST-00179,Lea Klein,lea.klein@example.com,new,Germany,"Essen, Germany",2025-06-06
+CUST-00180,Maximilian Muller,maximilian.muller@example.com,new,Germany,"Berlin, Germany",2025-01-09
+CUST-00181,Alexander Becker,alexander.becker@example.com,new,Germany,"Hamburg, Germany",2025-02-12
+CUST-00182,Paul Wolf,paul.wolf@example.com,new,Germany,"Munich, Germany",2025-03-15
+CUST-00183,Leon Schmidt,leon.schmidt@example.com,new,Germany,"Cologne, Germany",2025-04-18
+CUST-00184,Adam Leroy,adam.leroy@example.com,new,France,"Nice, France",2025-05-21
+CUST-00185,Lucas David,lucas.david@example.com,new,France,"Nantes, France",2025-06-24
+CUST-00186,Leo Dubois,leo.dubois@example.com,new,France,"Strasbourg, France",2025-01-27
+CUST-00187,Hugo Moreau,hugo.moreau@example.com,new,France,"Montpellier, France",2025-02-02
+CUST-00188,Milan Hendriks,milan.hendriks@example.com,new,Netherlands,"Breda, Netherlands",2025-03-05
+CUST-00189,Luuk van den Berg,luuk.van.den.berg@example.com,vip,Netherlands,"Nijmegen, Netherlands",2024-10-08
+CUST-00190,Anna Johnsen,anna.johnsen@example.com,new,Norway,"Oslo, Norway",2025-05-11
+CUST-00191,Kari Solberg,kari.solberg@example.com,new,Norway,"Bergen, Norway",2025-06-14
+CUST-00192,Ingrid Andersen,ingrid.andersen@example.com,new,Norway,"Trondheim, Norway",2025-01-17
+CUST-00193,Marit Pettersen,marit.pettersen@example.com,new,Norway,"Stavanger, Norway",2025-02-20
+CUST-00194,Liv Dahl,liv.dahl@example.com,new,Norway,"Drammen, Norway",2025-03-23
+CUST-00195,Silje Pedersen,silje.pedersen@example.com,new,Norway,"Fredrikstad, Norway",2025-04-26
+CUST-00196,Hilde Eriksen,hilde.eriksen@example.com,new,Norway,"Kristiansand, Norway",2025-05-01
+CUST-00197,Mette Moen,mette.moen@example.com,new,Norway,"Tromso, Norway",2025-06-04
+CUST-00198,Line Nilsen,line.nilsen@example.com,new,Norway,"Sandnes, Norway",2025-01-07
+CUST-00199,Kristin Berg,kristin.berg@example.com,new,Norway,"Sarpsborg, Norway",2025-02-10
+CUST-00200,Jason Smith,jason.smith@example.com,new,United States,"Los Angeles, CA",2025-03-13
+CUST-00201,Ryan Davis,ryan.davis@example.com,vip,United States,"San Antonio, TX",2024-10-16
+CUST-00202,Jacob Anderson,jacob.anderson@example.com,new,United States,"Tampa, FL",2025-05-19
+CUST-00203,Gary Perez,gary.perez@example.com,new,United States,"Albany, NY",2025-06-22
+CUST-00204,Nicholas Lewis,nicholas.lewis@example.com,new,United States,"Reading, PA",2025-01-25
+CUST-00205,Eric Scott,eric.scott@example.com,new,United States,"Chicago, IL",2025-02-28
+CUST-00206,Jonathan Nelson,jonathan.nelson@example.com,new,United States,"Cleveland, OH",2025-03-03
+CUST-00207,Stephen Roberts,stephen.roberts@example.com,new,United States,"Columbus, GA",2025-04-06
+CUST-00208,Larry Miller,larry.miller@example.com,new,United States,"Durham, NC",2025-05-09
+CUST-00209,Justin Wilson,justin.wilson@example.com,new,United States,"Ann Arbor, MI",2025-06-12
+CUST-00210,Brandon Lee,brandon.lee@example.com,new,United States,"Newark, NJ",2025-01-15
+CUST-00211,Raymond Ramirez,raymond.ramirez@example.com,new,United States,"Norfolk, VA",2025-02-18
+CUST-00212,Samuel Wright,samuel.wright@example.com,new,United States,"Tacoma, WA",2025-03-21
+CUST-00213,Benjamin Adams,benjamin.adams@example.com,new,United States,"Chandler, AZ",2025-04-24
+CUST-00214,Gregory Carter,gregory.carter@example.com,new,United States,"Lowell, MA",2025-05-27
+CUST-00215,Frank Garcia,frank.garcia@example.com,vip,United States,"Nashville, TN",2024-12-02
+CUST-00216,Alexander Gonzalez,alexander.gonzalez@example.com,new,United States,"Fort Wayne, IN",2025-01-05
+CUST-00217,Patrick Martin,patrick.martin@example.com,new,United States,"Springfield, MO",2025-02-08
+CUST-00218,Jack Clark,jack.clark@example.com,new,United States,"Gaithersburg, MD",2025-03-11
+CUST-00219,Dennis King,dennis.king@example.com,new,United States,"Lakewood, CO",2025-04-14
+CUST-00220,Amanda Green,amanda.green@example.com,new,United States,"Los Angeles, CA",2025-05-17
+CUST-00221,Melissa Mitchell,melissa.mitchell@example.com,new,United States,"San Antonio, TX",2025-06-20
+CUST-00222,Deborah Jones,deborah.jones@example.com,new,United States,"Tampa, FL",2025-01-23
+CUST-00223,Stephanie Lopez,stephanie.lopez@example.com,new,United States,"Albany, NY",2025-02-26
+CUST-00224,Rebecca Jackson,rebecca.jackson@example.com,new,United States,"Reading, PA",2025-03-01
+CUST-00225,Sharon Sanchez,sharon.sanchez@example.com,new,United States,"Chicago, IL",2025-04-04
+CUST-00226,Laura Allen,laura.allen@example.com,new,United States,"Cleveland, OH",2025-05-07
+CUST-00227,Cynthia Flores,cynthia.flores@example.com,new,United States,"Columbus, GA",2025-06-10
+CUST-00228,Kathleen Campbell,kathleen.campbell@example.com,vip,United States,"Durham, NC",2023-01-13
+CUST-00229,Amy Brown,amy.brown@example.com,new,United States,"Ann Arbor, MI",2025-02-16
+CUST-00230,Angela Hernandez,angela.hernandez@example.com,new,United States,"Newark, NJ",2025-03-19
+CUST-00231,Shirley Moore,shirley.moore@example.com,new,United States,"Norfolk, VA",2025-04-22
+CUST-00232,Anna Harris,anna.harris@example.com,new,United States,"Tacoma, WA",2025-05-25
+CUST-00233,Brenda Young,brenda.young@example.com,new,United States,"Chandler, AZ",2025-06-28
+CUST-00234,Pamela Hill,pamela.hill@example.com,new,United States,"Lowell, MA",2025-01-03
+CUST-00235,Emma Rivera,emma.rivera@example.com,new,United States,"Nashville, TN",2025-02-06
+CUST-00236,Nicole Williams,nicole.williams@example.com,new,United States,"Fort Wayne, IN",2025-03-09
+CUST-00237,Helen Martinez,helen.martinez@example.com,new,United States,"Springfield, MO",2025-04-12
+CUST-00238,Samantha Taylor,samantha.taylor@example.com,new,United States,"Gaithersburg, MD",2025-05-15
+CUST-00239,Katherine White,katherine.white@example.com,new,United States,"Lakewood, CO",2025-06-18
+CUST-00240,James Walker,james.walker@example.com,new,United States,"Los Angeles, CA",2025-01-21
+CUST-00241,John Nguyen,john.nguyen@example.com,new,United States,"San Antonio, TX",2025-02-24
+CUST-00242,Robert Hall,robert.hall@example.com,new,United States,"Tampa, FL",2025-03-27
+CUST-00243,Michael Johnson,michael.johnson@example.com,new,United States,"Albany, NY",2025-04-02
+CUST-00244,David Rodriguez,david.rodriguez@example.com,vip,United States,"Reading, PA",2023-05-05
+CUST-00245,William Thomas,william.thomas@example.com,new,United States,"Chicago, IL",2025-06-08
+CUST-00246,Richard Thompson,richard.thompson@example.com,new,United States,"Cleveland, OH",2025-01-11
+CUST-00247,Joseph Robinson,joseph.robinson@example.com,new,United States,"Columbus, GA",2025-02-14
+CUST-00248,Thomas Torres,thomas.torres@example.com,new,United States,"Durham, NC",2025-03-17
+CUST-00249,Christopher Baker,christopher.baker@example.com,new,United States,"Ann Arbor, MI",2025-04-20
+CUST-00250,Mary Smith,mary.smith@example.com,new,United States,"Newark, NJ",2025-05-23
+CUST-00251,Patricia Davis,patricia.davis@example.com,new,United States,"Norfolk, VA",2025-06-26
+CUST-00252,Jennifer Anderson,jennifer.anderson@example.com,new,United States,"Tacoma, WA",2025-01-01
+CUST-00253,Linda Perez,linda.perez@example.com,new,United States,"Chandler, AZ",2025-02-04
+CUST-00254,Elizabeth Lewis,elizabeth.lewis@example.com,new,United States,"Lowell, MA",2025-03-07
+CUST-00255,Barbara Scott,barbara.scott@example.com,new,United States,"Nashville, TN",2025-04-10
+CUST-00256,Susan Nelson,susan.nelson@example.com,new,United States,"Fort Wayne, IN",2025-05-13
+CUST-00257,Jessica Roberts,jessica.roberts@example.com,new,United States,"Springfield, MO",2025-06-16
+CUST-00258,Sarah Miller,sarah.miller@example.com,new,United States,"Gaithersburg, MD",2025-01-19
+CUST-00259,Karen Wilson,karen.wilson@example.com,vip,United States,"Lakewood, CO",2024-08-22
+CUST-00260,Jason Lee,jason.lee@example.com,new,United States,"Los Angeles, CA",2025-03-25
+CUST-00261,Ryan Ramirez,ryan.ramirez@example.com,new,United States,"San Antonio, TX",2025-04-28
+CUST-00262,Jacob Wright,jacob.wright@example.com,new,United States,"Tampa, FL",2025-05-03
+CUST-00263,Gary Adams,gary.adams@example.com,new,United States,"Albany, NY",2025-06-06
+CUST-00264,Nicholas Carter,nicholas.carter@example.com,new,United States,"Reading, PA",2025-01-09
+CUST-00265,Eric Garcia,eric.garcia@example.com,new,United States,"Chicago, IL",2025-02-12
+CUST-00266,Jonathan Gonzalez,jonathan.gonzalez@example.com,new,United States,"Cleveland, OH",2025-03-15
+CUST-00267,Stephen Martin,stephen.martin@example.com,new,United States,"Columbus, GA",2025-04-18
+CUST-00268,Larry Clark,larry.clark@example.com,new,United States,"Durham, NC",2025-05-21
+CUST-00269,Justin King,justin.king@example.com,new,United States,"Ann Arbor, MI",2025-06-24
+CUST-00270,Olivia Johnson,olivia.johnson@example.com,new,United Kingdom,"London, UK",2025-01-27
+CUST-00271,Amelia Watson,amelia.watson@example.com,new,United Kingdom,"Manchester, UK",2025-02-02
+CUST-00272,Isla Brown,isla.brown@example.com,new,United Kingdom,"Birmingham, UK",2025-03-05
+CUST-00273,Ava Lewis,ava.lewis@example.com,vip,United Kingdom,"Leeds, UK",2024-10-08
+CUST-00274,Emily Jackson,emily.jackson@example.com,new,United Kingdom,"Glasgow, UK",2025-05-11
+CUST-00275,Sophia Davies,sophia.davies@example.com,new,United Kingdom,"Liverpool, UK",2025-06-14
+CUST-00276,Grace Walker,grace.walker@example.com,new,United Kingdom,"Bristol, UK",2025-01-17
+CUST-00277,Mia Wright,mia.wright@example.com,new,United Kingdom,"Edinburgh, UK",2025-02-20
+CUST-00278,Lena Wagner,lena.wagner@example.com,new,Germany,"Dortmund, Germany",2025-03-23
+CUST-00279,Lea Klein,lea.klein@example.com,new,Germany,"Essen, Germany",2025-04-26
+CUST-00280,Maximilian Muller,maximilian.muller@example.com,new,Germany,"Berlin, Germany",2025-05-01
+CUST-00281,Alexander Becker,alexander.becker@example.com,new,Germany,"Hamburg, Germany",2025-06-04
+CUST-00282,Paul Wolf,paul.wolf@example.com,new,Germany,"Munich, Germany",2025-01-07
+CUST-00283,Leon Schmidt,leon.schmidt@example.com,new,Germany,"Cologne, Germany",2025-02-10
+CUST-00284,Adam Leroy,adam.leroy@example.com,new,France,"Nice, France",2025-03-13
+CUST-00285,Lucas David,lucas.david@example.com,new,France,"Nantes, France",2025-04-16
+CUST-00286,Leo Dubois,leo.dubois@example.com,new,France,"Strasbourg, France",2025-05-19
+CUST-00287,Hugo Moreau,hugo.moreau@example.com,new,France,"Montpellier, France",2025-06-22
+CUST-00288,Milan Hendriks,milan.hendriks@example.com,vip,Netherlands,"Breda, Netherlands",2023-01-25
+CUST-00289,Luuk van den Berg,luuk.van.den.berg@example.com,new,Netherlands,"Nijmegen, Netherlands",2025-02-28
+CUST-00290,Anna Johnsen,anna.johnsen@example.com,new,Norway,"Oslo, Norway",2025-03-03
+CUST-00291,Kari Solberg,kari.solberg@example.com,new,Norway,"Bergen, Norway",2025-04-06
+CUST-00292,Ingrid Andersen,ingrid.andersen@example.com,new,Norway,"Trondheim, Norway",2025-05-09
+CUST-00293,Marit Pettersen,marit.pettersen@example.com,new,Norway,"Stavanger, Norway",2025-06-12
+CUST-00294,Liv Dahl,liv.dahl@example.com,new,Norway,"Drammen, Norway",2025-01-15
+CUST-00295,Silje Pedersen,silje.pedersen@example.com,new,Norway,"Fredrikstad, Norway",2025-02-18
+CUST-00296,Hilde Eriksen,hilde.eriksen@example.com,new,Norway,"Kristiansand, Norway",2025-03-21
+CUST-00297,Mette Moen,mette.moen@example.com,new,Norway,"Tromso, Norway",2025-04-24
+CUST-00298,Line Nilsen,line.nilsen@example.com,new,Norway,"Sandnes, Norway",2025-05-27
+CUST-00299,Kristin Berg,kristin.berg@example.com,new,Norway,"Sarpsborg, Norway",2025-06-02
+CUST-00300,James Smith,james.smith@example.com,new,United States,"Los Angeles, CA",2025-01-05
+CUST-00301,John Davis,john.davis@example.com,dormant,United States,"San Antonio, TX",2024-02-08
+CUST-00302,Robert Anderson,robert.anderson@example.com,vip,United States,"Tampa, FL",2023-03-11
+CUST-00303,Michael Perez,michael.perez@example.com,dormant,United States,"Albany, NY",2024-04-14
+CUST-00304,David Lewis,david.lewis@example.com,dormant,United States,"Reading, PA",2024-05-17
+CUST-00305,William Scott,william.scott@example.com,dormant,United States,"Chicago, IL",2024-06-20
+CUST-00306,Richard Nelson,richard.nelson@example.com,dormant,United States,"Cleveland, OH",2024-07-23
+CUST-00307,Joseph Roberts,joseph.roberts@example.com,dormant,United States,"Columbus, GA",2024-08-26
+CUST-00308,Thomas Miller,thomas.miller@example.com,dormant,United States,"Durham, NC",2024-09-01
+CUST-00309,Christopher Wilson,christopher.wilson@example.com,dormant,United States,"Ann Arbor, MI",2024-10-04
+CUST-00310,Mary Lee,mary.lee@example.com,dormant,United States,"Newark, NJ",2024-11-07
+CUST-00311,Patricia Ramirez,patricia.ramirez@example.com,dormant,United States,"Norfolk, VA",2024-12-10
+CUST-00312,Jennifer Wright,jennifer.wright@example.com,dormant,United States,"Tacoma, WA",2024-01-13
+CUST-00313,Linda Adams,linda.adams@example.com,dormant,United States,"Chandler, AZ",2024-02-16
+CUST-00314,Elizabeth Carter,elizabeth.carter@example.com,dormant,United States,"Lowell, MA",2024-03-19
+CUST-00315,Barbara Garcia,barbara.garcia@example.com,dormant,United States,"Nashville, TN",2024-04-22
+CUST-00316,Susan Gonzalez,susan.gonzalez@example.com,dormant,United States,"Fort Wayne, IN",2024-05-25
+CUST-00317,Jessica Martin,jessica.martin@example.com,dormant,United States,"Springfield, MO",2024-06-28
+CUST-00318,Sarah Clark,sarah.clark@example.com,dormant,United States,"Gaithersburg, MD",2024-07-03
+CUST-00319,Karen King,karen.king@example.com,vip,United States,"Lakewood, CO",2024-08-06
+CUST-00320,Jason Green,jason.green@example.com,dormant,United States,"Los Angeles, CA",2024-09-09
+CUST-00321,Ryan Mitchell,ryan.mitchell@example.com,dormant,United States,"San Antonio, TX",2024-10-12
+CUST-00322,Jacob Jones,jacob.jones@example.com,dormant,United States,"Tampa, FL",2024-11-15
+CUST-00323,Gary Lopez,gary.lopez@example.com,dormant,United States,"Albany, NY",2024-12-18
+CUST-00324,Nicholas Jackson,nicholas.jackson@example.com,dormant,United States,"Reading, PA",2024-01-21
+CUST-00325,Eric Sanchez,eric.sanchez@example.com,dormant,United States,"Chicago, IL",2024-02-24
+CUST-00326,Jonathan Allen,jonathan.allen@example.com,dormant,United States,"Cleveland, OH",2024-03-27
+CUST-00327,Stephen Flores,stephen.flores@example.com,dormant,United States,"Columbus, GA",2024-04-02
+CUST-00328,Larry Campbell,larry.campbell@example.com,dormant,United States,"Durham, NC",2024-05-05
+CUST-00329,Justin Brown,justin.brown@example.com,dormant,United States,"Ann Arbor, MI",2024-06-08
+CUST-00330,Brandon Hernandez,brandon.hernandez@example.com,dormant,United States,"Newark, NJ",2024-07-11
+CUST-00331,Raymond Moore,raymond.moore@example.com,dormant,United States,"Norfolk, VA",2024-08-14
+CUST-00332,Samuel Harris,samuel.harris@example.com,dormant,United States,"Tacoma, WA",2024-09-17
+CUST-00333,Benjamin Young,benjamin.young@example.com,dormant,United States,"Chandler, AZ",2024-10-20
+CUST-00334,Gregory Hill,gregory.hill@example.com,dormant,United States,"Lowell, MA",2024-11-23
+CUST-00335,Frank Rivera,frank.rivera@example.com,dormant,United States,"Nashville, TN",2024-12-26
+CUST-00336,Alexander Williams,alexander.williams@example.com,dormant,United States,"Fort Wayne, IN",2024-01-01
+CUST-00337,Patrick Martinez,patrick.martinez@example.com,vip,United States,"Springfield, MO",2024-02-04
+CUST-00338,Jack Taylor,jack.taylor@example.com,dormant,United States,"Gaithersburg, MD",2024-03-07
+CUST-00339,Dennis White,dennis.white@example.com,dormant,United States,"Lakewood, CO",2024-04-10
+CUST-00340,Amanda Walker,amanda.walker@example.com,dormant,United States,"Los Angeles, CA",2024-05-13
+CUST-00341,Melissa Nguyen,melissa.nguyen@example.com,dormant,United States,"San Antonio, TX",2024-06-16
+CUST-00342,Deborah Hall,deborah.hall@example.com,dormant,United States,"Tampa, FL",2024-07-19
+CUST-00343,Stephanie Johnson,stephanie.johnson@example.com,dormant,United States,"Albany, NY",2024-08-22
+CUST-00344,Rebecca Rodriguez,rebecca.rodriguez@example.com,dormant,United States,"Reading, PA",2024-09-25
+CUST-00345,Sharon Thomas,sharon.thomas@example.com,dormant,United States,"Chicago, IL",2024-10-28
+CUST-00346,Laura Thompson,laura.thompson@example.com,dormant,United States,"Cleveland, OH",2024-11-03
+CUST-00347,Cynthia Robinson,cynthia.robinson@example.com,dormant,United States,"Columbus, GA",2024-12-06
+CUST-00348,Kathleen Torres,kathleen.torres@example.com,dormant,United States,"Durham, NC",2024-01-09
+CUST-00349,Amy Baker,amy.baker@example.com,dormant,United States,"Ann Arbor, MI",2024-02-12
+CUST-00350,Angela Smith,angela.smith@example.com,dormant,United States,"Newark, NJ",2024-03-15
+CUST-00351,Shirley Davis,shirley.davis@example.com,dormant,United States,"Norfolk, VA",2024-04-18
+CUST-00352,Anna Anderson,anna.anderson@example.com,dormant,United States,"Tacoma, WA",2024-05-21
+CUST-00353,Brenda Perez,brenda.perez@example.com,dormant,United States,"Chandler, AZ",2024-06-24
+CUST-00354,Pamela Lewis,pamela.lewis@example.com,vip,United States,"Lowell, MA",2023-07-27
+CUST-00355,Emma Scott,emma.scott@example.com,dormant,United States,"Nashville, TN",2024-08-02
+CUST-00356,Nicole Nelson,nicole.nelson@example.com,dormant,United States,"Fort Wayne, IN",2024-09-05
+CUST-00357,Helen Roberts,helen.roberts@example.com,dormant,United States,"Springfield, MO",2024-10-08
+CUST-00358,Samantha Miller,samantha.miller@example.com,dormant,United States,"Gaithersburg, MD",2024-11-11
+CUST-00359,Katherine Wilson,katherine.wilson@example.com,dormant,United States,"Lakewood, CO",2024-12-14
+CUST-00360,James Lee,james.lee@example.com,dormant,United States,"Los Angeles, CA",2024-01-17
+CUST-00361,John Ramirez,john.ramirez@example.com,dormant,United States,"San Antonio, TX",2024-02-20
+CUST-00362,Robert Wright,robert.wright@example.com,dormant,United States,"Tampa, FL",2024-03-23
+CUST-00363,Michael Adams,michael.adams@example.com,dormant,United States,"Albany, NY",2024-04-26
+CUST-00364,David Carter,david.carter@example.com,dormant,United States,"Reading, PA",2024-05-01
+CUST-00365,William Garcia,william.garcia@example.com,dormant,United States,"Chicago, IL",2024-06-04
+CUST-00366,Richard Gonzalez,richard.gonzalez@example.com,dormant,United States,"Cleveland, OH",2024-07-07
+CUST-00367,Joseph Martin,joseph.martin@example.com,dormant,United States,"Columbus, GA",2024-08-10
+CUST-00368,Thomas Clark,thomas.clark@example.com,dormant,United States,"Durham, NC",2024-09-13
+CUST-00369,Christopher King,christopher.king@example.com,dormant,United States,"Ann Arbor, MI",2024-10-16
+CUST-00370,Olivia Johnson,olivia.johnson@example.com,dormant,United Kingdom,"London, UK",2024-11-19
+CUST-00371,Amelia Watson,amelia.watson@example.com,vip,United Kingdom,"Manchester, UK",2024-12-22
+CUST-00372,Isla Brown,isla.brown@example.com,dormant,United Kingdom,"Birmingham, UK",2024-01-25
+CUST-00373,Ava Lewis,ava.lewis@example.com,dormant,United Kingdom,"Leeds, UK",2024-02-28
+CUST-00374,Emily Jackson,emily.jackson@example.com,dormant,United Kingdom,"Glasgow, UK",2024-03-03
+CUST-00375,Sophia Davies,sophia.davies@example.com,dormant,United Kingdom,"Liverpool, UK",2024-04-06
+CUST-00376,Grace Walker,grace.walker@example.com,dormant,United Kingdom,"Bristol, UK",2024-05-09
+CUST-00377,Mia Wright,mia.wright@example.com,dormant,United Kingdom,"Edinburgh, UK",2024-06-12
+CUST-00378,Lena Wagner,lena.wagner@example.com,dormant,Germany,"Dortmund, Germany",2024-07-15
+CUST-00379,Lea Klein,lea.klein@example.com,dormant,Germany,"Essen, Germany",2024-08-18
+CUST-00380,Maximilian Muller,maximilian.muller@example.com,dormant,Germany,"Berlin, Germany",2024-09-21
+CUST-00381,Alexander Becker,alexander.becker@example.com,dormant,Germany,"Hamburg, Germany",2024-10-24
+CUST-00382,Paul Wolf,paul.wolf@example.com,dormant,Germany,"Munich, Germany",2024-11-27
+CUST-00383,Leon Schmidt,leon.schmidt@example.com,dormant,Germany,"Cologne, Germany",2024-12-02
+CUST-00384,Adam Leroy,adam.leroy@example.com,dormant,France,"Nice, France",2024-01-05
+CUST-00385,Lucas David,lucas.david@example.com,dormant,France,"Nantes, France",2024-02-08
+CUST-00386,Leo Dubois,leo.dubois@example.com,dormant,France,"Strasbourg, France",2024-03-11
+CUST-00387,Hugo Moreau,hugo.moreau@example.com,dormant,France,"Montpellier, France",2024-04-14
+CUST-00388,Milan Hendriks,milan.hendriks@example.com,dormant,Netherlands,"Breda, Netherlands",2024-05-17
+CUST-00389,Luuk van den Berg,luuk.van.den.berg@example.com,vip,Netherlands,"Nijmegen, Netherlands",2024-06-20
+CUST-00390,Anna Johnsen,anna.johnsen@example.com,dormant,Norway,"Oslo, Norway",2024-07-23
+CUST-00391,Kari Solberg,kari.solberg@example.com,dormant,Norway,"Bergen, Norway",2024-08-26
+CUST-00392,Ingrid Andersen,ingrid.andersen@example.com,dormant,Norway,"Trondheim, Norway",2024-09-01
+CUST-00393,Marit Pettersen,marit.pettersen@example.com,dormant,Norway,"Stavanger, Norway",2024-10-04
+CUST-00394,Liv Dahl,liv.dahl@example.com,dormant,Norway,"Drammen, Norway",2024-11-07
+CUST-00395,Silje Pedersen,silje.pedersen@example.com,dormant,Norway,"Fredrikstad, Norway",2024-12-10
+CUST-00396,Hilde Eriksen,hilde.eriksen@example.com,dormant,Norway,"Kristiansand, Norway",2024-01-13
+CUST-00397,Mette Moen,mette.moen@example.com,dormant,Norway,"Tromso, Norway",2024-02-16
+CUST-00398,Line Nilsen,line.nilsen@example.com,dormant,Norway,"Sandnes, Norway",2024-03-19
+CUST-00399,Kristin Berg,kristin.berg@example.com,dormant,Norway,"Sarpsborg, Norway",2024-04-22
+CUST-00400,Amanda Smith,amanda.smith@example.com,dormant,United States,"Los Angeles, CA",2024-05-25
+CUST-00401,Melissa Davis,melissa.davis@example.com,dormant,United States,"San Antonio, TX",2024-06-28
+CUST-00402,Deborah Anderson,deborah.anderson@example.com,dormant,United States,"Tampa, FL",2024-07-03
+CUST-00403,Stephanie Perez,stephanie.perez@example.com,dormant,United States,"Albany, NY",2024-08-06
+CUST-00404,Rebecca Lewis,rebecca.lewis@example.com,dormant,United States,"Reading, PA",2024-09-09
+CUST-00405,Sharon Scott,sharon.scott@example.com,dormant,United States,"Chicago, IL",2024-10-12
+CUST-00406,Laura Nelson,laura.nelson@example.com,dormant,United States,"Cleveland, OH",2024-11-15
+CUST-00407,Cynthia Roberts,cynthia.roberts@example.com,dormant,United States,"Columbus, GA",2024-12-18
+CUST-00408,Kathleen Miller,kathleen.miller@example.com,vip,United States,"Durham, NC",2023-01-21
+CUST-00409,Amy Wilson,amy.wilson@example.com,dormant,United States,"Ann Arbor, MI",2024-02-24
+CUST-00410,Angela Lee,angela.lee@example.com,dormant,United States,"Newark, NJ",2024-03-27
+CUST-00411,Shirley Ramirez,shirley.ramirez@example.com,dormant,United States,"Norfolk, VA",2024-04-02
+CUST-00412,Anna Wright,anna.wright@example.com,dormant,United States,"Tacoma, WA",2024-05-05
+CUST-00413,Brenda Adams,brenda.adams@example.com,dormant,United States,"Chandler, AZ",2024-06-08
+CUST-00414,Pamela Carter,pamela.carter@example.com,dormant,United States,"Lowell, MA",2024-07-11
+CUST-00415,Emma Garcia,emma.garcia@example.com,dormant,United States,"Nashville, TN",2024-08-14
+CUST-00416,Nicole Gonzalez,nicole.gonzalez@example.com,dormant,United States,"Fort Wayne, IN",2024-09-17
+CUST-00417,Helen Martin,helen.martin@example.com,dormant,United States,"Springfield, MO",2024-10-20
+CUST-00418,Samantha Clark,samantha.clark@example.com,dormant,United States,"Gaithersburg, MD",2024-11-23
+CUST-00419,Katherine King,katherine.king@example.com,dormant,United States,"Lakewood, CO",2024-12-26
+CUST-00420,James Green,james.green@example.com,dormant,United States,"Los Angeles, CA",2024-01-01
+CUST-00421,John Mitchell,john.mitchell@example.com,dormant,United States,"San Antonio, TX",2024-02-04
+CUST-00422,Robert Jones,robert.jones@example.com,dormant,United States,"Tampa, FL",2024-03-07
+CUST-00423,Michael Lopez,michael.lopez@example.com,dormant,United States,"Albany, NY",2024-04-10
+CUST-00424,David Jackson,david.jackson@example.com,dormant,United States,"Reading, PA",2024-05-13
+CUST-00425,William Sanchez,william.sanchez@example.com,vip,United States,"Chicago, IL",2024-06-16
+CUST-00426,Richard Allen,richard.allen@example.com,dormant,United States,"Cleveland, OH",2024-07-19
+CUST-00427,Joseph Flores,joseph.flores@example.com,dormant,United States,"Columbus, GA",2024-08-22
+CUST-00428,Thomas Campbell,thomas.campbell@example.com,dormant,United States,"Durham, NC",2024-09-25
+CUST-00429,Christopher Brown,christopher.brown@example.com,dormant,United States,"Ann Arbor, MI",2024-10-28
+CUST-00430,Mary Hernandez,mary.hernandez@example.com,dormant,United States,"Newark, NJ",2024-11-03
+CUST-00431,Patricia Moore,patricia.moore@example.com,dormant,United States,"Norfolk, VA",2024-12-06
+CUST-00432,Jennifer Harris,jennifer.harris@example.com,dormant,United States,"Tacoma, WA",2024-01-09
+CUST-00433,Linda Young,linda.young@example.com,dormant,United States,"Chandler, AZ",2024-02-12
+CUST-00434,Elizabeth Hill,elizabeth.hill@example.com,dormant,United States,"Lowell, MA",2024-03-15
+CUST-00435,Barbara Rivera,barbara.rivera@example.com,dormant,United States,"Nashville, TN",2024-04-18
+CUST-00436,Susan Williams,susan.williams@example.com,dormant,United States,"Fort Wayne, IN",2024-05-21
+CUST-00437,Jessica Martinez,jessica.martinez@example.com,dormant,United States,"Springfield, MO",2024-06-24
+CUST-00438,Sarah Taylor,sarah.taylor@example.com,dormant,United States,"Gaithersburg, MD",2024-07-27
+CUST-00439,Karen White,karen.white@example.com,dormant,United States,"Lakewood, CO",2024-08-02
+CUST-00440,Jason Walker,jason.walker@example.com,dormant,United States,"Los Angeles, CA",2024-09-05
+CUST-00441,Ryan Nguyen,ryan.nguyen@example.com,dormant,United States,"San Antonio, TX",2024-10-08
+CUST-00442,Jacob Hall,jacob.hall@example.com,dormant,United States,"Tampa, FL",2024-11-11
+CUST-00443,Gary Johnson,gary.johnson@example.com,dormant,United States,"Albany, NY",2024-12-14
+CUST-00444,Nicholas Rodriguez,nicholas.rodriguez@example.com,dormant,United States,"Reading, PA",2024-01-17
+CUST-00445,Eric Thomas,eric.thomas@example.com,dormant,United States,"Chicago, IL",2024-02-20
+CUST-00446,Jonathan Thompson,jonathan.thompson@example.com,dormant,United States,"Cleveland, OH",2024-03-23
+CUST-00447,Stephen Robinson,stephen.robinson@example.com,vip,United States,"Columbus, GA",2024-04-26
+CUST-00448,Larry Torres,larry.torres@example.com,dormant,United States,"Durham, NC",2024-05-01
+CUST-00449,Justin Baker,justin.baker@example.com,dormant,United States,"Ann Arbor, MI",2024-06-04
+CUST-00450,Brandon Smith,brandon.smith@example.com,dormant,United States,"Newark, NJ",2024-07-07
+CUST-00451,Raymond Davis,raymond.davis@example.com,dormant,United States,"Norfolk, VA",2024-08-10
+CUST-00452,Samuel Anderson,samuel.anderson@example.com,dormant,United States,"Tacoma, WA",2024-09-13
+CUST-00453,Benjamin Perez,benjamin.perez@example.com,dormant,United States,"Chandler, AZ",2024-10-16
+CUST-00454,Gregory Lewis,gregory.lewis@example.com,dormant,United States,"Lowell, MA",2024-11-19
+CUST-00455,Frank Scott,frank.scott@example.com,dormant,United States,"Nashville, TN",2024-12-22
+CUST-00456,Alexander Nelson,alexander.nelson@example.com,dormant,United States,"Fort Wayne, IN",2024-01-25
+CUST-00457,Patrick Roberts,patrick.roberts@example.com,dormant,United States,"Springfield, MO",2024-02-28
+CUST-00458,Jack Miller,jack.miller@example.com,dormant,United States,"Gaithersburg, MD",2024-03-03
+CUST-00459,Dennis Wilson,dennis.wilson@example.com,dormant,United States,"Lakewood, CO",2024-04-06
+CUST-00460,Amanda Lee,amanda.lee@example.com,dormant,United States,"Los Angeles, CA",2024-05-09
+CUST-00461,Melissa Ramirez,melissa.ramirez@example.com,dormant,United States,"San Antonio, TX",2024-06-12
+CUST-00462,Deborah Wright,deborah.wright@example.com,dormant,United States,"Tampa, FL",2024-07-15
+CUST-00463,Stephanie Adams,stephanie.adams@example.com,vip,United States,"Albany, NY",2024-08-18
+CUST-00464,Rebecca Carter,rebecca.carter@example.com,dormant,United States,"Reading, PA",2024-09-21
+CUST-00465,Sharon Garcia,sharon.garcia@example.com,dormant,United States,"Chicago, IL",2024-10-24
+CUST-00466,Laura Gonzalez,laura.gonzalez@example.com,dormant,United States,"Cleveland, OH",2024-11-27
+CUST-00467,Cynthia Martin,cynthia.martin@example.com,dormant,United States,"Columbus, GA",2024-12-02
+CUST-00468,Kathleen Clark,kathleen.clark@example.com,dormant,United States,"Durham, NC",2024-01-05
+CUST-00469,Amy King,amy.king@example.com,dormant,United States,"Ann Arbor, MI",2024-02-08
+CUST-00470,Olivia Johnson,olivia.johnson@example.com,dormant,United Kingdom,"London, UK",2024-03-11
+CUST-00471,Amelia Watson,amelia.watson@example.com,dormant,United Kingdom,"Manchester, UK",2024-04-14
+CUST-00472,Isla Brown,isla.brown@example.com,dormant,United Kingdom,"Birmingham, UK",2024-05-17
+CUST-00473,Ava Lewis,ava.lewis@example.com,dormant,United Kingdom,"Leeds, UK",2024-06-20
+CUST-00474,Emily Jackson,emily.jackson@example.com,dormant,United Kingdom,"Glasgow, UK",2024-07-23
+CUST-00475,Sophia Davies,sophia.davies@example.com,dormant,United Kingdom,"Liverpool, UK",2024-08-26
+CUST-00476,Grace Walker,grace.walker@example.com,dormant,United Kingdom,"Bristol, UK",2024-09-01
+CUST-00477,Mia Wright,mia.wright@example.com,dormant,United Kingdom,"Edinburgh, UK",2024-10-04
+CUST-00478,Lena Wagner,lena.wagner@example.com,dormant,Germany,"Dortmund, Germany",2024-11-07
+CUST-00479,Lea Klein,lea.klein@example.com,vip,Germany,"Essen, Germany",2024-12-10
+CUST-00480,Maximilian Muller,maximilian.muller@example.com,dormant,Germany,"Berlin, Germany",2024-01-13
+CUST-00481,Alexander Becker,alexander.becker@example.com,dormant,Germany,"Hamburg, Germany",2024-02-16
+CUST-00482,Paul Wolf,paul.wolf@example.com,dormant,Germany,"Munich, Germany",2024-03-19
+CUST-00483,Leon Schmidt,leon.schmidt@example.com,dormant,Germany,"Cologne, Germany",2024-04-22
+CUST-00484,Adam Leroy,adam.leroy@example.com,dormant,France,"Nice, France",2024-05-25
+CUST-00485,Lucas David,lucas.david@example.com,dormant,France,"Nantes, France",2024-06-28
+CUST-00486,Leo Dubois,leo.dubois@example.com,dormant,France,"Strasbourg, France",2024-07-03
+CUST-00487,Hugo Moreau,hugo.moreau@example.com,dormant,France,"Montpellier, France",2024-08-06
+CUST-00488,Milan Hendriks,milan.hendriks@example.com,dormant,Netherlands,"Breda, Netherlands",2024-09-09
+CUST-00489,Luuk van den Berg,luuk.van.den.berg@example.com,dormant,Netherlands,"Nijmegen, Netherlands",2024-10-12
+CUST-00490,Anna Johnsen,anna.johnsen@example.com,dormant,Norway,"Oslo, Norway",2024-11-15
+CUST-00491,Kari Solberg,kari.solberg@example.com,dormant,Norway,"Bergen, Norway",2024-12-18
+CUST-00492,Ingrid Andersen,ingrid.andersen@example.com,vip,Norway,"Trondheim, Norway",2023-01-21
+CUST-00493,Marit Pettersen,marit.pettersen@example.com,dormant,Norway,"Stavanger, Norway",2024-02-24
+CUST-00494,Liv Dahl,liv.dahl@example.com,dormant,Norway,"Drammen, Norway",2024-03-27
+CUST-00495,Silje Pedersen,silje.pedersen@example.com,dormant,Norway,"Fredrikstad, Norway",2024-04-02
+CUST-00496,Hilde Eriksen,hilde.eriksen@example.com,dormant,Norway,"Kristiansand, Norway",2024-05-05
+CUST-00497,Mette Moen,mette.moen@example.com,dormant,Norway,"Tromso, Norway",2024-06-08
+CUST-00498,Line Nilsen,line.nilsen@example.com,dormant,Norway,"Sandnes, Norway",2024-07-11
+CUST-00499,Kristin Berg,kristin.berg@example.com,vip,Norway,"Sarpsborg, Norway",2024-08-14
+CUST-00500,Jason Smith,jason.smith@example.com,vip,United States,"Los Angeles, CA",2023-09-17

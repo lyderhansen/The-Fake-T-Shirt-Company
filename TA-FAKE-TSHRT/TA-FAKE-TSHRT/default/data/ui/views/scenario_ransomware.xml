@@ -1,0 +1,345 @@
+<dashboard version="1.1" theme="dark">
+  <label>Ransomware - Attack Blocked</label>
+  <description>Ransomware attack detected and stopped in 20 minutes by EDR + IDS</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d1f 100%); border-radius: 8px; border-left: 4px solid #5CC05C;">
+          <h2 style="color: #5CC05C; margin-top: 0;">Ransomware Attack - BLOCKED</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Sales engineer Brooklyn White in Austin receives phishing email with malicious Word macro. Meraki IDS detects lateral movement and automatically isolates the endpoint. Attack stopped before encryption.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Duration:</span> <strong style="color: #fff;">20 minutes</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Category:</span> <strong style="color: #dc4e41;">Security/Attack</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">demo_id:</span> <code style="color: #5CC05C;">ransomware_attempt</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Outcome:</span> <strong style="color: #5CC05C;">Blocked by EDR + IDS</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Kill Chain Timeline - Day 8</title>
+      <html>
+        <div style="padding: 15px; background: #1a1a1a; border-radius: 5px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; overflow-x: auto; padding: 20px 0;">
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #f8be34; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">13:55</div>
+              <div style="color: #ccc; margin-top: 10px;">Email<br/>Received</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #f8be34; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">14:02</div>
+              <div style="color: #ccc; margin-top: 10px;">Macro<br/>Executes</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #dc4e41; color: #fff; padding: 10px; border-radius: 5px; font-weight: bold;">14:03</div>
+              <div style="color: #ccc; margin-top: 10px;">Dropper<br/>Launched</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #dc4e41; color: #fff; padding: 10px; border-radius: 5px; font-weight: bold;">14:05</div>
+              <div style="color: #ccc; margin-top: 10px;">C2<br/>Callback</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #dc4e41; color: #fff; padding: 10px; border-radius: 5px; font-weight: bold;">14:08</div>
+              <div style="color: #ccc; margin-top: 10px;">Lateral<br/>Attempt</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #5CC05C; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">14:12</div>
+              <div style="color: #ccc; margin-top: 10px;">EDR<br/>Detection</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #5CC05C; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">14:15</div>
+              <div style="color: #ccc; margin-top: 10px;">Client<br/>Isolated</div>
+            </div>
+          </div>
+          <p style="text-align: center; color: #5CC05C; font-size: 1.2em; margin-top: 20px;"><strong>Total time from infection to containment: 20 minutes</strong></p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Target User</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; border-left: 4px solid #f8be34;">
+          <h3 style="color: #f8be34; margin-top: 0;">Brooklyn White</h3>
+          <table style="width: 100%;">
+            <tr><td style="color: #999; padding: 5px 0; width: 120px;">Role:</td><td style="color: #fff;">Sales Engineer</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Location:</td><td style="color: #fff;">Austin</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Email:</td><td style="color: #fff;">brooklyn.white@theFakeTshirtCompany.com</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Hostname:</td><td style="color: #fff;">AUS-WS-BWHITE01</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">IP:</td><td style="color: #5CC05C;">10.30.30.20</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Command &amp; Control Server</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; border-left: 4px solid #dc4e41;">
+          <h3 style="color: #dc4e41; margin-top: 0;">C2 Server</h3>
+          <table style="width: 100%;">
+            <tr><td style="color: #999; padding: 5px 0; width: 120px;">IP:</td><td style="color: #dc4e41;"><strong>194.26.29.42</strong></td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Location:</td><td style="color: #fff;">Russia</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Port:</td><td style="color: #fff;">443 (HTTPS)</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">ASN:</td><td style="color: #fff;">AS49505</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Malware Details</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; border-left: 4px solid #dc4e41;">
+          <h3 style="color: #dc4e41; margin-top: 0;">Trojan/Emotet</h3>
+          <table style="width: 100%;">
+            <tr><td style="color: #999; padding: 5px 0; width: 120px;">Filename:</td><td style="color: #fff;">svchost_update.exe</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Path:</td><td style="color: #fff; font-size: 0.9em;">C:\Users\bwhite\AppData\Local\Temp\</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">AV Signature:</td><td style="color: #dc4e41;">Trojan:Win32/Emotet.RPK!MTB</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">IDS Signature:</td><td style="color: #fff;">ET TROJAN Emotet CnC Beacon</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Attack Events Over Time</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt demo_id=ransomware_attempt
+| timechart span=5m count by sourcetype</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Events by Type</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt demo_id=ransomware_attempt
+| stats count by sourcetype
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt demo_id=ransomware_attempt | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>C2 Connections Blocked</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt demo_id=ransomware_attempt dest=194.26.29.42 | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Failed Lateral Moves</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt demo_id=ransomware_attempt EventID=4625 | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Time to Containment</title>
+      <single>
+        <search>
+          <query>| makeresults | eval minutes="20 min" | table minutes</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Phishing Email Details</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%;">
+            <tr><td style="color: #999; padding: 8px 0; width: 120px;">From:</td><td style="color: #dc4e41;">accounting@invoices-delivery.com (spoofed)</td></tr>
+            <tr><td style="color: #999; padding: 8px 0;">To:</td><td style="color: #fff;">brooklyn.white@theFakeTshirtCompany.com</td></tr>
+            <tr><td style="color: #999; padding: 8px 0;">Subject:</td><td style="color: #fff;">"Outstanding Invoice - Immediate Action Required"</td></tr>
+            <tr><td style="color: #999; padding: 8px 0;">Attachment:</td><td style="color: #dc4e41;"><strong>Invoice_Q4_2026.docm</strong> (250-350KB)</td></tr>
+            <tr><td style="color: #999; padding: 8px 0;">From IP:</td><td style="color: #fff;">185.234.72.15</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Lateral Movement Targets (All Blocked)</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">IP</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Hostname</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">User</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Result</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">10.30.30.21</td>
+              <td style="padding: 8px; border: 1px solid #444;">AUS-WS-DHARRIS01</td>
+              <td style="padding: 8px; border: 1px solid #444;">dakota.harris</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>BLOCKED</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">10.30.30.22</td>
+              <td style="padding: 8px; border: 1px solid #444;">AUS-WS-PMARTIN01</td>
+              <td style="padding: 8px; border: 1px solid #444;">phoenix.martin</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>BLOCKED</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">10.30.30.40</td>
+              <td style="padding: 8px; border: 1px solid #444;">AUS-WS-ACOLLINS01</td>
+              <td style="padding: 8px; border: 1px solid #444;">amelia.collins</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>BLOCKED</strong></td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Windows Event Log - Process Chain</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:WinEventLog" demo_id=ransomware_attempt
+  (EventID=4688 OR EventID=4697 OR EventID=1116 OR EventID=4625)
+| table _time, EventID, Computer, NewProcessName, ParentProcessName, TargetUserName
+| sort _time</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">15</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Ready-to-Use SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Full Attack Timeline</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt demo_id=ransomware_attempt
+| sort _time
+| table _time, sourcetype, host, EventID, message, action</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Process Creation Chain</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:WinEventLog" EventID=4688
+  Computer="AUS-WS-BWHITE01" demo_id=ransomware_attempt
+| table _time, NewProcessName, ParentProcessName, CommandLine</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">C2 Beacons</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa"
+  src=10.30.30.20 dest=194.26.29.42 demo_id=ransomware_attempt
+| timechart count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Lateral Movement Attempts</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt EventID=4625 IpAddress=10.30.30.20 demo_id=ransomware_attempt
+| stats count by TargetUserName, IpPort</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Meraki Isolation Event</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:*"
+  (type=ids_alert OR type=client_isolated) demo_id=ransomware_attempt
+| table _time, deviceName, clientMac, type, eventData.reason</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Ransomware Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt demo_id=ransomware_attempt
+| sort - _time
+| table _time, sourcetype, host, EventID, user, src, dest, action, message
+| head 30</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">15</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

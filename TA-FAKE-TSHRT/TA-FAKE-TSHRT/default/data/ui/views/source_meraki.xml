@@ -1,0 +1,291 @@
+<dashboard version="1.1" theme="dark">
+  <label>Meraki</label>
+  <description>Cisco Meraki SD-WAN, wireless, switching, cameras, and sensors</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f1f2d 100%); border-radius: 8px; border-left: 4px solid #0877a6;">
+          <h2 style="color: #0877a6; margin-top: 0;">Cisco Meraki</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Multi-site SD-WAN, wireless access points, switches, smart cameras, and environmental sensors across Boston, Atlanta, and Austin offices.</p>
+          <div style="display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">MX (Security):</span> <code style="color: #5CC05C;">FAKE:meraki:securityappliances</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">MR (Wireless):</span> <code style="color: #5CC05C;">FAKE:meraki:accesspoints</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">MS (Switch):</span> <code style="color: #5CC05C;">FAKE:meraki:switches</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">MV (Camera):</span> <code style="color: #5CC05C;">FAKE:meraki:cameras</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">MT (Sensor):</span> <code style="color: #5CC05C;">FAKE:meraki:sensors</code>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events by Device Type</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:*" by sourcetype</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Events Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:*" by _time, sourcetype span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total MX Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:securityappliances"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x0877a6","0x0877a6"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total MR Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:accesspoints"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total MS Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:switches"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total MV Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:cameras"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total MT Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:meraki:sensors"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x9954bb","0x9954bb"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Device Inventory</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #0877a6; margin-top: 0;">MX Security Appliances (SD-WAN)</h4>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 6px; text-align: left; border: 1px solid #444;">Device</th>
+              <th style="padding: 6px; text-align: left; border: 1px solid #444;">Model</th>
+              <th style="padding: 6px; text-align: left; border: 1px solid #444;">Location</th>
+              <th style="padding: 6px; text-align: left; border: 1px solid #444;">Role</th>
+            </tr>
+            <tr><td style="padding: 6px; border: 1px solid #444;">MX-BOS-01/02</td><td style="padding: 6px; border: 1px solid #444;">MX450</td><td style="padding: 6px; border: 1px solid #444;">Boston</td><td style="padding: 6px; border: 1px solid #444;">HA Pair, Hub</td></tr>
+            <tr><td style="padding: 6px; border: 1px solid #444;">MX-ATL-01</td><td style="padding: 6px; border: 1px solid #444;">MX250</td><td style="padding: 6px; border: 1px solid #444;">Atlanta</td><td style="padding: 6px; border: 1px solid #444;">Branch</td></tr>
+            <tr><td style="padding: 6px; border: 1px solid #444;">MX-AUS-01</td><td style="padding: 6px; border: 1px solid #444;">MX85</td><td style="padding: 6px; border: 1px solid #444;">Austin</td><td style="padding: 6px; border: 1px solid #444;">Branch</td></tr>
+          </table>
+
+          <h4 style="color: #5CC05C;">MR Access Points (36 total)</h4>
+          <p style="color: #ccc;">Boston: 16 APs | Atlanta: 12 APs | Austin: 8 APs</p>
+
+          <h4 style="color: #f8be34; margin-top: 15px;">MS Switches (11 total)</h4>
+          <p style="color: #ccc;">Core: MS425-32 | Access: MS225-48/24</p>
+
+          <h4 style="color: #dc4e41; margin-top: 15px;">MV Smart Cameras (19 total)</h4>
+          <p style="color: #ccc;">Indoor: MV12/MV32 | Outdoor: MV72</p>
+
+          <h4 style="color: #9954bb; margin-top: 15px;">MT Sensors (14 total)</h4>
+          <p style="color: #ccc;">Temp: MT10 | Humidity: MT11 | Door: MT20 | Water: MT14</p>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Event Types</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #0877a6; margin-top: 0;">MX Events</h4>
+          <p style="color: #ccc;">firewall, urls, security_event (IDS), vpn, sd_wan_health, sd_wan_failover</p>
+
+          <h4 style="color: #5CC05C; margin-top: 15px;">MR Events</h4>
+          <p style="color: #ccc;">association, disassociation, 802.1X auth, WPA auth, rogue AP detection</p>
+
+          <h4 style="color: #f8be34; margin-top: 15px;">MS Events</h4>
+          <p style="color: #ccc;">port status, spanning tree, 802.1X port auth</p>
+
+          <h4 style="color: #dc4e41; margin-top: 15px;">MV Events</h4>
+          <p style="color: #ccc;">motion_detection, person_detection, analytics, health_status</p>
+
+          <h4 style="color: #9954bb; margin-top: 15px;">MT Events</h4>
+          <p style="color: #ccc;">temperature, humidity, door_open/close, water_leak</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events by Location</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:*"
+| rex field=deviceName "(?&lt;location&gt;BOS|ATL|AUS)"
+| stats count by location
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <title>IDS Alerts</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:securityappliances" type=ids_alert
+| stats count by signature, severity
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Wireless SSIDs</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" ssid=*
+| stats count by ssid
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Use Cases</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Common SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">SD-WAN Health</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:securityappliances" type=sd_wan_health
+| stats avg(latency) AS avg_latency, avg(loss) AS avg_loss by deviceName</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Client Associations</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=association
+| stats count by ssid, deviceName</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">IDS Alerts</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:securityappliances" type=ids_alert
+| table _time, deviceName, signature, src, dest, severity</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Camera Motion Detection</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:cameras" type=motion_detection
+| timechart count by deviceName</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Sensor Temperature</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:sensors" type=temperature
+| timechart avg(temperature) by deviceName</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sample Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:*"
+| table _time, sourcetype, deviceName, type, src, dest, ssid, demo_id
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

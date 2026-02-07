@@ -1,0 +1,150 @@
+<dashboard version="1.1" theme="dark">
+  <label>Overview</label>
+  <description>The Fake T-Shrt Company - Demo Data Overview</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="text-align: center; padding: 20px;">
+          <h1 style="color: #5CC05C; font-size: 2.5em; margin-bottom: 10px;">The Fake T-Shrt Company</h1>
+          <p style="font-size: 1.2em; color: #999;">Realistic synthetic log data for Splunk demos and training</p>
+          <hr style="border-color: #333; margin: 20px 0;"/>
+          <p style="color: #666;">~175 employees | 3 US locations | 17+ data sources | 7 coordinated scenarios</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Events by Sourcetype</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt by sourcetype
+| sort -count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">300</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Events Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt by _time, sourcetype span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">300</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Active Scenarios</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt demo_id=*
+| stats count, earliest(_time) as first_seen, latest(_time) as last_seen by demo_id
+| eval first_seen=strftime(first_seen, "%Y-%m-%d %H:%M"), last_seen=strftime(last_seen, "%Y-%m-%d %H:%M")
+| rename demo_id as "Scenario", count as "Events", first_seen as "First Seen", last_seen as "Last Seen"
+| sort -Events</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Top Hosts</title>
+      <table>
+        <search>
+          <query>| tstats count where index=fake_tshrt by host
+| sort -count
+| head 15
+| rename host as "Host", count as "Events"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Network Traffic (Cisco ASA)</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:cisco:asa"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Authentication Events (Entra ID)</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:azure:aad:signin"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Windows Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:WinEventLog"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Retail Orders</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:online:order"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+</dashboard>

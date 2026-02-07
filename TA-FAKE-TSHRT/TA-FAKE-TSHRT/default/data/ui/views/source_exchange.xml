@@ -1,0 +1,243 @@
+<dashboard version="1.1" theme="dark">
+  <label>Exchange</label>
+  <description>Exchange Online / O365 message trace logs</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d2d 100%); border-radius: 8px; border-left: 4px solid #0078d4;">
+          <h2 style="color: #0078d4; margin-top: 0;">Exchange Online / O365</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Email message trace logs showing email flow, delivery status, and security events.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sourcetype:</span> <code style="color: #5CC05C;">FAKE:o365:reporting:messagetrace</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Domain:</span> <strong style="color: #fff;">theFakeTshirtCompany.com</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Format:</span> <strong style="color: #fff;">CSV</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Email Volume Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace" by _time span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"count": 0x0078d4}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Delivery Status</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+| stats count by Status
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Messages</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x0078d4","0x0078d4"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Senders</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace" | stats dc(SenderAddress)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>External Messages</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace" NOT SenderAddress="*@theFakeTshirtCompany.com" | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Suspicious Senders</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+  (SenderAddress="*rnicrosoft*" OR SenderAddress="*invoices-delivery*")
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Key Fields</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Field</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Description</th>
+            </tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">SenderAddress</td><td style="padding: 8px; border: 1px solid #444;">Sender email address</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">RecipientAddress</td><td style="padding: 8px; border: 1px solid #444;">Recipient email address</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Subject</td><td style="padding: 8px; border: 1px solid #444;">Email subject line</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Status</td><td style="padding: 8px; border: 1px solid #444;">Delivered, Failed, Quarantined</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Size</td><td style="padding: 8px; border: 1px solid #444;">Message size in bytes</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">demo_id</td><td style="padding: 8px; border: 1px solid #444;">Scenario identifier</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Phishing Indicators (Exfil)</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #dc4e41; margin-top: 0;">Suspicious Domains</h4>
+          <ul style="color: #ccc; line-height: 2;">
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">rnicrosoft-security.com</code> - Typosquat</li>
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">invoices-delivery.com</code> - Ransomware</li>
+          </ul>
+
+          <h4 style="color: #f8be34; margin-top: 15px;">Target: Jessica Brown</h4>
+          <p style="color: #ccc;">Received phishing email Day 1</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top Senders</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+| stats count by SenderAddress
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Top Recipients</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+| stats count by RecipientAddress
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Use Cases</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Common SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Phishing Emails</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+  (SenderAddress="*rnicrosoft*" OR SenderAddress="*invoices-delivery*")
+| table _time, SenderAddress, RecipientAddress, Subject</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">External Senders</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+  NOT SenderAddress="*@theFakeTshirtCompany.com"
+| stats count by SenderAddress | sort - count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Large Attachments</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace" Size>1000000
+| table _time, SenderAddress, RecipientAddress, Subject, Size</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Failed Deliveries</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace" Status=Failed
+| stats count by SenderAddress, RecipientAddress</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sample Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:o365:reporting:messagetrace"
+| table _time, SenderAddress, RecipientAddress, Subject, Status, Size, demo_id
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

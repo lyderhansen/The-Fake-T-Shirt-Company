@@ -1,0 +1,325 @@
+<dashboard version="1.1" theme="dark">
+  <label>Cisco ASA</label>
+  <description>Perimeter firewall logs from FW-EDGE-01</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f1f2d 100%); border-radius: 8px; border-left: 4px solid #0877a6;">
+          <h2 style="color: #0877a6; margin-top: 0;">Cisco ASA Firewall</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Perimeter firewall logs from FW-EDGE-01 (Cisco ASA 5525-X). All external traffic passes through this device.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sourcetype:</span> <code style="color: #5CC05C;">FAKE:cisco:asa</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Index:</span> <strong style="color: #fff;">network</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Device:</span> <strong style="color: #fff;">FW-EDGE-01</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Format:</span> <strong style="color: #fff;">Syslog</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Event Volume Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:cisco:asa" by _time span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Actions</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| stats count by action
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:cisco:asa"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x0877a6","0x0877a6"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Denied Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa" action=deny | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Source IPs</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa" | stats dc(src) AS unique_sources</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Dest IPs</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa" | stats dc(dest) AS unique_dests</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Common Message Codes</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Code</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Severity</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Description</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">%ASA-6-302013</td>
+              <td style="padding: 8px; border: 1px solid #444;">Info</td>
+              <td style="padding: 8px; border: 1px solid #444;">Built outbound TCP connection</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">%ASA-6-302014</td>
+              <td style="padding: 8px; border: 1px solid #444;">Info</td>
+              <td style="padding: 8px; border: 1px solid #444;">Teardown TCP connection</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">%ASA-4-106023</td>
+              <td style="padding: 8px; border: 1px solid #444;">Warning</td>
+              <td style="padding: 8px; border: 1px solid #444;">Denied by access-list</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">%ASA-4-733100</td>
+              <td style="padding: 8px; border: 1px solid #444;">Warning</td>
+              <td style="padding: 8px; border: 1px solid #444;">Threat detection - scanning</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">%ASA-6-725007</td>
+              <td style="padding: 8px; border: 1px solid #444;">Info</td>
+              <td style="padding: 8px; border: 1px solid #444;">SSL handshake failed</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">%ASA-6-605005</td>
+              <td style="padding: 8px; border: 1px solid #444;">Info</td>
+              <td style="padding: 8px; border: 1px solid #444;">Login permitted</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">%ASA-5-111008</td>
+              <td style="padding: 8px; border: 1px solid #444;">Notice</td>
+              <td style="padding: 8px; border: 1px solid #444;">Command executed</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Key Fields</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Field</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Description</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">src</td>
+              <td style="padding: 8px; border: 1px solid #444;">Source IP address</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">dest</td>
+              <td style="padding: 8px; border: 1px solid #444;">Destination IP address</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">src_port</td>
+              <td style="padding: 8px; border: 1px solid #444;">Source port</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">dest_port</td>
+              <td style="padding: 8px; border: 1px solid #444;">Destination port</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">action</td>
+              <td style="padding: 8px; border: 1px solid #444;">built, teardown, deny</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">bytes</td>
+              <td style="padding: 8px; border: 1px solid #444;">Bytes transferred</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">acl</td>
+              <td style="padding: 8px; border: 1px solid #444;">Access control list name</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">demo_id</td>
+              <td style="padding: 8px; border: 1px solid #444;">Scenario identifier</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top Destination Ports</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| stats count by dest_port
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">15</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Top Source IPs</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| stats count by src
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">15</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Events by Scenario</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=*
+| stats count by demo_id
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Use Cases</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Common SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Traffic Overview</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| stats count by action
+| sort - count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Denied Connections</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa" action=deny
+| stats count by src, dest, dest_port
+| sort - count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Threat Actor Activity</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa" src=185.220.101.42
+| stats count by action, dest_port
+| sort - count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Large Data Transfers</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa" action=teardown bytes>1000000
+| stats sum(bytes) AS total_bytes by src, dest
+| sort - total_bytes</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Admin Activity</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa"
+  ("%ASA-6-605005" OR "%ASA-5-111008" OR "%ASA-5-111010")
+| table _time, user, message</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sample Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| table _time, host, src, dest, dest_port, action, bytes, acl, demo_id
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

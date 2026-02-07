@@ -1,0 +1,360 @@
+<dashboard version="1.1" theme="dark">
+  <label>Certificate Expiry - SSL Outage</label>
+  <description>7-hour HTTPS outage from expired wildcard SSL certificate</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f1f2d 100%); border-radius: 8px; border-left: 4px solid #0877a6;">
+          <h2 style="color: #0877a6; margin-top: 0;">SSL Certificate Expired - HTTPS Outage</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Wildcard SSL certificate expires at midnight, causing a 7-hour service outage until the NOC discovers and fixes the issue in the morning.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Duration:</span> <strong style="color: #fff;">7 hours</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Category:</span> <strong style="color: #0877a6;">Network</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">demo_id:</span> <code style="color: #5CC05C;">certificate_expiry</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Impact:</span> <strong style="color: #dc4e41;">HTTPS completely broken</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Incident Timeline - Day 12</title>
+      <html>
+        <div style="padding: 15px; background: #1a1a1a; border-radius: 5px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; overflow-x: auto; padding: 20px 0;">
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #dc4e41; color: #fff; padding: 10px; border-radius: 5px; font-weight: bold;">00:00</div>
+              <div style="color: #ccc; margin-top: 10px;">Certificate<br/>Expires</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #dc4e41; color: #fff; padding: 10px; border-radius: 5px; font-weight: bold;">00:00<br/>-05:00</div>
+              <div style="color: #ccc; margin-top: 10px;">Low Traffic<br/>Undetected</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #f8be34; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">05:00<br/>-06:00</div>
+              <div style="color: #ccc; margin-top: 10px;">Morning Rush<br/>More Failures</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #f8be34; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">06:15</div>
+              <div style="color: #ccc; margin-top: 10px;">NOC<br/>Detects</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #f8be34; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">06:45</div>
+              <div style="color: #ccc; margin-top: 10px;">Emergency<br/>Renewal</div>
+            </div>
+            <div style="color: #444; font-size: 2em;">→</div>
+            <div style="text-align: center; min-width: 100px;">
+              <div style="background: #5CC05C; color: #000; padding: 10px; border-radius: 5px; font-weight: bold;">07:00</div>
+              <div style="color: #ccc; margin-top: 10px;">New Cert<br/>Installed</div>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Certificate Details</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; border-left: 4px solid #dc4e41;">
+          <h3 style="color: #dc4e41; margin-top: 0;">Expired Certificate</h3>
+          <table style="width: 100%;">
+            <tr><td style="color: #999; padding: 5px 0; width: 150px;">Common Name (CN):</td><td style="color: #fff;"><strong>*.theFakeTshirtCompany.com</strong></td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Issuer:</td><td style="color: #fff;">DigiCert SHA2 Extended Validation Server CA</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Serial:</td><td style="color: #fff;">0A:1B:2C:3D:4E:5F:6A:7B:8C:9D</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Expired:</td><td style="color: #dc4e41;"><strong>Day 12 at 00:00:00</strong></td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Affected Services</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Service</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Server</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">IP</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Impact</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">Main website</td>
+              <td style="padding: 8px; border: 1px solid #444;">WEB-01</td>
+              <td style="padding: 8px; border: 1px solid #444;">172.16.1.10</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">SSL errors</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">API endpoints</td>
+              <td style="padding: 8px; border: 1px solid #444;">WEB-02</td>
+              <td style="padding: 8px; border: 1px solid #444;">172.16.1.11</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">SSL errors</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">All subdomains</td>
+              <td style="padding: 8px; border: 1px solid #444;">-</td>
+              <td style="padding: 8px; border: 1px solid #444;">-</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">Broken</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>SSL Failures Over Time</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+  ("%ASA-6-725007" OR "%ASA-4-725006") demo_id=certificate_expiry
+| timechart span=1h count AS "SSL Failures"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"SSL Failures": 0xdc4e41}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>HTTP Error Codes</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:access_combined"
+  (status=502 OR status=503) demo_id=certificate_expiry
+| timechart span=1h count by status</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total SSL Failures</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+  ("%ASA-6-725007" OR "%ASA-4-725006") demo_id=certificate_expiry | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Customers Affected</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa" "%ASA-6-725007" demo_id=certificate_expiry
+| stats dc(src) AS unique_customers</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Outage Duration</title>
+      <single>
+        <search>
+          <query>| makeresults | eval duration="7 hours" | table duration</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Preventable?</title>
+      <single>
+        <search>
+          <query>| makeresults | eval answer="100% YES" | table answer</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Event Volumes by Hour</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Hour</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">SSL Failures</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">HTTP Errors</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Phase</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">00:00-04:00</td>
+              <td style="padding: 8px; border: 1px solid #444;">5-15/hr</td>
+              <td style="padding: 8px; border: 1px solid #444;">3-10/hr</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">Overnight (low)</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">05:00-06:00</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>20-40/hr</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>15-30/hr</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>Morning rush</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>07:00</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">5 fail, 10 success</td>
+              <td style="padding: 8px; border: 1px solid #444;">Mixed</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>Recovery</strong></td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Error Types</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #dc4e41; margin-top: 0;">SSL Errors (ASA)</h4>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+            <tr>
+              <td style="padding: 5px 0; color: #999;">%ASA-6-725007</td>
+              <td style="color: #ccc;">SSL handshake failed</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; color: #999;">%ASA-4-725006</td>
+              <td style="color: #ccc;">Certificate expired error</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; color: #999;">%ASA-6-302014</td>
+              <td style="color: #ccc;">TCP Reset (SSL failure)</td>
+            </tr>
+          </table>
+
+          <h4 style="color: #dc4e41;">HTTP Errors (Access)</h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 5px 0; color: #999;">502</td>
+              <td style="color: #ccc;">Bad Gateway (50%)</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; color: #999;">503</td>
+              <td style="color: #ccc;">Service Unavailable (50%)</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Ready-to-Use SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Full Incident Timeline</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt demo_id=certificate_expiry
+| sort _time
+| table _time, sourcetype, message, status</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">SSL Failures by Hour</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=certificate_expiry
+| timechart span=1h count by action</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Customer Impact</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa"
+  "%ASA-6-725007" demo_id=certificate_expiry
+| stats dc(src) AS unique_customers, count AS total_failures</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Recovery Verification</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=certificate_expiry
+| eval status=case(
+    match(message, "725007|725006|302014.*Reset"), "Failed",
+    match(message, "725001"), "Success",
+    true(), "Other"
+)
+| timechart span=15m count by status</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Certificate Details</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa"
+  "%ASA-4-725006" demo_id=certificate_expiry
+| rex "CN=(?&lt;cert_cn&gt;[^,]+)"
+| stats count by cert_cn</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Business Hours Impact</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt demo_id=certificate_expiry
+| eval hour=strftime(_time, "%H")
+| eval business_hours=if(hour>=8 AND hour&lt;=18, "Business", "After-hours")
+| stats count by business_hours, sourcetype</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Certificate Expiry Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt demo_id=certificate_expiry
+| sort - _time
+| table _time, sourcetype, host, src, dest, status, message
+| head 50</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

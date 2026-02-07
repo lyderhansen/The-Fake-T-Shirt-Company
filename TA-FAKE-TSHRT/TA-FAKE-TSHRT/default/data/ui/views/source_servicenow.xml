@@ -1,0 +1,277 @@
+<dashboard version="1.1" theme="dark">
+  <label>ServiceNow</label>
+  <description>IT incident management data</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d1f 100%); border-radius: 8px; border-left: 4px solid #62d84e;">
+          <h2 style="color: #62d84e; margin-top: 0;">ServiceNow ITSM</h2>
+          <p style="color: #ccc; font-size: 1.1em;">IT incident management tickets showing issues, priorities, assignment groups, and resolution status.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sourcetype:</span> <code style="color: #5CC05C;">FAKE:servicenow:incident</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Format:</span> <strong style="color: #fff;">Key-Value</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Index:</span> <strong style="color: #fff;">itsm</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Incidents Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:servicenow:incident" by _time span=1d</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"count": 0x62d84e}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Incidents by Priority</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| stats count by priority
+| sort priority</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Incidents</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:servicenow:incident"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x62d84e","0x62d84e"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Open Incidents</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident" state!="Closed" state!="Resolved" | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Critical/High Priority</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident" (priority=1 OR priority=2) | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Resolved</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident" (state="Closed" OR state="Resolved") | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Key Fields</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Field</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Description</th>
+            </tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">number</td><td style="padding: 8px; border: 1px solid #444;">Incident number (INC0001234)</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">state</td><td style="padding: 8px; border: 1px solid #444;">New, In Progress, Resolved, Closed</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">priority</td><td style="padding: 8px; border: 1px solid #444;">1-5 (1=Critical, 5=Planning)</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">short_description</td><td style="padding: 8px; border: 1px solid #444;">Issue summary</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">assignment_group</td><td style="padding: 8px; border: 1px solid #444;">Assigned team</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">assigned_to</td><td style="padding: 8px; border: 1px solid #444;">Assigned person</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">demo_id</td><td style="padding: 8px; border: 1px solid #444;">Related scenario</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Priority Levels</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Priority</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Name</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Response</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>1</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">Critical</td>
+              <td style="padding: 8px; border: 1px solid #444;">Immediate</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;"><strong>2</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">High</td>
+              <td style="padding: 8px; border: 1px solid #444;">1 hour</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;"><strong>3</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">Moderate</td>
+              <td style="padding: 8px; border: 1px solid #444;">4 hours</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>4</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">Low</td>
+              <td style="padding: 8px; border: 1px solid #444;">1 day</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #0877a6;"><strong>5</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">Planning</td>
+              <td style="padding: 8px; border: 1px solid #444;">Scheduled</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Incidents by Assignment Group</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| stats count by assignment_group
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Incidents by State</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| stats count by state
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Scenario-Related Incidents</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident" demo_id=*
+| stats count by demo_id
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Use Cases</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Common SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Open High-Priority Incidents</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+  state!="Closed" state!="Resolved" (priority=1 OR priority=2)
+| table number, priority, state, short_description, assignment_group</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Incidents by Team</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| stats count by assignment_group, state
+| sort assignment_group, state</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Scenario Correlation</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:servicenow:incident" demo_id=cpu_runaway
+| table _time, number, priority, short_description, state</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Daily Incident Volume</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| timechart span=1d count by priority</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sample Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| table _time, number, state, priority, short_description, assignment_group, demo_id
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

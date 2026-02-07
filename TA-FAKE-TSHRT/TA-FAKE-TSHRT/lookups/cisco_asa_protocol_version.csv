@@ -1,0 +1,5 @@
+protocol,communication_protocol,protocol_version
+icmp,ipv4,ipv4
+icmp,ipv6,ipv6
+ip,ipv4,ipv4
+ip,ipv6,ipv6

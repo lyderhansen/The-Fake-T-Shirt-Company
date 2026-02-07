@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1200" viewBox="0 0 1400 1200" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 24px; font-weight: bold; }
+      .subtitle { font-size: 14px; fill: #444; }
+      .section { fill: #f9f9f9; stroke: #000; stroke-width: 2; }
+      .room { fill: #ffffff; stroke: #000; stroke-width: 1.5; }
+      .label { font-size: 14px; font-weight: bold; }
+      .small { font-size: 12px; }
+      .icon { font-size: 16px; }
+    </style>
+  </defs>
+
+  <!-- Outer border -->
+  <rect x="20" y="20" width="1360" height="1160" fill="none" stroke="#000" stroke-width="3"/>
+
+  <!-- Header -->
+  <text x="700" y="60" text-anchor="middle" class="title">BOSTON HQ – ETASJE 1</text>
+  <text x="700" y="85" text-anchor="middle" class="subtitle">
+    Lobby • Drift • Shipping • Besøksrom
+  </text>
+
+  <!-- Heis / Trapp -->
+  <g transform="translate(100,120)">
+    <rect class="room" x="0" y="0" width="140" height="80"/>
+    <text x="70" y="45" text-anchor="middle">🛗 HEIS 1</text>
+
+    <rect class="room" x="160" y="0" width="140" height="80"/>
+    <text x="230" y="45" text-anchor="middle">🛗 HEIS 2</text>
+
+    <rect class="room" x="320" y="0" width="140" height="80"/>
+    <text x="390" y="45" text-anchor="middle">🛗 HEIS 3</text>
+
+    <rect class="room" x="600" y="0" width="140" height="80"/>
+    <text x="670" y="45" text-anchor="middle">🚪 TRAPP A</text>
+
+    <rect class="room" x="760" y="0" width="140" height="80"/>
+    <text x="830" y="45" text-anchor="middle">🚪 TRAPP B</text>
+  </g>
+
+  <text x="700" y="240" text-anchor="middle" class="label">HEIS-LOBBY</text>
+
+  <!-- Main sections -->
+  <!-- Resepsjon -->
+  <rect class="section" x="60" y="280" width="300" height="260"/>
+  <text x="210" y="310" text-anchor="middle" class="label">RESEPSJON</text>
+  <text x="80" y="350" class="small">🖥️ Velkommen-skjerm</text>
+  <text x="80" y="380" class="small">📶 AP-BOS-1F-01</text>
+
+  <!-- Hovedlobby -->
+  <rect class="section" x="380" y="280" width="520" height="260"/>
+  <text x="640" y="310" text-anchor="middle" class="label">HOVEDLOBBY</text>
+  <text x="420" y="350" class="small">🪑 Sittegruppe / Venteområde</text>
+  <text x="420" y="380" class="small">📶 AP-BOS-1F-02</text>
+
+  <!-- Sikkerhet -->
+  <rect class="section" x="920" y="280" width="360" height="260"/>
+  <text x="1100" y="310" text-anchor="middle" class="label">SIKKERHET</text>
+  <text x="940" y="350" class="small">📹 CAM-BOS-1F-01</text>
+  <text x="940" y="380" class="small">🪪 Badge Reader</text>
+  <text x="940" y="410" class="small">Vaktrom</text>
+
+  <!-- Besøksrom Harbor -->
+  <rect class="section" x="60" y="580" width="300" height="220"/>
+  <text x="210" y="610" text-anchor="middle" class="label">BESØKSROM “Harbor”</text>
+  <text x="80" y="650" class="small">Kapasitet: 6</text>
+  <text x="80" y="680" class="small">🖥️ WEBEX-BOS-HARBOR</text>
+
+  <!-- Driftssenter -->
+  <rect class="section" x="380" y="580" width="520" height="220"/>
+  <text x="640" y="610" text-anchor="middle" class="label">DRIFTSSENTER</text>
+  <text x="400" y="650" class="small">🖥️ Operatørplasser (5)</text>
+  <text x="400" y="680" class="small">Store status-skjermer</text>
+  <text x="400" y="710" class="small">📶 AP-BOS-1F-03</text>
+
+  <!-- Pauserom -->
+  <rect class="section" x="920" y="580" width="360" height="220"/>
+  <text x="1100" y="610" text-anchor="middle" class="label">PAUSEROM</text>
+  <text x="940" y="650" class="small">☕ Kjøkken / Kaffemaskin</text>
+  <text x="940" y="680" class="small">📶 AP-BOS-1F-05</text>
+
+  <!-- Besøksrom Beacon -->
+  <rect class="section" x="60" y="830" width="300" height="220"/>
+  <text x="210" y="860" text-anchor="middle" class="label">BESØKSROM “Beacon”</text>
+  <text x="80" y="900" class="small">Kapasitet: 4</text>
+  <text x="80" y="930" class="small">🖥️ WEBEX-BOS-BEACON</text>
+
+  <!-- Shipping -->
+  <rect class="section" x="380" y="830" width="520" height="220"/>
+  <text x="640" y="860" text-anchor="middle" class="label">SHIPPING / MOTTAK</text>
+  <text x="400" y="900" class="small">📦 Pakkestasjoner</text>
+  <text x="400" y="930" class="small">🗄️ Lagerhyller</text>
+  <text x="400" y="960" class="small">📶 AP-BOS-1F-04</text>
+
+  <!-- Serverrom -->
+  <rect class="section" x="920" y="830" width="360" height="220"/>
+  <text x="1100" y="860" text-anchor="middle" class="label">SERVERROM (IDF-BOS-1F)</text>
+  <text x="940" y="900" class="small">🔌 MS-BOS-1F-IDF1 (48 porter)</text>
+  <text x="940" y="930" class="small">📹 CAM-BOS-1F-03</text>
+  <text x="940" y="960" class="small">🌡️ TEMP / 🚪 DOOR-sensor</text>
+
+  <!-- Footer -->
+  <text x="700" y="1110" text-anchor="middle" class="label">LASTERAMPE / PARKERING</text>
+  <text x="500" y="1140" class="small">📹 CAM-BOS-EXT-01 (Vest)</text>
+  <text x="820" y="1140" class="small">📹 CAM-BOS-EXT-02 (Øst)</text>
+
+</svg>

@@ -1,0 +1,365 @@
+<dashboard version="1.1" theme="dark">
+  <label>Memory Leak - WEB-01 OOM Crash</label>
+  <description>4-day memory leak (Day 6-9) culminating in OOM crash Day 9 @ 14:00, service restart</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d1f 100%); border-radius: 8px; border-left: 4px solid #f8be34;">
+          <h2 style="color: #f8be34; margin-top: 0;">Memory Leak - OOM Crash (Recovered)</h2>
+          <p style="color: #ccc; font-size: 1.1em;">A gradual memory leak on WEB-01 over 4 days (Day 6-9) that culminates in an OOM crash. Service automatically restarted at 14:05. This scenario demonstrates how operational problems escalate and correlate across multiple log sources.</p>
+          <div style="display: flex; gap: 30px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Duration:</span> <strong style="color: #fff;">4 days (Day 6-9)</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Category:</span> <strong style="color: #f8be34;">Operations</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">demo_id:</span> <code style="color: #5CC05C;">memory_leak</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Critical Event:</span> <strong style="color: #dc4e41;">Day 9 @ 14:00 - OOM crash</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Recovery:</span> <strong style="color: #5CC05C;">Day 9 @ 14:05 - Service restart</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Target Server</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; border-left: 4px solid #f8be34;">
+          <h3 style="color: #f8be34; margin-top: 0;">WEB-01</h3>
+          <table style="width: 100%;">
+            <tr><td style="color: #999; padding: 5px 0; width: 120px;">Hostname:</td><td style="color: #fff;"><strong>WEB-01</strong></td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">IP:</td><td style="color: #5CC05C;">172.16.1.10</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Location:</td><td style="color: #fff;">Boston DMZ</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">OS:</td><td style="color: #fff;">Linux (Ubuntu 22.04)</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">RAM:</td><td style="color: #fff;">64 GB</td></tr>
+            <tr><td style="color: #999; padding: 5px 0;">Role:</td><td style="color: #fff;">Web Server</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Memory Progression</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Day</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Memory %</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Swap</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Status</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">6</td>
+              <td style="padding: 8px; border: 1px solid #444;">55-65%</td>
+              <td style="padding: 8px; border: 1px solid #444;">0</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Starting</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">7</td>
+              <td style="padding: 8px; border: 1px solid #444;">65-75%</td>
+              <td style="padding: 8px; border: 1px solid #444;">1-2 GB</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">Degrading</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;"><strong>8</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;"><strong>75-88%</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">4-8 GB</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;"><strong>WARNING</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>9 (før 14:00)</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>88-98%</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>10-16 GB</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>CRITICAL</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>9 @ 14:00</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>98% → OOM</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>-</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>CRASH</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>9 @ 14:05</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>-</strong></td>
+              <td style="padding: 8px; border: 1px solid #444;">-</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;"><strong>RESTART</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">9 (etter 14:05)</td>
+              <td style="padding: 8px; border: 1px solid #444;">50%</td>
+              <td style="padding: 8px; border: 1px solid #444;">0</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Recovered</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">10+</td>
+              <td style="padding: 8px; border: 1px solid #444;">Normal</td>
+              <td style="padding: 8px; border: 1px solid #444;">0</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Resolved</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Memory % Over Time (WEB-01)</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/linux/vmstat.log" host=WEB-01 demo_id=memory_leak
+| timechart span=4h avg(memory_pct) AS "Memory %"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">300</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Memory %</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Peak Memory</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/linux/vmstat.log" host=WEB-01 demo_id=memory_leak
+| stats max(memory_pct) AS "Peak Memory %"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0.0</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt demo_id=memory_leak | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>ASA Timeouts</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/network/cisco_asa.log" dest=172.16.1.10
+  ("TCP FINs" OR "TCP Reset" OR "SYN Timeout") demo_id=memory_leak
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Days of Warning</title>
+      <single>
+        <search>
+          <query>| makeresults | eval days="2-3 days" | table days</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Resolution Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/linux/syslog.log" host=WEB-01 demo_id=memory_leak
+  ("OOM" OR "oom-killer" OR "restart" OR "service start" OR "httpd" OR "nginx")
+| sort _time
+| table _time, message
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Memory vs Swap Usage</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/linux/vmstat.log" host=WEB-01 demo_id=memory_leak
+| eval memory_gb = memory_used_kb / 1048576
+| eval swap_gb = swap_used_kb / 1048576
+| timechart span=4h avg(memory_gb) AS "Memory (GB)", avg(swap_gb) AS "Swap (GB)"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>ASA Connection Timeouts Over Time</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/network/cisco_asa.log" dest=172.16.1.10
+  ("TCP FINs" OR "TCP Reset" OR "SYN Timeout") demo_id=memory_leak
+| timechart span=1d count AS timeouts</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"timeouts": 0xdc4e41}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>ASA Timeout Events by Day</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Day</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Timeout Events/Day</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Severity</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">1-5</td>
+              <td style="padding: 8px; border: 1px solid #444;">0</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">None (before scenario)</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">6</td>
+              <td style="padding: 8px; border: 1px solid #444;">0</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">None</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">7-8</td>
+              <td style="padding: 8px; border: 1px solid #444;">~50-150</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">Escalating</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>9</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>~300</strong></td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;"><strong>Peak before crash</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">10+</td>
+              <td style="padding: 8px; border: 1px solid #444;">0</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #5CC05C;">Recovered</td>
+            </tr>
+          </table>
+          <p style="color: #999; margin-top: 15px;"><strong>Timeout reasons:</strong> TCP FINs, TCP Reset-O, TCP Reset-I, Idle timeout, SYN Timeout</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Ready-to-Use SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Memory Trend</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/linux/vmstat.log" host=WEB-01 demo_id=memory_leak
+| eval memory_gb = memory_used_kb / 1048576
+| eval swap_gb = swap_used_kb / 1048576
+| timechart span=1h avg(memory_gb) AS "Memory (GB)", avg(swap_gb) AS "Swap (GB)"</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Memory Percentage Over Time</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/linux/vmstat.log" host=WEB-01 demo_id=memory_leak
+| timechart span=4h avg(memory_pct) AS memory, avg(swap_pct) AS swap</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">ASA Connection Timeouts</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt source="/opt/splunk/etc/apps/TA-FAKE-TSHRT/bin/output/network/cisco_asa.log" dest=172.16.1.10
+  ("TCP FINs" OR "TCP Reset" OR "SYN Timeout") demo_id=memory_leak
+| timechart span=1h count AS timeouts</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">OOM and Recovery Events</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt host=WEB-01 demo_id=memory_leak
+  ("Out of memory" OR "OOM killer" OR "oom-killer" OR "restart" OR "service start")
+| table _time, message</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Correlation View</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt demo_id=memory_leak (host=WEB-01 OR dest=172.16.1.10)
+| eval metric=case(
+    sourcetype="FAKE:vmstat", "Memory %: ".memory_pct,
+    sourcetype="FAKE:cisco:asa", "ASA Timeout",
+    true(), sourcetype
+)
+| timechart span=1h count by metric</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Memory Leak Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt demo_id=memory_leak
+| sort - _time
+| table _time, sourcetype, host, memory_pct, swap_pct, message
+| head 50</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

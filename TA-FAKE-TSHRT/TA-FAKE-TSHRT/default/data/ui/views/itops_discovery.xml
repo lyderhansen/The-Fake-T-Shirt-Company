@@ -1,0 +1,508 @@
+<dashboard version="1.1" theme="dark">
+  <label>IT Operations Discovery</label>
+  <description>Single-pane-of-glass view of infrastructure health for The FAKE T-Shirt Company</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1736726400</earliest>
+        <latest>1736899199</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="location" searchWhenChanged="true">
+      <label>Location</label>
+      <choice value="*">All Locations</choice>
+      <choice value="BOS">Boston (BOS)</choice>
+      <choice value="ATL">Atlanta (ATL)</choice>
+      <choice value="AUS">Austin (AUS)</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Header -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d1f 100%); border-radius: 8px; border-left: 4px solid #5CC05C;">
+          <h2 style="color: #5CC05C; margin-top: 0;">IT Operations Discovery Dashboard</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Infrastructure health monitoring for The FAKE T-Shirt Company - ~175 employees across 3 US locations</p>
+          <div style="display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #00bceb;">Boston (BOS):</span> <strong style="color: #fff;">10.10.x.x</strong> <span style="color: #999;">| ~93 employees</span>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #5CC05C;">Atlanta (ATL):</span> <strong style="color: #fff;">10.20.x.x</strong> <span style="color: #999;">| ~43 employees</span>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #f8be34;">Austin (AUS):</span> <strong style="color: #fff;">10.30.x.x</strong> <span style="color: #999;">| ~39 employees</span>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #dc4e41;">DMZ:</span> <strong style="color: #fff;">172.16.1.x</strong>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 2: Top-level KPIs (6 singles) -->
+  <row>
+    <panel>
+      <title>Infrastructure Health</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" OR sourcetype="FAKE:Perfmon:Memory" OR sourcetype="FAKE:vmstat" OR sourcetype="FAKE:df"
+| eval critical=case(
+    sourcetype="FAKE:Perfmon:Processor" AND counter="% Processor Time" AND Value>90, 1,
+    sourcetype="FAKE:Perfmon:Memory" AND counter="Available MBytes" AND Value&lt;500, 1,
+    sourcetype="FAKE:vmstat" AND pctUsed>90, 1,
+    sourcetype="FAKE:df" AND UsedPct>95, 1,
+    true(), 0
+)
+| eval warning=case(
+    sourcetype="FAKE:Perfmon:Processor" AND counter="% Processor Time" AND Value>70 AND Value&lt;=90, 1,
+    sourcetype="FAKE:Perfmon:Memory" AND counter="Available MBytes" AND Value>=500 AND Value&lt;1000, 1,
+    sourcetype="FAKE:vmstat" AND pctUsed>80 AND pctUsed&lt;=90, 1,
+    sourcetype="FAKE:df" AND UsedPct>85 AND UsedPct&lt;=95, 1,
+    true(), 0
+)
+| stats sum(critical) AS critical_count, sum(warning) AS warning_count, count AS total
+| eval health_score=round(100 - (critical_count*5) - (warning_count*1), 0)
+| eval health_score=if(health_score&lt;0, 0, health_score)
+| table health_score</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xf8be34","0x5CC05C"]</option>
+        <option name="rangeValues">[60,85]</option>
+        <option name="useColors">1</option>
+        <option name="unit">%</option>
+        <option name="numberPrecision">0</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Open Incidents</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident" state!="Closed" state!="Resolved"
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[5,15]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Web Availability</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:access_combined"
+| eval success=if(status&lt;400, 1, 0)
+| stats sum(success) AS successful, count AS total
+| eval availability=round((successful/total)*100, 1)
+| table availability</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xf8be34","0x5CC05C"]</option>
+        <option name="rangeValues">[95,99]</option>
+        <option name="useColors">1</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Active Hosts</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt (sourcetype="FAKE:Perfmon:Processor" OR sourcetype="FAKE:Perfmon:Memory" OR sourcetype="FAKE:vmstat" OR sourcetype="FAKE:WinEventLog")
+| stats dc(host) AS hosts</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x00bceb","0x00bceb"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Security Alerts</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt (
+    (sourcetype="FAKE:cisco:asa" "%ASA-4-106023") OR
+    (sourcetype="FAKE:azure:aad:signin" "errorCode" NOT "errorCode\":0")
+)
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[100,500]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Avg MOS Score</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats avg(audio.mos_score) AS avg_mos
+| eval avg_mos=round(avg_mos, 2)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xf8be34","0x5CC05C"]</option>
+        <option name="rangeValues">[3.5,4.0]</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0.00</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 3: Infrastructure Health (3 panels) -->
+  <row>
+    <panel>
+      <title>CPU Utilization by Host</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" counter="% Processor Time"
+| stats avg(Value) AS avg_cpu by demo_host
+| sort - avg_cpu
+| head 10
+| eval avg_cpu=round(avg_cpu, 1)
+| rename demo_host AS host</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.axisTitleX.text">Host</option>
+        <option name="charting.axisTitleY.text">CPU %</option>
+        <option name="charting.fieldColors">{"avg_cpu": 0x00bceb}</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Memory Usage by Host</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Memory" counter="% Committed Bytes In Use"
+| stats avg(Value) AS avg_mem by demo_host
+| sort - avg_mem
+| head 10
+| eval avg_mem=round(avg_mem, 1)
+| rename demo_host AS host</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.axisTitleX.text">Host</option>
+        <option name="charting.axisTitleY.text">Memory %</option>
+        <option name="charting.fieldColors">{"avg_mem": 0xf8be34}</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Disk Usage Trend</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:df"
+| timechart span=1d avg(UsedPct) by host</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Disk %</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 4: Network & Security (2 panels) -->
+  <row>
+    <panel>
+      <title>Firewall Traffic (Allow/Deny)</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| eval action_type=case(
+    match(_raw, "Built|Teardown"), "Allowed",
+    match(_raw, "Deny|denied"), "Denied",
+    true(), "Other"
+)
+| timechart span=4h count by action_type</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"Allowed": 0x5CC05C, "Denied": 0xdc4e41, "Other": 0x999999}</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Authentication Overview</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
+| spath path=status.errorCode output=errorCode
+| eval auth_status=if(errorCode=0 OR isnull(errorCode), "Success", "Failed")
+| timechart span=4h count by auth_status</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"Success": 0x5CC05C, "Failed": 0xdc4e41}</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 5: Service Status (2 panels) -->
+  <row>
+    <panel>
+      <title>Web Response Codes Distribution</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:access_combined"
+| rex field=_raw "HTTP/[\d.]+\"\s+(?&lt;status_code&gt;\d+)"
+| eval status_group=case(
+    status_code>=200 AND status_code&lt;300, "2xx Success",
+    status_code>=300 AND status_code&lt;400, "3xx Redirect",
+    status_code>=400 AND status_code&lt;500, "4xx Client Error",
+    status_code>=500, "5xx Server Error",
+    true(), "Other"
+)
+| stats count by status_group
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"2xx Success": 0x5CC05C, "3xx Redirect": 0x00bceb, "4xx Client Error": 0xf8be34, "5xx Server Error": 0xdc4e41}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Incident Volume by Priority</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| rex field=_raw "priority=\"(?&lt;priority_val&gt;\d)\""
+| eval priority_label=case(
+    priority_val="1", "1 - Critical",
+    priority_val="2", "2 - High",
+    priority_val="3", "3 - Moderate",
+    priority_val="4", "4 - Low",
+    priority_val="5", "5 - Planning",
+    true(), "Unknown"
+)
+| timechart span=1d count by priority_label</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"1 - Critical": 0xdc4e41, "2 - High": 0xf8be34, "3 - Moderate": 0xf8be34, "4 - Low": 0x5CC05C, "5 - Planning": 0x00bceb}</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 6: Alerting Indicators -->
+  <row>
+    <panel>
+      <title>Hosts with Critical Metrics</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt (sourcetype="FAKE:Perfmon:Processor" OR sourcetype="FAKE:Perfmon:Memory" OR sourcetype="FAKE:Perfmon:LogicalDisk") (counter="% Processor Time" OR counter="% Committed Bytes In Use" OR counter="% Free Space")
+| eval critical_metric=case(
+    counter="% Processor Time" AND Value>80, "CPU > 80%",
+    counter="% Committed Bytes In Use" AND Value>85, "Memory > 85%",
+    counter="% Free Space" AND Value&lt;10, "Disk < 10% Free",
+    true(), null()
+)
+| where isnotnull(critical_metric)
+| stats latest(_time) AS last_seen, max(Value) AS max_value, count AS occurrences by demo_host, critical_metric
+| eval last_seen=strftime(last_seen, "%m/%d %H:%M")
+| eval max_value=round(max_value, 1)
+| eval severity=case(
+    match(critical_metric, "CPU") AND max_value>90, "Critical",
+    match(critical_metric, "Disk") AND max_value&lt;5, "Critical",
+    match(critical_metric, "Memory") AND max_value>90, "Critical",
+    true(), "Warning"
+)
+| sort - occurrences
+| head 15
+| table demo_host, critical_metric, max_value, occurrences, last_seen, severity
+| rename demo_host AS "Host", critical_metric AS "Issue", max_value AS "Value", occurrences AS "Count", last_seen AS "Last Seen", severity AS "Severity"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="Severity">
+          <colorPalette type="map">{"Critical":#dc4e41,"Warning":#f8be34}</colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Recent High-Priority Incidents</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| rex field=_raw "priority=\"(?&lt;priority_val&gt;\d)\""
+| rex field=_raw "number=\"(?&lt;incident_num&gt;[^\"]+)\""
+| rex field=_raw "state=\"(?&lt;state_val&gt;[^\"]+)\""
+| rex field=_raw "short_description=\"(?&lt;description&gt;[^\"]+)\""
+| rex field=_raw "assignment_group=\"(?&lt;team&gt;[^\"]+)\""
+| where priority_val="1" OR priority_val="2"
+| eval priority_label=case(priority_val="1", "Critical", priority_val="2", "High")
+| sort - _time
+| table _time, incident_num, priority_label, state_val, description, team
+| head 10
+| rename _time AS "Time", incident_num AS "Incident", priority_label AS "Priority", state_val AS "State", description AS "Description", team AS "Team"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="Priority">
+          <colorPalette type="map">{"Critical":#dc4e41,"High":#f8be34}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 7: Investigation Queries -->
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Ready-to-Use SPL Queries for IT Ops Investigation</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">High CPU Hosts</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" counter="% Processor Time" Value&gt;80
+| stats count, avg(Value) AS avg_cpu, max(Value) AS max_cpu by demo_host
+| sort - avg_cpu</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Memory Pressure Analysis</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:Perfmon:Memory" counter="% Committed Bytes In Use" Value&gt;80
+| stats count, avg(Value) AS avg_mem by demo_host
+| sort - avg_mem</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Disk Filling Trend (Predictive)</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:df"
+| stats earliest(UsedPct) AS start_pct, latest(UsedPct) AS end_pct,
+        earliest(_time) AS start_time, latest(_time) AS end_time by host, mount
+| eval days_elapsed=(end_time-start_time)/86400
+| eval daily_growth=(end_pct-start_pct)/days_elapsed
+| eval days_to_full=(100-end_pct)/daily_growth
+| where daily_growth&gt;0
+| table host, mount, start_pct, end_pct, daily_growth, days_to_full
+| sort days_to_full</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Authentication Failures by User</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:azure:aad:signin" "errorCode" NOT "errorCode\":0"
+| spath path=userPrincipalName
+| stats count by userPrincipalName
+| sort - count
+| head 20</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Firewall Denials Analysis</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:asa" "Deny" OR "denied"
+| rex "(?&lt;src_ip&gt;\d+\.\d+\.\d+\.\d+)/\d+.*?(?&lt;dst_ip&gt;\d+\.\d+\.\d+\.\d+)/(?&lt;dst_port&gt;\d+)"
+| stats count by src_ip, dst_ip, dst_port
+| sort - count
+| head 20</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Web Error Rate Over Time</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:access_combined"
+| rex field=_raw "HTTP/[\d.]+\"\s+(?&lt;status_code&gt;\d+)"
+| eval error=if(status_code&gt;=400, 1, 0)
+| timechart span=1h sum(error) AS errors, count AS total
+| eval error_rate=round(errors/total*100, 2)
+| table _time, total, errors, error_rate</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Cross-Source Correlation by Scenario</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt demo_id=*
+| stats count, dc(sourcetype) AS source_count, values(sourcetype) AS sources by demo_id
+| sort - count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">ServiceNow Incident Correlation</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:servicenow:incident"
+| rex field=_raw "priority=\"(?&lt;priority_val&gt;\d)\""
+| rex field=_raw "category=\"(?&lt;category&gt;[^\"]+)\""
+| rex field=_raw "assignment_group=\"(?&lt;team&gt;[^\"]+)\""
+| stats count by category, team, priority_val
+| sort - count</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 8: Event Volume Summary -->
+  <row>
+    <panel>
+      <title>Events by Sourcetype</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt by sourcetype
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Active Scenarios</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt demo_id=*
+| stats count, dc(sourcetype) AS sources, earliest(_time) AS first_seen, latest(_time) AS last_seen by demo_id
+| eval first_seen=strftime(first_seen, "%m/%d %H:%M"), last_seen=strftime(last_seen, "%m/%d %H:%M")
+| sort - count
+| rename demo_id AS "Scenario", count AS "Events", sources AS "Data Sources", first_seen AS "First Seen", last_seen AS "Last Seen"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

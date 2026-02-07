@@ -1,0 +1,246 @@
+<dashboard version="1.1" theme="dark">
+  <label>Windows Perfmon</label>
+  <description>Windows Performance Monitor metrics from servers and workstations</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f1f2d 100%); border-radius: 8px; border-left: 4px solid #0078d4;">
+          <h2 style="color: #0078d4; margin-top: 0;">Windows Performance Monitor</h2>
+          <p style="color: #ccc; font-size: 1.1em;">CPU, memory, disk, and network metrics from Windows servers and workstations.</p>
+          <div style="display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Processor:</span> <code style="color: #5CC05C;">FAKE:Perfmon:Processor</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Memory:</span> <code style="color: #5CC05C;">FAKE:Perfmon:Memory</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Disk:</span> <code style="color: #5CC05C;">FAKE:Perfmon:LogicalDisk</code>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Events by Counter Type</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:Perfmon:*" by sourcetype</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Events Over Time</title>
+      <chart>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:Perfmon:*" by _time span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"count": 0x0078d4}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:Perfmon:*"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x0078d4","0x0078d4"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Hosts</title>
+      <single>
+        <search>
+          <query>| tstats dc(host) where index=fake_tshrt sourcetype="FAKE:Perfmon:*"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>High CPU Events (&gt;80%)</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" counter="% Processor Time" Value>80 | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xdc4e41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Low Memory Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Memory" counter="Available MBytes" Value&lt;1000 | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Key Counters</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #0078d4; margin-top: 0;">Processor</h4>
+          <ul style="color: #ccc; line-height: 1.8;">
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">% Processor Time</code> - CPU utilization</li>
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">% Idle Time</code> - CPU idle</li>
+          </ul>
+
+          <h4 style="color: #0078d4; margin-top: 15px;">Memory</h4>
+          <ul style="color: #ccc; line-height: 1.8;">
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">Available MBytes</code> - Free memory</li>
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">% Committed Bytes In Use</code> - Memory pressure</li>
+          </ul>
+
+          <h4 style="color: #0078d4; margin-top: 15px;">LogicalDisk</h4>
+          <ul style="color: #ccc; line-height: 1.8;">
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">% Free Space</code> - Disk free</li>
+            <li><code style="background: #333; padding: 2px 6px; border-radius: 3px;">Current Disk Queue Length</code> - I/O queue</li>
+          </ul>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Servers</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #f8be34; margin-top: 0;">CPU Runaway Scenario</h4>
+          <p style="color: #ccc;"><strong>SQL-PROD-01</strong> - SQL backup stuck causes 100% CPU</p>
+
+          <h4 style="color: #5CC05C; margin-top: 15px;">Normal Servers</h4>
+          <ul style="color: #ccc; line-height: 1.8;">
+            <li>BOS-DC-01, BOS-DC-02 - Domain Controllers</li>
+            <li>BOS-FILE-01 - File Server</li>
+            <li>ATL-DC-01, ATL-FILE-01 - Atlanta</li>
+            <li>WEB-01, WEB-02 - Web Servers</li>
+          </ul>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>CPU % by Host</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" counter="% Processor Time"
+| timechart span=1h avg(Value) by host</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Memory Available by Host</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:Memory" counter="Available MBytes"
+| timechart span=1h avg(Value) by host</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Use Cases</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Common SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">CPU Usage Over Time</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" counter="% Processor Time"
+| timechart span=1h avg(Value) by host</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">High CPU Alerts</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:Perfmon:Processor" counter="% Processor Time" Value&gt;90
+| stats count, avg(Value) AS avg_cpu by host
+| sort - avg_cpu</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Memory Pressure</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:Perfmon:Memory" counter="Available MBytes"
+| stats min(Value) AS min_mem, avg(Value) AS avg_mem by host
+| where min_mem &lt; 1000</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Disk Queue (I/O Bottleneck)</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:Perfmon:LogicalDisk" counter="Current Disk Queue Length"
+| timechart span=1h avg(Value) by host</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sample Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:Perfmon:*"
+| table _time, host, object, counter, instance, Value, demo_id
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

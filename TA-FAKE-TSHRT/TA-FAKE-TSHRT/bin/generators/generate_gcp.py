@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+"""
+GCP Audit Log Generator.
+Generates realistic GCP audit events with natural volume variation.
+Includes both admin_activity and data_access audit logs.
+"""
+
+import argparse
+import json
+import random
+import sys
+import uuid
+from pathlib import Path
+from typing import List, Dict, Any
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path, Config
+from shared.time_utils import ts_gcp, date_add, calc_natural_events, TimeUtils
+from shared.company import GCP_PROJECT, GCP_REGION, ORG_NAME_LOWER, get_internal_ip, Company
+from scenarios.registry import expand_scenarios
+
+# Log types
+LOG_TYPE_ADMIN_ACTIVITY = "activity"
+LOG_TYPE_DATA_ACCESS = "data_access"
+
+# =============================================================================
+# GCP CONFIGURATION
+# =============================================================================
+
+GCP_SERVICE_ACCOUNTS = [
+    f"svc-compute@{GCP_PROJECT}.iam.gserviceaccount.com",
+    f"svc-storage@{GCP_PROJECT}.iam.gserviceaccount.com",
+    f"svc-functions@{GCP_PROJECT}.iam.gserviceaccount.com",
+]
+GCP_BUCKETS = [f"{ORG_NAME_LOWER}-data", f"{ORG_NAME_LOWER}-backups", f"{ORG_NAME_LOWER}-exports"]
+GCP_FUNCTIONS = ["processData", "sendAlerts", "transformRecords"]
+GCP_INSTANCES = ["instance-prod-1", "instance-prod-2", "instance-web-1"]
+
+
+def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool:
+    """Check if event should get exfil demo_id.
+
+    Exfil scenario: Days 8-14 are staging/exfil phase.
+    Tag storage access events during this period.
+    """
+    if "exfil" not in active_scenarios:
+        return False
+    # Staging: day 7-9 (0-indexed), Exfil: day 10-13
+    if day < 7 or day > 13:
+        return False
+    # Tag storage access and list operations
+    return method_name in ["storage.objects.get", "storage.objects.list", "storage.objects.create"]
+
+# =============================================================================
+# EVENT GENERATORS
+# =============================================================================
+
+def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int,
+                   method_name: str, service_name: str, principal: str,
+                   log_type: str = LOG_TYPE_ADMIN_ACTIVITY) -> Dict[str, Any]:
+    """Create base GCP audit log structure.
+
+    Args:
+        log_type: Either LOG_TYPE_ADMIN_ACTIVITY or LOG_TYPE_DATA_ACCESS
+    """
+    return {
+        "protoPayload": {
+            "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+            "serviceName": service_name,
+            "methodName": method_name,
+            "authenticationInfo": {"principalEmail": principal},
+            "requestMetadata": {
+                "callerIp": get_internal_ip(),
+                "callerSuppliedUserAgent": "google-cloud-sdk/400.0.0",
+            },
+            "resourceName": f"projects/{GCP_PROJECT}",
+        },
+        "insertId": uuid.uuid4().hex[:16],
+        "resource": {
+            "type": "gce_instance",
+            "labels": {"project_id": GCP_PROJECT, "zone": f"{GCP_REGION}-a"},
+        },
+        "timestamp": ts_gcp(base_date, day, hour, minute, second),
+        "severity": "INFO",
+        "logName": f"projects/{GCP_PROJECT}/logs/cloudaudit.googleapis.com%2F{log_type}",
+    }
+
+
+def gcp_compute_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate Compute Engine list instances event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           "v1.compute.instances.list", "compute.googleapis.com", principal)
+    return event
+
+
+def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list = None,
+                    log_type: str = LOG_TYPE_ADMIN_ACTIVITY) -> Dict[str, Any]:
+    """Generate Cloud Storage get object event.
+
+    Args:
+        log_type: Use LOG_TYPE_DATA_ACCESS for actual data reads
+    """
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    bucket = random.choice(GCP_BUCKETS)
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           "storage.objects.get", "storage.googleapis.com", principal,
+                           log_type=log_type)
+    event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/data_{random.randint(1000, 9999)}.json"
+    event["resource"]["type"] = "gcs_bucket"
+
+    if active_scenarios and should_tag_exfil(day, "storage.objects.get", active_scenarios):
+        event["demo_id"] = "exfil"
+
+    return event
+
+
+def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
+    """Generate Cloud Storage create object event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    bucket = random.choice(GCP_BUCKETS)
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           "storage.objects.create", "storage.googleapis.com", principal)
+    event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/upload_{random.randint(1000, 9999)}.csv"
+    event["resource"]["type"] = "gcs_bucket"
+
+    if active_scenarios and should_tag_exfil(day, "storage.objects.create", active_scenarios):
+        event["demo_id"] = "exfil"
+
+    return event
+
+
+def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate Cloud Functions call event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    func = random.choice(GCP_FUNCTIONS)
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           "google.cloud.functions.v1.CloudFunctionsService.CallFunction",
+                           "cloudfunctions.googleapis.com", principal)
+    event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/locations/{GCP_REGION}/functions/{func}"
+    event["resource"]["type"] = "cloud_function"
+    return event
+
+
+def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate BigQuery query event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           "jobservice.jobcompleted", "bigquery.googleapis.com", principal)
+    event["protoPayload"]["serviceData"] = {
+        "jobCompletedEvent": {
+            "job": {
+                "jobStatistics": {"totalBilledBytes": str(random.randint(1000000, 100000000))},
+            }
+        }
+    }
+    event["resource"]["type"] = "bigquery_dataset"
+    return event
+
+
+def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
+                          active_scenarios: list = None) -> List[Dict[str, Any]]:
+    """Generate baseline events for one hour.
+
+    Event distribution:
+    - 20% compute.instances.list (admin_activity)
+    - 15% storage.objects.get (admin_activity - management operations)
+    - 25% storage.objects.get (data_access - actual data reads)
+    - 10% storage.objects.create (admin_activity)
+    - 15% Cloud Functions call (admin_activity)
+    - 15% BigQuery query (admin_activity)
+    """
+    events = []
+
+    for _ in range(event_count):
+        event_type = random.randint(1, 100)
+
+        if event_type <= 20:
+            # Compute list (admin_activity)
+            events.append(gcp_compute_list(base_date, day, hour))
+        elif event_type <= 35:
+            # Storage get - management (admin_activity)
+            events.append(gcp_storage_get(base_date, day, hour, active_scenarios,
+                                         log_type=LOG_TYPE_ADMIN_ACTIVITY))
+        elif event_type <= 60:
+            # Storage get - data reads (data_access)
+            events.append(gcp_storage_get(base_date, day, hour, active_scenarios,
+                                         log_type=LOG_TYPE_DATA_ACCESS))
+        elif event_type <= 70:
+            # Storage create (admin_activity)
+            events.append(gcp_storage_create(base_date, day, hour, active_scenarios))
+        elif event_type <= 85:
+            # Cloud Functions (admin_activity)
+            events.append(gcp_function_call(base_date, day, hour))
+        else:
+            # BigQuery (admin_activity)
+            events.append(gcp_bigquery_query(base_date, day, hour))
+
+    return events
+
+
+# =============================================================================
+# MAIN GENERATOR
+# =============================================================================
+
+def generate_gcp_logs(
+    start_date: str = DEFAULT_START_DATE,
+    days: int = DEFAULT_DAYS,
+    scale: float = DEFAULT_SCALE,
+    scenarios: str = "none",
+    output_file: str = None,
+    quiet: bool = False,
+) -> int:
+    """Generate GCP audit logs.
+
+    Generates both admin_activity and data_access audit logs.
+    When exfil scenario is active, includes attack events from ExfilScenario.
+    """
+
+    if output_file:
+        output_path = Path(output_file)
+    else:
+        output_path = get_output_path("cloud", "gcp_audit.json")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Parse scenarios
+    active_scenarios = expand_scenarios(scenarios)
+
+    # Initialize scenario support objects
+    config = Config(start_date=start_date, days=days, scale=scale, demo_id_enabled=True)
+    company = Company()
+    time_utils = TimeUtils(start_date)
+
+    # Initialize exfil scenario if active
+    exfil_scenario = None
+    if "exfil" in active_scenarios:
+        try:
+            from scenarios.security.exfil import ExfilScenario
+            exfil_scenario = ExfilScenario(config, company, time_utils)
+        except ImportError:
+            pass  # Scenario not available
+
+    base_events_per_peak_hour = int(12 * scale)
+
+    if not quiet:
+        print("=" * 70, file=sys.stderr)
+        print(f"  GCP Audit Log Generator (Python)", file=sys.stderr)
+        print(f"  Start: {start_date} | Days: {days} | Scale: {scale}", file=sys.stderr)
+        print(f"  Scenarios: {', '.join(active_scenarios) if active_scenarios else 'none'}", file=sys.stderr)
+        print(f"  Output: {output_path}", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+
+    all_events = []
+
+    for day in range(days):
+        if not quiet:
+            dt = date_add(start_date, day)
+            print(f"  [GCP] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")
+
+        for hour in range(24):
+            # Baseline events
+            hour_events = calc_natural_events(base_events_per_peak_hour, start_date, day, hour, "cloud")
+            all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events, active_scenarios))
+
+            # Exfil scenario events (SA key creation, storage exfil)
+            if exfil_scenario:
+                exfil_events = exfil_scenario.gcp_hour(day, hour)
+                for e in exfil_events:
+                    if isinstance(e, str):
+                        event = json.loads(e)
+                        # Remove None demo_id if present
+                        if event.get("demo_id") is None:
+                            event.pop("demo_id", None)
+                        all_events.append(event)
+                    else:
+                        all_events.append(e)
+
+        if not quiet:
+            print(f"  [GCP] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
+
+    # Sort by timestamp
+    all_events.sort(key=lambda x: x["timestamp"])
+
+    # Write output
+    with open(output_path, "w") as f:
+        for event in all_events:
+            f.write(json.dumps(event) + "\n")
+
+    if not quiet:
+        # Count by log type
+        admin_count = sum(1 for e in all_events if "activity" in e.get("logName", ""))
+        data_access_count = sum(1 for e in all_events if "data_access" in e.get("logName", ""))
+        exfil_count = sum(1 for e in all_events if e.get("demo_id") == "exfil")
+        print(f"  [GCP] Complete! {len(all_events):,} events written", file=sys.stderr)
+        print(f"        admin_activity: {admin_count:,} | data_access: {data_access_count:,} | exfil: {exfil_count:,}", file=sys.stderr)
+
+    return len(all_events)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate GCP audit logs")
+    parser.add_argument("--start-date", default=DEFAULT_START_DATE)
+    parser.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    parser.add_argument("--scale", type=float, default=DEFAULT_SCALE)
+    parser.add_argument("--scenarios", default="none")
+    parser.add_argument("--output")
+    parser.add_argument("--quiet", "-q", action="store_true")
+
+    args = parser.parse_args()
+    count = generate_gcp_logs(
+        start_date=args.start_date, days=args.days, scale=args.scale,
+        scenarios=args.scenarios, output_file=args.output, quiet=args.quiet,
+    )
+    print(count)
+
+
+if __name__ == "__main__":
+    main()

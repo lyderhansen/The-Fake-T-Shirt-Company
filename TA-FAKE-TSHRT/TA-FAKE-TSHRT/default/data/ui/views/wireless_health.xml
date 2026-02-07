@@ -1,0 +1,368 @@
+<dashboard version="1.1" theme="dark">
+  <label>Wireless Health</label>
+  <description>Monitor AP health scores, signal quality, and channel utilization across 36 access points</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d1f 100%); border-radius: 8px; border-left: 4px solid #5CC05C;">
+          <h2 style="color: #5CC05C; margin-top: 0;">Wireless Health Dashboard</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Monitor 36 MR46 access points across 3 locations. Track health scores, signal quality, and channel utilization.</p>
+          <div style="display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #00bceb;">Boston:</span> <strong style="color: #5CC05C;">16 APs</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #f8be34;">Atlanta:</span> <strong style="color: #5CC05C;">12 APs</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #dc4e41;">Austin:</span> <strong style="color: #5CC05C;">8 APs</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sourcetype:</span> <code style="color: #5CC05C;">FAKE:meraki:accesspoints</code>
+            </div>
+          </div>
+          <p style="color: #f8be34; margin-top: 15px; font-size: 0.95em;">Known Problem APs: AP-BOS-1F-04 (Shipping), AP-BOS-2F-03 (Marketing), AP-ATL-1F-04 (Training Lab), AP-AUS-1F-08 (Game Room)</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Avg AP Health Score</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score
+| stats avg(eventData.performance.latest) AS avg_health
+| eval avg_health=round(avg_health, 0)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xf8be34","0x5CC05C"]</option>
+        <option name="rangeValues">[60,80]</option>
+        <option name="useColors">1</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>APs Below 70%</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score
+| stats avg(eventData.performance.latest) AS avg_health by deviceName
+| where avg_health &lt; 70
+| stats count AS low_health_aps</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[2,5]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Avg Channel Utilization</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=channel_utilization
+| stats avg(eventData.utilizationTotal) AS avg_util
+| eval avg_util=round(avg_util, 0)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[50,75]</option>
+        <option name="useColors">1</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Health Alerts</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=health_alert
+| stats count AS alerts</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[10,30]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>AP Health by Location</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score
+| eval location=case(
+    match(deviceName, "BOS"), "Boston (16 APs)",
+    match(deviceName, "ATL"), "Atlanta (12 APs)",
+    match(deviceName, "AUS"), "Austin (8 APs)",
+    true(), "Other"
+)
+| stats avg(eventData.performance.latest) AS avg_health by location
+| eval avg_health=round(avg_health, 1)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"avg_health": 0x5CC05C}</option>
+        <option name="charting.axisTitleY.text">Health Score %</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Health Score Distribution</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score
+| stats avg(eventData.performance.latest) AS avg_health by deviceName
+| eval health_band=case(
+    avg_health &gt;= 90, "90-100 (Excellent)",
+    avg_health &gt;= 80, "80-89 (Good)",
+    avg_health &gt;= 70, "70-79 (Fair)",
+    avg_health &gt;= 60, "60-69 (Poor)",
+    true(), "&lt;60 (Critical)"
+)
+| stats count by health_band
+| sort - health_band</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"90-100 (Excellent)": 0x5CC05C, "80-89 (Good)": 0x00bceb, "70-79 (Fair)": 0xf8be34, "60-69 (Poor)": 0xdc4e41, "&lt;60 (Critical)": 0x800000}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Health Score Trend</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score
+| timechart span=4h avg(eventData.performance.latest) AS "Avg Health Score"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"Avg Health Score": 0x5CC05C}</option>
+        <option name="charting.axisTitleY.text">Health Score %</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Problem APs (Health &lt; 80%)</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score
+| stats avg(eventData.performance.latest) AS avg_health, latest(_time) AS last_check, count AS samples by deviceName
+| where avg_health &lt; 80
+| eval avg_health=round(avg_health, 1)
+| eval last_check=strftime(last_check, "%Y-%m-%d %H:%M")
+| eval location=case(
+    match(deviceName, "BOS"), "Boston",
+    match(deviceName, "ATL"), "Atlanta",
+    match(deviceName, "AUS"), "Austin"
+)
+| sort avg_health
+| table deviceName, location, avg_health, last_check, samples
+| rename deviceName AS "AP Name", location AS "Location", avg_health AS "Avg Health %", last_check AS "Last Check", samples AS "Samples"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">15</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Known Problem Areas</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #dc4e41; margin-top: 0;">APs with Consistent Issues</h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">AP</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Location</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Area</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Issue</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">AP-BOS-1F-04</td>
+              <td style="padding: 8px; border: 1px solid #444;">Boston</td>
+              <td style="padding: 8px; border: 1px solid #444;">Shipping</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">High interference from machinery</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">AP-BOS-2F-03</td>
+              <td style="padding: 8px; border: 1px solid #444;">Boston</td>
+              <td style="padding: 8px; border: 1px solid #444;">Marketing</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">Dense client area, channel congestion</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">AP-ATL-1F-04</td>
+              <td style="padding: 8px; border: 1px solid #444;">Atlanta</td>
+              <td style="padding: 8px; border: 1px solid #444;">Training Lab</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">30+ devices during training sessions</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">AP-AUS-1F-08</td>
+              <td style="padding: 8px; border: 1px solid #444;">Austin</td>
+              <td style="padding: 8px; border: 1px solid #444;">Game Room</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">High bandwidth gaming devices</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Signal Quality (SNR) by AP</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=signal_quality
+| stats avg(eventData.snr) AS avg_snr, avg(eventData.rssi) AS avg_rssi by deviceName
+| eval avg_snr=round(avg_snr, 1), avg_rssi=round(avg_rssi, 1)
+| eval quality=case(avg_snr &gt;= 25, "Excellent", avg_snr &gt;= 15, "Good", avg_snr &gt;= 10, "Fair", true(), "Poor")
+| sort avg_snr
+| head 20
+| rename deviceName AS "AP Name", avg_snr AS "Avg SNR (dB)", avg_rssi AS "Avg RSSI (dBm)", quality AS "Quality"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Channel Utilization Over Time</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=channel_utilization
+| timechart span=2h avg(eventData.utilizationTotal) AS "Avg Utilization %"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"Avg Utilization %": 0x00bceb}</option>
+        <option name="charting.axisTitleY.text">Utilization %</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Client Connection Events</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" (type=association OR type=disassociation)
+| timechart span=2h count by type</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.fieldColors">{"association": 0x5CC05C, "disassociation": 0xf8be34}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>802.1X Authentication</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" (type="802.1X_auth_success" OR type="802.1X_auth_failure")
+| eval auth_result=if(type="802.1X_auth_success", "Success", "Failure")
+| stats count by auth_result</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"Success": 0x5CC05C, "Failure": 0xdc4e41}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #5CC05C; margin-top: 0;">Useful SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Low Health Score APs</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=ap_health_score eventData.performance.latest&lt;70
+| table _time, deviceName, eventData.performance.latest, eventData.wifi0, eventData.wifi1</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Channel Congestion</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=channel_utilization eventData.utilizationTotal&gt;75
+| table _time, deviceName, eventData.utilizationTotal, eventData.channel</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Authentication Failures</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type="802.1X_auth_failure"
+| stats count by deviceName, eventData.identity
+| sort - count</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Rogue SSID Detection</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:accesspoints" type=rogue_ssid
+| table _time, deviceName, eventData.rogue_ssid, eventData.rogue_bssid, eventData.rssi</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Wireless Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:accesspoints"
+| table _time, deviceName, type, eventData.clientMac, eventData.ssid, eventData.rssi
+| sort - _time
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

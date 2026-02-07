@@ -1,0 +1,354 @@
+<dashboard version="1.1" theme="dark">
+  <label>Meeting Room Analytics</label>
+  <description>Correlate Webex meetings with door sensors, temperature, and camera occupancy</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #2d1f2d 100%); border-radius: 8px; border-left: 4px solid #9954bb;">
+          <h2 style="color: #9954bb; margin-top: 0;">Meeting Room Analytics</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Correlate Webex meetings with MT door sensors, temperature readings, and MV camera occupancy data. Track ghost meetings, room utilization, and environmental conditions.</p>
+          <div style="display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Webex:</span> <code style="color: #5CC05C;">FAKE:cisco:webex:events</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sensors:</span> <code style="color: #5CC05C;">FAKE:meraki:sensors</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Cameras:</span> <code style="color: #5CC05C;">FAKE:meraki:camera</code>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Total Meetings</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=meeting_started
+| stats count AS meetings</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x00bceb","0x00bceb"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Rooms Used</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=meeting_started
+| stats dc(room) AS unique_rooms</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0x5CC05C"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Avg People Count</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=room_analytics
+| stats avg(people_count) AS avg_people
+| eval avg_people=round(avg_people, 1)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xf8be34","0xf8be34"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Door Events</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:sensors" (type=door_open OR type=door_close)
+| stats count AS door_events</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x9954bb","0x9954bb"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Meeting Activity vs Temperature (Hourly)</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt (sourcetype="FAKE:cisco:webex:events" event_type=meeting_started) OR (sourcetype="FAKE:meraki:sensors" type=sensor_reading)
+| eval metric=case(
+    sourcetype="FAKE:cisco:webex:events", "Meetings Started",
+    sourcetype="FAKE:meraki:sensors" AND 'trigger.metric'="temperature", "Avg Temp (C)"
+)
+| where isnotnull(metric)
+| eval value=case(
+    metric="Meetings Started", 1,
+    metric="Avg Temp (C)", 'trigger.temperature.celsius'
+)
+| timechart span=2h count(eval(metric="Meetings Started")) AS "Meetings", avg(eval(metric="Avg Temp (C)" AND value)) AS "Avg Temp (C)"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">300</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"Meetings": 0x00bceb, "Avg Temp (C)": 0xdc4e41}</option>
+        <option name="charting.axisTitleY.text">Meetings / Temperature</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Sunny Rooms Temperature Comparison</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:sensors" type=sensor_reading 'trigger.metric'=temperature
+| rex field=deviceSerial "MT-(?&lt;loc&gt;[A-Z]+)-"
+| eval room=case(
+    match(deviceSerial, "(?i)cambridge"), "Cambridge (South-facing)",
+    match(deviceSerial, "(?i)midtown"), "Midtown (West-facing)",
+    match(deviceSerial, "(?i)congress"), "Congress (Southwest)",
+    true(), "Other Rooms"
+)
+| stats avg(trigger.temperature.celsius) AS avg_temp by room
+| eval avg_temp=round(avg_temp, 1)
+| sort - avg_temp</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"avg_temp": 0xdc4e41}</option>
+        <option name="charting.axisTitleY.text">Temperature (C)</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Temperature Impact</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #f8be34; margin-top: 0;">Sunny Rooms - Temperature Boost During Peak Hours</h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Room</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Direction</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Peak Hours</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Extra Heat</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">Cambridge</td>
+              <td style="padding: 8px; border: 1px solid #444;">South</td>
+              <td style="padding: 8px; border: 1px solid #444;">13:00-17:00</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">+4C</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">Midtown</td>
+              <td style="padding: 8px; border: 1px solid #444;">West</td>
+              <td style="padding: 8px; border: 1px solid #444;">14:00-18:00</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">+3.5C</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444;">Congress</td>
+              <td style="padding: 8px; border: 1px solid #444;">Southwest</td>
+              <td style="padding: 8px; border: 1px solid #444;">12:00-17:00</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">+5C</td>
+            </tr>
+          </table>
+          <p style="color: #999; font-size: 0.9em; margin-top: 10px;">Temperature formula: base + sun_boost + (people x 0.3C) + (duration/30 x 0.5C)</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Door Events Timeline</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:sensors" (type=door_open OR type=door_close)
+| timechart span=2h count by type</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.fieldColors">{"door_open": 0x5CC05C, "door_close": 0xf8be34}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Meeting Room Occupancy Analytics</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=room_analytics
+| stats avg(people_count) AS avg_people, avg(occupancy_pct) AS avg_occupancy by room
+| eval avg_people=round(avg_people, 1), avg_occupancy=round(avg_occupancy, 0)
+| sort - avg_occupancy
+| head 10</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"avg_occupancy": 0x9954bb}</option>
+        <option name="charting.axisTitleX.text">Avg Occupancy %</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Meetings by Hour (Utilization Pattern)</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=meeting_started
+| eval hour=strftime(_time, "%H")
+| stats count by hour
+| sort hour</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"count": 0x00bceb}</option>
+        <option name="charting.axisTitleX.text">Hour of Day</option>
+        <option name="charting.axisTitleY.text">Meetings Started</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Room Utilization by Location</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=meeting_started
+| stats count AS meetings by location_code
+| sort - meetings</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"BOS": 0x00bceb, "ATL": 0x5CC05C, "AUS": 0xf8be34}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Camera Motion Detection (MV)</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:camera" type=motion_detected
+| timechart span=2h count AS "Motion Events"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"Motion Events": 0x9954bb}</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>People Detected by Camera Zone</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:camera" type=person_detected
+| stats count AS detections, avg(eventData.people_count) AS avg_people by deviceName, eventData.zone
+| eval avg_people=round(avg_people, 1)
+| sort - detections
+| head 15
+| rename deviceName AS Camera, eventData.zone AS Zone, detections AS "Total Detections", avg_people AS "Avg People"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #9954bb; margin-top: 0;">Correlation Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Temperature Rise During Meetings</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:meraki:sensors" type=sensor_reading trigger.metric=temperature
+| timechart span=15m avg(trigger.temperature.celsius) by deviceSerial</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Meeting Lifecycle with Door Events</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt (sourcetype="FAKE:meraki:sensors" type=door_open)
+  OR (sourcetype="FAKE:cisco:webex:events" event_type=meeting_started)
+| sort _time
+| table _time, sourcetype, deviceSerial, room, event_type, meeting_title</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">After-Hours Room Activity</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt (sourcetype="FAKE:cisco:webex:events" OR sourcetype="FAKE:meraki:sensors")
+| eval hour=strftime(_time, "%H")
+| where hour &gt;= "20" OR hour &lt;= "06"
+| stats count by sourcetype, hour
+| sort hour</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Overfilled Rooms (Over Capacity)</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=room_analytics occupancy_pct&gt;100
+| table _time, room, people_count, room_capacity, occupancy_pct</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Sensor Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:meraki:sensors"
+| table _time, deviceSerial, type, trigger.metric, trigger.temperature.celsius, trigger.humidity.value, alertFired
+| sort - _time
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

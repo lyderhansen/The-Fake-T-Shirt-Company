@@ -1,0 +1,283 @@
+<dashboard version="1.1" theme="dark">
+  <label>Webex Meeting Quality</label>
+  <description>Deep dive into Webex call quality metrics, problem rooms, and quality trends</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #1f2d1f 100%); border-radius: 8px; border-left: 4px solid #00bceb;">
+          <h2 style="color: #00bceb; margin-top: 0;">Webex Meeting Quality Dashboard</h2>
+          <p style="color: #ccc; font-size: 1.1em;">Track audio/video quality metrics across 17 conference rooms. Identify problem rooms and quality trends.</p>
+          <div style="display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Sourcetype:</span> <code style="color: #5CC05C;">FAKE:cisco:webex:events</code>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">Problem Rooms:</span> <strong style="color: #dc4e41;">North End, Peachtree</strong>
+            </div>
+            <div style="background: #333; padding: 10px 15px; border-radius: 5px;">
+              <span style="color: #999;">MOS Score:</span> <span style="color: #5CC05C;">4.0+ Good</span> | <span style="color: #f8be34;">3.5-4.0 Fair</span> | <span style="color: #dc4e41;">&lt;3.5 Poor</span>
+            </div>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Average MOS Score</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats avg(audio.mos_score) AS avg_mos
+| eval avg_mos=round(avg_mos, 2)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xdc4e41","0xf8be34","0x5CC05C"]</option>
+        <option name="rangeValues">[3.5,4.0]</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0.00</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Poor Quality Meetings</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics audio.mos_score&lt;3.5
+| stats dc(meeting_id) AS poor_meetings</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[5,15]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Avg Packet Loss %</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats avg(video.packet_loss_pct) AS avg_loss
+| eval avg_loss=round(avg_loss, 2)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[1,3]</option>
+        <option name="useColors">1</option>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Echo Incidents</title>
+      <single>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics audio.echo_detected=true
+| stats count AS echo_count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x5CC05C","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[5,20]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>MOS Score Over Time</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| timechart span=4h avg(audio.mos_score) AS "Avg MOS Score"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"Avg MOS Score": 0x00bceb}</option>
+        <option name="charting.axisTitleY.text">MOS Score (1-5)</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Quality Rating Distribution</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats count by quality_rating
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.fieldColors">{"good": 0x5CC05C, "fair": 0xf8be34, "poor": 0xdc4e41}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Room Quality Ranking (Lowest to Highest MOS)</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats avg(audio.mos_score) AS avg_mos, avg(video.packet_loss_pct) AS avg_loss, avg(network.jitter_ms) AS avg_jitter, count AS samples by room
+| eval avg_mos=round(avg_mos, 2), avg_loss=round(avg_loss, 2), avg_jitter=round(avg_jitter, 1)
+| eval quality_grade=case(avg_mos>=4.0, "Excellent", avg_mos>=3.5, "Good", avg_mos>=3.0, "Fair", true(), "Poor")
+| sort avg_mos
+| table room, avg_mos, avg_loss, avg_jitter, quality_grade, samples
+| rename room AS "Room", avg_mos AS "Avg MOS", avg_loss AS "Avg Loss %", avg_jitter AS "Avg Jitter (ms)", quality_grade AS "Quality Grade", samples AS "Samples"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">17</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Quality by Location</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats avg(audio.mos_score) AS avg_mos by location_code
+| eval avg_mos=round(avg_mos, 2)
+| sort - avg_mos
+| rename location_code AS Location, avg_mos AS "Avg MOS Score"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">250</option>
+        <option name="charting.fieldColors">{"Avg MOS Score": 0x00bceb}</option>
+        <option name="charting.axisTitleY.text">MOS Score</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Problem Room Issues</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 15px; border-radius: 5px;">
+          <h4 style="color: #dc4e41; margin-top: 0;">Rooms with Consistent Quality Issues</h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #2a2a2a;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Room</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Location</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Issues</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #444;">Impact</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">North End</td>
+              <td style="padding: 8px; border: 1px solid #444;">Boston Floor 3</td>
+              <td style="padding: 8px; border: 1px solid #444;">wifi_congestion, old_equipment</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">Low MOS, high jitter</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #444; color: #f8be34;">Peachtree</td>
+              <td style="padding: 8px; border: 1px solid #444;">Atlanta Floor 2</td>
+              <td style="padding: 8px; border: 1px solid #444;">bandwidth_limited, echo_issues</td>
+              <td style="padding: 8px; border: 1px solid #444; color: #dc4e41;">Timeout errors, echo</td>
+            </tr>
+          </table>
+          <p style="color: #999; font-size: 0.9em; margin-top: 15px;">These rooms consistently show degraded quality metrics. Recommend network assessment and equipment upgrade.</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Quality Metrics Timeline (by Room)</title>
+      <chart>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics (room="North End" OR room="Peachtree" OR room="Cambridge" OR room="Congress")
+| timechart span=6h avg(audio.mos_score) by room</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">280</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Investigation Queries</title>
+      <html>
+        <div style="background: #1a1a1a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #00bceb; margin-top: 0;">Useful SPL Queries</h3>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Poor Quality Meetings</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics audio.mos_score&lt;3.5
+| table _time, room, meeting_id, audio.mos_score, video.packet_loss_pct, network.jitter_ms, room_issues</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Room Quality Comparison</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats avg(audio.mos_score) AS mos, avg(video.packet_loss_pct) AS loss, avg(network.latency_ms) AS latency by room
+| sort mos</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Echo Detection Events</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics audio.echo_detected=true
+| table _time, room, meeting_id, audio.mos_score</pre>
+
+          <h4 style="color: #ccc; margin-top: 20px;">Quality Degradation Over Meeting Duration</h4>
+          <pre style="background: #0d0d0d; padding: 10px; border-radius: 3px; overflow-x: auto; color: #5CC05C;">index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| stats first(audio.mos_score) AS start_mos, last(audio.mos_score) AS end_mos by meeting_id, room
+| eval degradation=start_mos-end_mos
+| where degradation&gt;0.3
+| sort - degradation</pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Quality Events</title>
+      <table>
+        <search>
+          <query>index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type=quality_metrics
+| table _time, room, location_code, meeting_id, audio.mos_score, video.packet_loss_pct, network.jitter_ms, quality_rating
+| sort - _time
+| head 20</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

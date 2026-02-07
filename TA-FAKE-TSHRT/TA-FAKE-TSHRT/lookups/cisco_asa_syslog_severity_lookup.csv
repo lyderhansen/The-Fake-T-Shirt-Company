@@ -1,0 +1,9 @@
+log_level,severity_level,description
+0,emergencies,System is unusable
+1,alert,Immediate action is needed
+2,critical,Critical conditions
+3,error,Error conditions
+4,warning,Warning conditions
+5,notification,Normal but significant conditions
+6,informational,Informational messages only
+7,debugging,Debugging messages only
