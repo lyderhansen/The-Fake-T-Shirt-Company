@@ -79,7 +79,7 @@ GENERATOR_OUTPUT_FILES = {
     "asa": ["network/cisco_asa.log"],
     "aws": ["cloud/aws_cloudtrail.json"],
     "gcp": ["cloud/gcp_audit.json"],
-    "entraid": ["cloud/entraid_signin.json", "cloud/entraid_audit.json"],
+    "entraid": ["cloud/entraid_signin.json", "cloud/entraid_audit.json", "cloud/entraid_risk_detection.json"],
     "exchange": ["cloud/exchange_message_trace.json"],
     "access": ["web/access_combined.log"],
     "orders": ["retail/orders.json"],
@@ -114,6 +114,7 @@ GENERATOR_OUTPUT_FILES = {
         "windows/wineventlog_application.log",
     ],
     "linux": [
+        "linux/cpu.log",
         "linux/vmstat.log",
         "linux/df.log",
         "linux/iostat.log",

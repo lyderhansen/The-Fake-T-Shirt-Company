@@ -1,0 +1,363 @@
+<dashboard version="2" theme="dark">
+  <label>SOC Overview</label>
+  <description>Security Operations Center — The FAKE T-Shirt Company</description>
+  <definition><![CDATA[
+{
+  "title": "SOC Overview",
+  "description": "Security Operations Center — The FAKE T-Shirt Company",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Events Sparkline",
+      "options": {
+        "query": "index=fake_tshrt $scenario_filter$ | timechart span=1h count"
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Events Sparkline",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | timechart span=1h count"
+      }
+    },
+    "ds_unique_sourcetypes": {
+      "type": "ds.search",
+      "name": "Unique Sourcetype Count",
+      "options": {
+        "query": "index=fake_tshrt $scenario_filter$ | stats dc(sourcetype) as count"
+      }
+    },
+    "ds_active_scenarios": {
+      "type": "ds.search",
+      "name": "Active Scenario Count",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | stats dc(demo_id) as count"
+      }
+    },
+    "ds_timeline": {
+      "type": "ds.search",
+      "name": "Event Timeline by Sourcetype",
+      "options": {
+        "query": "index=fake_tshrt $scenario_filter$ | timechart span=1h count by sourcetype limit=10"
+      }
+    },
+    "ds_scenario_breakdown": {
+      "type": "ds.search",
+      "name": "Event Distribution by Scenario",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | stats count by demo_id | sort -count"
+      }
+    },
+    "ds_top_sources": {
+      "type": "ds.search",
+      "name": "Top 10 Source IPs",
+      "options": {
+        "query": "index=fake_tshrt $scenario_filter$ src=* | stats count by src | sort -count | head 10"
+      }
+    },
+    "ds_top_users": {
+      "type": "ds.search",
+      "name": "Top 10 Users by Event Count",
+      "options": {
+        "query": "index=fake_tshrt $scenario_filter$ (user=* OR userName=*) | eval identity=coalesce(user, userName) | stats count by identity | sort -count | head 10"
+      }
+    },
+    "ds_recent_events": {
+      "type": "ds.search",
+      "name": "Recent Security Events",
+      "options": {
+        "query": "index=fake_tshrt $scenario_filter$ | eval identity=coalesce(user, userName, \"-\"), scenario=if(isnotnull(demo_id), demo_id, \"-\") | table _time sourcetype scenario identity src dst host | sort -_time | head 100"
+      }
+    },
+    "ds_sourcetype_hosts": {
+      "type": "ds.search",
+      "name": "Sourcetype Dropdown Values",
+      "options": {
+        "query": "| tstats dc(host) as hosts where index=fake_tshrt by sourcetype | sort -hosts | fields sourcetype"
+      }
+    }
+  },
+  "visualizations": {
+    "viz_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": {
+        "primary": "ds_total_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00D2FF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      },
+      "context": {
+        "trendColorConfig": [
+          {"value": "#DC4E41", "to": 0},
+          {"value": "#53A051", "from": 0}
+        ]
+      }
+    },
+    "viz_scenario_events": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": {
+        "primary": "ds_scenario_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#DC4E41",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#DC4E41"
+      },
+      "context": {
+        "trendColorConfig": [
+          {"value": "#53A051", "to": 0},
+          {"value": "#DC4E41", "from": 0}
+        ]
+      }
+    },
+    "viz_unique_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Active Sourcetypes",
+      "dataSources": {
+        "primary": "ds_unique_sourcetypes"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_active_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Active Scenarios",
+      "dataSources": {
+        "primary": "ds_active_scenarios"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "> majorValue | rangeValue(scenarioColorConfig)",
+        "backgroundColor": "transparent"
+      },
+      "context": {
+        "scenarioColorConfig": [
+          {"value": "#53A051", "to": 2},
+          {"value": "#F8BE34", "from": 2, "to": 5},
+          {"value": "#DC4E41", "from": 5}
+        ]
+      }
+    },
+    "viz_timeline": {
+      "type": "splunk.area",
+      "title": "Event Volume by Sourcetype",
+      "dataSources": {
+        "primary": "ds_timeline"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / Hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_scenario_breakdown": {
+      "type": "splunk.pie",
+      "title": "Scenario Breakdown",
+      "dataSources": {
+        "primary": "ds_scenario_breakdown"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "exfil": "#DC4E41",
+          "ransomware_attempt": "#F1813F",
+          "memory_leak": "#F8BE34",
+          "cpu_runaway": "#FF677B",
+          "disk_filling": "#7B56DB",
+          "firewall_misconfig": "#009CEB",
+          "certificate_expiry": "#00CDAF"
+        }
+      }
+    },
+    "viz_top_sources": {
+      "type": "splunk.bar",
+      "title": "Top Source IPs",
+      "dataSources": {
+        "primary": "ds_top_sources"
+      },
+      "options": {
+        "seriesColors": ["#009CEB"],
+        "legendDisplay": "off",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleVisibility": "hide",
+        "dataValuesDisplay": "all",
+        "backgroundColor": "transparent"
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "query": "index=fake_tshrt src=$row.src.value$",
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$",
+            "newTab": true
+          }
+        }
+      ]
+    },
+    "viz_top_users": {
+      "type": "splunk.bar",
+      "title": "Top Users",
+      "dataSources": {
+        "primary": "ds_top_users"
+      },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleVisibility": "hide",
+        "dataValuesDisplay": "all",
+        "backgroundColor": "transparent"
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "query": "index=fake_tshrt (user=\"$row.identity.value$\" OR userName=\"$row.identity.value$\")",
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$",
+            "newTab": true
+          }
+        }
+      ]
+    },
+    "viz_recent_events": {
+      "type": "splunk.table",
+      "title": "Recent Events",
+      "dataSources": {
+        "primary": "ds_recent_events"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false,
+        "columnFormat": {
+          "scenario": {
+            "rowBackgroundColors": "> table | seriesByName(\"scenario\") | matchValue(scenarioColors)",
+            "rowColors": "#ffffff"
+          }
+        }
+      },
+      "context": {
+        "scenarioColors": [
+          {"match": "exfil", "value": "#DC4E41"},
+          {"match": "ransomware_attempt", "value": "#F1813F"},
+          {"match": "memory_leak", "value": "#F8BE34"},
+          {"match": "cpu_runaway", "value": "#FF677B"},
+          {"match": "disk_filling", "value": "#7B56DB"},
+          {"match": "firewall_misconfig", "value": "#009CEB"},
+          {"match": "certificate_expiry", "value": "#00CDAF"},
+          {"match": "-", "value": "transparent"}
+        ]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true,
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "query": "index=fake_tshrt sourcetype=\"$row.sourcetype.value$\" host=\"$row.host.value$\"",
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$",
+            "newTab": true
+          }
+        }
+      ]
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1735689600,1736899200"
+      }
+    },
+    "input_scenario": {
+      "type": "input.dropdown",
+      "title": "Scenario Filter",
+      "options": {
+        "token": "scenario_filter",
+        "defaultValue": "*",
+        "items": [
+          {"label": "All Events", "value": "*"},
+          {"label": "All Scenarios", "value": "demo_id=*"},
+          {"label": "Exfil (APT)", "value": "demo_id=exfil"},
+          {"label": "Ransomware", "value": "demo_id=ransomware_attempt"},
+          {"label": "Memory Leak", "value": "demo_id=memory_leak"},
+          {"label": "CPU Runaway", "value": "demo_id=cpu_runaway"},
+          {"label": "Disk Filling", "value": "demo_id=disk_filling"},
+          {"label": "Firewall Misconfig", "value": "demo_id=firewall_misconfig"},
+          {"label": "Certificate Expiry", "value": "demo_id=certificate_expiry"}
+        ]
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "absolute",
+    "options": {
+      "width": 1440,
+      "height": 1200,
+      "display": "auto-scale",
+      "showTitleAndDescription": true,
+      "submitButton": false,
+      "backgroundColor": "#0B0C10"
+    },
+    "globalInputs": ["input_global_trp", "input_scenario"],
+    "structure": [
+      {"item": "viz_total_events", "type": "block", "position": {"x": 20, "y": 10, "w": 340, "h": 120}},
+      {"item": "viz_scenario_events", "type": "block", "position": {"x": 370, "y": 10, "w": 340, "h": 120}},
+      {"item": "viz_unique_sourcetypes", "type": "block", "position": {"x": 720, "y": 10, "w": 340, "h": 120}},
+      {"item": "viz_active_scenarios", "type": "block", "position": {"x": 1070, "y": 10, "w": 340, "h": 120}},
+      {"item": "viz_timeline", "type": "block", "position": {"x": 20, "y": 145, "w": 960, "h": 320}},
+      {"item": "viz_scenario_breakdown", "type": "block", "position": {"x": 990, "y": 145, "w": 420, "h": 320}},
+      {"item": "viz_top_sources", "type": "block", "position": {"x": 20, "y": 480, "w": 690, "h": 300}},
+      {"item": "viz_top_users", "type": "block", "position": {"x": 720, "y": 480, "w": 690, "h": 300}},
+      {"item": "viz_recent_events", "type": "block", "position": {"x": 20, "y": 795, "w": 1390, "h": 390}}
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

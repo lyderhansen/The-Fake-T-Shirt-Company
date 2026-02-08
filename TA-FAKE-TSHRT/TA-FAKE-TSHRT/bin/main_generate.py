@@ -265,8 +265,9 @@ Output Directories:
     # Configure output directory based on test mode
     # Must happen BEFORE any generator runs (they use get_output_path() from config)
     if args.test:
-        test_base = OUTPUT_BASE_PRODUCTION / "tmp"
-        set_output_base(test_base)
+        set_output_base(OUTPUT_BASE_PRODUCTION / "tmp")
+    else:
+        set_output_base(OUTPUT_BASE_PRODUCTION)
 
     # Re-import OUTPUT_BASE after potential override
     from shared.config import OUTPUT_BASE as current_output_base

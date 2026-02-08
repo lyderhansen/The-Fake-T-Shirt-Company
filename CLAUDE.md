@@ -2,7 +2,12 @@
 
 ## Project Overview
 
-**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office), producing correlated events across 18 data source generators with injectable security/ops/network scenarios.
+**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office), producing correlated events across 18 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT), cloud (AWS CloudTrail, GCP Audit, Entra ID), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Perfmon, Linux), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
+
+## Output Preferences
+
+- Default to concise bullet-point format, English language, and minimal prose unless explicitly asked otherwise
+- For file path references and structured data, use Markdown tables with consistent formatting on first attempt — ask for clarification on format only if the structure is ambiguous
 
 ## Network Architecture
 
