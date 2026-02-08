@@ -10,6 +10,12 @@
 - For file path references and structured data, use Markdown tables with consistent formatting on first attempt — ask for clarification on format only if the structure is ambiguous
 - Default Splunk time picker for this project is January 2026 (all generated data uses the timeline starting 2026-01-01)
 
+## Verification Rules
+
+- **Never document unverified information.** When looking up external links (Splunkbase apps, vendor documentation, API references), verify that the URL actually leads to the correct resource before including it in any file. If a link cannot be confirmed, ASK the user instead of guessing.
+- **If you can't find it, say so.** Do not fabricate or assume Splunkbase app IDs, vendor documentation URLs, or API endpoint paths. Wrong documentation is worse than no documentation.
+- **When in doubt, ask.** If web searches or URL fetches return unexpected results, 404 errors, or content that doesn't match what you expected, stop and ask the user what to do rather than proceeding with potentially incorrect information.
+
 ## Network Architecture
 
 ```

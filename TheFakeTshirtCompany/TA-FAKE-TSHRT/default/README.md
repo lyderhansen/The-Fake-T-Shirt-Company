@@ -64,13 +64,13 @@ the same way they would with production data.
 | Sourcetype | Format | Inspired By | Vendor Docs |
 |------------|--------|-------------|-------------|
 | `FAKE:cisco:asa` | Syslog | [Splunk Add-on for Cisco ASA](https://splunkbase.splunk.com/app/1620) | [Cisco ASA Syslog Messages](https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/b_syslog.html) |
-| `FAKE:meraki:securityappliances` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki Dashboard API](https://developer.cisco.com/meraki/api-latest/) |
-| `FAKE:meraki:accesspoints` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki Wireless docs](https://documentation.meraki.com/MR) |
-| `FAKE:meraki:switches` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki Switches docs](https://documentation.meraki.com/MS) |
-| `FAKE:meraki:cameras` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki Smart Cameras docs](https://documentation.meraki.com/MV) |
-| `FAKE:meraki:sensors` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki Sensors docs](https://documentation.meraki.com/MT) |
-| `FAKE:meraki:accesspoints:health` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki MR Health API](https://developer.cisco.com/meraki/api-latest/) |
-| `FAKE:meraki:switches:health` | JSON | [Splunk Add-on for Cisco Meraki](https://splunkbase.splunk.com/app/5580) | [Meraki MS Health API](https://developer.cisco.com/meraki/api-latest/) |
+| `FAKE:meraki:securityappliances` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki Dashboard API](https://developer.cisco.com/meraki/api-latest/) |
+| `FAKE:meraki:accesspoints` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki Wireless docs](https://documentation.meraki.com/MR) |
+| `FAKE:meraki:switches` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki Switches docs](https://documentation.meraki.com/MS) |
+| `FAKE:meraki:cameras` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki Smart Cameras docs](https://documentation.meraki.com/MV) |
+| `FAKE:meraki:sensors` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki Sensors docs](https://documentation.meraki.com/MT) |
+| `FAKE:meraki:accesspoints:health` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki MR Health API](https://developer.cisco.com/meraki/api-latest/) |
+| `FAKE:meraki:switches:health` | JSON | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) | [Meraki MS Health API](https://developer.cisco.com/meraki/api-latest/) |
 
 ### Windows / Endpoint
 
@@ -107,16 +107,22 @@ the same way they would with production data.
 
 ### Collaboration (Cisco Webex)
 
+Two Splunk add-ons are used as inspiration — one for the REST API sourcetypes and one for
+the older XML API (meetings history):
+
+- [Webex Add-on for Splunk](https://splunkbase.splunk.com/app/8365) (REST API) — [GitHub](https://github.com/splunk/ta_cisco_webex_add_on_for_splunk)
+- [Cisco WebEx Meetings App for Splunk](https://splunkbase.splunk.com/app/4992) (XML API) — [GitHub](https://github.com/splunk/ta-cisco-webex-meetings-add-on-for-splunk)
+
 | Sourcetype | Format | Inspired By | Vendor Docs |
 |------------|--------|-------------|-------------|
-| `FAKE:cisco:webex:events` | JSON | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5187) | [Webex Events API](https://developer.webex.com/docs/api/v1/events) |
-| `FAKE:cisco:webex:meetings:history:meetingusagehistory` | JSON | [Cisco Webex Meetings App for Splunk](https://splunkbase.splunk.com/app/5153) | [Webex XML API](https://developer.cisco.com/docs/webex-xml-api/) |
-| `FAKE:cisco:webex:meetings:history:meetingattendeehistory` | JSON | [Cisco Webex Meetings App for Splunk](https://splunkbase.splunk.com/app/5153) | [Webex XML API](https://developer.cisco.com/docs/webex-xml-api/) |
-| `FAKE:cisco:webex:meetings` | JSON | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5187) | [Webex Meetings API](https://developer.webex.com/docs/api/v1/meetings) |
-| `FAKE:cisco:webex:admin:audit:events` | JSON | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5187) | [Webex Admin Audit API](https://developer.webex.com/docs/api/v1/admin-audit-events) |
-| `FAKE:cisco:webex:security:audit:events` | JSON | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5187) | [Webex Security Audit API](https://developer.webex.com/docs/api/v1/security-audit-events) |
-| `FAKE:cisco:webex:meeting:qualities` | JSON | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5187) | [Webex Meeting Qualities API](https://developer.webex.com/docs/api/v1/meeting-qualities) |
-| `FAKE:cisco:webex:call:detailed_history` | JSON | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5187) | [Webex Call History API](https://developer.webex.com/docs/api/v1/call-history) |
+| `FAKE:cisco:webex:events` | JSON | Webex Add-on (REST API) | [Webex Events API](https://developer.webex.com/docs/api/v1/events) |
+| `FAKE:cisco:webex:meetings` | JSON | Webex Add-on (REST API) | [Webex Meetings API](https://developer.webex.com/docs/api/v1/meetings) |
+| `FAKE:cisco:webex:admin:audit:events` | JSON | Webex Add-on (REST API) | [Webex Admin Audit API](https://developer.webex.com/docs/api/v1/admin-audit-events) |
+| `FAKE:cisco:webex:security:audit:events` | JSON | Webex Add-on (REST API) | [Webex Security Audit API](https://developer.webex.com/docs/api/v1/security-audit-events) |
+| `FAKE:cisco:webex:meeting:qualities` | JSON | Webex Add-on (REST API) | [Webex Meeting Qualities API](https://developer.webex.com/docs/api/v1/meeting-qualities) |
+| `FAKE:cisco:webex:call:detailed_history` | JSON | Webex Add-on (REST API) | [Webex Call History API](https://developer.webex.com/docs/api/v1/call-history) |
+| `FAKE:cisco:webex:meetings:history:meetingusagehistory` | JSON | WebEx Meetings App (XML API) | [Webex Meetings XML API](https://developer.cisco.com/site/webex-developer/web-conferencing/xml-api/overview/) |
+| `FAKE:cisco:webex:meetings:history:meetingattendeehistory` | JSON | WebEx Meetings App (XML API) | [Webex Meetings XML API](https://developer.cisco.com/site/webex-developer/web-conferencing/xml-api/overview/) |
 
 ### ITSM (ServiceNow)
 
