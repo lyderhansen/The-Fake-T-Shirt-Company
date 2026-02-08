@@ -325,6 +325,42 @@ SCENARIO_INCIDENTS = {
             },
         ],
     },
+    "exfil": {
+        "days": [11],  # Day 12 (0-indexed) - incident response begins
+        "hours": [15, 16],  # 15:00-16:00 after initial detection at 14:30
+        "incidents": [
+            {
+                "short": "Suspicious outbound data transfer detected from BOS-WS-AMILLER01",
+                "category": "Security",
+                "subcategory": "Data Loss",
+                "priority": 1,
+                "cmdb_ci": "BOS-WS-AMILLER01",
+                "assignment_group": "Security Operations",
+                "description": "Threat detection alert: Sustained high-volume outbound traffic from 10.10.30.55 to external IP 185.220.101.42 (Frankfurt, Germany). Burst rate exceeded configured threshold. Multiple TCP sessions transferring 500MB-2.5GB each during off-hours (01:00-05:00).",
+                "close_notes": "Confirmed APT-style data exfiltration. Compromised accounts: jessica.brown (initial access), alex.miller (primary target). Malicious IAM user svc-datasync and GCP SA svc-gcs-sync removed. Forwarding rule deleted. All sessions revoked. Full IR report filed.",
+            },
+            {
+                "short": "Compromised account investigation - alex.miller",
+                "category": "Security",
+                "subcategory": "Account Breach",
+                "priority": 2,
+                "cmdb_ci": "BOS-WS-AMILLER01",
+                "assignment_group": "Security Operations",
+                "description": "Account alex.miller added to Domain Admins group by jessica.brown. Unauthorized AWS IAM user and GCP service account created. Entra ID application 'DataSync Service' registered with admin consent.",
+                "close_notes": "Password reset, MFA re-enrolled. Domain Admin membership revoked. Cloud credentials rotated. Endpoint reimaged.",
+            },
+            {
+                "short": "Email forwarding rule - jessica.brown mailbox",
+                "category": "Security",
+                "subcategory": "Email Compromise",
+                "priority": 2,
+                "cmdb_ci": "exchange",
+                "assignment_group": "Security Operations",
+                "description": "Auto-forwarding rule discovered in jessica.brown's mailbox. All incoming email forwarded to external address backup-jessica.brown@protonmail.com since Day 4.",
+                "close_notes": "Forwarding rule removed. Mailbox audit enabled. Password reset and MFA re-enrolled. Security awareness training scheduled.",
+            },
+        ],
+    },
     "certificate_expiry": {
         "days": [11],  # Day 12 (0-indexed) - certificate expires at midnight
         "hours": [6, 7],  # 06:00-07:00 when NOC notices and incident created

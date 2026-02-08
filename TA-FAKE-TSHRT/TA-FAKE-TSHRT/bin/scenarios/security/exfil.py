@@ -156,8 +156,8 @@ class ExfilScenario:
             ("C:\\Windows\\System32\\cmd.exe", "cmd.exe /c net user /domain"),
             ("C:\\Windows\\System32\\cmd.exe", 'cmd.exe /c net group "Domain Admins" /domain'),
             ("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "powershell.exe -ep bypass -c Get-ADUser -Filter *"),
-            ("C:\\Windows\\System32\\cmd.exe", "cmd.exe /c dir \\\\FILE-01\\finance$ /s"),
-            ("C:\\Windows\\System32\\xcopy.exe", "xcopy \\\\FILE-01\\finance$\\* C:\\Users\\Public\\staging\\ /s /e /h"),
+            ("C:\\Windows\\System32\\cmd.exe", "cmd.exe /c dir \\\\BOS-FILE-01\\finance$ /s"),
+            ("C:\\Windows\\System32\\xcopy.exe", "xcopy \\\\BOS-FILE-01\\finance$\\* C:\\Users\\Public\\staging\\ /s /e /h"),
             ("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "powershell.exe Compress-Archive -Path C:\\Users\\Public\\staging -DestinationPath C:\\Users\\Public\\backup.zip"),
             ("C:\\Windows\\System32\\certutil.exe", "certutil.exe -encode C:\\Users\\Public\\backup.zip C:\\Users\\Public\\backup.txt"),
         ]
@@ -384,6 +384,36 @@ class ExfilScenario:
         )
         return events
 
+    def asa_c2_beacon(self, day: int, hour: int) -> List[str]:
+        """Generate C2 beacon (keepalive) to threat actor.
+
+        Small outbound TCP sessions (200-800 bytes) that maintain
+        command-and-control communication between compromised host
+        and threat actor during lateral movement and persistence phases.
+        """
+        suffix = self._demo_suffix_syslog()
+        events = []
+        pri6 = self._asa_pri(6)
+
+        ts = self.time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
+        cid = random.randint(100000, 999999)
+        sp = random.randint(49152, 65535)
+
+        # Short session: 200-800 bytes (check-in, not data transfer)
+        bytes_val = random.randint(200, 800)
+
+        events.append(
+            f'{pri6}{ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {cid} '
+            f'for inside:{self.cfg.comp_ws_ip}/{sp} (203.0.113.1/{sp}) '
+            f'to outside:{self.cfg.threat_ip}/443 ({self.cfg.threat_ip}/443){suffix}'
+        )
+        events.append(
+            f'{pri6}{ts} FW-EDGE-01 %ASA-6-302014: Teardown TCP connection {cid} '
+            f'for inside:{self.cfg.comp_ws_ip}/{sp} to outside:{self.cfg.threat_ip}/443 '
+            f'duration 0:0:1 bytes {bytes_val} TCP FINs{suffix}'
+        )
+        return events
+
     def asa_hour(self, day: int, hour: int) -> List[str]:
         """Generate all ASA exfil events for a specific hour."""
         events = []
@@ -419,6 +449,9 @@ class ExfilScenario:
                     events.extend(self.asa_lateral_movement(day, hour))
                 events.extend(self.asa_internal_deny(day, hour, random.randint(1, 3)))
                 events.extend(self.asa_cloud_access(day, hour))
+                # C2 beacon: periodic check-in with threat actor
+                if random.random() < 0.3:
+                    events.extend(self.asa_c2_beacon(day, hour))
 
         elif phase == "persistence":
             # Days 8-10: Persistence and cloud access
@@ -428,6 +461,9 @@ class ExfilScenario:
                     events.extend(self.asa_lateral_movement(day, hour))
                 events.extend(self.asa_internal_deny(day, hour, random.randint(2, 5)))
                 events.extend(self.asa_cloud_access(day, hour))
+                # C2 beacon: more frequent during persistence
+                if random.random() < 0.4:
+                    events.extend(self.asa_c2_beacon(day, hour))
 
         elif phase == "exfil":
             # Days 11-13: Data exfiltration (varied timing)
@@ -1075,7 +1111,7 @@ class ExfilScenario:
         jessica_host = "ATL-WS-JBROWN01"
 
         # Days 8-10: FILE-01 (Boston) has unusual disk I/O during staging
-        if host == "BOS-FILE-01" or host == "FILE-01":
+        if host == "BOS-FILE-01":
             if 8 <= day <= 10 and 14 <= hour <= 17:
                 return 1
 
@@ -1110,7 +1146,7 @@ class ExfilScenario:
                 return 250  # 2.5x normal for cross-site lateral movement
 
         # FILE-01 (Boston) elevated during staging
-        if host in ("BOS-FILE-01", "FILE-01"):
+        if host == "BOS-FILE-01":
             if 8 <= day <= 10 and 14 <= hour <= 17:
                 return 180  # 1.8x normal
 
@@ -1664,27 +1700,33 @@ class ExfilScenario:
         return [json.dumps(event)]
 
     def exchange_day(self, day: int) -> List[str]:
-        """Generate all Exchange exfil events for a specific day."""
+        """Generate all Exchange exfil events for a specific day.
+
+        Timeline aligned with attack phases:
+            Day 0 (Recon): Phishing email sent + spray
+            Day 4 (Initial Access): Link click + mailbox compromise + forwarding rule
+            Day 5 (Lateral): Password reset for Alex via Jessica's account
+            Days 6-11: Ongoing email forwarding
+            Day 12: Incident response (rule removed, alert sent)
+        """
         events = []
 
         if day == 0:
-            # Day 0: Phishing email sent
+            # Day 0 (Recon): Phishing email sent
             events.extend(self.exchange_phishing_sent(day, 16, 42))
             events.extend(self.exchange_phishing_spray(day, 16))
-        elif day == 1:
-            # Day 1: Jessica clicks link
+        elif day == 4:
+            # Day 4 (Initial Access): Jessica clicks link, attacker accesses mailbox
             events.extend(self.exchange_link_click(day, 9, 14))
-        elif day == 2:
-            # Day 2: Attacker accesses mailbox, creates rule
             events.extend(self.exchange_mailbox_access(day, 22))
             events.extend(self.exchange_mailbox_search(day, 23))
             events.extend(self.exchange_forwarding_rule(day, 23, 45))
-        elif day == 3:
-            # Day 3: Password reset for Alex
+        elif day == 5:
+            # Day 5 (Lateral): Attacker resets Alex's password via Jessica's account
             events.extend(self.exchange_password_reset(day, 10, 15))
             events.extend(self.exchange_credential_email(day, 10, 18))
-        elif 4 <= day <= 11:
-            # Days 4-11: Ongoing forwarding (during business hours)
+        elif 6 <= day <= 11:
+            # Days 6-11: Ongoing forwarding (during business hours)
             for hour in [9, 11, 14, 16]:
                 if random.randint(0, 1) == 0:
                     events.extend(self.exchange_forwarded_mail(day, hour, 1))
@@ -1699,10 +1741,203 @@ class ExfilScenario:
         """Generate Exchange exfil events for a specific hour."""
         events = []
 
-        # Most events are day-based, but forwarding happens hourly
-        if 4 <= day <= 11 and 9 <= hour <= 17:
+        # Forwarding happens hourly during business hours after rule is created (Day 5+)
+        if 5 <= day <= 11 and 9 <= hour <= 17:
             if random.randint(0, 3) == 0:
                 events.extend(self.exchange_forwarded_mail(day, hour, 1))
+
+        return events
+
+    # =========================================================================
+    # SERVICENOW EVENTS
+    # =========================================================================
+
+    def servicenow_incidents(self) -> list:
+        """Return ServiceNow incident definitions for the exfil scenario.
+
+        Creates 3 incidents triggered on Day 12 (incident response):
+        1. P1: Suspicious data transfer (primary alert)
+        2. P2: Compromised account investigation
+        3. P2: Email forwarding rule discovery
+        """
+        return [
+            {
+                "short": "Suspicious outbound data transfer detected from BOS-WS-AMILLER01",
+                "category": "Security",
+                "subcategory": "Data Loss",
+                "priority": 1,
+                "cmdb_ci": "BOS-WS-AMILLER01",
+                "assignment_group": "Security Operations",
+                "description": (
+                    "Threat detection alert: Sustained high-volume outbound traffic "
+                    "from 10.10.30.55 to external IP 185.220.101.42 (Frankfurt, Germany). "
+                    "Burst rate exceeded configured threshold. Multiple TCP sessions "
+                    "transferring 500MB-2.5GB each during off-hours (01:00-05:00)."
+                ),
+                "close_notes": (
+                    "Confirmed APT-style data exfiltration. Compromised accounts: "
+                    "jessica.brown (initial access), alex.miller (primary target). "
+                    "Malicious IAM user svc-datasync and GCP SA svc-gcs-sync removed. "
+                    "Forwarding rule deleted. All sessions revoked. Full IR report filed."
+                ),
+            },
+            {
+                "short": "Compromised account investigation - alex.miller",
+                "category": "Security",
+                "subcategory": "Account Breach",
+                "priority": 2,
+                "cmdb_ci": "BOS-WS-AMILLER01",
+                "assignment_group": "Security Operations",
+                "description": (
+                    "Account alex.miller added to Domain Admins group by jessica.brown. "
+                    "Unauthorized AWS IAM user and GCP service account created. "
+                    "Entra ID application 'DataSync Service' registered with admin consent."
+                ),
+                "close_notes": (
+                    "Password reset, MFA re-enrolled. Domain Admin membership revoked. "
+                    "Cloud credentials rotated. Endpoint reimaged."
+                ),
+            },
+            {
+                "short": "Email forwarding rule - jessica.brown mailbox",
+                "category": "Security",
+                "subcategory": "Email Compromise",
+                "priority": 2,
+                "cmdb_ci": "exchange",
+                "assignment_group": "Security Operations",
+                "description": (
+                    "Auto-forwarding rule discovered in jessica.brown's mailbox. "
+                    "All incoming email forwarded to external address "
+                    "backup-jessica.brown@protonmail.com since Day 4."
+                ),
+                "close_notes": (
+                    "Forwarding rule removed. Mailbox audit enabled. "
+                    "Password reset and MFA re-enrolled. Security awareness training scheduled."
+                ),
+            },
+        ]
+
+    # =========================================================================
+    # ENTRA ID RISK DETECTION EVENTS
+    # =========================================================================
+
+    def _risk_event(self, day: int, hour: int, risk_type: str, risk_level: str,
+                    user: str, ip: str) -> str:
+        """Generate a single Entra ID risk detection JSON event.
+
+        Matches the format used by generate_entraid.py risk_detection() so events
+        are consistent when ingested into Splunk (same field structure).
+        """
+        ts = self.time_utils.ts_iso(day, hour, random.randint(0, 59), random.randint(0, 59))
+        user_email = f"{user}@{self.cfg.tenant}"
+        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, user_email))
+        user_display = user.replace(".", " ").title()
+
+        # Map risk_type to description (matching generate_entraid.py RISK_EVENT_TYPES)
+        risk_descriptions = {
+            "unfamiliarFeatures": "Sign-in with unfamiliar properties",
+            "impossibleTravel": "Impossible travel",
+            "maliciousIPAddress": "Sign-in from a malicious IP address",
+            "passwordSpray": "Password spray attack",
+            "suspiciousBrowser": "Suspicious browser",
+            "anonymizedIPAddress": "Sign-in from an anonymous IP address",
+            "leakedCredentials": "Leaked credentials",
+        }
+        risk_description = risk_descriptions.get(risk_type, "Risk detected")
+
+        city = self.cfg.threat_location.split(",")[0].strip()
+        country = self.cfg.threat_location.split(",")[-1].strip()
+
+        event = {
+            "time": ts,
+            "resourceId": f"/tenants/{self.cfg.tenant_id}/providers/Microsoft.aadiam",
+            "operationName": "Risk detection",
+            "category": "RiskDetection",
+            "tenantId": self.cfg.tenant_id,
+            "resultType": "Success",
+            "callerIpAddress": ip,
+            "correlationId": str(uuid.uuid4()),
+            "identity": user_display,
+            "Level": 4,
+            "properties": {
+                "id": str(uuid.uuid4()),
+                "requestId": str(uuid.uuid4()),
+                "correlationId": str(uuid.uuid4()),
+                "riskEventType": risk_type,
+                "riskEventTypes": [risk_type],
+                "riskType": risk_type,
+                "riskLevel": risk_level,
+                "riskState": "atRisk",
+                "riskDetail": risk_description,
+                "source": "IdentityProtection",
+                "detectionTimingType": "realtime",
+                "activity": "signin",
+                "activityDateTime": ts,
+                "detectedDateTime": ts,
+                "lastUpdatedDateTime": ts,
+                "userId": user_id,
+                "userDisplayName": user_display,
+                "userPrincipalName": user_email,
+                "ipAddress": ip,
+                "location": {
+                    "city": city,
+                    "countryOrRegion": country,
+                    "state": "",
+                },
+                "additionalInfo": json.dumps([
+                    {"Key": "riskReasons", "Value": f'["{risk_description}"]'},
+                    {"Key": "alertUrl", "Value": f"https://portal.azure.com/#blade/Microsoft_AAD_IAM/RiskyUsersBlade/userId/{user_id}"},
+                ]),
+            },
+        }
+        if self.config.demo_id_enabled:
+            event["demo_id"] = self.cfg.demo_id
+        return json.dumps(event)
+
+    def entraid_risk_hour(self, day: int, hour: int) -> List[str]:
+        """Generate Entra ID risk detection events aligned with exfil phases.
+
+        Phase-specific detections:
+            Recon (0-3): Password spray detections
+            Initial Access (4): Unfamiliar features + malicious IP
+            Lateral (5-7): Impossible travel
+            Persistence (8-10): Off-hours unfamiliar features
+            Exfil (11-13): Malicious IP during exfil window
+        """
+        events = []
+        phase = get_phase(day)
+        if phase is None:
+            return events
+
+        if phase == "recon" and 9 <= hour <= 17:
+            # Days 0-3: Password spray detection
+            if random.random() < 0.1:
+                events.append(self._risk_event(day, hour, "passwordSpray", "medium",
+                                               self.cfg.comp_user, self.cfg.threat_ip))
+
+        elif phase == "initial_access" and hour in [10, 11]:
+            # Day 4: Unfamiliar sign-in properties from threat IP
+            events.append(self._risk_event(day, hour, "unfamiliarFeatures", "high",
+                                           self.cfg.lateral_user, self.cfg.threat_ip))
+            events.append(self._risk_event(day, hour, "maliciousIPAddress", "high",
+                                           self.cfg.lateral_user, self.cfg.threat_ip))
+
+        elif phase == "lateral" and 10 <= hour <= 16:
+            # Days 5-7: Impossible travel (Jessica ATL, threat actor external)
+            if random.random() < 0.2:
+                events.append(self._risk_event(day, hour, "impossibleTravel", "medium",
+                                               self.cfg.lateral_user, self.cfg.threat_ip))
+
+        elif phase == "persistence" and (22 <= hour or hour <= 5):
+            # Days 8-10: Off-hours activity
+            if random.random() < 0.3:
+                events.append(self._risk_event(day, hour, "unfamiliarFeatures", "medium",
+                                               self.cfg.comp_user, self.cfg.threat_ip))
+
+        elif phase == "exfil" and 1 <= hour <= 5:
+            # Days 11-13: High-risk detections during exfil window
+            events.append(self._risk_event(day, hour, "maliciousIPAddress", "high",
+                                           self.cfg.comp_user, self.cfg.threat_ip))
 
         return events
 

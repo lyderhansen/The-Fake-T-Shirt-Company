@@ -1199,27 +1199,9 @@ def generate_risk_detection_day(base_date: str, day: int, active_scenarios: list
         risk_level = random.choice(["low", "low", "medium"])
         events.append(risk_detection(base_date, day, hour, risk_level=risk_level))
 
-    # Increased risk detection during exfil scenario (days 4-14)
-    if active_scenarios and "exfil" in active_scenarios and 3 <= day <= 13:
-        # More risk detections during active attack
-        attack_count = random.randint(2, 5)
-        for _ in range(attack_count):
-            hour = random.randint(0, 23)
-            # Higher risk levels during attack
-            risk_level = random.choice(["medium", "medium", "high"])
-            # Focus on attack-related risk types
-            risk_type = random.choice([
-                "unfamiliarFeatures",
-                "impossibleTravel",
-                "maliciousIPAddress",
-                "suspiciousBrowser"
-            ])
-            events.append(risk_detection(
-                base_date, day, hour,
-                risk_event_type=risk_type,
-                risk_level=risk_level,
-                demo_id="exfil"
-            ))
+    # Exfil scenario risk detections are now generated per-hour by
+    # ExfilScenario.entraid_risk_hour() and injected in the main loop.
+    # This provides phase-specific risk types aligned with the attack timeline.
 
     return events
 
@@ -1326,6 +1308,16 @@ def generate_entraid_logs(
 
         # Risk detection events
         risk_events.extend(generate_risk_detection_day(start_date, day, active_scenarios))
+
+        # Exfil scenario risk detection events (phase-specific: spray, impossible travel, etc.)
+        if exfil_scenario:
+            for hour in range(24):
+                exfil_risk = exfil_scenario.entraid_risk_hour(day, hour)
+                for e in exfil_risk:
+                    if isinstance(e, str):
+                        risk_events.append(e)
+                    else:
+                        risk_events.append(json.dumps(e))
 
         # Exfil scenario audit events (app creation, role assignment, consent, etc.)
         if exfil_scenario:
