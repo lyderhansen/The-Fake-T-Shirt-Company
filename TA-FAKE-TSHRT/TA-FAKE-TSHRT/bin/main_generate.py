@@ -40,6 +40,7 @@ from generators.generate_meraki import generate_meraki_logs
 from generators.generate_webex import generate_webex_logs
 from generators.generate_webex_ta import generate_webex_ta_logs
 from generators.generate_webex_api import generate_webex_api_logs
+from generators.generate_mssql import generate_mssql_logs
 from generators.generate_servicenow import generate_servicenow_logs
 from generators.generate_office_audit import generate_office_audit_logs
 
@@ -63,6 +64,7 @@ GENERATORS: Dict[str, Callable] = {
     "webex": generate_webex_logs,
     "webex_ta": generate_webex_ta_logs,
     "webex_api": generate_webex_api_logs,
+    "mssql": generate_mssql_logs,
     "servicenow": generate_servicenow_logs,
     "office_audit": generate_office_audit_logs,
 }
@@ -72,7 +74,7 @@ SOURCE_GROUPS = {
     "all": list(GENERATORS.keys()),
     "cloud": ["aws", "gcp", "entraid"],
     "network": ["asa", "meraki"],
-    "windows": ["wineventlog", "perfmon"],
+    "windows": ["wineventlog", "perfmon", "mssql"],
     "linux": ["linux"],
     "web": ["access"],
     "office": ["office_audit", "exchange"],
@@ -156,10 +158,10 @@ Output Modes:
   --no-test         Write to output/ — production mode, Splunk reads from here
 
 Source Groups:
-  all           - All sources (16 generators)
+  all           - All sources (18 generators)
   cloud         - aws, gcp, entraid
   network       - asa, meraki
-  windows       - wineventlog, perfmon
+  windows       - wineventlog, perfmon, mssql
   linux         - linux
   web           - access
   email         - exchange
@@ -169,7 +171,7 @@ Source Groups:
 
 Individual Sources:
   asa, aws, gcp, entraid, exchange, access, wineventlog, linux,
-  perfmon, orders, servicebus, meraki, webex, webex_ta, webex_api, servicenow
+  perfmon, mssql, orders, servicebus, meraki, webex, webex_ta, webex_api, servicenow
 
 Scenarios:
   all              - All implemented scenarios
@@ -180,7 +182,7 @@ Scenarios:
 
   Attack scenarios (--scenarios=attack or individual names):
     exfil              - APT-style data exfiltration (Day 1-14, multi-site)
-                         Sources: asa, meraki, entraid, aws, gcp, exchange, wineventlog, perfmon, servicenow
+                         Sources: asa, meraki, entraid, aws, gcp, exchange, wineventlog, perfmon, servicenow, mssql
     ransomware_attempt - Ransomware stopped by EDR (Day 8-9)
                          Sources: asa, exchange, wineventlog, meraki, servicenow, office_audit
 
@@ -188,7 +190,7 @@ Scenarios:
     memory_leak        - Application memory leak causing OOM (Day 6-9, Linux WEB-01)
                          Sources: perfmon, linux, asa, access, servicenow
     cpu_runaway        - SQL backup job stuck causing DB failures (Day 11-12)
-                         Sources: perfmon, wineventlog, asa, access, servicenow
+                         Sources: perfmon, wineventlog, asa, access, servicenow, mssql
     disk_filling       - Server disk gradually filling up (Day 1-5, MON-ATL-01)
                          Sources: linux, access, servicenow
 
@@ -211,7 +213,7 @@ Output Directories:
   output/network/   - cisco_asa.log, meraki_mx_firewall.log, meraki_mr_ap.log,
                       meraki_ms_switch.log, meraki_mv_cam.log, meraki_mt_sensor.log
   output/cloud/     - aws, gcp, entraid, exchange, webex JSON files
-  output/windows/   - perfmon_*.log, wineventlog_*.log
+  output/windows/   - perfmon_*.log, wineventlog_*.log, mssql_errorlog.log
   output/linux/     - vmstat, df, iostat, interfaces logs
   output/web/       - access_combined.log
   output/retail/    - orders.json

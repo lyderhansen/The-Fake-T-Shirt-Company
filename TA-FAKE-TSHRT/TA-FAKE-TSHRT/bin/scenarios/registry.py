@@ -46,7 +46,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Attack scenarios
     "exfil": ScenarioDefinition(
         name="exfil",
-        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow"],
+        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow", "mssql"],
         category="attack",
         description="APT-style data exfiltration over 14 days (phishing -> privilege abuse -> exfil)",
         demo_id="exfil",
@@ -86,7 +86,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "cpu_runaway": ScenarioDefinition(
         name="cpu_runaway",
-        sources=["perfmon", "wineventlog", "asa", "access", "servicenow"],
+        sources=["perfmon", "wineventlog", "asa", "access", "servicenow", "mssql"],
         category="ops",
         description="SQL-PROD-01 backup job stuck causing cascading DB failures (Day 11-12)",
         demo_id="cpu_runaway",
