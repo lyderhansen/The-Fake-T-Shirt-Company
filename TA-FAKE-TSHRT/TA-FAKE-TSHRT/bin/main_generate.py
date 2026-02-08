@@ -41,6 +41,7 @@ from generators.generate_webex import generate_webex_logs
 from generators.generate_webex_ta import generate_webex_ta_logs
 from generators.generate_webex_api import generate_webex_api_logs
 from generators.generate_mssql import generate_mssql_logs
+from generators.generate_sysmon import generate_sysmon_logs
 from generators.generate_servicenow import generate_servicenow_logs
 from generators.generate_office_audit import generate_office_audit_logs
 
@@ -65,6 +66,7 @@ GENERATORS: Dict[str, Callable] = {
     "webex_ta": generate_webex_ta_logs,
     "webex_api": generate_webex_api_logs,
     "mssql": generate_mssql_logs,
+    "sysmon": generate_sysmon_logs,
     "servicenow": generate_servicenow_logs,
     "office_audit": generate_office_audit_logs,
 }
@@ -74,7 +76,7 @@ SOURCE_GROUPS = {
     "all": list(GENERATORS.keys()),
     "cloud": ["aws", "gcp", "entraid"],
     "network": ["asa", "meraki"],
-    "windows": ["wineventlog", "perfmon", "mssql"],
+    "windows": ["wineventlog", "perfmon", "mssql", "sysmon"],
     "linux": ["linux"],
     "web": ["access"],
     "office": ["office_audit", "exchange"],
@@ -158,10 +160,10 @@ Output Modes:
   --no-test         Write to output/ — production mode, Splunk reads from here
 
 Source Groups:
-  all           - All sources (18 generators)
+  all           - All sources (19 generators)
   cloud         - aws, gcp, entraid
   network       - asa, meraki
-  windows       - wineventlog, perfmon, mssql
+  windows       - wineventlog, perfmon, mssql, sysmon
   linux         - linux
   web           - access
   email         - exchange
@@ -171,7 +173,7 @@ Source Groups:
 
 Individual Sources:
   asa, aws, gcp, entraid, exchange, access, wineventlog, linux,
-  perfmon, mssql, orders, servicebus, meraki, webex, webex_ta, webex_api, servicenow
+  perfmon, mssql, sysmon, orders, servicebus, meraki, webex, webex_ta, webex_api, servicenow
 
 Scenarios:
   all              - All implemented scenarios
@@ -213,7 +215,7 @@ Output Directories:
   output/network/   - cisco_asa.log, meraki_mx_firewall.log, meraki_mr_ap.log,
                       meraki_ms_switch.log, meraki_mv_cam.log, meraki_mt_sensor.log
   output/cloud/     - aws, gcp, entraid, exchange, webex JSON files
-  output/windows/   - perfmon_*.log, wineventlog_*.log, mssql_errorlog.log
+  output/windows/   - perfmon_*.log, wineventlog_*.log, mssql_errorlog.log, sysmon_operational.log
   output/linux/     - vmstat, df, iostat, interfaces logs
   output/web/       - access_combined.log
   output/retail/    - orders.json

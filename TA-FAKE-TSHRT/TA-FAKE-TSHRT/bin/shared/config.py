@@ -121,6 +121,7 @@ GENERATOR_OUTPUT_FILES = {
         "linux/interfaces.log",
     ],
     "mssql": ["windows/mssql_errorlog.log"],
+    "sysmon": ["windows/sysmon_operational.log"],
     "servicenow": [
         "itsm/servicenow_incidents.log",
         "itsm/servicenow_cmdb.log",
