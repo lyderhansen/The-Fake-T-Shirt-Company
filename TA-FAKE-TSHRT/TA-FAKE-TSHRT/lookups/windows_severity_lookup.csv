@@ -1,0 +1,5 @@
+Type,severity
+Information,informational
+Warning,medium
+Error,high
+Critical,critical

@@ -1,0 +1,8 @@
+Status,action
+Delivered,delivered
+FilteredAsSpam,blocked
+Failed,failed
+Pending,pending
+Expanded,delivered
+Quarantined,quarantined
+None,unknown

@@ -8,6 +8,7 @@
 
 - Default to concise bullet-point format, English language, and minimal prose unless explicitly asked otherwise
 - For file path references and structured data, use Markdown tables with consistent formatting on first attempt — ask for clarification on format only if the structure is ambiguous
+- Default Splunk time picker for this project is January 2026 (all generated data uses the timeline starting 2026-01-01)
 
 ## Network Architecture
 

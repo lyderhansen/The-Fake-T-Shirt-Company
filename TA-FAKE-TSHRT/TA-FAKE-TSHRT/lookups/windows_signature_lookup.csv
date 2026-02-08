@@ -1,0 +1,16 @@
+signature_id,signature,action,result
+4624,An account was successfully logged on,success,Audit Success
+4625,An account failed to log on,failure,Audit Failure
+4672,Special privileges assigned to new logon,success,Audit Success
+4688,A new process has been created,success,Audit Success
+4728,A member was added to a security-enabled global group,modified,Audit Success
+4769,A Kerberos service ticket was requested,success,Audit Success
+1074,System has been shut down by a process/user,success,Audit Success
+7036,Service entered the running/stopped state,success,Success
+6005,The Event log service was started,success,Success
+6009,Operating System information at boot,success,Success
+6013,System uptime,success,Success
+37,Time service is adjusting the system time,success,Success
+10016,Application-specific permission settings do not grant activation permission,failure,Error
+1014,Name resolution timed out,failure,Error
+12,Time provider NtpClient,success,Success
