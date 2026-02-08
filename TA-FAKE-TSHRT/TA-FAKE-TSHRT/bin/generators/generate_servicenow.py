@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-ServiceNow Incident Generator
+ServiceNow ITSM Generator
 
-Generates realistic IT support incidents in key-value format.
-Correlates with existing scenarios (cpu_runaway, memory_leak, firewall_misconfig).
+Generates realistic ServiceNow data in key-value format:
+- Incidents: IT support tickets with lifecycle (New → Closed)
+- CMDB: Configuration Items (servers, network, apps, workstations, relationships)
+- Change Requests: Standard/normal/emergency changes with lifecycle
+
+Correlates with existing scenarios (cpu_runaway, memory_leak, firewall_misconfig, etc.).
 
 Output format: Key-value pairs (one event per line)
-Splunk sourcetype: servicenow:incident
-
-Example output:
-sys_updated_on="2026-01-12T08:15:00Z" number="INC0012345" state="New" short_description="SQL Server performance degradation" ...
+Splunk sourcetypes: servicenow:incident, servicenow:cmdb, servicenow:change
 """
 
 import argparse
 import random
 import sys
+import uuid
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
@@ -24,13 +26,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
 from shared.time_utils import date_add
-from shared.company import USERS, SERVERS, LOCATIONS, USER_KEYS, TENANT
+from shared.company import (
+    USERS, SERVERS, LOCATIONS, USER_KEYS, TENANT,
+    ASA_PERIMETER, MERAKI_FIREWALLS, ALL_SERVERS,
+)
 
 # =============================================================================
 # CONSTANTS
 # =============================================================================
 
 FILE_SERVICENOW = "servicenow_incidents.log"
+FILE_SERVICENOW_CMDB = "servicenow_cmdb.log"
+FILE_SERVICENOW_CHANGE = "servicenow_change.log"
 
 # Incident volume
 BASE_INCIDENTS_PER_DAY = 20  # ~175 employees
@@ -434,6 +441,232 @@ SCENARIO_INCIDENTS = {
 }
 
 # =============================================================================
+# CMDB CONFIGURATION
+# =============================================================================
+
+# Server role → assignment group mapping
+SERVER_ASSIGNMENT_GROUPS = {
+    "Domain Controller": "Desktop Support",
+    "File Server": "Desktop Support",
+    "Database Server": "Database Admins",
+    "Application Server": "Application Support",
+    "Web Server": "Linux Admins",
+    "Backup Server": "Linux Admins",
+    "Monitoring Server": "Linux Admins",
+    "Dev/Test Server": "Linux Admins",
+}
+
+# Server role → hardware specs
+SERVER_SPECS = {
+    "Domain Controller": {"manufacturer": "Dell", "model": "PowerEdge R650", "cpu": 8, "ram": 32, "disk": 500},
+    "File Server": {"manufacturer": "Dell", "model": "PowerEdge R750", "cpu": 16, "ram": 64, "disk": 4000},
+    "Database Server": {"manufacturer": "Dell", "model": "PowerEdge R750", "cpu": 16, "ram": 64, "disk": 2000},
+    "Application Server": {"manufacturer": "Dell", "model": "PowerEdge R650", "cpu": 8, "ram": 32, "disk": 500},
+    "Web Server": {"manufacturer": "Dell", "model": "PowerEdge R650", "cpu": 8, "ram": 16, "disk": 250},
+    "Backup Server": {"manufacturer": "Dell", "model": "PowerEdge R750", "cpu": 8, "ram": 32, "disk": 8000},
+    "Monitoring Server": {"manufacturer": "Dell", "model": "PowerEdge R650", "cpu": 8, "ram": 32, "disk": 1000},
+    "Dev/Test Server": {"manufacturer": "Dell", "model": "PowerEdge R650", "cpu": 4, "ram": 16, "disk": 250},
+}
+
+# Network device specs
+NETWORK_SPECS = {
+    "ASA 5525-X": {"manufacturer": "Cisco", "category": "Network", "subcategory": "Firewall"},
+    "MX450": {"manufacturer": "Cisco Meraki", "category": "Network", "subcategory": "SD-WAN Gateway"},
+    "MX250": {"manufacturer": "Cisco Meraki", "category": "Network", "subcategory": "SD-WAN Gateway"},
+    "MX85": {"manufacturer": "Cisco Meraki", "category": "Network", "subcategory": "SD-WAN Gateway"},
+}
+
+# Business applications
+BUSINESS_APPS = [
+    {"name": "E-Commerce Platform", "assignment_group": "Application Support",
+     "depends_on": ["WEB-01", "WEB-02", "SQL-PROD-01"]},
+    {"name": "Active Directory", "assignment_group": "Desktop Support",
+     "depends_on": ["DC-BOS-01", "DC-BOS-02", "DC-ATL-01"]},
+    {"name": "Corporate Email (O365)", "assignment_group": "Application Support",
+     "depends_on": []},
+    {"name": "Monitoring System", "assignment_group": "Linux Admins",
+     "depends_on": ["MON-ATL-01"]},
+    {"name": "Finance Application", "assignment_group": "Application Support",
+     "depends_on": ["APP-BOS-01", "SQL-PROD-01"]},
+    {"name": "Backup System", "assignment_group": "Linux Admins",
+     "depends_on": ["BACKUP-ATL-01"]},
+]
+
+# Scenario workstations (Lenovo ThinkPad T14s Gen 5)
+SCENARIO_WORKSTATIONS = [
+    {"name": "BOS-WS-AMILLER01", "ip": "10.10.30.55", "location": "BOS",
+     "user": "alex.miller", "os": "Windows 11 Enterprise"},
+    {"name": "AUS-WS-BWHITE01", "ip": "10.30.30.20", "location": "AUS",
+     "user": "brooklyn.white", "os": "Windows 11 Enterprise"},
+    {"name": "ATL-WS-JBROWN01", "ip": "10.20.30.15", "location": "ATL",
+     "user": "jessica.brown", "os": "Windows 11 Enterprise"},
+]
+
+
+# =============================================================================
+# CHANGE REQUEST CONFIGURATION
+# =============================================================================
+
+# Change volume
+BASE_CHANGES_PER_DAY = 3   # Weekday
+WEEKEND_CHANGES = 1
+
+# Baseline change templates
+CHANGE_TEMPLATES = [
+    {"short": "Scheduled Windows security patches - {server}",
+     "category": "Software", "type": "standard", "risk": "Low",
+     "assignment_group": "Desktop Support", "duration_hours": 2},
+    {"short": "Deploy application update to {server}",
+     "category": "Application", "type": "normal", "risk": "Moderate",
+     "assignment_group": "Application Support", "duration_hours": 3},
+    {"short": "Network switch firmware upgrade - {location}",
+     "category": "Network", "type": "normal", "risk": "Moderate",
+     "assignment_group": "Network Operations", "duration_hours": 4},
+    {"short": "Database maintenance window - {server}",
+     "category": "Database", "type": "standard", "risk": "Low",
+     "assignment_group": "Database Admins", "duration_hours": 2},
+    {"short": "Backup schedule adjustment for {server}",
+     "category": "Infrastructure", "type": "standard", "risk": "Low",
+     "assignment_group": "Linux Admins", "duration_hours": 1},
+    {"short": "Add new VLAN for IoT devices at {location}",
+     "category": "Network", "type": "normal", "risk": "Moderate",
+     "assignment_group": "Network Operations", "duration_hours": 3},
+    {"short": "Increase disk allocation on {server}",
+     "category": "Infrastructure", "type": "standard", "risk": "Low",
+     "assignment_group": "Linux Admins", "duration_hours": 1},
+    {"short": "Update monitoring thresholds for {server}",
+     "category": "Infrastructure", "type": "standard", "risk": "Low",
+     "assignment_group": "Application Support", "duration_hours": 1},
+]
+
+# Scenario-linked changes
+SCENARIO_CHANGES = {
+    "firewall_misconfig": {
+        "day": 5,  # Day 6 (0-indexed) — BEFORE the outage on Day 7
+        "changes": [{
+            "short": "Update ACL rules on FW-EDGE-01 - permit new vendor subnet",
+            "type": "normal", "category": "Network", "risk": "Moderate", "impact": 2,
+            "cmdb_ci": "FW-EDGE-01", "assignment_group": "Network Operations",
+            "description": (
+                "Add permit rules for new vendor subnet 198.51.100.0/24 to FW-EDGE-01 "
+                "inbound ACL. Required for new B2B integration with shipping provider."
+            ),
+            "planned_start": {"day": 6, "hour": 10, "minute": 0},
+            "planned_end": {"day": 6, "hour": 11, "minute": 0},
+            "close_code": "Successful with issues",
+            "close_notes": (
+                "ACL change applied but introduced blocking rule for 0.0.0.0/0 inbound on "
+                "interface outside. Root cause: copy-paste error in ACL entry. Rollback "
+                "performed at 12:05. Post-change review identified gap in peer review process."
+            ),
+        }],
+    },
+    "cpu_runaway": {
+        "day": 10,  # During the incident
+        "changes": [{
+            "short": "Emergency: Kill stuck backup job on SQL-PROD-01",
+            "type": "emergency", "category": "Database", "risk": "High", "impact": 1,
+            "cmdb_ci": "SQL-PROD-01", "assignment_group": "Database Admins",
+            "description": (
+                "Emergency change to terminate stuck backup SPID 67 on SQL-PROD-01. "
+                "Backup job has been running for 20+ hours causing 100% CPU and cascading "
+                "application failures."
+            ),
+            "close_notes": (
+                "Killed stuck backup process SPID 67. SQL Server service restarted. "
+                "CPU dropped from 100% to 25% within 5 minutes. All dependent applications "
+                "restored. RCA: backup job deadlock with maintenance task."
+            ),
+        }],
+    },
+    "certificate_expiry": {
+        "day": 11,
+        "changes": [{
+            "short": "Emergency: Renew expired SSL certificate for *.theFakeTshirtCompany.com",
+            "type": "emergency", "category": "Security", "risk": "High", "impact": 1,
+            "cmdb_ci": "WEB-01", "assignment_group": "Network Operations",
+            "description": (
+                "Wildcard SSL certificate for *.theFakeTshirtCompany.com expired at "
+                "midnight 2026-01-12. All HTTPS traffic failing. E-commerce revenue impact."
+            ),
+            "close_notes": (
+                "New wildcard certificate purchased from DigiCert. Installed on WEB-01 "
+                "and WEB-02. Services restored at 07:00. Implemented automated certificate "
+                "monitoring with 30/14/7-day alerts."
+            ),
+        }],
+    },
+    "memory_leak": {
+        "day": 8,  # Day 9 (0-indexed) — OOM crash day
+        "changes": [{
+            "short": "Emergency: Restart WEB-01 application services after OOM",
+            "type": "emergency", "category": "Application", "risk": "High", "impact": 1,
+            "cmdb_ci": "WEB-01", "assignment_group": "Linux Admins",
+            "description": (
+                "WEB-01 experienced OOM kill at 14:00. Linux kernel killed Apache "
+                "processes. Website down. Emergency restart required."
+            ),
+            "close_notes": (
+                "Server restarted. Application services restored at 14:15. Memory leak "
+                "in PHP session handler identified. Temporary fix: increased swap and "
+                "added cron job to restart Apache nightly. Permanent fix in dev sprint."
+            ),
+        }],
+    },
+    "exfil": {
+        "day": 11,  # Day 12 — IR response
+        "changes": [{
+            "short": "Emergency: Isolate compromised endpoints - Security Incident",
+            "type": "emergency", "category": "Security", "risk": "High", "impact": 1,
+            "cmdb_ci": "BOS-WS-AMILLER01", "assignment_group": "Security Operations",
+            "description": (
+                "Isolate endpoints involved in confirmed data exfiltration. "
+                "BOS-WS-AMILLER01 and ATL-WS-JBROWN01 identified as compromised. "
+                "Revoke all cloud credentials. Remove malicious forwarding rules."
+            ),
+            "close_notes": (
+                "Endpoints isolated via Meraki network policy. All credentials rotated "
+                "for alex.miller and jessica.brown. AWS IAM user svc-datasync deleted. "
+                "GCP SA svc-gcs-sync removed. Exchange forwarding rule deleted."
+            ),
+        }],
+    },
+    "ransomware_attempt": {
+        "day": 7,  # Day 8
+        "changes": [{
+            "short": "Emergency: Network isolation for AUS-WS-BWHITE01 - Malware detected",
+            "type": "emergency", "category": "Security", "risk": "High", "impact": 2,
+            "cmdb_ci": "AUS-WS-BWHITE01", "assignment_group": "Security Operations",
+            "description": (
+                "Ransomware dropper detected on AUS-WS-BWHITE01. Meraki network "
+                "isolation applied. Endpoint quarantined pending forensic analysis."
+            ),
+            "close_notes": (
+                "Endpoint isolated and reimaged. No lateral spread confirmed. "
+                "Malware variant: Trojan:Win32/Emotet.RPK!MTB. Entry vector: "
+                "phishing email with malicious Excel attachment."
+            ),
+        }],
+    },
+    "disk_filling": {
+        "day": 3,  # Day 4 — proactive change
+        "changes": [{
+            "short": "Increase disk allocation on MON-ATL-01",
+            "type": "standard", "category": "Infrastructure", "risk": "Low", "impact": 3,
+            "cmdb_ci": "MON-ATL-01", "assignment_group": "Linux Admins",
+            "description": (
+                "Proactive disk expansion for MON-ATL-01. Current usage trending "
+                "upward. Extend /var partition by 100GB from SAN."
+            ),
+            "close_notes": (
+                "Disk expansion completed. /var extended from 200GB to 300GB. "
+                "Note: Usage continued to climb — separate investigation needed."
+            ),
+        }],
+    },
+}
+
+# =============================================================================
 # CLOSE CODES AND NOTES
 # =============================================================================
 
@@ -701,7 +934,452 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 
 
 # =============================================================================
-# MAIN GENERATOR
+# CMDB GENERATOR
+# =============================================================================
+
+def _cmdb_sys_id(name: str) -> str:
+    """Generate deterministic sys_id from CI name."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{name}.theFakeTshirtCompany.com"))
+
+
+def generate_cmdb_records(start_date: str) -> List[str]:
+    """Generate static CMDB CI records and relationships as KV lines.
+
+    Sources: SERVERS, ASA_PERIMETER, MERAKI_FIREWALLS, BUSINESS_APPS,
+    SCENARIO_WORKSTATIONS, and dependency relationships.
+    """
+    # sys_updated_on = day before start_date
+    base_date = datetime.strptime(start_date, "%Y-%m-%d")
+    cmdb_ts = (base_date - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+
+    records = []
+    asset_counter = 0
+
+    # Location code → full name
+    loc_names = {code: loc["full_name"] for code, loc in LOCATIONS.items()}
+
+    # --- Servers (12) ---
+    for hostname, server in SERVERS.items():
+        asset_counter += 1
+        specs = SERVER_SPECS.get(server.role, SERVER_SPECS["Dev/Test Server"])
+        os_name = "Windows Server 2022" if server.os == "windows" else "Ubuntu 22.04 LTS"
+        os_version = "21H2" if server.os == "windows" else "22.04"
+        ci_class = "cmdb_ci_win_server" if server.os == "windows" else "cmdb_ci_linux_server"
+
+        # Map role to category/subcategory
+        role_map = {
+            "Domain Controller": ("Server", "Active Directory"),
+            "File Server": ("Server", "File Storage"),
+            "Database Server": ("Server", "Database"),
+            "Application Server": ("Server", "Application"),
+            "Web Server": ("Server", "Web"),
+            "Backup Server": ("Server", "Backup"),
+            "Monitoring Server": ("Server", "Monitoring"),
+            "Dev/Test Server": ("Server", "Development"),
+        }
+        cat, subcat = role_map.get(server.role, ("Server", "General"))
+
+        fields = {
+            "sys_updated_on": cmdb_ts,
+            "sys_id": _cmdb_sys_id(hostname),
+            "sys_class_name": ci_class,
+            "name": hostname,
+            "ip_address": server.ip,
+            "os": os_name,
+            "os_version": os_version,
+            "location": loc_names.get(server.location, "Boston HQ"),
+            "operational_status": "1",
+            "assignment_group": SERVER_ASSIGNMENT_GROUPS.get(server.role, "Service Desk"),
+            "asset_tag": f"ASSET-{server.location}-SRV-{asset_counter:03d}",
+            "serial_number": f"SN-{hostname}-2024",
+            "manufacturer": specs["manufacturer"],
+            "model_id": specs["model"],
+            "cpu_count": specs["cpu"],
+            "ram": specs["ram"],
+            "disk_space": specs["disk"],
+            "dns_domain": "theFakeTshirtCompany.com",
+            "fqdn": f"{hostname}.theFakeTshirtCompany.com",
+            "category": cat,
+            "subcategory": subcat,
+            "record_type": "ci",
+        }
+        records.append(format_kv_line(fields))
+
+    # --- Network devices (5) ---
+    # ASA perimeter
+    asa = ASA_PERIMETER
+    fields = {
+        "sys_updated_on": cmdb_ts,
+        "sys_id": _cmdb_sys_id(asa["hostname"]),
+        "sys_class_name": "cmdb_ci_net_gear",
+        "name": asa["hostname"],
+        "ip_address": "10.10.0.1",
+        "location": loc_names.get(asa["location"], "Boston HQ"),
+        "operational_status": "1",
+        "assignment_group": "Network Operations",
+        "serial_number": f"SN-{asa['hostname']}-2024",
+        "manufacturer": "Cisco",
+        "model_id": asa["model"],
+        "category": "Network",
+        "subcategory": "Firewall",
+        "record_type": "ci",
+    }
+    records.append(format_kv_line(fields))
+
+    # Meraki MX firewalls
+    for loc_code, mx_config in MERAKI_FIREWALLS.items():
+        specs = NETWORK_SPECS.get(mx_config["model"], {})
+        for device_name in mx_config["devices"]:
+            fields = {
+                "sys_updated_on": cmdb_ts,
+                "sys_id": _cmdb_sys_id(device_name),
+                "sys_class_name": "cmdb_ci_net_gear",
+                "name": device_name,
+                "location": loc_names.get(loc_code, "Boston HQ"),
+                "operational_status": "1",
+                "assignment_group": "Network Operations",
+                "serial_number": f"SN-{device_name}-2024",
+                "manufacturer": specs.get("manufacturer", "Cisco Meraki"),
+                "model_id": mx_config["model"],
+                "category": specs.get("category", "Network"),
+                "subcategory": specs.get("subcategory", "SD-WAN Gateway"),
+                "record_type": "ci",
+            }
+            records.append(format_kv_line(fields))
+
+    # --- Business applications (6) ---
+    for app in BUSINESS_APPS:
+        fields = {
+            "sys_updated_on": cmdb_ts,
+            "sys_id": _cmdb_sys_id(app["name"]),
+            "sys_class_name": "cmdb_ci_app_server",
+            "name": app["name"],
+            "location": "Boston HQ",
+            "operational_status": "1",
+            "assignment_group": app["assignment_group"],
+            "category": "Application",
+            "subcategory": "Business Service",
+            "record_type": "ci",
+        }
+        records.append(format_kv_line(fields))
+
+    # --- Scenario workstations (3, Lenovo ThinkPad) ---
+    for ws in SCENARIO_WORKSTATIONS:
+        fields = {
+            "sys_updated_on": cmdb_ts,
+            "sys_id": _cmdb_sys_id(ws["name"]),
+            "sys_class_name": "cmdb_ci_computer",
+            "name": ws["name"],
+            "ip_address": ws["ip"],
+            "os": ws["os"],
+            "os_version": "23H2",
+            "location": loc_names.get(ws["location"], "Boston HQ"),
+            "operational_status": "1",
+            "assignment_group": "Desktop Support",
+            "serial_number": f"SN-{ws['name']}-2025",
+            "manufacturer": "Lenovo",
+            "model_id": "ThinkPad T14s Gen 5",
+            "cpu_count": 8,
+            "ram": 16,
+            "disk_space": 512,
+            "assigned_to": f"{ws['user']}@{TENANT}",
+            "category": "Workstation",
+            "subcategory": "Laptop",
+            "record_type": "ci",
+        }
+        records.append(format_kv_line(fields))
+
+    # --- Relationships (app → infrastructure) ---
+    for app in BUSINESS_APPS:
+        parent_id = _cmdb_sys_id(app["name"])
+        for dep_name in app["depends_on"]:
+            child_id = _cmdb_sys_id(dep_name)
+            fields = {
+                "sys_updated_on": cmdb_ts,
+                "sys_id": _cmdb_sys_id(f"{app['name']}::{dep_name}"),
+                "sys_class_name": "cmdb_rel_ci",
+                "parent_sys_id": parent_id,
+                "parent_name": app["name"],
+                "child_sys_id": child_id,
+                "child_name": dep_name,
+                "type": "Depends on::Used by",
+                "record_type": "relationship",
+            }
+            records.append(format_kv_line(fields))
+
+    return records
+
+
+# =============================================================================
+# CHANGE REQUEST GENERATOR
+# =============================================================================
+
+_change_counter = 0
+
+
+def get_next_change_number() -> str:
+    """Generate next change request number."""
+    global _change_counter
+    _change_counter += 1
+    return f"CHG{_change_counter:07d}"
+
+
+def reset_change_counter():
+    """Reset change counter (for testing)."""
+    global _change_counter
+    _change_counter = 0
+
+
+def generate_change_lifecycle(change_num: str, change_data: dict,
+                              change_time: datetime, demo_id: str = None,
+                              base_date: datetime = None) -> List[str]:
+    """Generate all state transitions for a change request.
+
+    Change lifecycle:
+        New → Assess → Authorize → Scheduled → Implement → Review → Closed
+    Emergency changes collapse Assess+Authorize into minutes.
+
+    Args:
+        base_date: The generation start date (day 0). Used to resolve
+                   absolute day references in planned_start/planned_end.
+    """
+    events = []
+    is_emergency = change_data.get("type") == "emergency"
+
+    requester_email, requester_name = get_assignment_member(
+        change_data.get("assignment_group", "Service Desk"))
+
+    # Shared fields for demo_id
+    def _add_demo_id(fields):
+        if demo_id:
+            fields["demo_id"] = demo_id
+
+    # State 1: New
+    fields = {
+        "sys_updated_on": change_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "type": change_data.get("type", "standard"),
+        "state": "New",
+        "short_description": change_data["short"],
+        "description": change_data.get("description", change_data["short"]),
+        "category": change_data.get("category", "Infrastructure"),
+        "priority": change_data.get("priority", 3),
+        "risk": change_data.get("risk", "Low"),
+        "impact": change_data.get("impact", 3),
+        "assignment_group": change_data.get("assignment_group", "Service Desk"),
+        "requested_by": requester_email,
+    }
+    if change_data.get("cmdb_ci"):
+        fields["cmdb_ci"] = change_data["cmdb_ci"]
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    # State 2: Assess
+    if is_emergency:
+        assess_delay = random.randint(5, 15)  # minutes
+    else:
+        assess_delay = random.randint(60, 240)  # 1-4 hours
+    assess_time = change_time + timedelta(minutes=assess_delay)
+
+    fields = {
+        "sys_updated_on": assess_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "state": "Assess",
+        "work_notes": "Risk assessment completed" if not is_emergency else "Emergency - expedited assessment",
+    }
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    # State 3: Authorize
+    if is_emergency:
+        auth_delay = random.randint(5, 20)
+    else:
+        auth_delay = random.randint(120, 480)  # 2-8 hours
+    auth_time = assess_time + timedelta(minutes=auth_delay)
+
+    assigned_to, assigned_name = get_assignment_member(
+        change_data.get("assignment_group", "Service Desk"))
+    fields = {
+        "sys_updated_on": auth_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "state": "Authorize",
+        "assigned_to": assigned_to,
+        "assigned_to_name": assigned_name,
+        "work_notes": "Change approved" if not is_emergency else "Emergency change approved by CAB chair",
+    }
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    # State 4: Scheduled
+    duration_hours = change_data.get("duration_hours", 2)
+    if "planned_start" in change_data and base_date is not None:
+        # Absolute day reference from generation start_date
+        ps = change_data["planned_start"]
+        planned_start = datetime(
+            base_date.year, base_date.month, base_date.day,
+            ps["hour"], ps["minute"]
+        ) + timedelta(days=ps["day"])
+    elif is_emergency:
+        planned_start = auth_time + timedelta(minutes=random.randint(10, 30))
+    else:
+        # Schedule for next day during maintenance window (22:00-06:00)
+        planned_start = auth_time + timedelta(hours=random.randint(4, 24))
+
+    if "planned_end" in change_data and base_date is not None:
+        pe = change_data["planned_end"]
+        planned_end = datetime(
+            base_date.year, base_date.month, base_date.day,
+            pe["hour"], pe["minute"]
+        ) + timedelta(days=pe["day"])
+    else:
+        planned_end = planned_start + timedelta(hours=duration_hours)
+
+    sched_time = auth_time + timedelta(minutes=random.randint(5, 30))
+    fields = {
+        "sys_updated_on": sched_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "state": "Scheduled",
+        "planned_start_date": planned_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "planned_end_date": planned_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    # State 5: Implement
+    fields = {
+        "sys_updated_on": planned_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "state": "Implement",
+        "actual_start_date": planned_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "work_notes": "Implementation started",
+    }
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    # State 6: Review
+    actual_end = planned_end + timedelta(minutes=random.randint(-15, 30))
+    fields = {
+        "sys_updated_on": actual_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "state": "Review",
+        "actual_end_date": actual_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "work_notes": "Implementation complete, in review",
+    }
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    # State 7: Closed
+    close_delay = random.randint(1, 24)
+    closed_time = actual_end + timedelta(hours=close_delay)
+
+    close_code = change_data.get("close_code", "Successful")
+    close_notes = change_data.get("close_notes", "Change completed successfully. No issues reported.")
+
+    fields = {
+        "sys_updated_on": closed_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "number": change_num,
+        "state": "Closed",
+        "close_code": close_code,
+        "close_notes": close_notes,
+    }
+    _add_demo_id(fields)
+    events.append(format_kv_line(fields))
+
+    return events
+
+
+def generate_baseline_changes(base_date: datetime, day: int, count: int) -> List[str]:
+    """Generate normal day-to-day change requests."""
+    events = []
+
+    for _ in range(count):
+        # Business hours for change creation
+        hour = random.randint(8, 16)
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        change_time = datetime(
+            base_date.year, base_date.month, base_date.day,
+            hour, minute, second,
+        ) + timedelta(days=day)
+
+        template = random.choice(CHANGE_TEMPLATES)
+
+        # Replace placeholders
+        server = random.choice(ALL_SERVERS)
+        location = random.choice(list(LOCATIONS.values()))["full_name"]
+        short = template["short"].format(
+            server=server, location=location, device=server)
+
+        change_data = {
+            "short": short,
+            "category": template["category"],
+            "type": template["type"],
+            "risk": template["risk"],
+            "assignment_group": template["assignment_group"],
+            "duration_hours": template["duration_hours"],
+            "impact": 3,
+            "priority": 3 if template["type"] == "standard" else 2,
+        }
+
+        change_num = get_next_change_number()
+        events.extend(generate_change_lifecycle(change_num, change_data, change_time))
+
+    return events
+
+
+def generate_scenario_changes(base_date: datetime, day: int, scenarios: str) -> List[str]:
+    """Generate scenario-linked change requests for a day.
+
+    Uses same scenario filtering as generate_scenario_incidents().
+    """
+    events = []
+    if scenarios == "none":
+        return events
+
+    scenario_set = set(s.strip() for s in scenarios.split(",")) if "," in scenarios else {scenarios}
+
+    for scenario_name, config in SCENARIO_CHANGES.items():
+        # Same filtering logic as generate_scenario_incidents
+        if scenario_name in scenario_set:
+            pass
+        elif "all" in scenario_set:
+            pass
+        elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt"]:
+            pass
+        elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling"]:
+            pass
+        elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry"]:
+            pass
+        else:
+            continue
+
+        if day != config["day"]:
+            continue
+
+        for change_data in config["changes"]:
+            is_emergency = change_data.get("type") == "emergency"
+            if is_emergency:
+                hour = random.randint(8, 16)
+            else:
+                hour = random.randint(9, 14)
+
+            minute = random.randint(0, 59)
+            second = random.randint(0, 59)
+            change_time = datetime(
+                base_date.year, base_date.month, base_date.day,
+                hour, minute, second,
+            ) + timedelta(days=day)
+
+            change_num = get_next_change_number()
+            events.extend(generate_change_lifecycle(
+                change_num, change_data, change_time, demo_id=scenario_name,
+                base_date=base_date))
+
+    return events
+
+
+# =============================================================================
+# INCIDENT GENERATORS
 # =============================================================================
 
 def generate_normal_incidents(base_date: datetime, day: int, count: int) -> List[str]:
@@ -835,6 +1513,15 @@ def generate_scenario_incidents(base_date: datetime, day: int, scenarios: str) -
     return events
 
 
+def _get_timestamp(event: str) -> str:
+    """Extract sys_updated_on from key-value line for sorting."""
+    if 'sys_updated_on="' in event:
+        start = event.find('sys_updated_on="') + 16
+        end = event.find('"', start)
+        return event[start:end]
+    return ""
+
+
 def generate_servicenow_logs(
     start_date: str = DEFAULT_START_DATE,
     days: int = DEFAULT_DAYS,
@@ -844,32 +1531,61 @@ def generate_servicenow_logs(
     quiet: bool = False,
 ) -> int:
     """
-    Generate ServiceNow incident logs.
+    Generate ServiceNow ITSM logs: incidents, CMDB, and change requests.
 
     Args:
         start_date: Start date in YYYY-MM-DD format
         days: Number of days to generate
         scale: Volume scale factor
         scenarios: Scenario filter (none, exfil, all, attack, ops, network)
-        output_file: Output file path (default: output/itsm/servicenow_incidents.log)
+        output_file: Output file path for incidents (default: output/itsm/servicenow_incidents.log)
         quiet: Suppress progress output
 
     Returns:
-        Total number of events generated
+        Total number of events generated across all three output files
     """
-    # Reset counter for fresh run
+    # Reset counters for fresh run
     reset_incident_counter()
+    reset_change_counter()
 
     # Parse start date
     base_date = datetime.strptime(start_date, "%Y-%m-%d")
 
-    # Determine output path
+    # Output paths
     if output_file is None:
-        output_file = get_output_path("itsm", FILE_SERVICENOW)
-    output_path = Path(output_file)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+        incident_path = get_output_path("itsm", FILE_SERVICENOW)
+    else:
+        incident_path = output_file
+    cmdb_path = get_output_path("itsm", FILE_SERVICENOW_CMDB)
+    change_path = get_output_path("itsm", FILE_SERVICENOW_CHANGE)
 
-    all_events = []
+    Path(incident_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(cmdb_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(change_path).parent.mkdir(parents=True, exist_ok=True)
+
+    if not quiet:
+        print("=" * 70, file=sys.stderr)
+        print("  ServiceNow ITSM Generator", file=sys.stderr)
+        print(f"  Start: {start_date} | Days: {days} | Scale: {scale}", file=sys.stderr)
+        print(f"  Scenarios: {scenarios}", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+
+    # -------------------------------------------------------------------------
+    # 1. CMDB (static, one-time)
+    # -------------------------------------------------------------------------
+    cmdb_records = generate_cmdb_records(start_date)
+
+    with open(cmdb_path, 'w') as f:
+        for record in cmdb_records:
+            f.write(record + "\n")
+
+    if not quiet:
+        print(f"  [CMDB] {len(cmdb_records)} records written to {cmdb_path}", file=sys.stderr)
+
+    # -------------------------------------------------------------------------
+    # 2. Incidents (existing logic)
+    # -------------------------------------------------------------------------
+    all_incidents = []
 
     for day in range(days):
         current_date = base_date + timedelta(days=day)
@@ -883,43 +1599,64 @@ def generate_servicenow_logs(
         else:
             day_count = BASE_INCIDENTS_PER_DAY
 
-        # Apply scale
         day_count = int(day_count * scale)
-
-        # Add some randomness
         day_count = max(1, day_count + random.randint(-3, 3))
 
-        # Generate normal incidents
         events = generate_normal_incidents(base_date, day, day_count)
-        all_events.extend(events)
+        all_incidents.extend(events)
 
-        # Generate scenario incidents
         scenario_events = generate_scenario_incidents(base_date, day, scenarios)
-        all_events.extend(scenario_events)
+        all_incidents.extend(scenario_events)
 
-        if not quiet:
-            print(f"  Day {day + 1}: {len(events) + len(scenario_events)} events")
+    all_incidents.sort(key=_get_timestamp)
 
-    # Sort all events by sys_updated_on
-    def get_timestamp(event: str) -> str:
-        # Extract sys_updated_on from key-value line
-        if 'sys_updated_on="' in event:
-            start = event.find('sys_updated_on="') + 16
-            end = event.find('"', start)
-            return event[start:end]
-        return ""
-
-    all_events.sort(key=get_timestamp)
-
-    # Write to file
-    with open(output_file, 'w') as f:
-        for event in all_events:
+    with open(incident_path, 'w') as f:
+        for event in all_incidents:
             f.write(event + "\n")
 
     if not quiet:
-        print(f"  Total: {len(all_events)} events written to {output_file}")
+        print(f"  [Incidents] {len(all_incidents)} events written to {incident_path}", file=sys.stderr)
 
-    return len(all_events)
+    # -------------------------------------------------------------------------
+    # 3. Change Requests (new)
+    # -------------------------------------------------------------------------
+    all_changes = []
+
+    for day in range(days):
+        current_date = base_date + timedelta(days=day)
+        weekday = current_date.weekday()
+
+        # Baseline changes
+        if weekday >= 5:
+            change_count = WEEKEND_CHANGES
+        else:
+            change_count = BASE_CHANGES_PER_DAY
+
+        change_count = max(0, int(change_count * scale) + random.randint(-1, 1))
+
+        baseline = generate_baseline_changes(base_date, day, change_count)
+        all_changes.extend(baseline)
+
+        # Scenario changes
+        scenario_chg = generate_scenario_changes(base_date, day, scenarios)
+        all_changes.extend(scenario_chg)
+
+    all_changes.sort(key=_get_timestamp)
+
+    with open(change_path, 'w') as f:
+        for event in all_changes:
+            f.write(event + "\n")
+
+    if not quiet:
+        print(f"  [Changes] {len(all_changes)} events written to {change_path}", file=sys.stderr)
+
+    total = len(cmdb_records) + len(all_incidents) + len(all_changes)
+
+    if not quiet:
+        print(f"  Total: {total:,} events ({len(cmdb_records)} CMDB, "
+              f"{len(all_incidents)} incidents, {len(all_changes)} changes)", file=sys.stderr)
+
+    return total
 
 
 # =============================================================================

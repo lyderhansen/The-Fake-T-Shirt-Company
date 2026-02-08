@@ -46,7 +46,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Attack scenarios
     "exfil": ScenarioDefinition(
         name="exfil",
-        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit"],
+        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow"],
         category="attack",
         description="APT-style data exfiltration over 14 days (phishing -> privilege abuse -> exfil)",
         demo_id="exfil",
@@ -64,7 +64,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Ops scenarios
     "disk_filling": ScenarioDefinition(
         name="disk_filling",
-        sources=["linux", "access"],
+        sources=["linux", "access", "servicenow"],
         category="ops",
         description="Server disk gradually filling up, resolved Day 5 (MON-ATL-01)",
         demo_id="disk_filling",
@@ -75,7 +75,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "memory_leak": ScenarioDefinition(
         name="memory_leak",
-        sources=["perfmon", "linux", "asa", "access"],
+        sources=["perfmon", "linux", "asa", "access", "servicenow"],
         category="ops",
         description="Application memory leak causing OOM crash Day 9, restart (WEB-01)",
         demo_id="memory_leak",
@@ -86,7 +86,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "cpu_runaway": ScenarioDefinition(
         name="cpu_runaway",
-        sources=["perfmon", "wineventlog", "asa", "access"],
+        sources=["perfmon", "wineventlog", "asa", "access", "servicenow"],
         category="ops",
         description="SQL-PROD-01 backup job stuck causing cascading DB failures (Day 11-12)",
         demo_id="cpu_runaway",

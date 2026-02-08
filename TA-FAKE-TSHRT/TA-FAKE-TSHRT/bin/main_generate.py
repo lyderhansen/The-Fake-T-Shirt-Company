@@ -180,17 +180,17 @@ Scenarios:
 
   Attack scenarios (--scenarios=attack or individual names):
     exfil              - APT-style data exfiltration (Day 1-14, multi-site)
-                         Sources: asa, meraki, entraid, aws, gcp, exchange, wineventlog, perfmon
+                         Sources: asa, meraki, entraid, aws, gcp, exchange, wineventlog, perfmon, servicenow
     ransomware_attempt - Ransomware stopped by EDR (Day 8-9)
-                         Sources: asa, exchange, wineventlog, meraki, servicenow
+                         Sources: asa, exchange, wineventlog, meraki, servicenow, office_audit
 
   Ops scenarios (--scenarios=ops or individual names):
-    memory_leak        - Application memory leak causing OOM (Day 4-10, Linux WEB-01)
-                         Sources: linux, asa
+    memory_leak        - Application memory leak causing OOM (Day 6-9, Linux WEB-01)
+                         Sources: perfmon, linux, asa, access, servicenow
     cpu_runaway        - SQL backup job stuck causing DB failures (Day 11-12)
-                         Sources: perfmon, wineventlog, asa, access
-    disk_filling       - Server disk gradually filling up (Day 1-14, MON-ATL-01)
-                         Sources: linux
+                         Sources: perfmon, wineventlog, asa, access, servicenow
+    disk_filling       - Server disk gradually filling up (Day 1-5, MON-ATL-01)
+                         Sources: linux, access, servicenow
 
   Network scenarios (--scenarios=network or individual names):
     firewall_misconfig - Firewall rule misconfiguration causing outage (Day 7)
@@ -216,7 +216,7 @@ Output Directories:
   output/web/       - access_combined.log
   output/retail/    - orders.json
   output/servicebus/- servicebus messages
-  output/itsm/      - servicenow_incidents.log
+  output/itsm/      - servicenow_incidents.log, servicenow_cmdb.log, servicenow_change.log
         """,
     )
 

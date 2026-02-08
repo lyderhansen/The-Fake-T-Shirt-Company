@@ -120,7 +120,11 @@ GENERATOR_OUTPUT_FILES = {
         "linux/iostat.log",
         "linux/interfaces.log",
     ],
-    "servicenow": ["itsm/servicenow_incidents.log"],
+    "servicenow": [
+        "itsm/servicenow_incidents.log",
+        "itsm/servicenow_cmdb.log",
+        "itsm/servicenow_change.log",
+    ],
     "office_audit": ["cloud/office_audit.json"],
 }
 
