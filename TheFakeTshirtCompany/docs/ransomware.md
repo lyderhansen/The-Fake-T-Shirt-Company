@@ -121,9 +121,9 @@ index=cloud sourcetype="ms:o365:*"
 
 ### Windows Event Log - Kill chain
 ```spl
-index=windows sourcetype=XmlWinEventLog
-  (EventID=4688 OR EventID=4697 OR EventID=1116 OR EventID=4625)
-  Computer="AUS-WS-BWHITE01"
+index=windows sourcetype=WinEventLog
+  (EventCode=4688 OR EventCode=4697 OR EventCode=1116 OR EventCode=4625)
+  ComputerName="AUS-WS-BWHITE01"
   demo_id=ransomware_attempt
 | sort _time
 ```
@@ -173,13 +173,13 @@ index=network sourcetype=meraki:*
 ```spl
 index=* demo_id=ransomware_attempt
 | sort _time
-| table _time, sourcetype, host, EventID, message, action
+| table _time, sourcetype, host, EventCode, message, action
 ```
 
 ### Process creation chain
 ```spl
-index=windows sourcetype=XmlWinEventLog EventID=4688
-  Computer="AUS-WS-BWHITE01"
+index=windows sourcetype=WinEventLog EventCode=4688
+  ComputerName="AUS-WS-BWHITE01"
   demo_id=ransomware_attempt
 | table _time, NewProcessName, ParentProcessName, CommandLine
 ```
@@ -194,7 +194,7 @@ index=network sourcetype=cisco:asa
 
 ### Lateral movement attempts
 ```spl
-index=windows EventID=4625
+index=windows EventCode=4625
   IpAddress=10.30.30.20
   demo_id=ransomware_attempt
 | stats count by TargetUserName, IpPort

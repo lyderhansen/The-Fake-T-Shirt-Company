@@ -83,7 +83,7 @@ the same way they would with production data.
 | `FAKE:Perfmon:LogicalDisk` | KV pairs | [Splunk Add-on for Windows](https://splunkbase.splunk.com/app/742) | [LogicalDisk object](https://learn.microsoft.com/en-us/windows/win32/perfctrs/performance-counters-portal) |
 | `FAKE:Perfmon:Network_Interface` | KV pairs | [Splunk Add-on for Windows](https://splunkbase.splunk.com/app/742) | [Network Interface object](https://learn.microsoft.com/en-us/windows/win32/perfctrs/performance-counters-portal) |
 | `FAKE:PerfmonMk:Processor` | KV pairs | [Splunk Add-on for Windows](https://splunkbase.splunk.com/app/742) | [Performance Counters](https://learn.microsoft.com/en-us/windows/win32/perfctrs/performance-counters-portal) |
-| `FAKE:XmlWinEventLog:Sysmon` | XML | [Splunk Add-on for Sysmon](https://splunkbase.splunk.com/app/5709) | [Microsoft Sysmon](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon) |
+| `FAKE:WinEventLog:Sysmon` | KV pairs | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) | [Microsoft Sysmon](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon) |
 | `FAKE:mssql:errorlog` | Text | [Splunk Add-on for Microsoft SQL Server](https://splunkbase.splunk.com/app/2648) | [SQL Server Error Log](https://learn.microsoft.com/en-us/sql/relational-databases/performance/view-the-sql-server-error-log-sql-server-management-studio) |
 
 ### Linux

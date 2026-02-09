@@ -10,56 +10,56 @@
       "type": "ds.search",
       "name": "Total Sysmon Events Over Time",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" by _time span=1h"
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" by _time span=1h"
       }
     },
     "ds_unique_hosts": {
       "type": "ds.search",
       "name": "Unique Hosts",
       "options": {
-        "query": "| tstats dc(host) as count where index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\""
+        "query": "| tstats dc(host) as count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\""
       }
     },
     "ds_event_id_count": {
       "type": "ds.search",
       "name": "Event ID Count",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" Event.System.EventID=* | stats dc(Event.System.EventID) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=* | stats dc(EventCode) as count"
       }
     },
     "ds_scenario_events": {
       "type": "ds.search",
       "name": "Scenario Event Count",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" demo_id=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" demo_id=* | stats count"
       }
     },
     "ds_events_over_time": {
       "type": "ds.search",
       "name": "Events Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" | timechart span=1h count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" | timechart span=1h count"
       }
     },
     "ds_top_event_ids": {
       "type": "ds.search",
       "name": "Top Event IDs",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" Event.System.EventID=* | eval eid='Event.System.EventID' | eval event_label=case(eid=1,\"1 - Process Create\", eid=3,\"3 - Network Connect\", eid=5,\"5 - Process Terminate\", eid=7,\"7 - Image Loaded\", eid=10,\"10 - Process Access\", eid=11,\"11 - File Create\", eid=12,\"12 - Registry Add/Delete\", eid=13,\"13 - Registry Set\", eid=22,\"22 - DNS Query\", 1=1, tostring(eid)) | stats count by event_label | sort -count | head 15 | rename event_label as \"Event ID\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=* | eval event_label=case(EventCode=1,\"1 - Process Create\", EventCode=3,\"3 - Network Connect\", EventCode=5,\"5 - Process Terminate\", EventCode=7,\"7 - Image Loaded\", EventCode=10,\"10 - Process Access\", EventCode=11,\"11 - File Create\", EventCode=12,\"12 - Registry Add/Delete\", EventCode=13,\"13 - Registry Set\", EventCode=22,\"22 - DNS Query\", 1=1, tostring(EventCode)) | stats count by event_label | sort -count | head 15 | rename event_label as \"Event ID\""
       }
     },
     "ds_by_host": {
       "type": "ds.search",
       "name": "Events by Host",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" by host | sort -count | head 15"
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" by host | sort -count | head 15"
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" | eval EventID='Event.System.EventID' | eval names='Event.EventData.Data{@Name}' | eval data='Event.EventData.Data' | eval Image=mvindex(data, mvfind(names,\"^Image$\")) | eval CommandLine=mvindex(data, mvfind(names,\"^CommandLine$\")) | table _time host EventID Image CommandLine demo_id | sort -_time | head 30 | rename EventID as \"Event ID\" CommandLine as \"Command Line\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" | table _time host EventCode Image CommandLine demo_id | sort -_time | head 30 | rename EventCode as \"Event ID\" CommandLine as \"Command Line\" demo_id as \"Scenario\""
       }
     }
   },
@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Sysmon\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:XmlWinEventLog:Sysmon` |\n| **Platform** | Windows (Sysmon / System Monitor) |\n| **Format** | XML |\n| **Scenarios** | exfil, ransomware_attempt |",
+        "markdown": "# Source — Sysmon\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:WinEventLog:Sysmon` |\n| **Platform** | Windows (Sysmon / System Monitor) |\n| **Format** | KV pairs (WinEventLog) |\n| **Scenarios** | exfil, ransomware_attempt |",
         "fontColor": "#C3CBD4"
       }
     },

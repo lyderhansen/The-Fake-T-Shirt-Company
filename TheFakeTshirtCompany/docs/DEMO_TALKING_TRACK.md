@@ -133,7 +133,7 @@ En 14-dagers APT-stil angrep hvor en trussel-aktør fra Tyskland:
 |--------|-------|-----|
 | ASA | Cross-site probing | `acl=cross_site_policy deny` |
 | ASA | Internal ACL denies | `acl=server_segment_acl deny` |
-| WinEventLog | Failed logon | `EventID=4625 src=10.20.30.15` |
+| WinEventLog | Failed logon | `EventCode=4625 src=10.20.30.15` |
 | Exchange | Forwarding rule | `InboxRule jessica.brown forward` |
 
 **Talking point:**
@@ -253,9 +253,9 @@ index=cloud sourcetype="ms:o365:*"
 
 ### Windows Event Log - Kill chain
 ```spl
-index=windows sourcetype=XmlWinEventLog
-  (EventID=4688 OR EventID=4697 OR EventID=1116)
-  Computer="AUS-WS-BWHITE01"
+index=windows sourcetype=WinEventLog
+  (EventCode=4688 OR EventCode=4697 OR EventCode=1116)
+  ComputerName="AUS-WS-BWHITE01"
   demo_id=ransomware_attempt
 | sort _time
 ```
@@ -422,9 +422,9 @@ index=windows sourcetype=perfmon
 
 ### Windows Event Log - SQL errors
 ```spl
-index=windows sourcetype=XmlWinEventLog
+index=windows sourcetype=WinEventLog
   host=SQL-PROD-01
-  (EventID=17883 OR EventID=833 OR EventID=19406)
+  (EventCode=17883 OR EventCode=833 OR EventCode=19406)
   demo_id=cpu_runaway
 ```
 
@@ -435,9 +435,9 @@ index=windows sourcetype=XmlWinEventLog
 
 ### Windows Event Log - Fix
 ```spl
-index=windows sourcetype=XmlWinEventLog
+index=windows sourcetype=WinEventLog
   host=SQL-PROD-01
-  (EventID=17148 OR EventID=17147)
+  (EventCode=17148 OR EventCode=17147)
   demo_id=cpu_runaway
 ```
 

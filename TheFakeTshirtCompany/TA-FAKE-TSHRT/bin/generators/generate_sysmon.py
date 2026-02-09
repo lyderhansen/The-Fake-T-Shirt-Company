@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Microsoft Sysmon (System Monitor) Log Generator.
-Generates realistic XmlWinEventLog:Microsoft-Windows-Sysmon/Operational events.
+Generates WinEventLog-style KV events for Microsoft-Windows-Sysmon/Operational.
 
 Event IDs covered:
     1  - Process Create
@@ -20,14 +20,14 @@ Scenario events:
 - exfil (Day 4-13): Phishing → lateral movement → persistence → exfiltration
 - ransomware_attempt (Day 7-8): Macro → dropper → C2 → lateral → EDR detection
 
-Output format: Single-line XML per event, demo_id appended after </Event>
-Splunk sourcetype: FAKE:XmlWinEventLog:Sysmon
-Compatible with: Splunk_TA_microsoft_sysmon (Splunkbase app 5709)
+Output format: Multi-line KV header + Message body (same format as WinEventLog)
+Splunk sourcetype: FAKE:WinEventLog:Sysmon
+Compatible with: Splunk Add-on for Microsoft Windows (WinEventLog format)
 
 Verified against:
 - Microsoft Learn: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
 - ultimatewindowssecurity.com Event ID reference
-- Splunk Sysmon docs: https://docs.splunk.com/Documentation/AddOns/released/MSSysmon/Sourcetypes
+- Real Sysmon WinEventLog output format
 """
 
 import argparse
@@ -59,20 +59,27 @@ from scenarios.registry import expand_scenarios
 
 FILE_SYSMON = "sysmon_operational.log"
 
-# Sysmon provider GUID (real Microsoft Sysmon GUID)
-SYSMON_PROVIDER_GUID = "{5770385F-C22A-43E0-BF4C-06F5698FFBD9}"
-
-# XML namespace
-XML_NS = "http://schemas.microsoft.com/win/2004/08/events/event"
-
 # Domain prefix for user SIDs
 DOMAIN_PREFIX = "FAKETSHIRT"
 SYSTEM_USER = "NT AUTHORITY\\SYSTEM"
-SYSTEM_SID = "S-1-5-18"
-LOCAL_SERVICE_SID = "S-1-5-19"
 
-# EventRecordID counter (global, incrementing)
-_record_id_counter = 0
+# Task category labels per Event ID
+TASK_CATEGORIES = {
+    1: "Process Create (rule: ProcessCreate)",
+    3: "Network connection detected (rule: NetworkConnect)",
+    11: "File created (rule: FileCreate)",
+    13: "Registry value set (rule: RegistryEvent)",
+    22: "Dns query (rule: DnsQuery)",
+}
+
+# Message type labels per Event ID
+MESSAGE_LABELS = {
+    1: "Process Create:",
+    3: "Network connection detected:",
+    11: "File created:",
+    13: "Registry value set:",
+    22: "Dns query:",
+}
 
 
 # =============================================================================
@@ -262,13 +269,6 @@ WORKSTATION_BASE_EVENTS_PER_HOUR = 8  # Per workstation, ~48/day sampled
 # HELPER FUNCTIONS
 # =============================================================================
 
-def _get_record_id() -> int:
-    """Get next incrementing EventRecordID."""
-    global _record_id_counter
-    _record_id_counter += 1
-    return _record_id_counter
-
-
 def _generate_guid(seed: str = None) -> str:
     """Generate a process GUID. If seed provided, deterministic."""
     if seed:
@@ -286,9 +286,52 @@ def _generate_hashes(image_path: str) -> str:
     return f"SHA256={sha256},MD5={md5},SHA1={sha1}"
 
 
-def _xml_escape(s: str) -> str:
-    """Escape special XML characters."""
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+def _kv_header(event_id: int, computer: str, ts: datetime, demo_id: str = None) -> str:
+    """Build KV header block for a Sysmon event (same format as WinEventLog).
+
+    Returns the header portion:
+        MM/DD/YYYY HH:MM:SS AM/PM
+        LogName=Microsoft-Windows-Sysmon/Operational
+        SourceName=Microsoft-Windows-Sysmon
+        EventCode=<id>
+        EventType=4
+        Type=Information
+        ComputerName=<fqdn>
+        TaskCategory=<label>
+    """
+    fqdn = f"{computer}.theFakeTshirtCompany.com"
+    ts_str = ts.strftime("%m/%d/%Y %I:%M:%S %p")
+    task_cat = TASK_CATEGORIES.get(event_id, "Unknown")
+
+    return (
+        f"{ts_str}\n"
+        f"LogName=Microsoft-Windows-Sysmon/Operational\n"
+        f"SourceName=Microsoft-Windows-Sysmon\n"
+        f"EventCode={event_id}\n"
+        f"EventType=4\n"
+        f"Type=Information\n"
+        f"ComputerName={fqdn}\n"
+        f"TaskCategory={task_cat}"
+    )
+
+
+def _wrap_kv_event(header: str, message_label: str,
+                   message_lines: List[str], demo_id: str = None) -> str:
+    """Combine KV header + Message body into a complete event.
+
+    Format:
+        <header>
+        Message=<label>
+        <field>: <value>
+        <field>: <value>
+        ...
+        demo_id=<scenario>   (if present)
+    """
+    body = "\n".join(f"{line}" for line in message_lines)
+    event = f"{header}\nMessage={message_label}\n{body}"
+    if demo_id:
+        event += f"\ndemo_id={demo_id}"
+    return event
 
 
 def _random_second(minute_start: int = 0, minute_end: int = 59) -> Tuple[int, int]:
@@ -298,55 +341,7 @@ def _random_second(minute_start: int = 0, minute_end: int = 59) -> Tuple[int, in
     return m, s
 
 
-# =============================================================================
-# XML BUILDERS
-# =============================================================================
-
-def _xml_system_block(event_id: int, computer: str, ts: datetime,
-                      task: int = 0, opcode: int = 0,
-                      version: int = 5, level: int = 4) -> str:
-    """Build <System> XML block for a Sysmon event."""
-    record_id = _get_record_id()
-    pid = random.randint(1000, 8000)
-    tid = random.randint(1000, 8000)
-    # 7-digit nanosecond fraction
-    ns_frac = random.randint(1000000, 9999999)
-    time_str = ts.strftime("%Y-%m-%dT%H:%M:%S") + f".{ns_frac}Z"
-
-    fqdn = f"{computer}.theFakeTshirtCompany.com"
-
-    return (
-        f'<System>'
-        f'<Provider Name="Microsoft-Windows-Sysmon" Guid="{SYSMON_PROVIDER_GUID}"/>'
-        f'<EventID>{event_id}</EventID>'
-        f'<Version>{version}</Version>'
-        f'<Level>{level}</Level>'
-        f'<Task>{task}</Task>'
-        f'<Opcode>{opcode}</Opcode>'
-        f'<Keywords>0x8000000000000000</Keywords>'
-        f'<TimeCreated SystemTime="{time_str}"/>'
-        f'<EventRecordID>{record_id}</EventRecordID>'
-        f'<Correlation/>'
-        f'<Execution ProcessID="{pid}" ThreadID="{tid}"/>'
-        f'<Channel>Microsoft-Windows-Sysmon/Operational</Channel>'
-        f'<Computer>{fqdn}</Computer>'
-        f'<Security UserID="{SYSTEM_SID}"/>'
-        f'</System>'
-    )
-
-
-def _xml_data(name: str, value: str) -> str:
-    """Build a single <Data Name="...">value</Data> element."""
-    return f'<Data Name="{name}">{_xml_escape(str(value))}</Data>'
-
-
-def _wrap_event(system_block: str, event_data_items: List[str], demo_id: str = None) -> str:
-    """Wrap System + EventData into a full <Event> line."""
-    event_data = "".join(event_data_items)
-    line = f'<Event xmlns="{XML_NS}">{system_block}<EventData>{event_data}</EventData></Event>'
-    if demo_id:
-        line += f" demo_id={demo_id}"
-    return line
+# (XML builders removed — replaced by _kv_header() and _wrap_kv_event() above)
 
 
 # =============================================================================
@@ -358,7 +353,7 @@ def sysmon_eid1(ts: datetime, computer: str, user: str, image: str,
                 parent_command_line: str = None,
                 demo_id: str = None) -> str:
     """EID 1 - Process Create."""
-    system = _xml_system_block(1, computer, ts, task=1)
+    header = _kv_header(1, computer, ts)
     process_id = random.randint(1000, 65000)
     parent_pid = random.randint(500, 10000)
 
@@ -372,32 +367,32 @@ def sysmon_eid1(ts: datetime, computer: str, user: str, image: str,
 
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
 
-    data = [
-        _xml_data("RuleName", "-"),
-        _xml_data("UtcTime", utc_time),
-        _xml_data("ProcessGuid", _generate_guid()),
-        _xml_data("ProcessId", str(process_id)),
-        _xml_data("Image", image),
-        _xml_data("FileVersion", "10.0.19041.1 (WinBuild.160101.0800)"),
-        _xml_data("Description", image_name),
-        _xml_data("Product", "Microsoft Windows Operating System"),
-        _xml_data("Company", "Microsoft Corporation"),
-        _xml_data("OriginalFileName", image_name),
-        _xml_data("CommandLine", command_line),
-        _xml_data("CurrentDirectory", "C:\\Windows\\System32\\"),
-        _xml_data("User", user),
-        _xml_data("LogonGuid", _generate_guid()),
-        _xml_data("LogonId", f"0x{random.randint(0x10000, 0xFFFFFF):X}"),
-        _xml_data("TerminalSessionId", "0"),
-        _xml_data("IntegrityLevel", "System" if "SYSTEM" in user else "Medium"),
-        _xml_data("Hashes", _generate_hashes(image)),
-        _xml_data("ParentProcessGuid", _generate_guid()),
-        _xml_data("ParentProcessId", str(parent_pid)),
-        _xml_data("ParentImage", parent_path),
-        _xml_data("ParentCommandLine", parent_command_line or parent_path),
-        _xml_data("ParentUser", SYSTEM_USER if "services.exe" in parent_path.lower() else user),
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {process_id}",
+        f"Image: {image}",
+        f"FileVersion: 10.0.19041.1 (WinBuild.160101.0800)",
+        f"Description: {image_name}",
+        f"Product: Microsoft Windows Operating System",
+        f"Company: Microsoft Corporation",
+        f"OriginalFileName: {image_name}",
+        f"CommandLine: {command_line}",
+        f"CurrentDirectory: C:\\Windows\\System32\\",
+        f"User: {user}",
+        f"LogonGuid: {_generate_guid()}",
+        f"LogonId: 0x{random.randint(0x10000, 0xFFFFFF):X}",
+        f"TerminalSessionId: 0",
+        f"IntegrityLevel: {'System' if 'SYSTEM' in user else 'Medium'}",
+        f"Hashes: {_generate_hashes(image)}",
+        f"ParentProcessGuid: {_generate_guid()}",
+        f"ParentProcessId: {parent_pid}",
+        f"ParentImage: {parent_path}",
+        f"ParentCommandLine: {parent_command_line or parent_path}",
+        f"ParentUser: {SYSTEM_USER if 'services.exe' in parent_path.lower() else user}",
     ]
-    return _wrap_event(system, data, demo_id)
+    return _wrap_kv_event(header, MESSAGE_LABELS[1], msg_lines, demo_id)
 
 
 def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
@@ -405,7 +400,7 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
                 dst_ip: str, dst_port: int,
                 demo_id: str = None) -> str:
     """EID 3 - Network Connection."""
-    system = _xml_system_block(3, computer, ts, task=3)
+    header = _kv_header(3, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
 
     # Determine if destination is local
@@ -416,90 +411,89 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
                 dst_hostname = f"{srv_name}.theFakeTshirtCompany.com"
                 break
 
-    data = [
-        _xml_data("RuleName", "-"),
-        _xml_data("UtcTime", utc_time),
-        _xml_data("ProcessGuid", _generate_guid()),
-        _xml_data("ProcessId", str(random.randint(1000, 65000))),
-        _xml_data("Image", image),
-        _xml_data("User", user),
-        _xml_data("Protocol", protocol),
-        _xml_data("Initiated", "true"),
-        _xml_data("SourceIsIpv6", "false"),
-        _xml_data("SourceIp", src_ip),
-        _xml_data("SourceHostname", f"{computer}.theFakeTshirtCompany.com"),
-        _xml_data("SourcePort", str(src_port)),
-        _xml_data("SourcePortName", ""),
-        _xml_data("DestinationIsIpv6", "false"),
-        _xml_data("DestinationIp", dst_ip),
-        _xml_data("DestinationHostname", dst_hostname),
-        _xml_data("DestinationPort", str(dst_port)),
-        _xml_data("DestinationPortName", _port_name(dst_port)),
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {random.randint(1000, 65000)}",
+        f"Image: {image}",
+        f"User: {user}",
+        f"Protocol: {protocol}",
+        f"Initiated: true",
+        f"SourceIsIpv6: false",
+        f"SourceIp: {src_ip}",
+        f"SourceHostname: {computer}.theFakeTshirtCompany.com",
+        f"SourcePort: {src_port}",
+        f"SourcePortName: ",
+        f"DestinationIsIpv6: false",
+        f"DestinationIp: {dst_ip}",
+        f"DestinationHostname: {dst_hostname}",
+        f"DestinationPort: {dst_port}",
+        f"DestinationPortName: {_port_name(dst_port)}",
     ]
-    return _wrap_event(system, data, demo_id)
+    return _wrap_kv_event(header, MESSAGE_LABELS[3], msg_lines, demo_id)
 
 
 def sysmon_eid11(ts: datetime, computer: str, user: str, image: str,
                  target_filename: str, demo_id: str = None) -> str:
     """EID 11 - File Create."""
-    system = _xml_system_block(11, computer, ts, task=11)
+    header = _kv_header(11, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
-    creation_utc = utc_time
 
-    data = [
-        _xml_data("RuleName", "-"),
-        _xml_data("UtcTime", utc_time),
-        _xml_data("ProcessGuid", _generate_guid()),
-        _xml_data("ProcessId", str(random.randint(1000, 65000))),
-        _xml_data("Image", image),
-        _xml_data("TargetFilename", target_filename),
-        _xml_data("CreationUtcTime", creation_utc),
-        _xml_data("User", user),
-        _xml_data("Hashes", _generate_hashes(target_filename)),
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {random.randint(1000, 65000)}",
+        f"Image: {image}",
+        f"TargetFilename: {target_filename}",
+        f"CreationUtcTime: {utc_time}",
+        f"User: {user}",
+        f"Hashes: {_generate_hashes(target_filename)}",
     ]
-    return _wrap_event(system, data, demo_id)
+    return _wrap_kv_event(header, MESSAGE_LABELS[11], msg_lines, demo_id)
 
 
 def sysmon_eid13(ts: datetime, computer: str, user: str, image: str,
                  event_type: str, target_object: str, details: str,
                  demo_id: str = None) -> str:
     """EID 13 - Registry Value Set."""
-    system = _xml_system_block(13, computer, ts, task=13)
+    header = _kv_header(13, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
 
-    data = [
-        _xml_data("RuleName", "-"),
-        _xml_data("EventType", event_type),
-        _xml_data("UtcTime", utc_time),
-        _xml_data("ProcessGuid", _generate_guid()),
-        _xml_data("ProcessId", str(random.randint(1000, 65000))),
-        _xml_data("Image", image),
-        _xml_data("TargetObject", target_object),
-        _xml_data("Details", details),
-        _xml_data("User", user),
+    msg_lines = [
+        f"RuleName: -",
+        f"EventType: {event_type}",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {random.randint(1000, 65000)}",
+        f"Image: {image}",
+        f"TargetObject: {target_object}",
+        f"Details: {details}",
+        f"User: {user}",
     ]
-    return _wrap_event(system, data, demo_id)
+    return _wrap_kv_event(header, MESSAGE_LABELS[13], msg_lines, demo_id)
 
 
 def sysmon_eid22(ts: datetime, computer: str, user: str, image: str,
                  query_name: str, query_status: str = "0",
                  query_results: str = "", demo_id: str = None) -> str:
     """EID 22 - DNS Query."""
-    system = _xml_system_block(22, computer, ts, task=22)
+    header = _kv_header(22, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
 
-    data = [
-        _xml_data("RuleName", "-"),
-        _xml_data("UtcTime", utc_time),
-        _xml_data("ProcessGuid", _generate_guid()),
-        _xml_data("ProcessId", str(random.randint(1000, 65000))),
-        _xml_data("QueryName", query_name),
-        _xml_data("QueryStatus", query_status),
-        _xml_data("QueryResults", query_results if query_results else "::ffff:0.0.0.0;"),
-        _xml_data("Image", image),
-        _xml_data("User", user),
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {random.randint(1000, 65000)}",
+        f"QueryName: {query_name}",
+        f"QueryStatus: {query_status}",
+        f"QueryResults: {query_results if query_results else '::ffff:0.0.0.0;'}",
+        f"Image: {image}",
+        f"User: {user}",
     ]
-    return _wrap_event(system, data, demo_id)
+    return _wrap_kv_event(header, MESSAGE_LABELS[22], msg_lines, demo_id)
 
 
 def _port_name(port: int) -> str:
@@ -1126,9 +1120,6 @@ def generate_sysmon_logs(
     Returns:
         Total event count
     """
-    global _record_id_counter
-    _record_id_counter = 0
-
     # Determine output path
     if output_dir:
         output_path = Path(output_dir) / "windows" / FILE_SYSMON
@@ -1198,7 +1189,7 @@ def generate_sysmon_logs(
             day_name = dt.strftime("%a")
             print(f"  Day {day:2d} ({day_name}): {len(day_events):,} events")
 
-    # Sort by timestamp (extracted from SystemTime attribute)
+    # Sort by timestamp (extracted from first line of each KV event)
     all_events.sort(key=_extract_timestamp)
 
     # Write output
@@ -1213,14 +1204,18 @@ def generate_sysmon_logs(
     return total
 
 
-def _extract_timestamp(event_line: str) -> str:
-    """Extract SystemTime value for sorting."""
-    idx = event_line.find('SystemTime="')
-    if idx >= 0:
-        start = idx + len('SystemTime="')
-        end = event_line.find('"', start)
-        return event_line[start:end]
-    return ""
+def _extract_timestamp(event_block: str) -> str:
+    """Extract timestamp from first line of KV event for sorting.
+
+    First line is: MM/DD/YYYY HH:MM:SS AM/PM
+    Convert to sortable format: YYYY-MM-DD HH:MM:SS (24h)
+    """
+    first_line = event_block.split("\n", 1)[0].strip()
+    try:
+        dt = datetime.strptime(first_line, "%m/%d/%Y %I:%M:%S %p")
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, IndexError):
+        return ""
 
 
 # =============================================================================

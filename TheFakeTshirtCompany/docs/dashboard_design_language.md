@@ -574,7 +574,7 @@ This mapping is **immutable**. Every dashboard that displays scenario data MUST 
 | Collaboration | `FAKE:cisco:webex:events`, `FAKE:cisco:webex:meetings:history:*`, `FAKE:cisco:webex:*` |
 | Email | `FAKE:ms:o365:reporting:messagetrace` |
 | Audit | `FAKE:o365:management:activity` |
-| Windows | `FAKE:perfmon`, `FAKE:XmlWinEventLog` |
+| Windows | `FAKE:perfmon`, `FAKE:WinEventLog`, `FAKE:WinEventLog:Sysmon` |
 | Linux | `FAKE:linux:*` |
 | Web/Retail | `FAKE:access_combined`, `FAKE:retail:orders`, `FAKE:azure:servicebus` |
 | ITSM | `FAKE:servicenow:incident` |

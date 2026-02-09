@@ -4,6 +4,28 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~14:00 UTC — Convert Sysmon from XML to KV format
+
+**Affected files:**
+- `bin/generators/generate_sysmon.py` — Full conversion from XML to KV (WinEventLog) format. Replaced XML helper functions (`_xml_system_block`, `_xml_data`, `_wrap_event`, `_xml_escape`) with KV helpers (`_kv_header`, `_wrap_kv_event`). Converted all 5 event builders (EID 1, 3, 11, 13, 22) to produce multi-line KV output with Message body. Updated timestamp extraction for sorting. Removed unused XML constants and `_record_id_counter`.
+- `default/props.conf` — Replaced `[FAKE:XmlWinEventLog:Sysmon]` stanza with `[FAKE:WinEventLog:Sysmon]`: changed from `KV_MODE=xml` to `KV_MODE=AUTO`, updated LINE_BREAKER/TIME_FORMAT/TIME_PREFIX to match KV timestamp format, switched host extraction from `set_host_from_sysmon` (XML) to `set_host_from_wineventlog` (KV), added `REPORT-sysmon_fields` for 12 Message body field extractions.
+- `default/transforms.conf` — Removed `[set_host_from_sysmon]` (XML-based, no longer needed). Added 12 new transforms for Sysmon Message field extraction: `extract_sysmon_image`, `extract_sysmon_commandline`, `extract_sysmon_user`, `extract_sysmon_parentimage`, `extract_sysmon_parentcommandline`, `extract_sysmon_targetfilename`, `extract_sysmon_targetobject`, `extract_sysmon_queryname`, `extract_sysmon_sourceip`, `extract_sysmon_destinationip`, `extract_sysmon_destinationport`, `extract_sysmon_protocol`.
+- `default/inputs.conf` — Changed sourcetype from `FAKE:XmlWinEventLog:Sysmon` to `FAKE:WinEventLog:Sysmon`
+- `default/data/ui/views/source_sysmon.xml` — Updated all queries: sourcetype change, `Event.System.EventID` → `EventCode`, removed complex `mvfind()`/`mvindex()` extraction for Image/CommandLine (now direct fields), updated markdown header format from "XML" to "KV pairs"
+- `default/README.md` — Updated sourcetype reference and format
+- `bin/README.md` — Updated sourcetype reference and format
+- Various docs/ files — Updated sourcetype references in documentation
+
+**Description:**
+Converted the Sysmon generator from single-line XML format (`<Event xmlns=...>`) to multi-line KV format (same as WinEventLog generator). The new format uses `MM/DD/YYYY HH:MM:SS AM/PM` timestamp + KV header (`LogName=`, `EventCode=`, `ComputerName=`) + `Message=` body with `FieldName: value` pairs. This makes all fields directly searchable — `EventCode=1`, `Image=*`, `CommandLine=*` — instead of requiring nested XML paths (`Event.System.EventID`) and multivalue index lookups (`mvfind()`). Consistent with WinEventLog format.
+
+**Verification:**
+- Generator: 31,568 events, 14 days, all scenarios (exfil=40, ransomware=12)
+- Format check: 0 XML events (`<Event xmlns` = 0), 31,568 `EventCode=` lines
+- Output: KV format with correct timestamps, headers, and Message body fields
+
+---
+
 ## 2026-02-10 ~11:00 UTC — Fix MSSQL severity extraction for non-Logon errors
 
 **Affected files:**

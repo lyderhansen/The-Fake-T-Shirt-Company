@@ -218,7 +218,7 @@ This document tracks the source documentation used to create each log generator,
 
 **Sourcetypes:** `WinEventLog`, `XmlWinEventLog`
 
-**Note:** Version 6.0.0+ collects in XML mode by default (`renderXml=true`). Set to `false` for classic format.
+**Note:** This project uses the classic `WinEventLog` format (KV pairs), not the XML format (`XmlWinEventLog`). The Sysmon sourcetype is `WinEventLog:Sysmon`.
 
 ---
 

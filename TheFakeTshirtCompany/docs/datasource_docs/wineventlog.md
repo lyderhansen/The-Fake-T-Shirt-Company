@@ -8,8 +8,8 @@ Windows Security and System event logs from domain controllers, file servers, an
 
 | Attribute | Value |
 |-----------|-------|
-| Sourcetype | `XmlWinEventLog` |
-| Format | XML |
+| Sourcetype | `WinEventLog` |
+| Format | KV pairs |
 | Output File | `output/windows/windows_events.log` |
 | Volume | 500-2000 events/day |
 | Channels | Security, System |
@@ -84,135 +84,105 @@ Windows Security and System event logs from domain controllers, file servers, an
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| `System.TimeCreated.SystemTime` | Event timestamp | `2026-01-05T14:23:45Z` |
-| `System.Computer` | Server FQDN | `BOS-DC-01.theFakeTshirtCompany.com` |
-| `System.EventID` | Event ID | `4624` |
-| `System.Level` | Severity | `0` (Info), `2` (Error) |
-| `System.Channel` | Log channel | `Security`, `System` |
-| `EventData.TargetUserName` | Target user | `alex.miller` |
-| `EventData.SourceNetworkAddress` | Source IP | `10.10.30.55` |
-| `EventData.LogonType` | Logon type | `3` (Network) |
-| `EventData.NewProcessName` | Process path | `C:\Windows\System32\cmd.exe` |
-| `EventData.ParentProcessName` | Parent process | `C:\Windows\explorer.exe` |
+| `_time` | Event timestamp | `01/05/2026 02:23:45 PM` |
+| `ComputerName` | Server FQDN | `BOS-DC-01.theFakeTshirtCompany.com` |
+| `EventCode` | Event ID | `4624` |
+| `Type` | Severity | `Information`, `Error` |
+| `LogName` | Log channel | `Security`, `System` |
+| `TargetUserName` | Target user | `alex.miller` |
+| `SourceNetworkAddress` | Source IP | `10.10.30.55` |
+| `LogonType` | Logon type | `3` (Network) |
+| `NewProcessName` | Process path | `C:\Windows\System32\cmd.exe` |
+| `ParentProcessName` | Parent process | `C:\Windows\explorer.exe` |
 
 ---
 
 ## Example Events
 
 ### Successful Logon (4624)
-```xml
-<Event>
-  <System>
-    <TimeCreated SystemTime="2026-01-05T08:15:00Z"/>
-    <Computer>BOS-DC-01.theFakeTshirtCompany.com</Computer>
-    <EventID>4624</EventID>
-    <Level>0</Level>
-    <Channel>Security</Channel>
-  </System>
-  <EventData>
-    <Data Name="TargetUserName">alex.miller</Data>
-    <Data Name="TargetDomainName">FAKETSHIRTCO</Data>
-    <Data Name="LogonType">3</Data>
-    <Data Name="SourceNetworkAddress">10.10.30.55</Data>
-    <Data Name="WorkstationName">BOS-WS-AMILLER01</Data>
-  </EventData>
-</Event>
+```
+01/05/2026 08:15:00 AM
+LogName=Security
+EventCode=4624
+ComputerName=BOS-DC-01.theFakeTshirtCompany.com
+Type=Information
+Message=An account was successfully logged on.
+  TargetUserName: alex.miller
+  TargetDomainName: FAKETSHIRTCO
+  LogonType: 3
+  SourceNetworkAddress: 10.10.30.55
+  WorkstationName: BOS-WS-AMILLER01
 ```
 
 ### Failed Logon (4625)
-```xml
-<Event>
-  <System>
-    <TimeCreated SystemTime="2026-01-08T14:10:00Z"/>
-    <Computer>AUS-WS-BWHITE01.theFakeTshirtCompany.com</Computer>
-    <EventID>4625</EventID>
-    <Level>0</Level>
-    <Channel>Security</Channel>
-  </System>
-  <EventData>
-    <Data Name="TargetUserName">administrator</Data>
-    <Data Name="SourceNetworkAddress">10.30.30.20</Data>
-    <Data Name="FailureReason">%%2313</Data>
-    <Data Name="Status">0xC000006D</Data>
-    <Data Name="SubStatus">0xC000006A</Data>
-  </EventData>
-  <RenderingInfo>
-    <Message>An account failed to log on. Unknown user name or bad password.</Message>
-  </RenderingInfo>
-  <demo_id>ransomware_attempt</demo_id>
-</Event>
+```
+01/08/2026 02:10:00 PM
+LogName=Security
+EventCode=4625
+ComputerName=AUS-WS-BWHITE01.theFakeTshirtCompany.com
+Type=Information
+Message=An account failed to log on. Unknown user name or bad password.
+  TargetUserName: administrator
+  SourceNetworkAddress: 10.30.30.20
+  FailureReason: %%2313
+  Status: 0xC000006D
+  SubStatus: 0xC000006A
+demo_id=ransomware_attempt
 ```
 
 ### Process Creation (4688) - Ransomware
-```xml
-<Event>
-  <System>
-    <TimeCreated SystemTime="2026-01-08T14:03:00Z"/>
-    <Computer>AUS-WS-BWHITE01.theFakeTshirtCompany.com</Computer>
-    <EventID>4688</EventID>
-    <Channel>Security</Channel>
-  </System>
-  <EventData>
-    <Data Name="NewProcessName">C:\Users\bwhite\AppData\Local\Temp\svchost_update.exe</Data>
-    <Data Name="ParentProcessName">C:\Program Files\Microsoft Office\WINWORD.EXE</Data>
-    <Data Name="CommandLine">svchost_update.exe -silent</Data>
-    <Data Name="TargetUserName">bwhite</Data>
-  </EventData>
-  <demo_id>ransomware_attempt</demo_id>
-</Event>
+```
+01/08/2026 02:03:00 PM
+LogName=Security
+EventCode=4688
+ComputerName=AUS-WS-BWHITE01.theFakeTshirtCompany.com
+Type=Information
+Message=A new process has been created.
+  NewProcessName: C:\Users\bwhite\AppData\Local\Temp\svchost_update.exe
+  ParentProcessName: C:\Program Files\Microsoft Office\WINWORD.EXE
+  CommandLine: svchost_update.exe -silent
+  TargetUserName: bwhite
+demo_id=ransomware_attempt
 ```
 
 ### Service Installed (4697)
-```xml
-<Event>
-  <System>
-    <TimeCreated SystemTime="2026-01-08T14:04:00Z"/>
-    <Computer>AUS-WS-BWHITE01.theFakeTshirtCompany.com</Computer>
-    <EventID>4697</EventID>
-    <Channel>Security</Channel>
-  </System>
-  <EventData>
-    <Data Name="ServiceName">Windows Update Helper</Data>
-    <Data Name="ServiceFileName">C:\Users\bwhite\AppData\Local\Temp\svchost_update.exe</Data>
-    <Data Name="ServiceType">0x10</Data>
-  </EventData>
-  <demo_id>ransomware_attempt</demo_id>
-</Event>
+```
+01/08/2026 02:04:00 PM
+LogName=Security
+EventCode=4697
+ComputerName=AUS-WS-BWHITE01.theFakeTshirtCompany.com
+Type=Information
+Message=A service was installed in the system.
+  ServiceName: Windows Update Helper
+  ServiceFileName: C:\Users\bwhite\AppData\Local\Temp\svchost_update.exe
+  ServiceType: 0x10
+demo_id=ransomware_attempt
 ```
 
 ### Defender Detection (1116)
-```xml
-<Event>
-  <System>
-    <TimeCreated SystemTime="2026-01-08T14:12:00Z"/>
-    <Computer>AUS-WS-BWHITE01.theFakeTshirtCompany.com</Computer>
-    <EventID>1116</EventID>
-    <Channel>Microsoft-Windows-Windows Defender/Operational</Channel>
-  </System>
-  <EventData>
-    <Data Name="Threat Name">Trojan:Win32/Emotet.RPK!MTB</Data>
-    <Data Name="Path">C:\Users\bwhite\AppData\Local\Temp\svchost_update.exe</Data>
-    <Data Name="Action">Quarantine</Data>
-    <Data Name="Category">Trojan</Data>
-  </EventData>
-  <demo_id>ransomware_attempt</demo_id>
-</Event>
+```
+01/08/2026 02:12:00 PM
+LogName=Microsoft-Windows-Windows Defender/Operational
+EventCode=1116
+ComputerName=AUS-WS-BWHITE01.theFakeTshirtCompany.com
+Type=Warning
+Message=Windows Defender Antivirus has detected malware or other potentially unwanted software.
+  Threat Name: Trojan:Win32/Emotet.RPK!MTB
+  Path: C:\Users\bwhite\AppData\Local\Temp\svchost_update.exe
+  Action: Quarantine
+  Category: Trojan
+demo_id=ransomware_attempt
 ```
 
 ### SQL Server Error (17883)
-```xml
-<Event>
-  <System>
-    <TimeCreated SystemTime="2026-01-11T16:30:00Z"/>
-    <Computer>BOS-SQL-PROD-01.theFakeTshirtCompany.com</Computer>
-    <EventID>17883</EventID>
-    <Channel>Application</Channel>
-  </System>
-  <EventData>
-    <Data>Process 0:0:0 (0x0) Worker 0x00000000 appears to be non-yielding on Scheduler 0.</Data>
-  </EventData>
-  <demo_id>cpu_runaway</demo_id>
-</Event>
+```
+01/11/2026 04:30:00 PM
+LogName=Application
+EventCode=17883
+ComputerName=BOS-SQL-PROD-01.theFakeTshirtCompany.com
+Type=Error
+Message=Process 0:0:0 (0x0) Worker 0x00000000 appears to be non-yielding on Scheduler 0.
+demo_id=cpu_runaway
 ```
 
 ---
@@ -222,16 +192,16 @@ Windows Security and System event logs from domain controllers, file servers, an
 ### 1. Authentication Monitoring
 Track logon activity:
 ```spl
-index=windows sourcetype=XmlWinEventLog EventID=4624
-| stats count by EventData.TargetUserName, EventData.LogonType
+index=windows sourcetype=WinEventLog EventCode=4624
+| stats count by TargetUserName, LogonType
 | sort - count
 ```
 
 ### 2. Failed Logon Detection
 Find brute force attempts:
 ```spl
-index=windows sourcetype=XmlWinEventLog EventID=4625
-| stats count by EventData.TargetUserName, EventData.SourceNetworkAddress
+index=windows sourcetype=WinEventLog EventCode=4625
+| stats count by TargetUserName, SourceNetworkAddress
 | where count > 5
 | sort - count
 ```
@@ -239,32 +209,32 @@ index=windows sourcetype=XmlWinEventLog EventID=4625
 ### 3. Process Creation Chain
 Track process genealogy:
 ```spl
-index=windows sourcetype=XmlWinEventLog EventID=4688
-| table _time, System.Computer, EventData.NewProcessName, EventData.ParentProcessName, EventData.CommandLine
+index=windows sourcetype=WinEventLog EventCode=4688
+| table _time, ComputerName, NewProcessName, ParentProcessName, CommandLine
 | sort _time
 ```
 
 ### 4. Service Installation
 Monitor new services:
 ```spl
-index=windows sourcetype=XmlWinEventLog EventID=4697
-| table _time, System.Computer, EventData.ServiceName, EventData.ServiceFileName
+index=windows sourcetype=WinEventLog EventCode=4697
+| table _time, ComputerName, ServiceName, ServiceFileName
 ```
 
 ### 5. Ransomware Kill Chain
 Full ransomware timeline:
 ```spl
-index=windows sourcetype=XmlWinEventLog demo_id=ransomware_attempt
+index=windows sourcetype=WinEventLog demo_id=ransomware_attempt
 | sort _time
-| table _time, System.EventID, EventData.NewProcessName, EventData.TargetUserName
+| table _time, EventCode, ComputerName, NewProcessName, TargetUserName
 ```
 
 ### 6. SQL Server Errors
 Track database issues:
 ```spl
-index=windows sourcetype=XmlWinEventLog System.Computer="*SQL*"
-  (EventID=17883 OR EventID=833 OR EventID=19406)
-| table _time, System.EventID, EventData.Data
+index=windows sourcetype=WinEventLog ComputerName="*SQL*"
+  (EventCode=17883 OR EventCode=833 OR EventCode=19406)
+| table _time, EventCode, Message
 ```
 
 ---

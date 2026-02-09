@@ -108,9 +108,9 @@ index=windows sourcetype=perfmon
 
 ### Windows Event Log - SQL errors
 ```spl
-index=windows sourcetype=XmlWinEventLog
+index=windows sourcetype=WinEventLog
   host=SQL-PROD-01
-  (EventID=17883 OR EventID=833 OR EventID=19406)
+  (EventCode=17883 OR EventCode=833 OR EventCode=19406)
   demo_id=cpu_runaway
 | sort _time
 ```
@@ -124,9 +124,9 @@ index=windows sourcetype=XmlWinEventLog
 
 ### Windows Event Log - Fix events
 ```spl
-index=windows sourcetype=XmlWinEventLog
+index=windows sourcetype=WinEventLog
   host=SQL-PROD-01
-  (EventID=17148 OR EventID=17147)
+  (EventCode=17148 OR EventCode=17147)
   demo_id=cpu_runaway
 ```
 
@@ -203,8 +203,8 @@ index=* demo_id=cpu_runaway
 
 ### Fix event detail
 ```spl
-index=windows sourcetype=XmlWinEventLog host=SQL-PROD-01
-  (EventID=17148 OR EventID=17147)
+index=windows sourcetype=WinEventLog host=SQL-PROD-01
+  (EventCode=17148 OR EventCode=17147)
   demo_id=cpu_runaway
-| table _time, EventID, Message
+| table _time, EventCode, Message
 ```

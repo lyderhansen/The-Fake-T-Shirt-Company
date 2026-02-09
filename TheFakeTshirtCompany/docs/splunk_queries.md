@@ -78,13 +78,13 @@ index=network sourcetype=cisco:asa demo_id=exfil action=built dest_port=443
 ### Full kill chain
 ```spl
 index=* demo_id=ransomware_attempt | sort _time
-| table _time, sourcetype, host, EventID, message, action
+| table _time, sourcetype, host, EventCode, message, action
 ```
 
 ### Process creation chain
 ```spl
-index=windows sourcetype=XmlWinEventLog EventID=4688
-  Computer="AUS-WS-BWHITE01" demo_id=ransomware_attempt
+index=windows sourcetype=WinEventLog EventCode=4688
+  ComputerName="AUS-WS-BWHITE01" demo_id=ransomware_attempt
 | table _time, NewProcessName, ParentProcessName, CommandLine
 ```
 
@@ -98,7 +98,7 @@ index=network sourcetype=cisco:asa
 
 ### Lateral attempts
 ```spl
-index=windows EventID=4625 IpAddress=10.30.30.20 demo_id=ransomware_attempt
+index=windows EventCode=4625 IpAddress=10.30.30.20 demo_id=ransomware_attempt
 | stats count by TargetUserName, IpPort
 ```
 
@@ -165,10 +165,10 @@ index=windows demo_host="SQL-PROD-01" demo_id=cpu_runaway
 
 ### SQL errors (WinEventLog)
 ```spl
-index=windows sourcetype=XmlWinEventLog
-  (EventID=17883 OR EventID=833 OR EventID=19406)
-  Computer="SQL-PROD-01" demo_id=cpu_runaway
-| table _time, EventID, Message
+index=windows sourcetype=WinEventLog
+  (EventCode=17883 OR EventCode=833 OR EventCode=19406)
+  ComputerName="SQL-PROD-01" demo_id=cpu_runaway
+| table _time, EventCode, Message
 ```
 
 ### Connection failures

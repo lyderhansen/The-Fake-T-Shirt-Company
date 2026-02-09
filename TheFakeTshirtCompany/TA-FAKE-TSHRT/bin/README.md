@@ -125,7 +125,7 @@ Each generator is a self-contained Python file that:
 | `generate_wineventlog.py` | `windows/wineventlog_*.log` | KV pairs | `WinEventLog` |
 | `generate_perfmon.py` | `windows/perfmon_*.log` | KV pairs | `Perfmon:*` |
 | `generate_mssql.py` | `windows/mssql_errorlog.log` | Native ERRORLOG | `mssql:errorlog` |
-| `generate_sysmon.py` | `windows/sysmon_operational.log` | XML (single-line) | `XmlWinEventLog:Sysmon` |
+| `generate_sysmon.py` | `windows/sysmon_operational.log` | KV pairs (WinEventLog) | `WinEventLog:Sysmon` |
 
 **Linux**
 

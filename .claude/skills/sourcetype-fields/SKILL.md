@@ -725,6 +725,7 @@ Complete field inventory for all sourcetypes in `index=fake_tshrt`. Data spans J
 | assignment_group | str | 6 | Linux Admins (14), Network Operations (14), Application Support (10), Database Admins (7), Desktop Support (2), Security Operations (2) |
 | assigned_to | str | 12 | linux.admin2@, network.eng1@, etc. |
 | close_code | str | 2 | Successful (48), Successful with issues (1) |
+| close_notes | str | 8 | Change completed successfully (42), plus scenario-specific notes |
 | cmdb_ci | str | 6 | WEB-01, AUS-WS-BWHITE01, BOS-WS-AMILLER01, FW-EDGE-01, MON-ATL-01, SQL-PROD-01 |
 | demo_id | str | 7 | All 7 scenarios equally represented (7 each) |
 | product | str | 1 | Change Management |
