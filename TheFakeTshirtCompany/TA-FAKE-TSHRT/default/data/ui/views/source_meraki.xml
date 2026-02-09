@@ -52,7 +52,7 @@
       "type": "ds.search",
       "name": "Wireless Clients Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:accesspoints\" type=association | timechart span=1h dc(client_mac) as clients"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:accesspoints\" type=association | timechart span=1h dc(clientMac) as clients"
       }
     },
     "ds_mx_events": {

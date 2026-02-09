@@ -24,7 +24,7 @@
       "type": "ds.search",
       "name": "Error Count",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" severity=Error OR severity=error | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" \"Error:\" | stats count"
       }
     },
     "ds_scenario_events": {
@@ -41,11 +41,11 @@
         "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" | timechart span=1h count"
       }
     },
-    "ds_by_severity": {
+    "ds_by_event_source": {
       "type": "ds.search",
-      "name": "Events by Severity",
+      "name": "Events by Source",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" severity=* | stats count by severity | sort -count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" event_source=* | stats count by event_source | sort -count"
       }
     },
     "ds_by_host": {
@@ -59,7 +59,7 @@
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" | table _time host severity message demo_id | sort -_time | head 30 | rename severity as \"Severity\" message as \"Message\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:mssql:errorlog\" | table _time host event_source message demo_id | sort -_time | head 30 | rename event_source as \"Source\" message as \"Message\" demo_id as \"Scenario\""
       }
     }
   },
@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — MSSQL\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:mssql:errorlog` |\n| **Platform** | Microsoft SQL Server |\n| **Format** | Syslog / Error Log |\n| **Key Server** | SQL-PROD-01 (Boston) |\n| **Scenarios** | cpu_runaway |",
+        "markdown": "# Source — MSSQL\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:mssql:errorlog` |\n| **Platform** | Microsoft SQL Server |\n| **Format** | Syslog / Error Log |\n| **Key Server** | SQL-PROD-01 (Boston) |\n| **Scenarios** | cpu_runaway, exfil |",
         "fontColor": "#C3CBD4"
       }
     },
@@ -136,21 +136,17 @@
       "showProgressBar": true,
       "showLastUpdated": true
     },
-    "viz_by_severity": {
+    "viz_by_event_source": {
       "type": "splunk.pie",
-      "title": "Events by Severity",
-      "dataSources": { "primary": "ds_by_severity" },
+      "title": "Events by Source",
+      "dataSources": { "primary": "ds_by_event_source" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
         "seriesColorsByField": {
-          "Error": "#DC4E41",
-          "error": "#DC4E41",
-          "Warning": "#F8BE34",
-          "warning": "#F8BE34",
-          "Info": "#53A051",
-          "info": "#53A051",
-          "Information": "#53A051"
+          "Logon": "#53A051",
+          "Server": "#00D2FF",
+          "Backup": "#7B56DB"
         }
       }
     },
@@ -219,7 +215,7 @@
       { "item": "viz_kpi_errors", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
       { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
       { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
-      { "item": "viz_by_severity", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_by_event_source", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
       { "item": "viz_by_host", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
       { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
       { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }

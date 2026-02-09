@@ -45,7 +45,7 @@
       "type": "ds.search",
       "name": "Disk Usage by Host",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" UsePct=* | stats latest(UsePct) as UsePct by host, Filesystem | sort -UsePct | head 15 | rename host as \"Host\" Filesystem as \"Filesystem\" UsePct as \"Use %\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" UsedPct=* | stats latest(UsedPct) as UsedPct by host, mount | sort -UsedPct | head 15 | rename host as \"Host\" mount as \"Mount\" UsedPct as \"Use %\""
       }
     },
     "ds_events_by_sourcetype": {
@@ -59,7 +59,7 @@
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cpu\" OR sourcetype=\"FAKE:vmstat\" OR sourcetype=\"FAKE:df\" OR sourcetype=\"FAKE:iostat\" OR sourcetype=\"FAKE:interfaces\") | eval key_metric=case(sourcetype=\"FAKE:cpu\", \"pctUser=\".pctUser, sourcetype=\"FAKE:vmstat\", \"free=\".free, sourcetype=\"FAKE:df\", \"UsePct=\".UsePct, sourcetype=\"FAKE:iostat\", \"rkBps=\".rkBps, sourcetype=\"FAKE:interfaces\", \"RXbytes=\".RXbytes, 1=1, \"-\") | table _time host sourcetype key_metric demo_id | sort -_time | head 30 | rename host as \"Host\" sourcetype as \"Sourcetype\" key_metric as \"Key Metric\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cpu\" OR sourcetype=\"FAKE:vmstat\" OR sourcetype=\"FAKE:df\" OR sourcetype=\"FAKE:iostat\" OR sourcetype=\"FAKE:interfaces\") | eval key_metric=case(sourcetype=\"FAKE:cpu\", \"pctUser=\".pctUser, sourcetype=\"FAKE:vmstat\", \"memFreeMB=\".memFreeMB, sourcetype=\"FAKE:df\", \"UsedPct=\".UsedPct, sourcetype=\"FAKE:iostat\", \"rkB_s=\".rkB_s, sourcetype=\"FAKE:interfaces\", \"rxKB_s=\".rxKB_s, 1=1, \"-\") | table _time host sourcetype key_metric demo_id | sort -_time | head 30 | rename host as \"Host\" sourcetype as \"Sourcetype\" key_metric as \"Key Metric\" demo_id as \"Scenario\""
       }
     }
   },

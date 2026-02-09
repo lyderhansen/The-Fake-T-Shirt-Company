@@ -17,21 +17,21 @@
       "type": "ds.search",
       "name": "Total Meetings",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingSummary\" | stats dc(ConfName) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | stats dc(confName) as count"
       }
     },
     "ds_unique_participants": {
       "type": "ds.search",
       "name": "Unique Participants",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" UserName=* | stats dc(UserName) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" hostEmail=* | stats dc(hostEmail) as count"
       }
     },
     "ds_avg_duration": {
       "type": "ds.search",
       "name": "Average Duration",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingSummary\" Duration=* | stats avg(Duration) as count | eval count=round(count,0).\" min\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" Duration=* | stats avg(Duration) as count | eval count=round(count,0).\" min\""
       }
     },
     "ds_events_over_time": {
@@ -52,14 +52,14 @@
       "type": "ds.search",
       "name": "Top Meeting Hosts",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingSummary\" UserName=* | stats count by UserName | sort -count | head 15 | rename UserName as \"Host\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" hostEmail=* | stats count by hostEmail | sort -count | head 15 | rename hostEmail as \"Host\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | table _time ConfName UserName Duration AttendeeCount | sort -_time | head 30 | rename ConfName as \"Meeting\" UserName as \"User\" Duration as \"Duration (min)\" AttendeeCount as \"Attendees\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | table _time confName hostEmail Duration peakAttendee | sort -_time | head 30 | rename confName as \"Meeting\" hostEmail as \"User\" Duration as \"Duration (min)\" peakAttendee as \"Attendees\""
       }
     }
   },
@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Webex TA\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings:history:meetingSummary`, `FAKE:cisco:webex:meetings:history:participantHistory` |\n| **Platform** | Cisco Webex (Technical Add-on format) |\n| **Format** | JSON |\n| **Scenarios** | None (baseline meeting data) |",
+        "markdown": "# Source — Webex TA\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings:history:meetingusagehistory`, `FAKE:cisco:webex:meetings:history:meetingattendeehistory` |\n| **Platform** | Cisco Webex (Technical Add-on format) |\n| **Format** | JSON |\n| **Scenarios** | None (baseline meeting data) |",
         "fontColor": "#C3CBD4"
       }
     },

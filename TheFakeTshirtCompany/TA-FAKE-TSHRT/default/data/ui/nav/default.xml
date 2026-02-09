@@ -5,17 +5,8 @@
     <view name="discovery_itops" />
     <view name="discovery_netops" />
     <divider />
-    <view name="discovery_environmental" />
-    <view name="discovery_meeting_rooms" />
-    <view name="discovery_webex_quality" />
-    <divider />
-    <view name="discovery_sdwan" />
-    <view name="discovery_wireless" />
-    <divider />
     <collection label="Floor Plans">
       <view name="boston_-_floor_plan" />
-      <view name="discovery_floor_atlanta" />
-      <view name="discovery_floor_austin" />
     </collection>
   </collection>
   <collection label="Scenarios">
@@ -63,10 +54,6 @@
       <view name="source_mssql" />
       <view name="source_servicenow" />
     </collection>
-  </collection>
-  <collection label="Admin">
-    <view name="admin_generator" />
-    <view name="admin_data" />
   </collection>
   <a href="search">Search</a>
   <a href="dashboards">Dashboards</a>

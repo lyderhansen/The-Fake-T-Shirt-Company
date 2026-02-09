@@ -59,14 +59,14 @@
       "type": "ds.search",
       "name": "Top Denied Connections (ASA)",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied src=* dst=* | stats count by src dst | sort -count | head 15 | rename src as \"Source\" dst as \"Destination\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked src=* dest=* | stats count by src dest | sort -count | head 15 | rename src as \"Source\" dest as \"Destination\""
       }
     },
     "ds_wireless_clients": {
       "type": "ds.search",
       "name": "Wireless Clients Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:accesspoints\" type=association | timechart span=1h dc(client_mac) as clients"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:accesspoints\" type=association | timechart span=1h dc(clientMac) as clients"
       }
     },
     "ds_meraki_health": {

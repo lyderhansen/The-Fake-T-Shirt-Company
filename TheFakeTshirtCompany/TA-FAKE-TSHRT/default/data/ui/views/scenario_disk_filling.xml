@@ -31,21 +31,21 @@
       "type": "ds.search",
       "name": "Peak Disk Usage",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" host=MON-ATL-01 demo_id=disk_filling | stats max(UsePct) as count | eval count=replace(count, \"%\", \"\") | eval count=round(count, 0) | fields count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" host=MON-ATL-01 demo_id=disk_filling | stats max(UsedPct) as count | eval count=replace(count, \"%\", \"\") | eval count=round(count, 0) | fields count"
       }
     },
     "ds_disk_timeline": {
       "type": "ds.search",
       "name": "Disk Usage Over Time (MON-ATL-01)",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" host=MON-ATL-01 MountedOn=\"/\" | eval used_pct=tonumber(replace(UsePct, \"%\", \"\")) | timechart span=1h avg(used_pct) as \"Disk Used %\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" host=MON-ATL-01 mount=\"/\" | eval used_pct=tonumber(replace(UsedPct, \"%\", \"\")) | timechart span=1h avg(used_pct) as \"Disk Used %\""
       }
     },
     "ds_iowait_timeline": {
       "type": "ds.search",
       "name": "IO Wait Over Time (MON-ATL-01)",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cpu\" host=MON-ATL-01 | timechart span=1h avg(pctIowait) as \"IO Wait %\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cpu\" host=MON-ATL-01 | timechart span=1h avg(pctIOWait) as \"IO Wait %\""
       }
     },
     "ds_cross_source": {
@@ -73,7 +73,7 @@
       "type": "ds.search",
       "name": "Key Evidence Timeline",
       "options": {
-        "query": "index=fake_tshrt demo_id=disk_filling | eval evidence=coalesce(UsePct, pctIowait, status, short_description, \"event\") | eval source_label=case(match(sourcetype,\"df\"), \"df\", match(sourcetype,\"vmstat\"), \"vmstat\", match(sourcetype,\"cpu\"), \"cpu\", match(sourcetype,\"iostat\"), \"iostat\", match(sourcetype,\"access_combined\"), \"Apache\", match(sourcetype,\"servicenow\"), \"SNOW\", 1=1, sourcetype) | table _time source_label host evidence | sort -_time | head 50 | rename source_label as \"Source\" host as \"Host\" evidence as \"Event\""
+        "query": "index=fake_tshrt demo_id=disk_filling | eval evidence=coalesce(UsedPct, pctIOWait, status, short_description, \"event\") | eval source_label=case(match(sourcetype,\"df\"), \"df\", match(sourcetype,\"vmstat\"), \"vmstat\", match(sourcetype,\"cpu\"), \"cpu\", match(sourcetype,\"iostat\"), \"iostat\", match(sourcetype,\"access_combined\"), \"Apache\", match(sourcetype,\"servicenow\"), \"SNOW\", 1=1, sourcetype) | table _time source_label host evidence | sort -_time | head 50 | rename source_label as \"Source\" host as \"Host\" evidence as \"Event\""
       }
     }
   },

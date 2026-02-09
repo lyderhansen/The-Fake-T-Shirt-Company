@@ -59,14 +59,14 @@
       "type": "ds.search",
       "name": "C2 Callback Traffic",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=ransomware_attempt dst=194.26.29.42 OR src=194.26.29.42 | stats count by src dst action | sort -count | rename src as \"Source\" dst as \"Destination\" action as \"Action\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=ransomware_attempt dest=194.26.29.42 OR src=194.26.29.42 | stats count by src dest action | sort -count | rename src as \"Source\" dest as \"Destination\" action as \"Action\""
       }
     },
     "ds_lateral_attempts": {
       "type": "ds.search",
       "name": "Lateral Movement Attempts",
       "options": {
-        "query": "index=fake_tshrt demo_id=ransomware_attempt sourcetype=\"FAKE:cisco:asa\" src=10.30.30.20 dst=10.30.30.* | stats count by src dst action | sort -count | rename src as \"Source\" dst as \"Target\" action as \"Action\""
+        "query": "index=fake_tshrt demo_id=ransomware_attempt sourcetype=\"FAKE:cisco:asa\" src=10.30.30.20 dest=10.30.30.* | stats count by src dest action | sort -count | rename src as \"Source\" dest as \"Target\" action as \"Action\""
       }
     }
   },

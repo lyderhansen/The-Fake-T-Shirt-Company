@@ -24,7 +24,7 @@
       "type": "ds.search",
       "name": "Total Deny Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=firewall_misconfig action=Deny OR action=denied | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=firewall_misconfig action=blocked | stats count"
       }
     },
     "ds_duration": {
@@ -45,14 +45,14 @@
       "type": "ds.search",
       "name": "Denied Customer IPs",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=firewall_misconfig action=Deny OR action=denied | stats count by src | sort -count | head 20 | rename src as \"Source IP\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=firewall_misconfig action=blocked | stats count by src | sort -count | head 20 | rename src as \"Source IP\""
       }
     },
     "ds_event_sequence": {
       "type": "ds.search",
       "name": "Event-by-Event Sequence",
       "options": {
-        "query": "index=fake_tshrt demo_id=firewall_misconfig | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | eval event_detail=coalesce(message_id, action, \"event\") | table _time host event_detail src dst | sort _time | head 50 | rename event_detail as \"Message ID\" src as \"Source\" dst as \"Destination\""
+        "query": "index=fake_tshrt demo_id=firewall_misconfig | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | eval event_detail=coalesce(message_id, action, \"event\") | table _time host event_detail src dest | sort _time | head 50 | rename event_detail as \"Message ID\" src as \"Source\" dest as \"Destination\""
       }
     }
   },

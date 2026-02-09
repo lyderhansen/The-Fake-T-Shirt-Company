@@ -73,7 +73,7 @@
       "type": "ds.search",
       "name": "Lateral Movement (Cross-Site Traffic)",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=exfil (src=\"10.20.30.*\" dst=\"10.10.*\") OR (src=\"10.10.30.*\" dst=\"10.20.*\") | stats count by src dst | sort -count | head 20 | rename src as \"Source\" dst as \"Destination\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=exfil (src=\"10.20.30.*\" dest=\"10.10.*\") OR (src=\"10.10.30.*\" dest=\"10.20.*\") | stats count by src dest | sort -count | head 20 | rename src as \"Source\" dest as \"Destination\""
       }
     },
     "ds_cloud_access": {

@@ -4,6 +4,75 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~11:00 UTC — Fix MSSQL severity extraction for non-Logon errors
+
+**Affected files:**
+- `default/transforms.conf` — Added `[mssql_error_general]` transform: extracts `error_code`, `severity`, `state` from all MSSQL error events regardless of prefix (Logon, Server, spid*)
+- `default/props.conf` — Added `REPORT-fields_for_errors = mssql_error_general` to `[FAKE:mssql:errorlog]`
+
+**Description:**
+The existing `[logon_events]` transform only extracted `severity` from error events prefixed with `Logon` (50 events, all severity=14, from exfil scenario failed logins). The 48 error events from cpu_runaway scenario (prefixed with `Server` or `spid*`) had `Error:`, `Severity:`, and `State:` in _raw but were not being extracted. Added a general-purpose `[mssql_error_general]` transform that matches all three prefix types. After fix, `severity=*` returns 98 events with values 10, 13, 14, 16, 17.
+
+**Also investigated:** ASA query `src=10.30.30.20 dest=10.30.30.*` returning 0 results. This is architecturally correct — the ASA (FW-EDGE-01) is a perimeter firewall that doesn't see internal Austin LAN traffic. Brooklyn White's lateral movement (ransomware scenario) occurs on the local Meraki MX and shows in `FAKE:meraki:mx` IDS alerts and `FAKE:XmlWinEventLog` 4625 failed logins.
+
+**Verification:** Regex tested with `| rex` on live data — matches all 98 error events. Requires Splunk reload/restart for search-time extraction to take effect on existing data.
+
+---
+
+## 2026-02-09 ~21:00 UTC — New skill: sourcetype-fields reference
+
+**Affected files:**
+- `.claude/skills/sourcetype-fields/SKILL.md` — NEW: Complete field reference for all 40+ FAKE: sourcetypes in the fake_tshrt index
+
+**Description:**
+Created a comprehensive sourcetype field reference skill by querying Splunk `fieldsummary` for all 40 sourcetypes. Documents field names, types, distinct counts, and sample values organized by category (Network, Cloud, Collaboration, Email, Windows, Linux, Web/Retail, ITSM, Database). Includes CIM cross-reference table and identifies 4 sourcetypes with no data (FAKE:online:order, FAKE:azure:servicebus, FAKE:servicenow:cmdb, FAKE:cisco:webex:events). Enables Claude to write accurate SPL queries and build dashboards without re-querying Splunk each time.
+
+---
+
+## 2026-02-09 ~19:00 UTC — Navigation bar cleanup
+
+**Affected files:**
+- `default/data/ui/nav/default.xml` — Removed 9 placeholder views that don't exist as XML files, removed Admin menu
+
+**Description:**
+Updated navigation bar to only reference existing dashboard XML files. Removed: discovery_environmental, discovery_meeting_rooms, discovery_webex_quality, discovery_sdwan, discovery_wireless, discovery_floor_atlanta, discovery_floor_austin, admin_generator, admin_data. Final nav has 31 views across Discovery (3+1 floor plan), Scenarios (7), and Sources (19) menus.
+
+---
+
+## 2026-02-10 ~10:00 UTC — Fix field name mismatches in dashboard SPL queries
+
+**Affected files (13 dashboards):**
+- `default/data/ui/views/source_cisco_asa.xml` — `dst` → `dest` (2 queries), `action=Deny OR action=denied` → `action=blocked` (4 queries)
+- `default/data/ui/views/discovery_netops.xml` — `dst` → `dest`, `action=Deny` → `action=blocked`, `client_mac` → `clientMac`
+- `default/data/ui/views/scenario_exfil.xml` — `dst` → `dest` (2 occurrences)
+- `default/data/ui/views/scenario_ransomware.xml` — `dst` → `dest` (4 occurrences in 2 queries)
+- `default/data/ui/views/scenario_firewall_misconfig.xml` — `dst` → `dest`, `action=Deny` → `action=blocked` (2 queries)
+- `default/data/ui/views/source_meraki.xml` — `client_mac` → `clientMac`
+- `default/data/ui/views/source_linux.xml` — `UsePct` → `UsedPct`, `Filesystem` → `mount`, `free` → `memFreeMB`, `rkBps` → `rkB_s`, `RXbytes` → `rxKB_s`
+- `default/data/ui/views/scenario_disk_filling.xml` — `UsePct` → `UsedPct`, `MountedOn` → `mount`, `pctIowait` → `pctIOWait` (4 queries)
+- `default/data/ui/views/source_webex_ta.xml` — Sourcetype `meetingSummary` → `meetingusagehistory`, `ConfName` → `confName`, `UserName` → `hostEmail`, `AttendeeCount` → `peakAttendee`, markdown updated
+- `default/data/ui/views/source_webex_api.xml` — 3 non-existent sourcetypes replaced (`group:memberships` → `security:audit:events`, `compliance:events` → `meeting:qualities`, `rooms:read` → `call:detailed_history`), markdown updated
+- `default/data/ui/views/source_gcp_audit.xml` — `principalEmail` → `protoPayload.authenticationInfo.principalEmail`, `methodName` → `protoPayload.methodName`, `resourceName` → `protoPayload.resourceName`
+- `default/data/ui/views/source_sysmon.xml` — `EventID` → `Event.System.EventID`, sample events use `mvfind()` to extract Image/CommandLine from multivalue `Event.EventData.Data`
+- `default/data/ui/views/source_mssql.xml` — `severity` → `event_source` (already extracted by props.conf), `message` field now used directly (was missing), pie chart renamed to "Events by Source", Error Count KPI searches for `"Error:"` in _raw, added `exfil` to scenarios in header
+
+**Description:**
+Audited all SPL queries in 31 dashboards against the live sourcetype-fields reference (created via `fieldsummary`). Found ~45 field name mismatches across 13 dashboards where queries referenced non-existent fields (returning 0 results). Root causes: assumed field names that don't match generator output, CamelCase vs snake_case differences (`clientMac` vs `client_mac`), nested JSON fields not available as top-level (`protoPayload.methodName` vs `methodName`), XML event structure (`Event.System.EventID` vs `EventID`), incorrect sourcetype names, and missing field extractions for unstructured logs (MSSQL).
+
+**Verification:** All corrected queries confirmed returning >0 results via `splunk_run_query`. Grep scan confirmed no remaining instances of broken field names (`dst`, `UsePct`, `client_mac`, `meetingSummary`, `action=Deny`, `pctIowait`).
+
+---
+
+## 2026-02-09 ~21:00 UTC — New skill: sourcetype-fields reference
+
+**Affected files:**
+- `.claude/skills/sourcetype-fields/SKILL.md` — NEW: Complete field reference for all 40+ FAKE: sourcetypes in the fake_tshrt index
+
+**Description:**
+Created a comprehensive sourcetype field reference skill by querying Splunk `fieldsummary` for all 40 sourcetypes. Documents field names, types, distinct counts, and sample values organized by category (Network, Cloud, Collaboration, Email, Windows, Linux, Web/Retail, ITSM, Database). Includes CIM cross-reference table and identifies 4 sourcetypes with no data (FAKE:online:order, FAKE:azure:servicebus, FAKE:servicenow:cmdb, FAKE:cisco:webex:events). Enables Claude to write accurate SPL queries and build dashboards without re-querying Splunk each time.
+
+---
+
 ## 2026-02-10 ~08:00 UTC — Dashboard build-out: Discovery, Scenario, and Source dashboards
 
 **Affected files:**

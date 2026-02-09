@@ -24,7 +24,7 @@
       "type": "ds.search",
       "name": "Event ID Count",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" EventID=* | stats dc(EventID) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" Event.System.EventID=* | stats dc(Event.System.EventID) as count"
       }
     },
     "ds_scenario_events": {
@@ -45,7 +45,7 @@
       "type": "ds.search",
       "name": "Top Event IDs",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" EventID=* | eval event_label=case(EventID=1,\"1 - Process Create\", EventID=3,\"3 - Network Connect\", EventID=5,\"5 - Process Terminate\", EventID=7,\"7 - Image Loaded\", EventID=10,\"10 - Process Access\", EventID=11,\"11 - File Create\", EventID=12,\"12 - Registry Add/Delete\", EventID=13,\"13 - Registry Set\", EventID=22,\"22 - DNS Query\", 1=1, tostring(EventID)) | stats count by event_label | sort -count | head 15 | rename event_label as \"Event ID\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" Event.System.EventID=* | eval eid='Event.System.EventID' | eval event_label=case(eid=1,\"1 - Process Create\", eid=3,\"3 - Network Connect\", eid=5,\"5 - Process Terminate\", eid=7,\"7 - Image Loaded\", eid=10,\"10 - Process Access\", eid=11,\"11 - File Create\", eid=12,\"12 - Registry Add/Delete\", eid=13,\"13 - Registry Set\", eid=22,\"22 - DNS Query\", 1=1, tostring(eid)) | stats count by event_label | sort -count | head 15 | rename event_label as \"Event ID\""
       }
     },
     "ds_by_host": {
@@ -59,7 +59,7 @@
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" | table _time host EventID Image CommandLine demo_id | sort -_time | head 30 | rename EventID as \"Event ID\" Image as \"Image\" CommandLine as \"Command Line\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:XmlWinEventLog:Sysmon\" | eval EventID='Event.System.EventID' | eval names='Event.EventData.Data{@Name}' | eval data='Event.EventData.Data' | eval Image=mvindex(data, mvfind(names,\"^Image$\")) | eval CommandLine=mvindex(data, mvfind(names,\"^CommandLine$\")) | table _time host EventID Image CommandLine demo_id | sort -_time | head 30 | rename EventID as \"Event ID\" CommandLine as \"Command Line\" demo_id as \"Scenario\""
       }
     }
   },

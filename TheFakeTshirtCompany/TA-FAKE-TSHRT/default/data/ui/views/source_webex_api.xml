@@ -10,49 +10,49 @@
       "type": "ds.search",
       "name": "Total Webex API Events Over Time",
       "options": {
-        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") by _time span=1h"
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") by _time span=1h"
       }
     },
     "ds_sourcetype_count": {
       "type": "ds.search",
       "name": "Sourcetype Count",
       "options": {
-        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\")"
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\")"
       }
     },
     "ds_unique_users": {
       "type": "ds.search",
       "name": "Unique Users",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval user=coalesce(hostEmail, actorEmail, user) | where isnotnull(user) | stats dc(user) as count"
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval user=coalesce(hostEmail, actorEmail, user) | where isnotnull(user) | stats dc(user) as count"
       }
     },
     "ds_unique_rooms": {
       "type": "ds.search",
       "name": "Unique Rooms",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval room=coalesce(title, roomId) | where isnotnull(room) | stats dc(room) as count"
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval room=coalesce(title, roomId) | where isnotnull(room) | stats dc(room) as count"
       }
     },
     "ds_events_over_time": {
       "type": "ds.search",
       "name": "Events Over Time by Sourcetype",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval st=replace(sourcetype,\"FAKE:cisco:webex:\",\"\") | timechart span=1h count by st"
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval st=replace(sourcetype,\"FAKE:cisco:webex:\",\"\") | timechart span=1h count by st"
       }
     },
     "ds_by_sourcetype": {
       "type": "ds.search",
       "name": "Events by Sourcetype",
       "options": {
-        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") by sourcetype"
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") by sourcetype"
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval display_type=coalesce(type, title, action) | eval display_user=coalesce(hostEmail, actorEmail, user) | table _time sourcetype host display_type display_user | sort -_time | head 30 | rename sourcetype as \"Sourcetype\" display_type as \"Type/Title\" display_user as \"User/Host\""
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval display_type=coalesce(type, title, action) | eval display_user=coalesce(hostEmail, actorEmail, user) | table _time sourcetype host display_type display_user | sort -_time | head 30 | rename sourcetype as \"Sourcetype\" display_type as \"Type/Title\" display_user as \"User/Host\""
       }
     }
   },
@@ -60,7 +60,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Webex API\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings`, `FAKE:cisco:webex:admin:audit:events`, `FAKE:cisco:webex:admin:resource:group:memberships`, `FAKE:cisco:webex:compliance:events`, `FAKE:cisco:webex:rooms:read` |\n| **Platform** | Cisco Webex REST API |\n| **Format** | JSON |\n| **Scenarios** | None (baseline collaboration data) |",
+        "markdown": "# Source — Webex API\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings`, `FAKE:cisco:webex:admin:audit:events`, `FAKE:cisco:webex:security:audit:events`, `FAKE:cisco:webex:meeting:qualities`, `FAKE:cisco:webex:call:detailed_history` |\n| **Platform** | Cisco Webex REST API |\n| **Format** | JSON |\n| **Scenarios** | exfil (admin audit events) |",
         "fontColor": "#C3CBD4"
       }
     },

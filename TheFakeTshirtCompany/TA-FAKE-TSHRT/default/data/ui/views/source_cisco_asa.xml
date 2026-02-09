@@ -31,7 +31,7 @@
       "type": "ds.search",
       "name": "Total Deny Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked | stats count"
       }
     },
     "ds_events_by_action": {
@@ -52,14 +52,14 @@
       "type": "ds.search",
       "name": "Top Denied Source IPs",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied src=* | stats count by src | sort -count | head 15 | rename src as \"Source IP\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked src=* | stats count by src | sort -count | head 15 | rename src as \"Source IP\""
       }
     },
     "ds_top_denied_dst": {
       "type": "ds.search",
       "name": "Top Denied Destination IPs",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied dst=* | stats count by dst | sort -count | head 15 | rename dst as \"Destination IP\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked dest=* | stats count by dest | sort -count | head 15 | rename dest as \"Destination IP\""
       }
     },
     "ds_top_dest_ports": {
@@ -80,7 +80,7 @@
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | table _time host message_id action src dst dest_port demo_id | sort -_time | head 30 | rename message_id as \"Msg ID\" action as \"Action\" src as \"Source\" dst as \"Destination\" dest_port as \"Port\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | table _time host message_id action src dest dest_port demo_id | sort -_time | head 30 | rename message_id as \"Msg ID\" action as \"Action\" src as \"Source\" dest as \"Destination\" dest_port as \"Port\" demo_id as \"Scenario\""
       }
     }
   },
