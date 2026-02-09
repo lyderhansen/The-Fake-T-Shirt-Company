@@ -752,8 +752,10 @@ def format_kv_line(fields: Dict) -> str:
     parts = []
     for key, value in fields.items():
         if value is not None:
-            # Escape quotes in string values
-            if isinstance(value, str):
+            # demo_id is always unquoted (consistent with all other generators)
+            if key == "demo_id":
+                parts.append(f'{key}={value}')
+            elif isinstance(value, str):
                 value = value.replace('"', '\\"')
                 parts.append(f'{key}="{value}"')
             else:

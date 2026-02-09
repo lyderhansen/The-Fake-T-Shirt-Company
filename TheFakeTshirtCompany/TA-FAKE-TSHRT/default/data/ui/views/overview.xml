@@ -1,150 +1,336 @@
-<dashboard version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>Overview</label>
-  <description>The Fake T-Shrt Company - Demo Data Overview</description>
-
-  <fieldset submitButton="false">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>1735689600</earliest>
-        <latest>1736899200</latest>
-      </default>
-    </input>
-  </fieldset>
-
-  <row>
-    <panel>
-      <html>
-        <div style="text-align: center; padding: 20px;">
-          <h1 style="color: #5CC05C; font-size: 2.5em; margin-bottom: 10px;">The Fake T-Shrt Company</h1>
-          <p style="font-size: 1.2em; color: #999;">Realistic synthetic log data for Splunk demos and training</p>
-          <hr style="border-color: #333; margin: 20px 0;"/>
-          <p style="color: #666;">~175 employees | 3 US locations | 17+ data sources | 7 coordinated scenarios</p>
-        </div>
-      </html>
-    </panel>
-  </row>
-
-  <row>
-    <panel>
-      <title>Total Events by Sourcetype</title>
-      <chart>
-        <search>
-          <query>| tstats count where index=fake_tshrt by sourcetype
-| sort -count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">none</option>
-        <option name="height">300</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Events Over Time</title>
-      <chart>
-        <search>
-          <query>| tstats count where index=fake_tshrt by _time, sourcetype span=1h</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="height">300</option>
-      </chart>
-    </panel>
-  </row>
-
-  <row>
-    <panel>
-      <title>Active Scenarios</title>
-      <table>
-        <search>
-          <query>index=fake_tshrt demo_id=*
-| stats count, earliest(_time) as first_seen, latest(_time) as last_seen by demo_id
-| eval first_seen=strftime(first_seen, "%Y-%m-%d %H:%M"), last_seen=strftime(last_seen, "%Y-%m-%d %H:%M")
-| rename demo_id as "Scenario", count as "Events", first_seen as "First Seen", last_seen as "Last Seen"
-| sort -Events</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </table>
-    </panel>
-    <panel>
-      <title>Top Hosts</title>
-      <table>
-        <search>
-          <query>| tstats count where index=fake_tshrt by host
-| sort -count
-| head 15
-| rename host as "Host", count as "Events"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-      </table>
-    </panel>
-  </row>
-
-  <row>
-    <panel>
-      <title>Network Traffic (Cisco ASA)</title>
-      <single>
-        <search>
-          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:cisco:asa"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="useColors">1</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Authentication Events (Entra ID)</title>
-      <single>
-        <search>
-          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:azure:aad:signin"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="useColors">1</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Windows Events</title>
-      <single>
-        <search>
-          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:WinEventLog"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="useColors">1</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Retail Orders</title>
-      <single>
-        <search>
-          <query>| tstats count where index=fake_tshrt sourcetype="FAKE:online:order"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="useColors">1</option>
-      </single>
-    </panel>
-  </row>
+  <description>The FAKE T-Shirt Company — Demo Data Overview</description>
+  <definition><![CDATA[
+{
+  "title": "Overview",
+  "description": "The FAKE T-Shirt Company — Demo Data Overview",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt by _time span=1d"
+      }
+    },
+    "ds_sourcetype_count": {
+      "type": "ds.search",
+      "name": "Distinct Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt"
+      }
+    },
+    "ds_scenario_count": {
+      "type": "ds.search",
+      "name": "Active Scenario Count",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | stats dc(demo_id) as count"
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Events Over Time",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | timechart span=1d count"
+      }
+    },
+    "ds_event_timeline": {
+      "type": "ds.search",
+      "name": "Event Volume by Category Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt by _time sourcetype span=1d | eval category=case(match(sourcetype,\"meraki|cisco:asa\"),\"Network\", match(sourcetype,\"aws|gcp|azure:aad|o365\"),\"Cloud\", match(sourcetype,\"webex\"),\"Collaboration\", match(sourcetype,\"Perfmon|WinEventLog|Sysmon|mssql\"),\"Windows\", match(sourcetype,\"cpu|df|vmstat|iostat|interfaces\"),\"Linux\", match(sourcetype,\"access_combined\"),\"Web\", match(sourcetype,\"order|servicebus\"),\"Retail\", match(sourcetype,\"servicenow\"),\"ITSM\", 1=1,\"Other\") | timechart span=1d sum(count) by category"
+      }
+    },
+    "ds_events_by_category": {
+      "type": "ds.search",
+      "name": "Events by Category",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt by sourcetype | eval category=case(match(sourcetype,\"meraki|cisco:asa\"),\"Network\", match(sourcetype,\"aws|gcp|azure:aad|o365\"),\"Cloud\", match(sourcetype,\"webex\"),\"Collaboration\", match(sourcetype,\"Perfmon|WinEventLog|Sysmon|mssql\"),\"Windows\", match(sourcetype,\"cpu|df|vmstat|iostat|interfaces\"),\"Linux\", match(sourcetype,\"access_combined\"),\"Web\", match(sourcetype,\"order|servicebus\"),\"Retail\", match(sourcetype,\"servicenow\"),\"ITSM\", 1=1,\"Other\") | stats sum(count) as count by category | sort -count"
+      }
+    },
+    "ds_scenario_summary": {
+      "type": "ds.search",
+      "name": "Scenario Summary Table",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | stats count dc(sourcetype) as sources min(_time) as first_seen max(_time) as last_seen by demo_id | eval category=case(demo_id==\"exfil\" OR demo_id==\"ransomware_attempt\",\"Security\", demo_id==\"memory_leak\" OR demo_id==\"cpu_runaway\" OR demo_id==\"disk_filling\",\"Operations\", 1=1,\"Network\") | eval _color_rank=case(demo_id==\"exfil\",1, demo_id==\"ransomware_attempt\",2, demo_id==\"memory_leak\",3, demo_id==\"cpu_runaway\",4, demo_id==\"disk_filling\",5, demo_id==\"firewall_misconfig\",6, demo_id==\"certificate_expiry\",7) | eval first_seen=strftime(first_seen,\"%Y-%m-%d\"), last_seen=strftime(last_seen,\"%Y-%m-%d\") | rename demo_id as \"Scenario\" count as \"Events\" sources as \"Sourcetypes\" first_seen as \"First Seen\" last_seen as \"Last Seen\" category as \"Category\" | sort Category Scenario"
+      }
+    },
+    "ds_data_catalog": {
+      "type": "ds.search",
+      "name": "Data Source Catalog",
+      "options": {
+        "query": "| tstats count dc(host) as hosts where index=fake_tshrt by sourcetype | eval category=case(match(sourcetype,\"meraki|cisco:asa\"),\"Network\", match(sourcetype,\"aws|gcp|azure:aad|o365|exchange\"),\"Cloud\", match(sourcetype,\"webex\"),\"Collaboration\", match(sourcetype,\"Perfmon|WinEventLog|Sysmon|mssql\"),\"Windows\", match(sourcetype,\"cpu|df|vmstat|iostat|interfaces\"),\"Linux\", match(sourcetype,\"access_combined\"),\"Web\", match(sourcetype,\"order|servicebus\"),\"Retail\", match(sourcetype,\"servicenow\"),\"ITSM\", 1=1,\"Other\") | sort category -count | rename sourcetype as \"Sourcetype\" count as \"Events\" hosts as \"Hosts\" category as \"Category\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# The FAKE T-Shirt Company\n\nSynthetic log data for Splunk demos and training. 175 employees across 3 US locations (Boston, Atlanta, Austin), generating correlated events across 40+ sourcetypes with 7 injectable scenarios.\n\n**Index:** `fake_tshrt` | **Data Range:** January 2026 | **Events:** ~11.2M | **Scenarios:** 7",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": {
+        "primary": "ds_total_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00D2FF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Sourcetypes",
+      "dataSources": {
+        "primary": "ds_sourcetype_count"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Active Scenarios",
+      "dataSources": {
+        "primary": "ds_scenario_count"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenario_events": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": {
+        "primary": "ds_scenario_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#F1813F",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#F1813F"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_event_timeline": {
+      "type": "splunk.area",
+      "title": "Event Volume Over Time",
+      "dataSources": {
+        "primary": "ds_event_timeline"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#00CDAF", "#F1813F", "#FF677B", "#AE8CFF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_events_by_category": {
+      "type": "splunk.pie",
+      "title": "Events by Category",
+      "dataSources": {
+        "primary": "ds_events_by_category"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#00CDAF", "#F1813F", "#FF677B", "#AE8CFF"]
+      }
+    },
+    "viz_scenario_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Scenarios\n\nCoordinated security, operations, and network scenarios injected into baseline traffic. Filter with `demo_id` field.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_scenario_table": {
+      "type": "splunk.table",
+      "title": "Scenario Summary",
+      "dataSources": {
+        "primary": "ds_scenario_summary"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false,
+        "showInternalFields": false,
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByName(\"_color_rank\") | rangeValue(scenarioRowColors)"
+        }
+      },
+      "context": {
+        "scenarioRowColors": [
+          { "from": 0, "to": 1.5, "value": "#DC4E41" },
+          { "from": 1.5, "to": 2.5, "value": "#F1813F" },
+          { "from": 2.5, "to": 3.5, "value": "#F8BE34" },
+          { "from": 3.5, "to": 4.5, "value": "#FF677B" },
+          { "from": 4.5, "to": 5.5, "value": "#7B56DB" },
+          { "from": 5.5, "to": 6.5, "value": "#009CEB" },
+          { "from": 6.5, "to": 8, "value": "#00CDAF" }
+        ]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_catalog_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Data Sources\n\nAll sourcetypes available in the `fake_tshrt` index, organized by category.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_data_catalog": {
+      "type": "splunk.table",
+      "title": "Data Source Catalog",
+      "dataSources": {
+        "primary": "ds_data_catalog"
+      },
+      "options": {
+        "count": 50,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_navigation": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Quick Links\n\n**Discovery Dashboards:** SOC Overview | IT Operations | Network Operations\n\n**Scenarios:** Exfil (APT) | Ransomware | Memory Leak | CPU Runaway | Disk Filling | Firewall Misconfig | Certificate Expiry\n\n**Top Sources:** Cisco ASA | Meraki | Entra ID | AWS CloudTrail | Exchange | Webex | Perfmon | WinEventLog | Linux | Apache Access | Retail Orders | ServiceNow",
+        "fontColor": "#C3CBD4"
+      }
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 150 }
+      },
+      {
+        "item": "viz_kpi_total_events",
+        "type": "block",
+        "position": { "x": 0, "y": 150, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_sourcetypes",
+        "type": "block",
+        "position": { "x": 300, "y": 150, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_scenarios",
+        "type": "block",
+        "position": { "x": 600, "y": 150, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_scenario_events",
+        "type": "block",
+        "position": { "x": 900, "y": 150, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_event_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 270, "w": 750, "h": 350 }
+      },
+      {
+        "item": "viz_events_by_category",
+        "type": "block",
+        "position": { "x": 750, "y": 270, "w": 450, "h": 350 }
+      },
+      {
+        "item": "viz_scenario_header",
+        "type": "block",
+        "position": { "x": 0, "y": 620, "w": 1200, "h": 80 }
+      },
+      {
+        "item": "viz_scenario_table",
+        "type": "block",
+        "position": { "x": 0, "y": 700, "w": 1200, "h": 300 }
+      },
+      {
+        "item": "viz_catalog_header",
+        "type": "block",
+        "position": { "x": 0, "y": 1000, "w": 1200, "h": 80 }
+      },
+      {
+        "item": "viz_data_catalog",
+        "type": "block",
+        "position": { "x": 0, "y": 1080, "w": 1200, "h": 500 }
+      },
+      {
+        "item": "viz_navigation",
+        "type": "block",
+        "position": { "x": 0, "y": 1580, "w": 1200, "h": 150 }
+      }
+    ]
+  }
+}
+  ]]></definition>
 </dashboard>

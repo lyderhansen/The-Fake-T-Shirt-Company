@@ -4,6 +4,76 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~05:30 UTC — Index demo_id field for tstats acceleration
+
+**Affected files:**
+- `default/transforms.conf` — NEW stanza `extract_demo_id_indexed` with `WRITE_META = true` to write `demo_id` to TSIDX at index time. Regex matches both JSON (`"demo_id": "exfil"`) and KV (`demo_id=exfil`) formats.
+- `default/props.conf` — Added `TRANSFORMS-demo_id = extract_demo_id_indexed` to all 46 `[FAKE:*]` sourcetype stanzas
+- `default/fields.conf` — NEW file declaring `demo_id` as `INDEXED = true`
+
+**Description:** `demo_id` was only available as a search-time field, meaning queries like `| tstats count where index=fake_tshrt demo_id=exfil` would not work. Added index-time field extraction so `demo_id` is written to TSIDX, enabling fast `tstats` queries for scenario filtering across all dashboards. The transform is applied per-sourcetype (not per-source) for maximum reliability.
+
+**Note:** Requires re-indexing existing data for `tstats` to work on historical events. New data indexed after this change will have `demo_id` in TSIDX automatically.
+
+---
+
+## 2026-02-10 ~05:00 UTC — Fix ServiceNow demo_id quoting
+
+**Affected files:**
+- `bin/generators/generate_servicenow.py` — `format_kv_line()` now outputs `demo_id=exfil` (unquoted) instead of `demo_id="exfil"` (quoted)
+
+**Description:** The ServiceNow generator's `format_kv_line()` function wraps all string values in double quotes (correct for ServiceNow KV fields like `short_description="Server down"`), but `demo_id` is a Splunk-level tagging field that should be unquoted for consistent extraction across all sourcetypes. All other generators (syslog, JSON, Linux KV) output `demo_id=value` without quotes. Added a special case in `format_kv_line()` to skip quoting for the `demo_id` key.
+
+---
+
+## 2026-02-10 ~04:00 UTC — Fix scenario table row coloring in Overview dashboard
+
+**Affected files:**
+- `default/data/ui/views/overview.xml` — Fixed scenario table: `matchValue` → `rangeValue` + `_color_rank`, `columnFormat` → `tableFormat`, removed breaking `rowColors` property
+- `docs/dashboard_design_language.md` — Updated section 4.9 pattern to use `tableFormat` + `_color_rank` + `rangeValue`; renamed context variable from `rowColors` to `rowColorConfig` to avoid confusion with the breaking CSS property
+- `.claude/skills/splunk-dashboard-studio/SKILL.md` — Updated sections 3.4, 7.3, 9.1: marked `matchValue` as broken, replaced examples with `tableFormat` + `rangeValue` + `_color_rank` pattern, removed invalid `options` block from grid layout skeleton, fixed checklist to exclude `matchValue`
+
+**Description:** The Scenario Summary table in the Overview dashboard threw `e.map is not a function`. Three issues were fixed in sequence:
+
+1. **`matchValue()` is broken** — Replaced with `rangeValue()` using a numeric `_color_rank` field (1-7) computed in SPL
+2. **`"rowColors": "#ffffff"` causes JS error** — Removed this property entirely
+3. **`columnFormat` only colors one column** — Changed to `tableFormat.rowBackgroundColors` for whole-row coloring
+4. **`color_rank` column visible in table** — Renamed to `_color_rank` (underscore prefix auto-hides in Splunk tables)
+
+Proven pattern for table row coloring:
+- SPL: `| eval _color_rank=case(field=="val1",1, field=="val2",2, ...)`
+- Viz: `"tableFormat": { "rowBackgroundColors": "> table | seriesByName(\"_color_rank\") | rangeValue(config)" }`
+- Context: numeric `from`/`to` ranges mapped to colors
+
+---
+
+## 2026-02-10 ~02:00 UTC — Complete dashboard redesign: pilot Overview + design language
+
+**Affected files:**
+- `docs/dashboard_design_language.md` — NEW: Complete Dashboard Studio v2 design language specification (color palette, layout rules, naming conventions, 14 copy-paste component patterns, dashboard templates, scenario color mapping, verification checklist)
+- `default/data/ui/views/overview.xml` — NEW: Pilot Overview dashboard (Dashboard Studio v2, grid layout, dark theme) with 6 sections: app header, 4 KPI cards, event volume area chart + category donut, scenario summary table with color-coded rows, data source catalog table, quick navigation links
+- `default/data/ui/nav/default.xml` — NEW: Category-based navigation structure (Overview, Discovery, Scenarios, Sources, Admin) with Overview as default view
+- 38 old dashboard XML files deleted from `default/data/ui/views/` (kept `boston_-_floor_plan.xml`)
+- Old `default/data/ui/nav/default.xml` deleted
+
+**Description:** Fresh-start dashboard redesign for Dashboard Studio v2. All 38 old SimpleXML v1.1 dashboards deleted. Created a design language specification defining the complete visual system (dark purple/navy theme, immutable scenario colors, chart series palette, grid layout rules). Built a pilot Overview dashboard to validate the design direction before building the remaining ~39 dashboards across 4 categories (Discovery, Scenario, Source, Admin).
+
+Key design decisions:
+- Dark theme (`#0B0C10` canvas) with cyan (`#00D2FF`) and purple (`#7B56DB`) accents
+- Grid layout for all dashboards (absolute only for floor plans)
+- Immutable scenario colors across all dashboards
+- Default time range: Jan 1 -- Feb 1, 2026 (epochs 1767225600-1769904000)
+- All SPL queries verified against Splunk (~11.2M events, 40 sourcetypes, 7 scenarios)
+
+**Verification:**
+- All 8 data sources return results ✅
+- Scenario summary shows all 7 scenarios with correct date ranges ✅
+- Event timeline by category: 8 clean series (Network, Windows, Web, Linux, Cloud, Collaboration, Retail, ITSM) ✅
+- Category donut: all 8 categories present ✅
+- Data source catalog: 40 sourcetypes with host counts ✅
+
+---
+
 ## 2026-02-10 ~00:30 UTC — Fix WinEventLog ransomware scenario event format
 
 **Affected files:**

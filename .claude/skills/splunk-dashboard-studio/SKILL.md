@@ -431,6 +431,12 @@ Shows events and activity intervals on horizontal lanes. Each resource gets its 
 
 ### 3.4 Table — Column Formatting Example
 
+> **WARNING:** Do NOT use `matchValue()` — causes `e.map is not a function`. Use `rangeValue()` with a numeric rank instead. For **whole-row** coloring, use `tableFormat` (not `columnFormat`). Prefix the rank field with `_` (e.g., `_color_rank`) and set `"showInternalFields": false` to hide it from the table.
+
+**Whole-row coloring (via `tableFormat` + numeric rank):**
+
+SPL must include an underscore-prefixed numeric field: `| eval _color_rank=case(severity=="critical",1, severity=="high",2, severity=="medium",3, severity=="low",4, 1=1,5)`
+
 ```json
 "viz_table": {
   "type": "splunk.table",
@@ -441,11 +447,11 @@ Shows events and activity intervals on horizontal lanes. Each resource gets its 
   "options": {
     "count": 20,
     "showRowNumbers": true,
+    "showInternalFields": false,
+    "tableFormat": {
+      "rowBackgroundColors": "> table | seriesByName(\"_color_rank\") | rangeValue(severityRowColors)"
+    },
     "columnFormat": {
-      "severity": {
-        "rowBackgroundColors": "> table | seriesByName(\"severity\") | matchValue(severityColors)",
-        "rowColors": "#ffffff"
-      },
       "count": {
         "rowBackgroundColors": "> table | seriesByName(\"count\") | rangeValue(countColors)",
         "data": "> table | seriesByName(\"count\") | formatByType(countFormat)"
@@ -458,12 +464,12 @@ Shows events and activity intervals on horizontal lanes. Each resource gets its 
     }
   },
   "context": {
-    "severityColors": [
-      {"match": "critical", "value": "#DC4E41"},
-      {"match": "high", "value": "#F1813F"},
-      {"match": "medium", "value": "#F8BE34"},
-      {"match": "low", "value": "#53A051"},
-      {"match": "info", "value": "#5794DE"}
+    "severityRowColors": [
+      {"from": 0, "to": 1.5, "value": "#DC4E41"},
+      {"from": 1.5, "to": 2.5, "value": "#F1813F"},
+      {"from": 2.5, "to": 3.5, "value": "#F8BE34"},
+      {"from": 3.5, "to": 4.5, "value": "#53A051"},
+      {"from": 4.5, "to": 6, "value": "#5794DE"}
     ],
     "countColors": [
       {"value": "#53A051", "to": 50},
@@ -873,7 +879,7 @@ Every DOS expression starts with `>` and uses pipes `|` to chain operations. The
 | Formatter | Description | Example |
 |-----------|-------------|---------|
 | `rangeValue(config)` | Map numeric ranges to values (colors) | `rangeValue(colorConfig)` |
-| `matchValue(config)` | Map exact string matches to values | `matchValue(severityColors)` |
+| `matchValue(config)` | Map exact string matches to values (**BROKEN — causes `e.map is not a function`**. Use `rangeValue` with numeric rank instead.) | — |
 | `formatByType(config)` | Format by data type (number, string) | `formatByType(numFormat)` |
 | `prefix("str")` | Add prefix to each value | `prefix("$")` |
 | `suffix("str")` | Add suffix to each value | `suffix(" ms")` |
@@ -892,10 +898,10 @@ The `context` section of a visualization stores configuration objects used by DO
     {"value": "#F8BE34", "from": 50, "to": 200},
     {"value": "#53A051", "from": 200}
   ],
-  "matchConfig": [
-    {"match": "error", "value": "#DC4E41"},
-    {"match": "warning", "value": "#F8BE34"},
-    {"match": "info", "value": "#53A051"}
+  "severityRankColors": [
+    {"from": 0, "to": 1.5, "value": "#DC4E41"},
+    {"from": 1.5, "to": 2.5, "value": "#F8BE34"},
+    {"from": 2.5, "to": 4, "value": "#53A051"}
   ]
 }
 ```
@@ -1051,7 +1057,6 @@ $token|s$   — Search filter safe
   },
   "layout": {
     "type": "grid",
-    "options": {"width": 1200},
     "globalInputs": ["input_global_trp"],
     "structure": [
       {
@@ -1164,6 +1169,6 @@ When generating a Dashboard Studio dashboard, verify:
 - [ ] Token names are consistent (`$token$` syntax)
 - [ ] DOS expressions start with `>` and use proper escaping
 - [ ] Layout positions don't overlap (grid) or are intentional (absolute)
-- [ ] `context` objects are defined for all DOS `rangeValue`/`matchValue` references
+- [ ] `context` objects are defined for all DOS `rangeValue` references (do NOT use `matchValue` — it is broken)
 - [ ] Option names match official docs (e.g., `nullValueDisplay` not `nullValueMode`, `stackMode` default is `"auto"`)
 - [ ] Booleans/numbers are unquoted; strings/options are quoted in JSON
