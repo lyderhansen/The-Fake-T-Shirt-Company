@@ -208,7 +208,7 @@ SCENARIO_INCIDENTS = {
         ],
     },
     "memory_leak": {
-        "days": [5, 6, 7, 8, 9],  # Days 6-10 (0-indexed), escalating severity
+        "days": [5, 6, 7, 7, 8],  # Days 6-9 (0-indexed), escalating — scenario ends at day 8 (OOM+restart)
         "incidents": [
             {
                 "short": "Website slow to load",
@@ -274,7 +274,7 @@ SCENARIO_INCIDENTS = {
     },
     "firewall_misconfig": {
         "days": [6],  # Day 7 (0-indexed)
-        "hours": [10, 11],  # 10:00-12:00
+        "hours": [10, 11, 12],  # 10:00-12:59 — outage 10:20-12:05, resolution at 12:03
         "incidents": [
             {
                 "short": "External users cannot access company website",
@@ -404,7 +404,7 @@ SCENARIO_INCIDENTS = {
         ],
     },
     "disk_filling": {
-        "days": [7, 10, 12],  # Day 8 (warning), Day 11 (critical), Day 13 (emergency)
+        "days": [2, 3, 4],  # Day 3 (warning @ 75%), Day 4 (critical @ 88%), Day 5 (emergency @ 96%)
         "incidents": [
             {
                 "short": "Disk space warning on MON-ATL-01",
@@ -562,7 +562,7 @@ SCENARIO_CHANGES = {
         }],
     },
     "cpu_runaway": {
-        "day": 10,  # During the incident
+        "day": 11,  # Day 12 (0-indexed) — matches actual fix at 10:30
         "changes": [{
             "short": "Emergency: Kill stuck backup job on SQL-PROD-01",
             "type": "emergency", "category": "Database", "risk": "High", "impact": 1,

@@ -5,6 +5,8 @@ Certificate Expiry Scenario - SSL certificate expires causing service outage.
 Timeline (Day 12):
     Day 12, 00:00: Wildcard SSL certificate for *.theFakeTshirtCompany.com expires
     Day 12, 00:00-06:00: HTTPS connections fail, customers see SSL errors
+                         (6-hour gap: no cert monitoring in place — this is the scenario's
+                         lesson. NOC only alerted at shift change from customer complaints.)
     Day 12, 06:15: NOC engineer notices alerts, investigates
     Day 12, 06:30: Root cause identified - expired certificate
     Day 12, 06:45: Emergency certificate renewal initiated

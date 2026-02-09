@@ -265,7 +265,7 @@ class ExfilScenario:
         port = random.choice(self.lateral_ports)
 
         return [
-            f'{pri6}{ts} FW-EDGE-01 %ASA-6-302013: Built inbound TCP connection {cid} '
+            f'{pri6}{ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {cid} '
             f'for inside:{self.cfg.comp_ws_ip}/{sp} ({self.cfg.comp_ws_ip}/{sp}) '
             f'to inside:{target}/{port} ({target}/{port}){suffix}'
         ]
@@ -1967,13 +1967,13 @@ class ExfilScenario:
                     return 2 <= hour <= 4
 
         elif source == "aws":
-            if phase == "persistence" and day == 5 and hour == 10:
+            if phase == "persistence" and day == 8 and hour == 10:
                 return True
             if phase == "exfil" and 2 <= hour <= 4:
                 return True
 
         elif source == "gcp":
-            if phase == "persistence" and day == 5 and hour == 11:
+            if phase == "persistence" and day == 8 and hour == 11:
                 return True
             if phase == "exfil" and (day == 11 or day == 12) and 3 <= hour <= 4:
                 return True

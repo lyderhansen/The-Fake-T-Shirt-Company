@@ -30,6 +30,7 @@ from shared.time_utils import date_add, calc_natural_events
 from shared.company import US_IP_PFX
 from shared.products import PRODUCTS, PRODUCT_CATEGORIES
 from scenarios.network import CertificateExpiryScenario
+from scenarios.network.firewall_misconfig import FirewallMisconfigScenario
 from scenarios.registry import expand_scenarios
 from scenarios.ops.cpu_runaway import CpuRunawayScenario
 from scenarios.ops.memory_leak import MemoryLeakScenario
@@ -576,6 +577,11 @@ def generate_access_logs(
     if "disk_filling" in active_scenarios:
         disk_filling_scenario = DiskFillingScenario(demo_id_enabled=True)
 
+    # Initialize network scenarios
+    firewall_misconfig_scenario = None
+    if "firewall_misconfig" in active_scenarios:
+        firewall_misconfig_scenario = FirewallMisconfigScenario(demo_id_enabled=True)
+
     if not quiet:
         print("=" * 70, file=sys.stderr)
         print(f"  Web Access Log Generator (Python)", file=sys.stderr)
@@ -628,6 +634,14 @@ def generate_access_logs(
                     error_rate = max(error_rate, rate)
                     response_mult = max(response_mult, int(mult * 100))
                     demo_id = demo_id or "disk_filling"
+
+            # Firewall Misconfiguration - ACL blocks web traffic (overrides other scenarios)
+            if firewall_misconfig_scenario:
+                should_error, rate, mult = firewall_misconfig_scenario.access_should_error(day, hour)
+                if should_error:
+                    error_rate = max(error_rate, rate)
+                    response_mult = max(response_mult, int(mult * 100))
+                    demo_id = "firewall_misconfig"  # Primary cause, overrides ops scenarios
 
             if is_ssl_outage:
                 # During outage: generate SSL error events instead of normal sessions

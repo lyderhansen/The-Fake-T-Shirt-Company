@@ -121,11 +121,12 @@ class RansomwareAttemptScenario:
         c2_ts = time_utils.ts_syslog(day, hour, c2_minute, c2_second)
         conn_id = random.randint(100000, 999999)
 
-        # Outbound C2 connection
+        # Outbound C2 connection (inside → outside)
+        src_port = random.randint(49152, 65535)
         events.append(
             f"{c2_ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {conn_id} "
-            f"for outside:{self.cfg.c2_ip}/{self.cfg.c2_port} ({self.cfg.c2_ip}/{self.cfg.c2_port}) "
-            f"to inside:{self.cfg.target_ip}/54321 (203.0.113.10/54321)"
+            f"for inside:{self.cfg.target_ip}/{src_port} (203.0.113.10/{src_port}) "
+            f"to outside:{self.cfg.c2_ip}/{self.cfg.c2_port} ({self.cfg.c2_ip}/{self.cfg.c2_port})"
             f"{self._demo_suffix_syslog()}"
         )
 
@@ -135,10 +136,11 @@ class RansomwareAttemptScenario:
             if beacon_minute < 60:
                 beacon_ts = time_utils.ts_syslog(day, hour, beacon_minute, random.randint(0, 59))
                 conn_id += 1
+                beacon_src_port = random.randint(49152, 65535)
                 events.append(
                     f"{beacon_ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {conn_id} "
-                    f"for outside:{self.cfg.c2_ip}/{self.cfg.c2_port} ({self.cfg.c2_ip}/{self.cfg.c2_port}) "
-                    f"to inside:{self.cfg.target_ip}/{random.randint(49152, 65535)} (203.0.113.10/{random.randint(49152, 65535)})"
+                    f"for inside:{self.cfg.target_ip}/{beacon_src_port} (203.0.113.10/{beacon_src_port}) "
+                    f"to outside:{self.cfg.c2_ip}/{self.cfg.c2_port} ({self.cfg.c2_ip}/{self.cfg.c2_port})"
                     f"{self._demo_suffix_syslog()}"
                 )
 

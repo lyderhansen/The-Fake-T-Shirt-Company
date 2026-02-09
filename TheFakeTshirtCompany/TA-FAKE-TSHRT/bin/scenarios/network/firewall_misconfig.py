@@ -13,7 +13,7 @@ Storyline:
 """
 
 import random
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from dataclasses import dataclass
 
 
@@ -109,7 +109,7 @@ class FirewallMisconfigScenario:
 
         return (
             f'{pri4}{ts} FW-EDGE-01 %ASA-4-106023: Deny tcp src outside:{customer_ip}/{customer_port} '
-            f'dst outside:{self.cfg.target_ip}/{dst_port} by access-group '
+            f'dst dmz:{self.cfg.target_ip}/{dst_port} by access-group '
             f'"outside_access_in" [0x0, 0x0]{suffix}'
         )
 
@@ -133,12 +133,12 @@ class FirewallMisconfigScenario:
         )
 
     def admin_logout(self, ts: str) -> str:
-        """Admin logout."""
+        """Admin SSH session disconnect."""
         suffix = self._demo_suffix_syslog()
         pri6 = self._asa_pri(6)  # info
         return (
-            f'{pri6}{ts} FW-EDGE-01 %ASA-6-605004: Login denied from 10.10.10.50/52435 '
-            f'to inside:10.10.10.1/ssh for user "{self.cfg.admin}"{suffix}'
+            f'{pri6}{ts} FW-EDGE-01 %ASA-6-315011: SSH session from 10.10.10.50 '
+            f'on interface inside for user "{self.cfg.admin}" disconnected by SSH server{suffix}'
         )
 
     # =========================================================================
@@ -156,6 +156,35 @@ class FirewallMisconfigScenario:
         if self.is_active(day, hour):
             return self.cfg.demo_id
         return ""
+
+    def access_should_error(self, day: int, hour: int) -> Tuple[bool, int, float]:
+        """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
+
+        During the firewall misconfiguration, external customers cannot reach
+        the web server. This creates HTTP 403/504 errors in access logs.
+
+        Timeline:
+        - Hour 10 (10:20-10:59): ACL just applied, 30% error rate, 5x response time
+        - Hour 11 (full hour):   Peak outage, 50% error rate, 10x response time
+        - Hour 12 (00-05):       Last minutes before fix, 15% error rate, 3x response time
+        - Hour 12 (05+):         Resolved
+        """
+        if day != self.cfg.day:
+            return (False, 0, 1.0)
+
+        if hour == self.cfg.start_hour:
+            # 10:20-10:59 — ACL just applied, partial impact
+            return (True, 30, 5.0)
+
+        if hour == 11:
+            # Full outage hour — maximum impact
+            return (True, 50, 10.0)
+
+        if hour == self.cfg.end_hour:
+            # 12:00-12:05 — last denies then fix, tapering
+            return (True, 15, 3.0)
+
+        return (False, 0, 1.0)
 
     def generate_hour(self, day: int, hour: int, time_utils) -> List[str]:
         """Generate firewall misconfig events for an hour."""

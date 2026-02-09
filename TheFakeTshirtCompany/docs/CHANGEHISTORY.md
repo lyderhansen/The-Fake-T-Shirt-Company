@@ -4,6 +4,31 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~17:00 UTC — Fix 13 logical issues across all 7 scenarios
+
+Thorough review of all scenarios identified 13 logical issues — wrong ASA log directions, ServiceNow timeline misalignments, inconsistent resolution states, missing cross-generator integration, dead code bugs, and inaccurate message IDs.
+
+**Affected files:**
+- `bin/scenarios/security/ransomware_attempt.py` — **#1 CRITICAL:** Fixed ASA C2 connection direction (was `for outside:C2 to inside:target`, now `for inside:target to outside:C2`)
+- `bin/scenarios/network/firewall_misconfig.py` — **#2 CRITICAL:** Fixed ASA deny `dst outside:` → `dst dmz:` for DMZ web server. **#7 HIGH:** Added `access_should_error()` method for HTTP error injection during outage. **#8 MEDIUM:** Fixed logout message from `%ASA-6-605004` (login denied) to `%ASA-6-315011` (SSH disconnect)
+- `bin/generators/generate_servicenow.py` — **#3 CRITICAL:** Fixed disk_filling incident days from [7,10,12] to [2,3,4] matching actual scenario window (days 0–4). **#6 HIGH:** Fixed cpu_runaway change day 10→11 matching actual fix at day 12 10:30. **#11 MEDIUM:** Fixed memory_leak incident days to stay within scenario window (5–8). **#12 MINOR:** Added hour 12 to firewall_misconfig incident hours for resolution tracking
+- `bin/scenarios/security/exfil.py` — **#4 HIGH:** Fixed lateral movement from "Built inbound" to "Built outbound" for internal→internal ASA traffic. **#9 MEDIUM:** Fixed dead code `has_exfil_events()` day==5 → day==8 for persistence phase
+- `bin/scenarios/ops/memory_leak.py` — **#5 HIGH:** Fixed `is_resolved()` to return True at hour 14 (same hour as OOM+restart), aligning with `get_memory_pct()` returning 52%
+- `bin/scenarios/registry.py` — **#7 HIGH:** Added "access" to firewall_misconfig sources. **#10 MEDIUM:** Removed "perfmon" from memory_leak sources (WEB-01 is Linux, not Windows)
+- `bin/generators/generate_access.py` — **#7 HIGH:** Integrated FirewallMisconfigScenario — imports, initializes, checks `access_should_error()` in hourly loop. Produces 403/504 errors with `demo_id=firewall_misconfig` during outage (4,065 events)
+- `bin/scenarios/network/certificate_expiry.py` — **#13 MINOR:** Added comment explaining 6-hour detection delay (no cert monitoring in place)
+
+**Verification:**
+- All 19 generators: 3,577,242 events (38.3s)
+- Ransomware ASA: `for inside:10.30.30.20/... to outside:194.26.29.42/443` ✓
+- Firewall deny: `dst dmz:203.0.113.10/...` ✓
+- Firewall access: 4,065 events with `demo_id=firewall_misconfig` ✓
+- Disk filling SN: Jan 3-5 (days 2-4) ✓
+- CPU runaway SN change: Jan 12 (day 11) ✓
+- SSH disconnect: `%ASA-6-315011` ✓
+
+---
+
 ## 2026-02-10 ~14:00 UTC — Convert Sysmon from XML to KV format
 
 **Affected files:**

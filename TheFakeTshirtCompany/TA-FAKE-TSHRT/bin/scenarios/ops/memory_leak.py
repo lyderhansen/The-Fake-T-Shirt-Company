@@ -108,11 +108,15 @@ class MemoryLeakScenario:
         return self._memory_progression.get(day, self._normal_memory)
 
     def is_resolved(self, day: int, hour: int = 0) -> bool:
-        """Check if the scenario has been resolved (service restarted)."""
+        """Check if the scenario has been resolved (service restarted).
+
+        OOM crash at 14:00, restart completes at 14:05 — resolved within same hour.
+        get_memory_pct() returns 52% at hour 14, so is_resolved must agree.
+        """
         if day > self.cfg.oom_day:
             return True
-        if day == self.cfg.oom_day and hour >= self.cfg.restart_hour + 1:
-            # Resolved after restart (15:00+)
+        if day == self.cfg.oom_day and hour >= self.cfg.restart_hour:
+            # Resolved after restart at 14:05 (same hour as OOM)
             return True
         return False
 

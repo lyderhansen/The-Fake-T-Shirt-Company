@@ -75,7 +75,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "memory_leak": ScenarioDefinition(
         name="memory_leak",
-        sources=["perfmon", "linux", "asa", "access", "servicenow"],
+        sources=["linux", "asa", "access", "servicenow"],
         category="ops",
         description="Application memory leak causing OOM crash Day 9, restart (WEB-01)",
         demo_id="memory_leak",
@@ -107,7 +107,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "firewall_misconfig": ScenarioDefinition(
         name="firewall_misconfig",
-        sources=["asa", "servicenow"],
+        sources=["asa", "access", "servicenow"],
         category="network",
         description="Firewall rule misconfiguration causing outage (Day 7)",
         demo_id="firewall_misconfig",
