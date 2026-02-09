@@ -57,6 +57,7 @@
   </collection>
   <collection label="Documentation">
     <view name="getting_started"/>
+    <view name="spl_playground"/>
   </collection>
   <collection label="Admin">
     <view name="admin_generator"/>

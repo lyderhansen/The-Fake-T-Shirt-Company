@@ -1,0 +1,624 @@
+<dashboard version="1.1" theme="dark" script="spl_playground.js">
+  <label>SPL Playground</label>
+  <description>Interactive query explorer for The Fake T-Shirt Company data</description>
+
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>1735689600</earliest>
+        <latest>1736899200</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="query_category" searchWhenChanged="true">
+      <label>Query Category</label>
+      <default>All Categories</default>
+      <choice value="All Categories">All Categories</choice>
+      <choice value="Getting Started">Getting Started</choice>
+      <choice value="Security Investigation">Security Investigation</choice>
+      <choice value="Cloud Security">Cloud Security</choice>
+      <choice value="Network Analysis">Network Analysis</choice>
+      <choice value="Authentication">Authentication</choice>
+      <choice value="IT Operations">IT Operations</choice>
+      <choice value="Retail/Business">Retail/Business</choice>
+      <choice value="Collaboration">Collaboration</choice>
+      <choice value="Cross-Source Correlation">Cross-Source Correlation</choice>
+      <choice value="Advanced Techniques">Advanced Techniques</choice>
+    </input>
+    <input type="text" token="spl_query" searchWhenChanged="true">
+      <label>SPL Query</label>
+    </input>
+    <input type="text" token="chart_type" searchWhenChanged="true">
+      <label>Chart Type</label>
+      <default>area</default>
+    </input>
+  </fieldset>
+
+  <!-- ============================================================ -->
+  <!-- Row 1: Header Banner                                         -->
+  <!-- ============================================================ -->
+  <row>
+    <panel>
+      <html>
+        <style>
+          /* Hide the hidden fieldset inputs used for token sync */
+          .input[id*="spl_query"],
+          .input[id*="chart_type"] {
+            display: none !important;
+          }
+          .playground-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            border-left: 4px solid #0877a6;
+            border-radius: 6px;
+            padding: 20px 24px;
+            margin: -10px 0 5px 0;
+          }
+          .playground-header h1 {
+            color: #e0e0e0;
+            font-size: 22px;
+            margin: 0 0 6px 0;
+            font-weight: 600;
+          }
+          .playground-header p {
+            color: #8e9aa5;
+            font-size: 13px;
+            margin: 0;
+          }
+          .header-badges {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+          }
+          .header-badge {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            color: #8e9aa5;
+          }
+          .header-badge strong {
+            color: #0877a6;
+          }
+        </style>
+        <div class="playground-header">
+          <h1>SPL Playground</h1>
+          <p>Explore, learn, and experiment with SPL queries against The Fake T-Shirt Company's demo data. Select a pre-built query or write your own.</p>
+          <div class="header-badges">
+            <span class="header-badge"><strong>Index:</strong> fake_tshrt</span>
+            <span class="header-badge"><strong>Timeline:</strong> Jan 1-14, 2026</span>
+            <span class="header-badge"><strong>Sources:</strong> 22 sourcetypes</span>
+            <span class="header-badge"><strong>Scenarios:</strong> 7 injectable</span>
+            <span class="header-badge"><strong>Tip:</strong> Ctrl+Enter to run</span>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ============================================================ -->
+  <!-- Row 2: Query Selector + Editor                               -->
+  <!-- ============================================================ -->
+  <row>
+    <panel>
+      <title>Query Library</title>
+      <html>
+        <style>
+          .query-picker-container {
+            padding: 0;
+          }
+          #query-picker {
+            width: 100%;
+            height: 280px;
+            background: #1f2527;
+            color: #c8d0d8;
+            border: 1px solid #3d4549;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 12px;
+            padding: 4px;
+            overflow-y: auto;
+          }
+          #query-picker option {
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            cursor: pointer;
+          }
+          #query-picker option:hover {
+            background: rgba(8,119,166,0.3);
+          }
+          #query-picker option:checked {
+            background: rgba(8,119,166,0.5);
+            color: #fff;
+          }
+          .picker-hint {
+            color: #6b7785;
+            font-size: 11px;
+            margin-top: 6px;
+            font-style: italic;
+          }
+        </style>
+        <div class="query-picker-container">
+          <select id="query-picker" size="12">
+            <option disabled="disabled">Loading queries...</option>
+          </select>
+          <p class="picker-hint">Click to load | Double-click to load + run</p>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Query Editor</title>
+      <html>
+        <style>
+          .editor-container {
+            padding: 0;
+          }
+          #spl-editor {
+            width: 100%;
+            min-height: 180px;
+            max-height: 400px;
+            background: #0d0d0d;
+            color: #5CC05C;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid #3d4549;
+            border-radius: 4px;
+            padding: 12px;
+            resize: vertical;
+            box-sizing: border-box;
+            tab-size: 4;
+          }
+          #spl-editor:focus {
+            outline: none;
+            border-color: #0877a6;
+            box-shadow: 0 0 0 2px rgba(8,119,166,0.2);
+          }
+          .editor-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            align-items: center;
+          }
+          .btn-run {
+            background: #5CC05C;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+          }
+          .btn-run:hover {
+            background: #4daf4d;
+          }
+          .btn-run:disabled {
+            background: #3a5a3a;
+            color: #666;
+            cursor: not-allowed;
+          }
+          .btn-clear {
+            background: #2a2a2a;
+            color: #8e9aa5;
+            border: 1px solid #3d4549;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+          }
+          .btn-clear:hover {
+            background: #333;
+            color: #c8d0d8;
+          }
+          #query-description {
+            background: rgba(8,119,166,0.08);
+            border-left: 3px solid #0877a6;
+            border-radius: 0 4px 4px 0;
+            padding: 10px 12px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #8e9aa5;
+            line-height: 1.5;
+            min-height: 20px;
+          }
+        </style>
+        <div class="editor-container">
+          <textarea id="spl-editor" placeholder="Type your SPL query here or select one from the library...&#10;&#10;Example: index=fake_tshrt | stats count by sourcetype" spellcheck="false"></textarea>
+          <div class="editor-buttons">
+            <button id="run-btn" class="btn-run" type="button">Run Query</button>
+            <button id="clear-btn" class="btn-clear" type="button">Clear</button>
+          </div>
+          <div id="query-description">Select a query from the library or type your own SPL. Use Ctrl+Enter (Cmd+Enter on Mac) to run.</div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ============================================================ -->
+  <!-- Row 3: Visualization Toggle + Status                         -->
+  <!-- ============================================================ -->
+  <row>
+    <panel>
+      <html>
+        <style>
+          .viz-bar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0;
+          }
+          .viz-btn {
+            background: #2a2a2a;
+            color: #8e9aa5;
+            border: 1px solid #3d4549;
+            border-radius: 4px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+          }
+          .viz-btn:hover {
+            background: #333;
+            color: #c8d0d8;
+          }
+          .viz-active {
+            background: #0877a6 !important;
+            color: #fff !important;
+            border-color: #0877a6 !important;
+          }
+          .viz-spacer {
+            flex: 1;
+          }
+          #search-status {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 6px 12px;
+          }
+          .status-ready { color: #8e9aa5; }
+          .status-progress { color: #f8be34; }
+          .status-success { color: #5CC05C; }
+          .status-error { color: #dc4e41; }
+        </style>
+        <div class="viz-bar">
+          <button class="viz-btn viz-active" data-viz="table" type="button">Table</button>
+          <button class="viz-btn" data-viz="timechart" type="button">Time Chart</button>
+          <button class="viz-btn" data-viz="bar" type="button">Bar</button>
+          <button class="viz-btn" data-viz="pie" type="button">Pie</button>
+          <button class="viz-btn" data-viz="column" type="button">Column</button>
+          <button class="viz-btn" data-viz="single" type="button">Single Value</button>
+          <div class="viz-spacer"></div>
+          <span id="search-status" class="status-ready">Ready</span>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ============================================================ -->
+  <!-- Row 4a: Table Results                                        -->
+  <!-- ============================================================ -->
+  <row id="table_row">
+    <panel>
+      <table>
+        <search id="playground_search">
+          <query>$spl_query$</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">50</option>
+        <option name="drilldown">none</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- ============================================================ -->
+  <!-- Row 4b: Chart Results (hidden by default, toggled via JS)    -->
+  <!-- ============================================================ -->
+  <row id="chart_row">
+    <panel>
+      <chart>
+        <search base="playground_search"/>
+        <option name="charting.chart">$chart_type$</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="height">400</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- ============================================================ -->
+  <!-- Row 5: Quick Reference                                       -->
+  <!-- ============================================================ -->
+  <row>
+    <panel>
+      <title>Sourcetypes Reference</title>
+      <html>
+        <style>
+          .ref-card {
+            background: #1f2527;
+            border-radius: 6px;
+            padding: 14px;
+          }
+          .ref-section {
+            margin-bottom: 12px;
+          }
+          .ref-section h4 {
+            color: #0877a6;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .st-ref {
+            display: inline-block;
+            background: #333;
+            color: #c8d0d8;
+            padding: 2px 7px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            margin: 2px;
+            cursor: pointer;
+            transition: background 0.15s;
+          }
+          .st-ref:hover {
+            background: #0877a6;
+            color: #fff;
+          }
+          .st-clicked {
+            background: #5CC05C !important;
+            color: #1a1a1a !important;
+          }
+        </style>
+        <div class="ref-card">
+          <div class="ref-section">
+            <h4>Network</h4>
+            <code class="st-ref">FAKE:cisco:asa</code>
+            <code class="st-ref">FAKE:meraki:securityappliances</code>
+            <code class="st-ref">FAKE:meraki:accesspoints</code>
+            <code class="st-ref">FAKE:meraki:switches</code>
+            <code class="st-ref">FAKE:meraki:cameras</code>
+            <code class="st-ref">FAKE:meraki:sensors</code>
+          </div>
+          <div class="ref-section">
+            <h4>Cloud</h4>
+            <code class="st-ref">FAKE:aws:cloudtrail</code>
+            <code class="st-ref">FAKE:azure:aad:signin</code>
+            <code class="st-ref">FAKE:azure:aad:audit</code>
+            <code class="st-ref">FAKE:google:gcp:pubsub:audit</code>
+          </div>
+          <div class="ref-section">
+            <h4>Collaboration</h4>
+            <code class="st-ref">FAKE:cisco:webex:events</code>
+            <code class="st-ref">FAKE:ms:o365:reporting:messagetrace</code>
+            <code class="st-ref">FAKE:o365:management:activity</code>
+          </div>
+          <div class="ref-section">
+            <h4>Endpoints</h4>
+            <code class="st-ref">FAKE:WinEventLog</code>
+            <code class="st-ref">FAKE:Perfmon</code>
+            <code class="st-ref">FAKE:vmstat</code>
+            <code class="st-ref">FAKE:iostat</code>
+            <code class="st-ref">FAKE:df</code>
+          </div>
+          <div class="ref-section">
+            <h4>Applications</h4>
+            <code class="st-ref">FAKE:access_combined</code>
+            <code class="st-ref">FAKE:online:order</code>
+            <code class="st-ref">FAKE:azure:servicebus</code>
+            <code class="st-ref">FAKE:servicenow:incident</code>
+          </div>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Key Fields</title>
+      <html>
+        <style>
+          .field-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+          .field-table th {
+            text-align: left;
+            color: #0877a6;
+            font-weight: 600;
+            padding: 6px 8px;
+            border-bottom: 1px solid #3d4549;
+            font-size: 11px;
+            text-transform: uppercase;
+          }
+          .field-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: #c8d0d8;
+          }
+          .field-table td:first-child {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #5CC05C;
+            white-space: nowrap;
+          }
+          .field-table td:last-child {
+            color: #8e9aa5;
+          }
+        </style>
+        <div class="ref-card">
+          <table class="field-table">
+            <tr><th>Field</th><th>Description</th></tr>
+            <tr><td>demo_id</td><td>Scenario tag (exfil, ransomware_attempt, memory_leak, cpu_runaway, disk_filling, firewall_misconfig, certificate_expiry)</td></tr>
+            <tr><td>demo_host</td><td>Hostname of affected server/device</td></tr>
+            <tr><td>src / dest</td><td>Network source and destination IPs</td></tr>
+            <tr><td>src_port / dest_port</td><td>Source and destination ports</td></tr>
+            <tr><td>user</td><td>Username (varies by source: user, userName, userPrincipalName)</td></tr>
+            <tr><td>action</td><td>Event action (built, teardown, denied, success, failure)</td></tr>
+            <tr><td>bytes_in / bytes_out</td><td>Transfer sizes (ASA connections)</td></tr>
+            <tr><td>status</td><td>HTTP status, order status, or auth result</td></tr>
+            <tr><td>EventCode</td><td>Windows event ID (4624=logon, 4625=failed, 4672=privesc)</td></tr>
+            <tr><td>counter / Value</td><td>Perfmon metric name and numeric value</td></tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <title>Scenarios Reference</title>
+      <html>
+        <style>
+          .scenario-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+          }
+          .scenario-table th {
+            text-align: left;
+            color: #0877a6;
+            font-weight: 600;
+            padding: 5px 6px;
+            border-bottom: 1px solid #3d4549;
+            text-transform: uppercase;
+            font-size: 10px;
+          }
+          .scenario-table td {
+            padding: 4px 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: #c8d0d8;
+          }
+          .scenario-table .cat-security { color: #dc4e41; }
+          .scenario-table .cat-ops { color: #f8be34; }
+          .scenario-table .cat-network { color: #0877a6; }
+          .key-users {
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px solid #3d4549;
+          }
+          .key-users h4 {
+            color: #0877a6;
+            font-size: 11px;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+            text-transform: uppercase;
+          }
+          .key-user {
+            font-size: 11px;
+            color: #8e9aa5;
+            margin: 3px 0;
+          }
+          .key-user strong {
+            color: #c8d0d8;
+          }
+        </style>
+        <div class="ref-card">
+          <table class="scenario-table">
+            <tr><th>demo_id</th><th>Type</th><th>Days</th><th>Target</th></tr>
+            <tr><td>exfil</td><td class="cat-security">Security</td><td>1-14</td><td>alex.miller</td></tr>
+            <tr><td>ransomware_attempt</td><td class="cat-security">Security</td><td>8-9</td><td>brooklyn.white</td></tr>
+            <tr><td>memory_leak</td><td class="cat-ops">Ops</td><td>6-9</td><td>WEB-01</td></tr>
+            <tr><td>cpu_runaway</td><td class="cat-ops">Ops</td><td>11-12</td><td>SQL-PROD-01</td></tr>
+            <tr><td>disk_filling</td><td class="cat-ops">Ops</td><td>1-5</td><td>MON-ATL-01</td></tr>
+            <tr><td>firewall_misconfig</td><td class="cat-network">Network</td><td>7</td><td>FW-EDGE-01</td></tr>
+            <tr><td>certificate_expiry</td><td class="cat-network">Network</td><td>12</td><td>FW-EDGE-01</td></tr>
+          </table>
+          <div class="key-users">
+            <h4>Key Users</h4>
+            <p class="key-user"><strong>alex.miller</strong> (10.10.30.55) - Exfil target, Boston</p>
+            <p class="key-user"><strong>jessica.brown</strong> (10.20.30.15) - Initial compromise, Atlanta</p>
+            <p class="key-user"><strong>brooklyn.white</strong> (10.30.30.20) - Ransomware target, Austin</p>
+            <h4 style="margin-top:10px;">Threat Actor</h4>
+            <p class="key-user"><strong>185.220.101.42</strong> - Frankfurt, Germany (AS205100)</p>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ============================================================ -->
+  <!-- Row 6: SPL Tips                                              -->
+  <!-- ============================================================ -->
+  <row>
+    <panel>
+      <html>
+        <style>
+          .tips-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+          }
+          .tip-card {
+            background: #1f2527;
+            border-radius: 6px;
+            padding: 12px 14px;
+            border-left: 3px solid #3d4549;
+          }
+          .tip-card h4 {
+            color: #c8d0d8;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+          }
+          .tip-card code {
+            display: block;
+            background: #0d0d0d;
+            color: #5CC05C;
+            padding: 6px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin: 4px 0;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', monospace;
+          }
+          .tip-card p {
+            color: #6b7785;
+            font-size: 11px;
+            margin: 4px 0 0 0;
+          }
+        </style>
+        <div class="tips-grid">
+          <div class="tip-card">
+            <h4>Count by Field</h4>
+            <code>index=fake_tshrt
+| stats count by sourcetype</code>
+            <p>Use <strong>stats</strong> with <strong>by</strong> to group and count events.</p>
+          </div>
+          <div class="tip-card">
+            <h4>Time Chart</h4>
+            <code>index=fake_tshrt
+| timechart span=1h count by sourcetype</code>
+            <p><strong>timechart</strong> automatically buckets by time. Use span for granularity.</p>
+          </div>
+          <div class="tip-card">
+            <h4>Filter with Where</h4>
+            <code>index=fake_tshrt
+| stats count by src
+| where count > 100</code>
+            <p><strong>where</strong> filters after stats. Use search-time filters before the pipe for speed.</p>
+          </div>
+          <div class="tip-card">
+            <h4>Multiple Aggregations</h4>
+            <code>index=fake_tshrt sourcetype="FAKE:cisco:asa"
+| stats count dc(dest_port) AS ports
+  avg(bytes_out) AS avg_bytes by src</code>
+            <p>Combine count, dc (distinct count), avg, sum, min, max in one stats call.</p>
+          </div>
+          <div class="tip-card">
+            <h4>Create Fields with Eval</h4>
+            <code>index=fake_tshrt
+| eval mb=round(bytes_out/1024/1024,2)
+| eval severity=if(mb>100,"High","Normal")</code>
+            <p><strong>eval</strong> creates calculated fields. Use if(), case(), round(), strftime().</p>
+          </div>
+          <div class="tip-card">
+            <h4>Fast Counting with tstats</h4>
+            <code>| tstats count where index=fake_tshrt
+  by sourcetype _time span=1d</code>
+            <p><strong>tstats</strong> uses indexed metadata for fast counts. Only works with indexed fields.</p>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+</dashboard>

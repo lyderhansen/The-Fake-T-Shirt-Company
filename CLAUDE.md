@@ -16,6 +16,17 @@
 - **If you can't find it, say so.** Do not fabricate or assume Splunkbase app IDs, vendor documentation URLs, or API endpoint paths. Wrong documentation is worse than no documentation.
 - **When in doubt, ask.** If web searches or URL fetches return unexpected results, 404 errors, or content that doesn't match what you expected, stop and ask the user what to do rather than proceeding with potentially incorrect information.
 
+## Documentation Language
+
+- **All documentation files (`.md`, code comments, docstrings) MUST be written in English.** This includes CHANGEHISTORY.md, README files, scenario docs, inline comments, and any new documentation.
+
+## Change History
+
+- **All code changes MUST be documented in `docs/CHANGEHISTORY.md`** with date/time (UTC), affected files, and a description of what was changed and why.
+- New entries go at the top of the file (newest first), under a heading with format: `## YYYY-MM-DD ~HH:MM UTC — Short description`
+- Include a verification summary (generators run, event count, pass/fail) when changes affect generators.
+- This rule applies to all changes — new features, bug fixes, refactoring, generator updates, scenario changes, config changes, etc.
+
 ## Network Architecture
 
 ```
