@@ -1,0 +1,222 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Perfmon</label>
+  <description>Windows Performance Monitor — CPU, memory, disk, and network metrics</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Perfmon",
+  "description": "Windows Performance Monitor — CPU, memory, disk, and network metrics",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Perfmon Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:Perfmon:*\" by _time span=1h"
+      }
+    },
+    "ds_hosts_reporting": {
+      "type": "ds.search",
+      "name": "Hosts Reporting",
+      "options": {
+        "query": "| tstats dc(host) as count where index=fake_tshrt sourcetype=\"FAKE:Perfmon:*\""
+      }
+    },
+    "ds_sourcetype_count": {
+      "type": "ds.search",
+      "name": "Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt sourcetype=\"FAKE:Perfmon:*\""
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Event Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:*\" demo_id=* | stats count"
+      }
+    },
+    "ds_cpu_over_time": {
+      "type": "ds.search",
+      "name": "CPU Over Time by Host",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" instance=\"_Total\" | timechart span=1h avg(Value) by host"
+      }
+    },
+    "ds_memory_over_time": {
+      "type": "ds.search",
+      "name": "Memory Over Time by Host",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" counter=\"% Committed Bytes In Use\" | timechart span=1h avg(Value) by host"
+      }
+    },
+    "ds_events_by_object": {
+      "type": "ds.search",
+      "name": "Events by Object Type",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:Perfmon:*\" by sourcetype | rename sourcetype as \"Object\" | sort -count"
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:*\" | table _time host object counter instance Value demo_id | sort -_time | head 30 | rename host as \"Host\" object as \"Object\" counter as \"Counter\" instance as \"Instance\" Value as \"Value\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Perfmon\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:Perfmon:Processor`, `FAKE:Perfmon:Memory`, `FAKE:Perfmon:LogicalDisk`, `FAKE:Perfmon:Network_Interface`, `FAKE:Perfmon:Generic` |\n| **Format** | Multiline key-value pairs |\n| **Scenarios** | memory_leak (WEB-01 Days 6-9), cpu_runaway (SQL-PROD-01 Days 11-12) |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_hosts": {
+      "type": "splunk.singlevalue",
+      "title": "Hosts Reporting",
+      "dataSources": { "primary": "ds_hosts_reporting" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Sourcetype Count",
+      "dataSources": { "primary": "ds_sourcetype_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": { "primary": "ds_scenario_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_cpu_over_time": {
+      "type": "splunk.line",
+      "title": "CPU % Over Time by Host",
+      "dataSources": { "primary": "ds_cpu_over_time" },
+      "options": {
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "% Processor Time",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_events_by_object": {
+      "type": "splunk.pie",
+      "title": "Events by Object Type",
+      "dataSources": { "primary": "ds_events_by_object" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB"]
+      }
+    },
+    "viz_memory_over_time": {
+      "type": "splunk.line",
+      "title": "Memory % Over Time by Host",
+      "dataSources": { "primary": "ds_memory_over_time" },
+      "options": {
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "% Committed Bytes In Use",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_hosts", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_sourcetypes", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_cpu_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_events_by_object", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_memory_over_time", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

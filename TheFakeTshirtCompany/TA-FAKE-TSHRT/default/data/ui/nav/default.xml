@@ -68,5 +68,6 @@
     <view name="admin_generator" />
     <view name="admin_data" />
   </collection>
-  <a href="search" />
+  <a href="search">Search</a>
+  <a href="dashboards">Dashboards</a>
 </nav>

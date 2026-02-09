@@ -1,0 +1,222 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Retail Orders</label>
+  <description>E-commerce order data — order volume, revenue, and product analytics</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Retail Orders",
+  "description": "E-commerce order data — order volume, revenue, and product analytics",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Order Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:online:order\" by _time span=1h"
+      }
+    },
+    "ds_total_revenue": {
+      "type": "ds.search",
+      "name": "Total Revenue",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | stats sum(total) as count | eval count=\"$\".tostring(round(count,2),\"commas\")"
+      }
+    },
+    "ds_unique_customers": {
+      "type": "ds.search",
+      "name": "Unique Customers",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" customer=* | stats dc(customer) as count"
+      }
+    },
+    "ds_avg_order_value": {
+      "type": "ds.search",
+      "name": "Average Order Value",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | stats avg(total) as count | eval count=\"$\".tostring(round(count,2),\"commas\")"
+      }
+    },
+    "ds_orders_over_time": {
+      "type": "ds.search",
+      "name": "Orders Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | timechart span=1h count"
+      }
+    },
+    "ds_revenue_by_type": {
+      "type": "ds.search",
+      "name": "Revenue by Product Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | stats sum(total) as revenue by product_type | sort -revenue"
+      }
+    },
+    "ds_top_products": {
+      "type": "ds.search",
+      "name": "Top Products",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" product=* | stats count by product | sort -count | head 15 | rename product as \"Product\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | table _time order_id customer product quantity total payment_method | sort -_time | head 30 | rename order_id as \"Order ID\" customer as \"Customer\" product as \"Product\" quantity as \"Qty\" total as \"Total\" payment_method as \"Payment\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Retail Orders\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:online:order` |\n| **Source** | E-commerce platform |\n| **Format** | JSON |\n| **Dependencies** | Generated from Apache access log order activity |\n| **Scenarios** | None (baseline commerce data) |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Orders",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_revenue": {
+      "type": "splunk.singlevalue",
+      "title": "Total Revenue",
+      "dataSources": { "primary": "ds_total_revenue" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_customers": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Customers",
+      "dataSources": { "primary": "ds_unique_customers" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_avg_order": {
+      "type": "splunk.singlevalue",
+      "title": "Avg Order Value",
+      "dataSources": { "primary": "ds_avg_order_value" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_orders_over_time": {
+      "type": "splunk.area",
+      "title": "Orders Over Time",
+      "dataSources": { "primary": "ds_orders_over_time" },
+      "options": {
+        "legendDisplay": "off",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Orders / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_revenue_by_type": {
+      "type": "splunk.pie",
+      "title": "Revenue by Product Type",
+      "dataSources": { "primary": "ds_revenue_by_type" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_top_products": {
+      "type": "splunk.bar",
+      "title": "Top Products",
+      "dataSources": { "primary": "ds_top_products" },
+      "options": {
+        "seriesColors": ["#53A051"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Orders",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_revenue", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_customers", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_avg_order", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_orders_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_revenue_by_type", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_top_products", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

@@ -1,0 +1,250 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Apache Access</label>
+  <description>Apache combined access logs — web traffic, status codes, and response analysis</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Apache Access",
+  "description": "Apache combined access logs — web traffic, status codes, and response analysis",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Access Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:access_combined\" by _time span=1h"
+      }
+    },
+    "ds_unique_ips": {
+      "type": "ds.search",
+      "name": "Unique Client IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" clientip=* | stats dc(clientip) as count"
+      }
+    },
+    "ds_error_rate": {
+      "type": "ds.search",
+      "name": "Error Rate (status >= 400)",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval is_error=if(status>=400,1,0) | stats avg(is_error) as count | eval count=round(count*100,1).\"%\""
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Event Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" demo_id=* | stats count"
+      }
+    },
+    "ds_events_over_time": {
+      "type": "ds.search",
+      "name": "Events Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | timechart span=1h count"
+      }
+    },
+    "ds_status_distribution": {
+      "type": "ds.search",
+      "name": "Status Code Distribution",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval status_group=case(status<200,\"1xx\", status<300,\"2xx\", status<400,\"3xx\", status<500,\"4xx\", status>=500,\"5xx\") | stats count by status_group | sort status_group"
+      }
+    },
+    "ds_top_uris": {
+      "type": "ds.search",
+      "name": "Top URIs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" uri=* | stats count by uri | sort -count | head 15 | rename uri as \"URI\""
+      }
+    },
+    "ds_top_client_ips": {
+      "type": "ds.search",
+      "name": "Top Client IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" clientip=* | stats count by clientip | sort -count | head 15 | rename clientip as \"Client IP\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | table _time clientip method uri status bytes demo_id | sort -_time | head 30 | rename clientip as \"Client IP\" method as \"Method\" uri as \"URI\" status as \"Status\" bytes as \"Bytes\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Apache Access\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:access_combined` |\n| **Servers** | WEB-01, WEB-02 (Boston DMZ) |\n| **Format** | Apache Combined Log Format |\n| **Scenarios** | exfil, memory_leak, cpu_runaway, certificate_expiry |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_unique_ips": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Client IPs",
+      "dataSources": { "primary": "ds_unique_ips" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_error_rate": {
+      "type": "splunk.singlevalue",
+      "title": "Error Rate",
+      "dataSources": { "primary": "ds_error_rate" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": { "primary": "ds_scenario_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_over_time": {
+      "type": "splunk.area",
+      "title": "Events Over Time",
+      "dataSources": { "primary": "ds_events_over_time" },
+      "options": {
+        "legendDisplay": "off",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_status_distribution": {
+      "type": "splunk.pie",
+      "title": "Status Code Distribution",
+      "dataSources": { "primary": "ds_status_distribution" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "2xx": "#53A051",
+          "3xx": "#00D2FF",
+          "4xx": "#F8BE34",
+          "5xx": "#DC4E41",
+          "1xx": "#7B56DB"
+        }
+      }
+    },
+    "viz_top_uris": {
+      "type": "splunk.bar",
+      "title": "Top URIs",
+      "dataSources": { "primary": "ds_top_uris" },
+      "options": {
+        "seriesColors": ["#00D2FF"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_top_client_ips": {
+      "type": "splunk.bar",
+      "title": "Top Client IPs",
+      "dataSources": { "primary": "ds_top_client_ips" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unique_ips", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_error_rate", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_status_distribution", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_top_uris", "type": "block", "position": { "x": 0, "y": 620, "w": 600, "h": 300 } },
+      { "item": "viz_top_client_ips", "type": "block", "position": { "x": 600, "y": 620, "w": 600, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

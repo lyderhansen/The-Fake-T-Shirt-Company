@@ -1,0 +1,222 @@
+<dashboard version="2" theme="dark">
+  <label>Source - ServiceBus</label>
+  <description>Azure Service Bus messaging — order processing queue events</description>
+  <definition><![CDATA[
+{
+  "title": "Source - ServiceBus",
+  "description": "Azure Service Bus messaging — order processing queue events",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total ServiceBus Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" by _time span=1h"
+      }
+    },
+    "ds_unique_queues": {
+      "type": "ds.search",
+      "name": "Unique Queues",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" queue=* | stats dc(queue) as count"
+      }
+    },
+    "ds_message_count": {
+      "type": "ds.search",
+      "name": "Total Messages",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" messageId=* | stats dc(messageId) as count"
+      }
+    },
+    "ds_error_events": {
+      "type": "ds.search",
+      "name": "Error Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" status=error OR status=failed | stats count"
+      }
+    },
+    "ds_events_over_time": {
+      "type": "ds.search",
+      "name": "Events Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | timechart span=1h count"
+      }
+    },
+    "ds_events_by_operation": {
+      "type": "ds.search",
+      "name": "Events by Operation",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | stats count by operation | sort -count"
+      }
+    },
+    "ds_queue_activity": {
+      "type": "ds.search",
+      "name": "Queue Activity",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" queue=* | stats count by queue | sort -count | head 15 | rename queue as \"Queue\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | table _time host operation queue messageId status | sort -_time | head 30 | rename operation as \"Operation\" queue as \"Queue\" messageId as \"Message ID\" status as \"Status\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — ServiceBus\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:azure:servicebus` |\n| **Platform** | Azure Service Bus |\n| **Format** | JSON |\n| **Dependencies** | Generated from Apache access log order activity |\n| **Scenarios** | None (baseline messaging data) |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_queues": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Queues",
+      "dataSources": { "primary": "ds_unique_queues" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_messages": {
+      "type": "splunk.singlevalue",
+      "title": "Message Count",
+      "dataSources": { "primary": "ds_message_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_errors": {
+      "type": "splunk.singlevalue",
+      "title": "Error Events",
+      "dataSources": { "primary": "ds_error_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_over_time": {
+      "type": "splunk.area",
+      "title": "Events Over Time",
+      "dataSources": { "primary": "ds_events_over_time" },
+      "options": {
+        "legendDisplay": "off",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_events_by_operation": {
+      "type": "splunk.pie",
+      "title": "Events by Operation",
+      "dataSources": { "primary": "ds_events_by_operation" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_queue_activity": {
+      "type": "splunk.bar",
+      "title": "Queue Activity",
+      "dataSources": { "primary": "ds_queue_activity" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_queues", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_messages", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_errors", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_events_by_operation", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_queue_activity", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

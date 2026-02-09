@@ -1,0 +1,201 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Webex API</label>
+  <description>Cisco Webex REST API data — meetings, admin events, compliance, and room analytics</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Webex API",
+  "description": "Cisco Webex REST API data — meetings, admin events, compliance, and room analytics",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Webex API Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") by _time span=1h"
+      }
+    },
+    "ds_sourcetype_count": {
+      "type": "ds.search",
+      "name": "Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\")"
+      }
+    },
+    "ds_unique_users": {
+      "type": "ds.search",
+      "name": "Unique Users",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval user=coalesce(hostEmail, actorEmail, user) | where isnotnull(user) | stats dc(user) as count"
+      }
+    },
+    "ds_unique_rooms": {
+      "type": "ds.search",
+      "name": "Unique Rooms",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval room=coalesce(title, roomId) | where isnotnull(room) | stats dc(room) as count"
+      }
+    },
+    "ds_events_over_time": {
+      "type": "ds.search",
+      "name": "Events Over Time by Sourcetype",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval st=replace(sourcetype,\"FAKE:cisco:webex:\",\"\") | timechart span=1h count by st"
+      }
+    },
+    "ds_by_sourcetype": {
+      "type": "ds.search",
+      "name": "Events by Sourcetype",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") by sourcetype"
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:admin:resource:group:memberships\" OR sourcetype=\"FAKE:cisco:webex:compliance:events\" OR sourcetype=\"FAKE:cisco:webex:rooms:read\") | eval display_type=coalesce(type, title, action) | eval display_user=coalesce(hostEmail, actorEmail, user) | table _time sourcetype host display_type display_user | sort -_time | head 30 | rename sourcetype as \"Sourcetype\" display_type as \"Type/Title\" display_user as \"User/Host\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Webex API\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings`, `FAKE:cisco:webex:admin:audit:events`, `FAKE:cisco:webex:admin:resource:group:memberships`, `FAKE:cisco:webex:compliance:events`, `FAKE:cisco:webex:rooms:read` |\n| **Platform** | Cisco Webex REST API |\n| **Format** | JSON |\n| **Scenarios** | None (baseline collaboration data) |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Sourcetype Count",
+      "dataSources": { "primary": "ds_sourcetype_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_users": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Users",
+      "dataSources": { "primary": "ds_unique_users" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_rooms": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Rooms",
+      "dataSources": { "primary": "ds_unique_rooms" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_over_time": {
+      "type": "splunk.area",
+      "title": "Events Over Time by Sourcetype",
+      "dataSources": { "primary": "ds_events_over_time" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_by_sourcetype": {
+      "type": "splunk.pie",
+      "title": "Events by Sourcetype",
+      "dataSources": { "primary": "ds_by_sourcetype" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41"]
+      }
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 160 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_sourcetypes", "type": "block", "position": { "x": 300, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_users", "type": "block", "position": { "x": 600, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_rooms", "type": "block", "position": { "x": 900, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 280, "w": 750, "h": 350 } },
+      { "item": "viz_by_sourcetype", "type": "block", "position": { "x": 750, "y": 280, "w": 450, "h": 350 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 630, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 680, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

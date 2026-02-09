@@ -1,0 +1,308 @@
+<dashboard version="2" theme="dark">
+  <label>Scenario - Ransomware Attempt</label>
+  <description>Ransomware detected and blocked — phishing email, macro execution, C2 callback, lateral movement, EDR detection, and network isolation</description>
+  <definition><![CDATA[
+{
+  "title": "Scenario - Ransomware Attempt",
+  "description": "Ransomware detected and blocked — phishing email, macro execution, C2 callback, lateral movement, EDR detection, and network isolation",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Ransomware Scenario Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt IDX_demo_id=ransomware_attempt by _time span=1h"
+      }
+    },
+    "ds_affected_sourcetypes": {
+      "type": "ds.search",
+      "name": "Affected Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt IDX_demo_id=ransomware_attempt"
+      }
+    },
+    "ds_affected_hosts": {
+      "type": "ds.search",
+      "name": "Affected Host Count",
+      "options": {
+        "query": "| tstats dc(host) as count where index=fake_tshrt IDX_demo_id=ransomware_attempt"
+      }
+    },
+    "ds_duration": {
+      "type": "ds.search",
+      "name": "Attack Duration",
+      "options": {
+        "query": "index=fake_tshrt demo_id=ransomware_attempt | stats min(_time) as start max(_time) as end | eval duration=tostring(end-start, \"duration\") | eval count=duration | fields count"
+      }
+    },
+    "ds_attack_timeline": {
+      "type": "ds.search",
+      "name": "Attack Timeline by Source",
+      "options": {
+        "query": "index=fake_tshrt demo_id=ransomware_attempt | eval source_label=case(match(sourcetype,\"cisco:asa\"), \"ASA Firewall\", match(sourcetype,\"WinEventLog\"), \"WinEventLog\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"meraki:securityappliances\"), \"Meraki MX\", match(sourcetype,\"meraki:accesspoints\"), \"Meraki MR\", match(sourcetype,\"o365:management\"), \"M365 Audit\", match(sourcetype,\"servicenow\"), \"ServiceNow\", 1=1, sourcetype) | timechart span=15m count by source_label"
+      }
+    },
+    "ds_events_by_source": {
+      "type": "ds.search",
+      "name": "Events by Source Type",
+      "options": {
+        "query": "index=fake_tshrt demo_id=ransomware_attempt | eval source_label=case(match(sourcetype,\"cisco:asa\"), \"ASA Firewall\", match(sourcetype,\"WinEventLog\"), \"WinEventLog\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"meraki:securityappliances\"), \"Meraki MX\", match(sourcetype,\"meraki:accesspoints\"), \"Meraki MR\", match(sourcetype,\"o365:management\"), \"M365 Audit\", match(sourcetype,\"servicenow\"), \"ServiceNow\", 1=1, sourcetype) | stats count by source_label | sort -count"
+      }
+    },
+    "ds_attack_sequence": {
+      "type": "ds.search",
+      "name": "Attack Sequence (Minute by Minute)",
+      "options": {
+        "query": "index=fake_tshrt demo_id=ransomware_attempt | eval event_detail=coalesce(eventName, action, Operation, EventCode, short_description, \"event\") | eval source_label=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"WinEventLog\"), \"WinEventLog\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"servicenow\"), \"SNOW\", 1=1, sourcetype) | eval phase=case(_time < relative_time(now(),\"-30d\"), \"Pre-Attack\", 1=1, \"Attack\") | table _time source_label host event_detail | sort _time | head 50 | rename source_label as \"Source\" host as \"Host\" event_detail as \"Event\""
+      }
+    },
+    "ds_c2_traffic": {
+      "type": "ds.search",
+      "name": "C2 Callback Traffic",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=ransomware_attempt dst=194.26.29.42 OR src=194.26.29.42 | stats count by src dst action | sort -count | rename src as \"Source\" dst as \"Destination\" action as \"Action\""
+      }
+    },
+    "ds_lateral_attempts": {
+      "type": "ds.search",
+      "name": "Lateral Movement Attempts",
+      "options": {
+        "query": "index=fake_tshrt demo_id=ransomware_attempt sourcetype=\"FAKE:cisco:asa\" src=10.30.30.20 dst=10.30.30.* | stats count by src dst action | sort -count | rename src as \"Source\" dst as \"Target\" action as \"Action\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Scenario — Ransomware Attempt\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `ransomware_attempt` |\n| **Category** | Security |\n| **Duration** | Day 8 (~20 minutes active, Day 9 cleanup) |\n| **Severity** | High |\n| **Outcome** | ✅ **BLOCKED** — EDR detected and quarantined in 10 min |\n| **Target** | Brooklyn White (Sales Engineer, Austin) |\n| **C2 Server** | 194.26.29.42 (Russia) |\n\n**Attack Summary:** Phishing email delivers malicious Word macro (Invoice_Q4_2026.docm). Brooklyn White opens at 14:02, macro drops svchost_update.exe, C2 callback at 14:05, SMB lateral movement at 14:08. Windows Defender detects Trojan:Win32/Emotet.RPK!MTB at 14:12, Meraki isolates client at 14:15. Full containment in ~20 minutes.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": {
+        "primary": "ds_total_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#F1813F",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#F1813F"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Affected Sources",
+      "dataSources": {
+        "primary": "ds_affected_sourcetypes"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_hosts": {
+      "type": "splunk.singlevalue",
+      "title": "Affected Hosts",
+      "dataSources": {
+        "primary": "ds_affected_hosts"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#009CEB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_duration": {
+      "type": "splunk.singlevalue",
+      "title": "Duration",
+      "dataSources": {
+        "primary": "ds_duration"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_attack_timeline": {
+      "type": "splunk.area",
+      "title": "Attack Timeline by Source",
+      "dataSources": {
+        "primary": "ds_attack_timeline"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#DC4E41", "#F1813F", "#00D2FF", "#7B56DB", "#53A051", "#009CEB", "#F8BE34"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_events_donut": {
+      "type": "splunk.pie",
+      "title": "Events by Source",
+      "dataSources": {
+        "primary": "ds_events_by_source"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#F1813F", "#00D2FF", "#7B56DB", "#53A051", "#009CEB", "#F8BE34"]
+      }
+    },
+    "viz_c2_traffic": {
+      "type": "splunk.table",
+      "title": "C2 Callback Traffic (194.26.29.42)",
+      "dataSources": {
+        "primary": "ds_c2_traffic"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true
+    },
+    "viz_lateral_attempts": {
+      "type": "splunk.table",
+      "title": "Lateral Movement Attempts (SMB)",
+      "dataSources": {
+        "primary": "ds_lateral_attempts"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true
+    },
+    "viz_evidence_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Attack Sequence",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_attack_sequence": {
+      "type": "splunk.table",
+      "title": "Event-by-Event Attack Sequence",
+      "dataSources": {
+        "primary": "ds_attack_sequence"
+      },
+      "options": {
+        "count": 50,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 280 }
+      },
+      {
+        "item": "viz_kpi_total_events",
+        "type": "block",
+        "position": { "x": 0, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_sourcetypes",
+        "type": "block",
+        "position": { "x": 300, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_hosts",
+        "type": "block",
+        "position": { "x": 600, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_duration",
+        "type": "block",
+        "position": { "x": 900, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_attack_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 400, "w": 750, "h": 350 }
+      },
+      {
+        "item": "viz_events_donut",
+        "type": "block",
+        "position": { "x": 750, "y": 400, "w": 450, "h": 350 }
+      },
+      {
+        "item": "viz_c2_traffic",
+        "type": "block",
+        "position": { "x": 0, "y": 750, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_lateral_attempts",
+        "type": "block",
+        "position": { "x": 600, "y": 750, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_evidence_header",
+        "type": "block",
+        "position": { "x": 0, "y": 1050, "w": 1200, "h": 50 }
+      },
+      {
+        "item": "viz_attack_sequence",
+        "type": "block",
+        "position": { "x": 0, "y": 1100, "w": 1200, "h": 400 }
+      }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

@@ -1,0 +1,223 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Webex</label>
+  <description>Cisco Webex collaboration events — meetings, quality metrics, and device health</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Webex",
+  "description": "Cisco Webex collaboration events — meetings, quality metrics, and device health",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Webex Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" by _time span=1h"
+      }
+    },
+    "ds_unique_rooms": {
+      "type": "ds.search",
+      "name": "Unique Rooms",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" host=* | stats dc(host) as count"
+      }
+    },
+    "ds_meeting_count": {
+      "type": "ds.search",
+      "name": "Meeting Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" type=\"meeting_started\" | stats count"
+      }
+    },
+    "ds_unique_users": {
+      "type": "ds.search",
+      "name": "Unique Users",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" user=* | stats dc(user) as count"
+      }
+    },
+    "ds_events_by_type": {
+      "type": "ds.search",
+      "name": "Events Over Time by Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" | timechart span=1h count by type"
+      }
+    },
+    "ds_event_type_pie": {
+      "type": "ds.search",
+      "name": "Events by Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" type=* | stats count by type | sort -count"
+      }
+    },
+    "ds_top_rooms": {
+      "type": "ds.search",
+      "name": "Top Rooms",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" host=* | stats count by host | sort -count | head 15 | rename host as \"Room\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:events\" | table _time host type user demo_id | sort -_time | head 30 | rename host as \"Room\" type as \"Event Type\" user as \"User\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Webex\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:cisco:webex:events` |\n| **Format** | JSON (Webex Events API) |\n| **Coverage** | 21 conference rooms across 3 locations (Boston, Atlanta, Austin) |\n| **Event Types** | meeting_started, participant_joined/left, meeting_ended, quality_metrics, device_health, room_analytics |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_unique_rooms": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Rooms",
+      "dataSources": { "primary": "ds_unique_rooms" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_meeting_count": {
+      "type": "splunk.singlevalue",
+      "title": "Meeting Count",
+      "dataSources": { "primary": "ds_meeting_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_unique_users": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Users",
+      "dataSources": { "primary": "ds_unique_users" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_by_type": {
+      "type": "splunk.area",
+      "title": "Events Over Time by Type",
+      "dataSources": { "primary": "ds_events_by_type" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#F1813F"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_event_type_pie": {
+      "type": "splunk.pie",
+      "title": "Events by Type",
+      "dataSources": { "primary": "ds_event_type_pie" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_top_rooms": {
+      "type": "splunk.bar",
+      "title": "Top Rooms",
+      "dataSources": { "primary": "ds_top_rooms" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unique_rooms", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_meeting_count", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unique_users", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_events_by_type", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_event_type_pie", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_top_rooms", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

@@ -1,0 +1,277 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Cisco ASA</label>
+  <description>Cisco ASA 5525-X perimeter firewall — connection events, deny actions, threat detection, and VPN</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Cisco ASA",
+  "description": "Cisco ASA 5525-X perimeter firewall — connection events, deny actions, threat detection, and VPN",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total ASA Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" by _time span=1h"
+      }
+    },
+    "ds_unique_hosts": {
+      "type": "ds.search",
+      "name": "Unique Source IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=* | stats dc(src) as count"
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Event Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=* | stats count"
+      }
+    },
+    "ds_deny_count": {
+      "type": "ds.search",
+      "name": "Total Deny Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied | stats count"
+      }
+    },
+    "ds_events_by_action": {
+      "type": "ds.search",
+      "name": "Events by Action Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | eval action_label=case(match(_raw, \"Built\"), \"Built\", match(_raw, \"Teardown\"), \"Teardown\", match(_raw, \"Deny\\|denied\"), \"Deny\", match(_raw, \"733100\\|733101\"), \"Threat Detection\", 1=1, \"Other\") | timechart span=1h count by action_label"
+      }
+    },
+    "ds_top_message_ids": {
+      "type": "ds.search",
+      "name": "Top ASA Message IDs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | stats count by message_id | sort -count | head 15 | rename message_id as \"Message ID\""
+      }
+    },
+    "ds_top_denied_src": {
+      "type": "ds.search",
+      "name": "Top Denied Source IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied src=* | stats count by src | sort -count | head 15 | rename src as \"Source IP\""
+      }
+    },
+    "ds_top_denied_dst": {
+      "type": "ds.search",
+      "name": "Top Denied Destination IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied dst=* | stats count by dst | sort -count | head 15 | rename dst as \"Destination IP\""
+      }
+    },
+    "ds_top_dest_ports": {
+      "type": "ds.search",
+      "name": "Top Destination Ports",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" dest_port=* | stats count by dest_port | sort -count | head 15 | rename dest_port as \"Port\""
+      }
+    },
+    "ds_scenario_breakdown": {
+      "type": "ds.search",
+      "name": "Events by Scenario",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=* | stats count by demo_id | sort -count"
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | table _time host message_id action src dst dest_port demo_id | sort -_time | head 30 | rename message_id as \"Msg ID\" action as \"Action\" src as \"Source\" dst as \"Destination\" dest_port as \"Port\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Cisco ASA\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:cisco:asa` |\n| **Device** | FW-EDGE-01 (ASA 5525-X) |\n| **Role** | Perimeter firewall — all external traffic |\n| **Format** | Syslog (`%ASA-severity-message_id`) |\n| **Scenarios** | exfil, ransomware_attempt, memory_leak, cpu_runaway, firewall_misconfig, certificate_expiry |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_unique_ips": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Source IPs",
+      "dataSources": { "primary": "ds_unique_hosts" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_denies": {
+      "type": "splunk.singlevalue",
+      "title": "Deny Events",
+      "dataSources": { "primary": "ds_deny_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": { "primary": "ds_scenario_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_by_action": {
+      "type": "splunk.area",
+      "title": "Events by Action Over Time",
+      "dataSources": { "primary": "ds_events_by_action" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_top_message_ids": {
+      "type": "splunk.bar",
+      "title": "Top Message IDs",
+      "dataSources": { "primary": "ds_top_message_ids" },
+      "options": {
+        "seriesColors": ["#00D2FF"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_top_denied_src": {
+      "type": "splunk.bar",
+      "title": "Top Denied Source IPs",
+      "dataSources": { "primary": "ds_top_denied_src" },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Deny Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_top_dest_ports": {
+      "type": "splunk.pie",
+      "title": "Top Destination Ports",
+      "dataSources": { "primary": "ds_top_dest_ports" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_scenario_breakdown": {
+      "type": "splunk.pie",
+      "title": "Events by Scenario",
+      "dataSources": { "primary": "ds_scenario_breakdown" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "exfil": "#DC4E41",
+          "ransomware_attempt": "#F1813F",
+          "memory_leak": "#F8BE34",
+          "cpu_runaway": "#FF677B",
+          "firewall_misconfig": "#009CEB",
+          "certificate_expiry": "#00CDAF"
+        }
+      }
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 180 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unique_ips", "type": "block", "position": { "x": 300, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_denies", "type": "block", "position": { "x": 600, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_events_by_action", "type": "block", "position": { "x": 0, "y": 300, "w": 750, "h": 350 } },
+      { "item": "viz_top_message_ids", "type": "block", "position": { "x": 750, "y": 300, "w": 450, "h": 350 } },
+      { "item": "viz_top_denied_src", "type": "block", "position": { "x": 0, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_top_dest_ports", "type": "block", "position": { "x": 400, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_scenario_breakdown", "type": "block", "position": { "x": 800, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 1000, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

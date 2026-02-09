@@ -4,6 +4,50 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~08:00 UTC — Dashboard build-out: Discovery, Scenario, and Source dashboards
+
+**Affected files:**
+- `default/data/ui/views/overview.xml` — Updated 2 scenario queries from `demo_id=*` to `IDX_demo_id=*` for tstats acceleration
+- `default/data/ui/views/discovery_soc.xml` — NEW: SOC Overview (10 data sources, 14 visualizations)
+- `default/data/ui/views/discovery_itops.xml` — NEW: IT Operations (11 data sources, 12 visualizations)
+- `default/data/ui/views/discovery_netops.xml` — NEW: Network Operations (12 data sources, 12 visualizations)
+- `default/data/ui/views/scenario_exfil.xml` — NEW: Data Exfiltration scenario (12 data sources, 16 visualizations)
+- `default/data/ui/views/scenario_ransomware.xml` — NEW: Ransomware Attempt scenario (9 data sources, 11 visualizations)
+- `default/data/ui/views/scenario_memory_leak.xml` — NEW: Memory Leak scenario (10 data sources, 12 visualizations)
+- `default/data/ui/views/scenario_cpu_runaway.xml` — NEW: CPU Runaway scenario (11 data sources, 13 visualizations)
+- `default/data/ui/views/scenario_disk_filling.xml` — NEW: Disk Filling scenario (10 data sources, 12 visualizations)
+- `default/data/ui/views/scenario_firewall_misconfig.xml` — NEW: Firewall Misconfiguration scenario (7 data sources, 9 visualizations)
+- `default/data/ui/views/scenario_certificate_expiry.xml` — NEW: Certificate Expiry scenario (8 data sources, 11 visualizations)
+- `default/data/ui/views/source_cisco_asa.xml` — NEW: Cisco ASA source dashboard
+- `default/data/ui/views/source_meraki.xml` — NEW: Meraki source dashboard
+- `default/data/ui/views/source_entraid.xml` — NEW: Entra ID source dashboard
+- `default/data/ui/views/source_aws_cloudtrail.xml` — NEW: AWS CloudTrail source dashboard
+- `default/data/ui/views/source_exchange.xml` — NEW: Exchange source dashboard
+- `default/data/ui/views/source_o365_audit.xml` — NEW: M365 Audit source dashboard
+- `default/data/ui/views/source_webex.xml` — NEW: Webex source dashboard
+- `default/data/ui/views/source_perfmon.xml` — NEW: Perfmon source dashboard
+- `default/data/ui/views/source_wineventlog.xml` — NEW: WinEventLog source dashboard
+- `default/data/ui/views/source_linux.xml` — NEW: Linux source dashboard
+- `default/data/ui/views/source_access.xml` — NEW: Apache Access source dashboard
+- `default/data/ui/views/source_orders.xml` — NEW: Retail Orders source dashboard
+- `default/data/ui/views/source_servicebus.xml` — NEW: ServiceBus source dashboard
+- `default/data/ui/views/source_servicenow.xml` — NEW: ServiceNow source dashboard
+- `default/data/ui/views/source_webex_ta.xml` — NEW: Webex TA source dashboard
+- `default/data/ui/views/source_webex_api.xml` — NEW: Webex API source dashboard
+- `default/data/ui/views/source_sysmon.xml` — NEW: Sysmon source dashboard
+- `default/data/ui/views/source_mssql.xml` — NEW: MSSQL source dashboard
+- `default/data/ui/views/source_gcp_audit.xml` — NEW: GCP Audit source dashboard
+
+**Description:** Major dashboard build-out implementing the approved plan. Created 29 new Dashboard Studio v2 dashboards across three categories:
+
+- **3 Discovery dashboards:** SOC Overview (cross-source security correlation), IT Operations (infrastructure health with Perfmon/Linux/ServiceNow), Network Operations (ASA + Meraki device health)
+- **7 Scenario dashboards:** Each walks through a specific scenario with header, KPIs, phase timeline, cross-source correlation, and key evidence table. Uses immutable scenario colors (exfil=#DC4E41, ransomware=#F1813F, memory_leak=#F8BE34, cpu_runaway=#FF677B, disk_filling=#7B56DB, firewall_misconfig=#009CEB, certificate_expiry=#00CDAF)
+- **19 Source dashboards:** Each covers a specific data source with header, KPIs, event timeline, field breakdowns, and sample events table
+
+All dashboards use grid layout (w=1200), global time range input (Jan 2026 epochs), `tstats` for fast counting where possible, and `demo_id`/`IDX_demo_id` for scenario filtering.
+
+---
+
 ## 2026-02-10 ~05:30 UTC — Index demo_id field for tstats acceleration
 
 **Affected files:**

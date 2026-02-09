@@ -1,0 +1,197 @@
+<dashboard version="2" theme="dark">
+  <label>Source - AWS CloudTrail</label>
+  <description>AWS CloudTrail API audit logs — IAM, S3, EC2, and management events</description>
+  <definition><![CDATA[
+{
+  "title": "Source - AWS CloudTrail",
+  "description": "AWS CloudTrail API audit logs — IAM, S3, EC2, and management events",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total CloudTrail Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" by _time span=1h"
+      }
+    },
+    "ds_unique_users": {
+      "type": "ds.search",
+      "name": "Unique User Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | stats dc(userIdentity.userName) as count"
+      }
+    },
+    "ds_error_count": {
+      "type": "ds.search",
+      "name": "Error Event Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" errorCode=* | stats count"
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Event Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" demo_id=* | stats count"
+      }
+    },
+    "ds_events_timeline": {
+      "type": "ds.search",
+      "name": "Events Over Time by Service",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace(eventSource, \"\\.amazonaws\\.com\", \"\") | timechart span=1h count by service"
+      }
+    },
+    "ds_top_events": {
+      "type": "ds.search",
+      "name": "Top Event Names",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | stats count by eventName | sort -count | head 15 | rename eventName as \"Event Name\""
+      }
+    },
+    "ds_top_users": {
+      "type": "ds.search",
+      "name": "Top Users",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" userIdentity.userName=* | stats count by userIdentity.userName | sort -count | head 15 | rename userIdentity.userName as \"User\""
+      }
+    },
+    "ds_by_service": {
+      "type": "ds.search",
+      "name": "Events by AWS Service",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace(eventSource, \"\\.amazonaws\\.com\", \"\") | stats count by service | sort -count"
+      }
+    },
+    "ds_errors": {
+      "type": "ds.search",
+      "name": "Error Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" errorCode=* | stats count by errorCode eventName | sort -count | head 15 | rename errorCode as \"Error\" eventName as \"Event\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace(eventSource, \"\\.amazonaws\\.com\", \"\") | table _time userIdentity.userName eventName service errorCode demo_id | sort -_time | head 30 | rename userIdentity.userName as \"User\" eventName as \"Event\" service as \"Service\" errorCode as \"Error\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — AWS CloudTrail\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:aws:cloudtrail` |\n| **Account** | 123456789012 (us-east-1) |\n| **Format** | JSON |\n| **Scenarios** | exfil (backdoor IAM user `svc-datasync`, S3 data theft) |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()", "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below", "majorColor": "#00D2FF",
+        "backgroundColor": "transparent", "showSparklineAreaGraph": true, "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_users": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Users",
+      "dataSources": { "primary": "ds_unique_users" },
+      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#7B56DB", "backgroundColor": "transparent", "sparklineDisplay": "off" }
+    },
+    "viz_kpi_errors": {
+      "type": "splunk.singlevalue",
+      "title": "Error Events",
+      "dataSources": { "primary": "ds_error_count" },
+      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#DC4E41", "backgroundColor": "transparent", "sparklineDisplay": "off" }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": { "primary": "ds_scenario_events" },
+      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#F8BE34", "backgroundColor": "transparent", "sparklineDisplay": "off" }
+    },
+    "viz_events_timeline": {
+      "type": "splunk.area",
+      "title": "Events by AWS Service Over Time",
+      "dataSources": { "primary": "ds_events_timeline" },
+      "options": {
+        "stackMode": "stacked", "legendDisplay": "right", "nullValueDisplay": "zero",
+        "areaOpacity": 0.7, "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide", "yAxisTitleText": "Events / hour", "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB"]
+      },
+      "showProgressBar": true, "showLastUpdated": true
+    },
+    "viz_by_service": {
+      "type": "splunk.pie",
+      "title": "Events by Service",
+      "dataSources": { "primary": "ds_by_service" },
+      "options": { "labelDisplay": "valuesAndPercentage", "showDonutHole": true, "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB"] }
+    },
+    "viz_top_events": {
+      "type": "splunk.bar",
+      "title": "Top Event Names",
+      "dataSources": { "primary": "ds_top_events" },
+      "options": { "seriesColors": ["#00D2FF"], "legendDisplay": "off", "xAxisTitleText": "Events", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
+      "showProgressBar": true
+    },
+    "viz_top_users": {
+      "type": "splunk.bar",
+      "title": "Top Users",
+      "dataSources": { "primary": "ds_top_users" },
+      "options": { "seriesColors": ["#7B56DB"], "legendDisplay": "off", "xAxisTitleText": "Events", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
+      "showProgressBar": true
+    },
+    "viz_errors": {
+      "type": "splunk.table",
+      "title": "Error Events",
+      "dataSources": { "primary": "ds_errors" },
+      "options": { "count": 15, "showRowNumbers": false },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": { "markdown": "### Recent Events", "fontColor": "#C3CBD4" }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": { "count": 20, "showRowNumbers": false },
+      "showProgressBar": true, "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": { "token": "global_time", "defaultValue": "1767225600,1769904000" }
+    }
+  },
+  "defaults": {
+    "dataSources": { "ds.search": { "options": { "queryParameters": { "earliest": "$global_time.earliest$", "latest": "$global_time.latest$" } } } }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_users", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_errors", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_events_timeline", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_by_service", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_top_events", "type": "block", "position": { "x": 0, "y": 620, "w": 400, "h": 300 } },
+      { "item": "viz_top_users", "type": "block", "position": { "x": 400, "y": 620, "w": 400, "h": 300 } },
+      { "item": "viz_errors", "type": "block", "position": { "x": 800, "y": 620, "w": 400, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

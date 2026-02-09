@@ -1,0 +1,223 @@
+<dashboard version="2" theme="dark">
+  <label>Source - GCP Audit</label>
+  <description>Google Cloud Platform audit logs — admin activity and data access</description>
+  <definition><![CDATA[
+{
+  "title": "Source - GCP Audit",
+  "description": "Google Cloud Platform audit logs — admin activity and data access",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total GCP Audit Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") by _time span=1h"
+      }
+    },
+    "ds_unique_principals": {
+      "type": "ds.search",
+      "name": "Unique Principals",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") principalEmail=* | stats dc(principalEmail) as count"
+      }
+    },
+    "ds_method_count": {
+      "type": "ds.search",
+      "name": "Method Count",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") methodName=* | stats dc(methodName) as count"
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Event Count",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") demo_id=* | stats count"
+      }
+    },
+    "ds_events_over_time": {
+      "type": "ds.search",
+      "name": "Events Over Time by Type",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") | eval audit_type=case(sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\",\"Admin Activity\", sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\",\"Data Access\", 1=1,\"Other\") | timechart span=1h count by audit_type"
+      }
+    },
+    "ds_by_type": {
+      "type": "ds.search",
+      "name": "Events by Type",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") by sourcetype | eval sourcetype=replace(sourcetype,\"FAKE:google:gcp:pubsub:audit:\",\"\") | eval sourcetype=replace(sourcetype,\":demo\",\"\")"
+      }
+    },
+    "ds_top_methods": {
+      "type": "ds.search",
+      "name": "Top Methods",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") methodName=* | stats count by methodName | sort -count | head 15 | rename methodName as \"Method\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity:demo\" OR sourcetype=\"FAKE:google:gcp:pubsub:audit:data_access:demo\") | table _time principalEmail methodName resourceName demo_id | sort -_time | head 30 | rename principalEmail as \"Principal\" methodName as \"Method\" resourceName as \"Resource\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — GCP Audit\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:google:gcp:pubsub:audit:admin_activity:demo`, `FAKE:google:gcp:pubsub:audit:data_access:demo` |\n| **Platform** | Google Cloud Platform |\n| **Project** | faketshirtcompany-prod-01 (us-central1) |\n| **Format** | JSON (via Pub/Sub) |\n| **Scenarios** | exfil |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_principals": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Principals",
+      "dataSources": { "primary": "ds_unique_principals" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_methods": {
+      "type": "splunk.singlevalue",
+      "title": "Method Count",
+      "dataSources": { "primary": "ds_method_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": { "primary": "ds_scenario_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_over_time": {
+      "type": "splunk.area",
+      "title": "Events Over Time by Type",
+      "dataSources": { "primary": "ds_events_over_time" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_by_type": {
+      "type": "splunk.pie",
+      "title": "Events by Type",
+      "dataSources": { "primary": "ds_by_type" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB"]
+      }
+    },
+    "viz_top_methods": {
+      "type": "splunk.bar",
+      "title": "Top Methods",
+      "dataSources": { "primary": "ds_top_methods" },
+      "options": {
+        "seriesColors": ["#53A051"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 160 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_principals", "type": "block", "position": { "x": 300, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_methods", "type": "block", "position": { "x": 600, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 280, "w": 750, "h": 350 } },
+      { "item": "viz_by_type", "type": "block", "position": { "x": 750, "y": 280, "w": 450, "h": 350 } },
+      { "item": "viz_top_methods", "type": "block", "position": { "x": 0, "y": 630, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 930, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 980, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

@@ -1,0 +1,392 @@
+<dashboard version="2" theme="dark">
+  <label>Discovery - IT Operations</label>
+  <description>Infrastructure health — Windows, Linux, Perfmon metrics, and ServiceNow incidents</description>
+  <definition><![CDATA[
+{
+  "title": "Discovery - IT Operations",
+  "description": "Infrastructure health — Windows, Linux, Perfmon metrics, and ServiceNow incidents",
+  "dataSources": {
+    "ds_total_infra_events": {
+      "type": "ds.search",
+      "name": "Total Infrastructure Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:Perfmon:*\" OR sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:cpu\" OR sourcetype=\"FAKE:vmstat\" OR sourcetype=\"FAKE:df\" OR sourcetype=\"FAKE:iostat\" OR sourcetype=\"FAKE:interfaces\" OR sourcetype=\"FAKE:servicenow:*\" OR sourcetype=\"FAKE:mssql:*\") by _time span=1h"
+      }
+    },
+    "ds_active_incidents": {
+      "type": "ds.search",
+      "name": "Active ServiceNow Incidents",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | stats latest(state) as state by number | where state!=\"Closed\" AND state!=\"Resolved\" | stats count"
+      }
+    },
+    "ds_hosts_reporting": {
+      "type": "ds.search",
+      "name": "Hosts Reporting Count",
+      "options": {
+        "query": "| tstats dc(host) as count where index=fake_tshrt (sourcetype=\"FAKE:Perfmon:*\" OR sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:cpu\" OR sourcetype=\"FAKE:vmstat\")"
+      }
+    },
+    "ds_ops_scenario_events": {
+      "type": "ds.search",
+      "name": "Operations Scenario Events",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (IDX_demo_id=memory_leak OR IDX_demo_id=cpu_runaway OR IDX_demo_id=disk_filling) by _time span=1h"
+      }
+    },
+    "ds_cpu_timeline": {
+      "type": "ds.search",
+      "name": "CPU Usage Over Time by Host",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" OR sourcetype=\"FAKE:Perfmon:Generic\" object=Processor counter=\"% Processor Time\" instance=_Total | timechart span=1h avg(value) by host"
+      }
+    },
+    "ds_memory_timeline": {
+      "type": "ds.search",
+      "name": "Memory Usage Over Time by Host",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" OR sourcetype=\"FAKE:Perfmon:Generic\" object=Memory counter=\"Available MBytes\" | timechart span=1h avg(value) by host"
+      }
+    },
+    "ds_disk_usage": {
+      "type": "ds.search",
+      "name": "Disk Usage by Host",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:df\" | stats latest(UsedPct) as used_pct by host | sort -used_pct"
+      }
+    },
+    "ds_servicenow_incidents": {
+      "type": "ds.search",
+      "name": "ServiceNow Incident Summary",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | stats latest(state) as state latest(priority) as priority latest(short_description) as description latest(assignment_group) as group latest(assigned_to_name) as assignee by number | eval _color_rank=case(priority==\"1\",1, priority==\"2\",2, priority==\"3\",3, priority==\"4\",4, 1=1,5) | sort priority -number | rename number as \"Incident\" state as \"State\" priority as \"Priority\" description as \"Description\" group as \"Group\" assignee as \"Assignee\""
+      }
+    },
+    "ds_wineventlog_by_type": {
+      "type": "ds.search",
+      "name": "Windows Events by LogName",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" by host source | rename source as LogName | sort -count"
+      }
+    },
+    "ds_infra_by_sourcetype": {
+      "type": "ds.search",
+      "name": "Infrastructure Events by Sourcetype",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:Perfmon:*\" OR sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:cpu\" OR sourcetype=\"FAKE:vmstat\" OR sourcetype=\"FAKE:df\" OR sourcetype=\"FAKE:iostat\" OR sourcetype=\"FAKE:interfaces\" OR sourcetype=\"FAKE:servicenow:*\" OR sourcetype=\"FAKE:mssql:*\") by _time sourcetype span=1h | eval category=case(match(sourcetype,\"Perfmon\"),\"Perfmon\", match(sourcetype,\"WinEventLog\"),\"WinEventLog\", match(sourcetype,\"cpu|vmstat|df|iostat|interfaces\"),\"Linux\", match(sourcetype,\"servicenow\"),\"ServiceNow\", match(sourcetype,\"mssql\"),\"MSSQL\", 1=1,\"Other\") | timechart span=1h sum(count) by category"
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# IT Operations\n\nInfrastructure health monitoring across Windows, Linux, and ITSM. Tracks CPU, memory, disk metrics and ServiceNow incidents. Operations scenarios: `memory_leak`, `cpu_runaway`, `disk_filling`.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_infra_events": {
+      "type": "splunk.singlevalue",
+      "title": "Infrastructure Events",
+      "dataSources": {
+        "primary": "ds_total_infra_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00D2FF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_active_incidents": {
+      "type": "splunk.singlevalue",
+      "title": "Active Incidents",
+      "dataSources": {
+        "primary": "ds_active_incidents"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "> majorValue | rangeValue(incidentColorConfig)",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      },
+      "context": {
+        "incidentColorConfig": [
+          { "value": "#53A051", "to": 3 },
+          { "value": "#F8BE34", "from": 3, "to": 8 },
+          { "value": "#DC4E41", "from": 8 }
+        ]
+      }
+    },
+    "viz_kpi_hosts": {
+      "type": "splunk.singlevalue",
+      "title": "Hosts Reporting",
+      "dataSources": {
+        "primary": "ds_hosts_reporting"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_ops_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Ops Scenario Events",
+      "dataSources": {
+        "primary": "ds_ops_scenario_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#F8BE34",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#F8BE34"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_infra_timeline": {
+      "type": "splunk.area",
+      "title": "Infrastructure Events by Category",
+      "dataSources": {
+        "primary": "ds_infra_by_sourcetype"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_cpu_timeline": {
+      "type": "splunk.line",
+      "title": "CPU Usage (% Processor Time)",
+      "dataSources": {
+        "primary": "ds_cpu_timeline"
+      },
+      "options": {
+        "legendDisplay": "bottom",
+        "nullValueDisplay": "connect",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "% CPU",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#DC4E41", "#F8BE34", "#53A051", "#009CEB", "#F1813F", "#00CDAF"]
+      },
+      "showProgressBar": true
+    },
+    "viz_memory_timeline": {
+      "type": "splunk.line",
+      "title": "Available Memory (MBytes)",
+      "dataSources": {
+        "primary": "ds_memory_timeline"
+      },
+      "options": {
+        "legendDisplay": "bottom",
+        "nullValueDisplay": "connect",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "MBytes Free",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#DC4E41", "#F8BE34", "#53A051", "#009CEB", "#F1813F", "#00CDAF"]
+      },
+      "showProgressBar": true
+    },
+    "viz_disk_usage": {
+      "type": "splunk.bar",
+      "title": "Disk Usage by Host",
+      "dataSources": {
+        "primary": "ds_disk_usage"
+      },
+      "options": {
+        "seriesColors": ["> primary | seriesByName('used_pct') | rangeValue(diskColorConfig)"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "% Used",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "context": {
+        "diskColorConfig": [
+          { "value": "#53A051", "to": 70 },
+          { "value": "#F8BE34", "from": 70, "to": 85 },
+          { "value": "#DC4E41", "from": 85 }
+        ]
+      },
+      "showProgressBar": true
+    },
+    "viz_incidents_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### ServiceNow Incidents",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_servicenow_table": {
+      "type": "splunk.table",
+      "title": "Incident Tracker",
+      "dataSources": {
+        "primary": "ds_servicenow_incidents"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false,
+        "showInternalFields": false,
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByName(\"_color_rank\") | rangeValue(priorityRowColors)"
+        }
+      },
+      "context": {
+        "priorityRowColors": [
+          { "from": 0, "to": 1.5, "value": "#DC4E41" },
+          { "from": 1.5, "to": 2.5, "value": "#F1813F" },
+          { "from": 2.5, "to": 3.5, "value": "#F8BE34" },
+          { "from": 3.5, "to": 4.5, "value": "#53A051" },
+          { "from": 4.5, "to": 6, "value": "#5794DE" }
+        ]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_wineventlog": {
+      "type": "splunk.column",
+      "title": "Windows Events by Host & LogName",
+      "dataSources": {
+        "primary": "ds_wineventlog_by_type"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "bottom",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#DC4E41", "#F8BE34"]
+      },
+      "showProgressBar": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 100 }
+      },
+      {
+        "item": "viz_kpi_infra_events",
+        "type": "block",
+        "position": { "x": 0, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_active_incidents",
+        "type": "block",
+        "position": { "x": 300, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_hosts",
+        "type": "block",
+        "position": { "x": 600, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_ops_scenarios",
+        "type": "block",
+        "position": { "x": 900, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_infra_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 220, "w": 1200, "h": 300 }
+      },
+      {
+        "item": "viz_cpu_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 520, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_memory_timeline",
+        "type": "block",
+        "position": { "x": 600, "y": 520, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_disk_usage",
+        "type": "block",
+        "position": { "x": 0, "y": 820, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_wineventlog",
+        "type": "block",
+        "position": { "x": 600, "y": 820, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_incidents_header",
+        "type": "block",
+        "position": { "x": 0, "y": 1120, "w": 1200, "h": 50 }
+      },
+      {
+        "item": "viz_servicenow_table",
+        "type": "block",
+        "position": { "x": 0, "y": 1170, "w": 1200, "h": 400 }
+      }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

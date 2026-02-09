@@ -1,0 +1,389 @@
+<dashboard version="2" theme="dark">
+  <label>Discovery - SOC Overview</label>
+  <description>Security Operations Center — Cross-source event correlation and scenario tracking</description>
+  <definition><![CDATA[
+{
+  "title": "Discovery - SOC Overview",
+  "description": "Security Operations Center — Cross-source event correlation and scenario tracking",
+  "dataSources": {
+    "ds_total_security_events": {
+      "type": "ds.search",
+      "name": "Total Security Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:securityappliances\" OR sourcetype=\"FAKE:aws:cloudtrail\" OR sourcetype=\"FAKE:azure:aad:*\" OR sourcetype=\"FAKE:o365:management:activity\") by _time span=1h"
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt IDX_demo_id=* by _time span=1h"
+      }
+    },
+    "ds_unique_hosts": {
+      "type": "ds.search",
+      "name": "Unique Hosts Count",
+      "options": {
+        "query": "| tstats dc(host) as count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:*\" OR sourcetype=\"FAKE:aws:cloudtrail\" OR sourcetype=\"FAKE:azure:aad:*\")"
+      }
+    },
+    "ds_unique_users": {
+      "type": "ds.search",
+      "name": "Unique Users Count",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:azure:aad:signin\" OR sourcetype=\"FAKE:aws:cloudtrail\" OR sourcetype=\"FAKE:o365:management:activity\") | stats dc(user) as count"
+      }
+    },
+    "ds_timeline_by_category": {
+      "type": "ds.search",
+      "name": "Security Events by Category Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:*\" OR sourcetype=\"FAKE:aws:cloudtrail\" OR sourcetype=\"FAKE:google:gcp:*\" OR sourcetype=\"FAKE:azure:aad:*\" OR sourcetype=\"FAKE:o365:*\" OR sourcetype=\"FAKE:WinEventLog\") by _time sourcetype span=1h | eval category=case(match(sourcetype,\"cisco:asa\"),\"Firewall (ASA)\", match(sourcetype,\"meraki\"),\"Meraki\", match(sourcetype,\"aws\"),\"AWS CloudTrail\", match(sourcetype,\"gcp\"),\"GCP Audit\", match(sourcetype,\"azure:aad\"),\"Entra ID\", match(sourcetype,\"o365\"),\"M365 Audit\", match(sourcetype,\"WinEventLog\"),\"Windows Events\", 1=1,\"Other\") | timechart span=1h sum(count) by category"
+      }
+    },
+    "ds_scenario_breakdown": {
+      "type": "ds.search",
+      "name": "Events by Scenario",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | stats count by demo_id | sort -count"
+      }
+    },
+    "ds_active_scenarios": {
+      "type": "ds.search",
+      "name": "Active Scenario Summary",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | stats count dc(sourcetype) as sourcetypes dc(host) as hosts min(_time) as first_seen max(_time) as last_seen by demo_id | eval category=case(demo_id==\"exfil\" OR demo_id==\"ransomware_attempt\",\"Security\", demo_id==\"memory_leak\" OR demo_id==\"cpu_runaway\" OR demo_id==\"disk_filling\",\"Operations\", 1=1,\"Network\") | eval _color_rank=case(demo_id==\"exfil\",1, demo_id==\"ransomware_attempt\",2, demo_id==\"memory_leak\",3, demo_id==\"cpu_runaway\",4, demo_id==\"disk_filling\",5, demo_id==\"firewall_misconfig\",6, demo_id==\"certificate_expiry\",7) | eval first_seen=strftime(first_seen,\"%Y-%m-%d %H:%M\"), last_seen=strftime(last_seen,\"%Y-%m-%d %H:%M\") | rename demo_id as \"Scenario\" count as \"Events\" sourcetypes as \"Sources\" hosts as \"Hosts\" first_seen as \"First Seen\" last_seen as \"Last Seen\" category as \"Category\" | sort Category Scenario"
+      }
+    },
+    "ds_top_src_ips": {
+      "type": "ds.search",
+      "name": "Top Source IPs (ASA)",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=* | stats count by src | sort -count | head 15"
+      }
+    },
+    "ds_auth_failures": {
+      "type": "ds.search",
+      "name": "Authentication Failures Over Time",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0) OR (sourcetype=\"FAKE:WinEventLog\" EventCode=4625) | timechart span=1h count by sourcetype"
+      }
+    },
+    "ds_recent_scenario_events": {
+      "type": "ds.search",
+      "name": "Recent Scenario Events",
+      "options": {
+        "query": "index=fake_tshrt demo_id=* | eval event_summary=coalesce(eventName, action, operationName, EventCode, short_description, \"event\") | table _time demo_id sourcetype host user src event_summary | sort -_time | head 50 | rename demo_id as \"Scenario\" sourcetype as \"Sourcetype\" host as \"Host\" user as \"User\" src as \"Source\" event_summary as \"Event\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# SOC Overview\n\nCross-source security event correlation across firewall, cloud, identity, and endpoint data. Scenario events are tagged with `demo_id` for investigation.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_security_events": {
+      "type": "splunk.singlevalue",
+      "title": "Security Events",
+      "dataSources": {
+        "primary": "ds_total_security_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00D2FF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_scenario_events": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": {
+        "primary": "ds_scenario_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#DC4E41",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#DC4E41"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_unique_hosts": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Hosts",
+      "dataSources": {
+        "primary": "ds_unique_hosts"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_unique_users": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Users",
+      "dataSources": {
+        "primary": "ds_unique_users"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#009CEB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_timeline": {
+      "type": "splunk.area",
+      "title": "Security Events by Category",
+      "dataSources": {
+        "primary": "ds_timeline_by_category"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#DC4E41", "#F1813F", "#00D2FF", "#53A051", "#7B56DB", "#009CEB", "#F8BE34", "#00CDAF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_scenario_donut": {
+      "type": "splunk.pie",
+      "title": "Events by Scenario",
+      "dataSources": {
+        "primary": "ds_scenario_breakdown"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "exfil": "#DC4E41",
+          "ransomware_attempt": "#F1813F",
+          "memory_leak": "#F8BE34",
+          "cpu_runaway": "#FF677B",
+          "disk_filling": "#7B56DB",
+          "firewall_misconfig": "#009CEB",
+          "certificate_expiry": "#00CDAF"
+        }
+      }
+    },
+    "viz_scenario_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Active Scenarios",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_scenario_table": {
+      "type": "splunk.table",
+      "title": "Scenario Detail",
+      "dataSources": {
+        "primary": "ds_active_scenarios"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false,
+        "showInternalFields": false,
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByName(\"_color_rank\") | rangeValue(scenarioRowColors)"
+        }
+      },
+      "context": {
+        "scenarioRowColors": [
+          { "from": 0, "to": 1.5, "value": "#DC4E41" },
+          { "from": 1.5, "to": 2.5, "value": "#F1813F" },
+          { "from": 2.5, "to": 3.5, "value": "#F8BE34" },
+          { "from": 3.5, "to": 4.5, "value": "#FF677B" },
+          { "from": 4.5, "to": 5.5, "value": "#7B56DB" },
+          { "from": 5.5, "to": 6.5, "value": "#009CEB" },
+          { "from": 6.5, "to": 8, "value": "#00CDAF" }
+        ]
+      },
+      "showProgressBar": true
+    },
+    "viz_top_src_ips": {
+      "type": "splunk.bar",
+      "title": "Top Source IPs (Firewall)",
+      "dataSources": {
+        "primary": "ds_top_src_ips"
+      },
+      "options": {
+        "seriesColors": ["#00D2FF"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_auth_failures": {
+      "type": "splunk.line",
+      "title": "Authentication Failures",
+      "dataSources": {
+        "primary": "ds_auth_failures"
+      },
+      "options": {
+        "legendDisplay": "bottom",
+        "nullValueDisplay": "zero",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Failures / hour",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#DC4E41", "#F1813F"]
+      },
+      "showProgressBar": true
+    },
+    "viz_events_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Scenario Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_recent_events": {
+      "type": "splunk.table",
+      "title": "Latest Scenario Events",
+      "dataSources": {
+        "primary": "ds_recent_scenario_events"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 80 }
+      },
+      {
+        "item": "viz_kpi_security_events",
+        "type": "block",
+        "position": { "x": 0, "y": 80, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_scenario_events",
+        "type": "block",
+        "position": { "x": 300, "y": 80, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_unique_hosts",
+        "type": "block",
+        "position": { "x": 600, "y": 80, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_unique_users",
+        "type": "block",
+        "position": { "x": 900, "y": 80, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 200, "w": 750, "h": 350 }
+      },
+      {
+        "item": "viz_scenario_donut",
+        "type": "block",
+        "position": { "x": 750, "y": 200, "w": 450, "h": 350 }
+      },
+      {
+        "item": "viz_scenario_header",
+        "type": "block",
+        "position": { "x": 0, "y": 550, "w": 1200, "h": 50 }
+      },
+      {
+        "item": "viz_scenario_table",
+        "type": "block",
+        "position": { "x": 0, "y": 600, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_top_src_ips",
+        "type": "block",
+        "position": { "x": 600, "y": 600, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_auth_failures",
+        "type": "block",
+        "position": { "x": 0, "y": 900, "w": 1200, "h": 300 }
+      },
+      {
+        "item": "viz_events_header",
+        "type": "block",
+        "position": { "x": 0, "y": 1200, "w": 1200, "h": 50 }
+      },
+      {
+        "item": "viz_recent_events",
+        "type": "block",
+        "position": { "x": 0, "y": 1250, "w": 1200, "h": 400 }
+      }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

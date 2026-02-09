@@ -1,0 +1,379 @@
+<dashboard version="2" theme="dark">
+  <label>Discovery - Network Operations</label>
+  <description>Network device health — Cisco ASA firewall, Meraki SD-WAN, wireless, switching, cameras, and sensors</description>
+  <definition><![CDATA[
+{
+  "title": "Discovery - Network Operations",
+  "description": "Network device health — Cisco ASA firewall, Meraki SD-WAN, wireless, switching, cameras, and sensors",
+  "dataSources": {
+    "ds_total_network_events": {
+      "type": "ds.search",
+      "name": "Total Network Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:*\") by _time span=1h"
+      }
+    },
+    "ds_unique_devices": {
+      "type": "ds.search",
+      "name": "Unique Network Devices",
+      "options": {
+        "query": "| tstats dc(host) as count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:*\")"
+      }
+    },
+    "ds_ids_alerts": {
+      "type": "ds.search",
+      "name": "IDS/Security Alert Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:securityappliances\" type=ids_alert OR type=security_event | stats count"
+      }
+    },
+    "ds_net_scenario_events": {
+      "type": "ds.search",
+      "name": "Network Scenario Events",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (IDX_demo_id=firewall_misconfig OR IDX_demo_id=certificate_expiry) by _time span=1h"
+      }
+    },
+    "ds_timeline_by_device": {
+      "type": "ds.search",
+      "name": "Events by Device Type Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:*\") by _time sourcetype span=1h | eval device_type=case(match(sourcetype,\"cisco:asa\"),\"ASA Firewall\", match(sourcetype,\"securityappliances\"),\"Meraki MX\", match(sourcetype,\"accesspoints\") AND NOT match(sourcetype,\"health\"),\"Meraki MR\", match(sourcetype,\"switches\") AND NOT match(sourcetype,\"health\"),\"Meraki MS\", match(sourcetype,\"cameras\"),\"Meraki MV\", match(sourcetype,\"sensors\"),\"Meraki MT\", match(sourcetype,\"health\"),\"Health Metrics\", 1=1,\"Other\") | timechart span=1h sum(count) by device_type"
+      }
+    },
+    "ds_events_by_device": {
+      "type": "ds.search",
+      "name": "Events by Device Type",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:meraki:*\") by sourcetype | eval device_type=case(match(sourcetype,\"cisco:asa\"),\"ASA Firewall\", match(sourcetype,\"securityappliances\"),\"Meraki MX\", match(sourcetype,\"accesspoints\") AND NOT match(sourcetype,\"health\"),\"Meraki MR\", match(sourcetype,\"switches\") AND NOT match(sourcetype,\"health\"),\"Meraki MS\", match(sourcetype,\"cameras\"),\"Meraki MV\", match(sourcetype,\"sensors\"),\"Meraki MT\", match(sourcetype,\"health\"),\"Health Metrics\", 1=1,\"Other\") | stats sum(count) as count by device_type | sort -count"
+      }
+    },
+    "ds_asa_actions": {
+      "type": "ds.search",
+      "name": "ASA Firewall Actions",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | stats count by message_id | sort -count | head 15 | rename message_id as \"Message ID\""
+      }
+    },
+    "ds_top_denied": {
+      "type": "ds.search",
+      "name": "Top Denied Connections (ASA)",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=Deny OR action=denied src=* dst=* | stats count by src dst | sort -count | head 15 | rename src as \"Source\" dst as \"Destination\""
+      }
+    },
+    "ds_wireless_clients": {
+      "type": "ds.search",
+      "name": "Wireless Clients Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:accesspoints\" type=association | timechart span=1h dc(client_mac) as clients"
+      }
+    },
+    "ds_meraki_health": {
+      "type": "ds.search",
+      "name": "Meraki Device Health Summary",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:meraki:accesspoints:health\" OR sourcetype=\"FAKE:meraki:switches:health\") | stats latest(status) as status latest(uptime) as uptime by host | eval _color_rank=case(status==\"online\",1, status==\"alerting\",2, 1=1,3) | rename host as \"Device\" status as \"Status\" uptime as \"Uptime\" | sort Device"
+      }
+    },
+    "ds_camera_events": {
+      "type": "ds.search",
+      "name": "Camera Events by Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:cameras\" | stats count by type | sort -count"
+      }
+    },
+    "ds_sensor_alerts": {
+      "type": "ds.search",
+      "name": "Sensor Alerts",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:sensors\" | stats count by type host | sort -count | head 20 | rename type as \"Alert Type\" host as \"Sensor\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Network Operations\n\nCisco ASA perimeter firewall and Meraki SD-WAN/wireless/switching health. Covers all 3 locations (Boston, Atlanta, Austin). Network scenarios: `firewall_misconfig`, `certificate_expiry`.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_network_events": {
+      "type": "splunk.singlevalue",
+      "title": "Network Events",
+      "dataSources": {
+        "primary": "ds_total_network_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00D2FF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_devices": {
+      "type": "splunk.singlevalue",
+      "title": "Network Devices",
+      "dataSources": {
+        "primary": "ds_unique_devices"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_ids": {
+      "type": "splunk.singlevalue",
+      "title": "IDS / Security Alerts",
+      "dataSources": {
+        "primary": "ds_ids_alerts"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "> majorValue | rangeValue(idsColorConfig)",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      },
+      "context": {
+        "idsColorConfig": [
+          { "value": "#53A051", "to": 10 },
+          { "value": "#F8BE34", "from": 10, "to": 50 },
+          { "value": "#DC4E41", "from": 50 }
+        ]
+      }
+    },
+    "viz_kpi_net_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Net Scenario Events",
+      "dataSources": {
+        "primary": "ds_net_scenario_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#009CEB",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#009CEB"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_timeline": {
+      "type": "splunk.area",
+      "title": "Network Events by Device Type",
+      "dataSources": {
+        "primary": "ds_timeline_by_device"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#DC4E41", "#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#009CEB", "#F1813F", "#00CDAF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_device_donut": {
+      "type": "splunk.pie",
+      "title": "Events by Device Type",
+      "dataSources": {
+        "primary": "ds_events_by_device"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_asa_messages": {
+      "type": "splunk.bar",
+      "title": "Top ASA Message IDs",
+      "dataSources": {
+        "primary": "ds_asa_actions"
+      },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_top_denied": {
+      "type": "splunk.table",
+      "title": "Top Denied Connections",
+      "dataSources": {
+        "primary": "ds_top_denied"
+      },
+      "options": {
+        "count": 15,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true
+    },
+    "viz_wireless_clients": {
+      "type": "splunk.area",
+      "title": "Wireless Clients Over Time",
+      "dataSources": {
+        "primary": "ds_wireless_clients"
+      },
+      "options": {
+        "legendDisplay": "off",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.5,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Unique Clients",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#7B56DB"]
+      },
+      "showProgressBar": true
+    },
+    "viz_camera_events": {
+      "type": "splunk.pie",
+      "title": "Camera Events by Type",
+      "dataSources": {
+        "primary": "ds_camera_events"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34"]
+      }
+    },
+    "viz_sensor_alerts": {
+      "type": "splunk.table",
+      "title": "Sensor Alerts",
+      "dataSources": {
+        "primary": "ds_sensor_alerts"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 100 }
+      },
+      {
+        "item": "viz_kpi_network_events",
+        "type": "block",
+        "position": { "x": 0, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_devices",
+        "type": "block",
+        "position": { "x": 300, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_ids",
+        "type": "block",
+        "position": { "x": 600, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_net_scenarios",
+        "type": "block",
+        "position": { "x": 900, "y": 100, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 220, "w": 750, "h": 350 }
+      },
+      {
+        "item": "viz_device_donut",
+        "type": "block",
+        "position": { "x": 750, "y": 220, "w": 450, "h": 350 }
+      },
+      {
+        "item": "viz_asa_messages",
+        "type": "block",
+        "position": { "x": 0, "y": 570, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_top_denied",
+        "type": "block",
+        "position": { "x": 600, "y": 570, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_wireless_clients",
+        "type": "block",
+        "position": { "x": 0, "y": 870, "w": 600, "h": 300 }
+      },
+      {
+        "item": "viz_camera_events",
+        "type": "block",
+        "position": { "x": 600, "y": 870, "w": 300, "h": 300 }
+      },
+      {
+        "item": "viz_sensor_alerts",
+        "type": "block",
+        "position": { "x": 900, "y": 870, "w": 300, "h": 300 }
+      }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

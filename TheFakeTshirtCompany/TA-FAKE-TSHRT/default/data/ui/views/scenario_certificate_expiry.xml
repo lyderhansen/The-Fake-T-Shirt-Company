@@ -1,0 +1,321 @@
+<dashboard version="2" theme="dark">
+  <label>Scenario - Certificate Expiry</label>
+  <description>SSL certificate expiration causing 7-hour service outage — midnight expiry, 6-hour detection gap, emergency renewal</description>
+  <definition><![CDATA[
+{
+  "title": "Scenario - Certificate Expiry",
+  "description": "SSL certificate expiration causing 7-hour service outage — midnight expiry, 6-hour detection gap, emergency renewal",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Certificate Expiry Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt IDX_demo_id=certificate_expiry by _time span=15m"
+      }
+    },
+    "ds_affected_sourcetypes": {
+      "type": "ds.search",
+      "name": "Affected Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt IDX_demo_id=certificate_expiry"
+      }
+    },
+    "ds_ssl_failures": {
+      "type": "ds.search",
+      "name": "Total SSL Failures",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry sourcetype=\"FAKE:cisco:asa\" | stats count"
+      }
+    },
+    "ds_http_errors": {
+      "type": "ds.search",
+      "name": "Total HTTP Errors",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry sourcetype=\"FAKE:access_combined\" status>=500 | stats count"
+      }
+    },
+    "ds_asa_timeline": {
+      "type": "ds.search",
+      "name": "ASA SSL Events Over Time",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry sourcetype=\"FAKE:cisco:asa\" | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | eval event_type=case(message_id==\"725007\", \"SSL Handshake Fail\", message_id==\"725006\", \"Cert Expired\", message_id==\"302014\", \"Connection Reset\", message_id==\"725001\", \"SSL Session OK\", 1=1, \"Other\") | timechart span=15m count by event_type"
+      }
+    },
+    "ds_access_timeline": {
+      "type": "ds.search",
+      "name": "HTTP Status Codes Over Time",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry sourcetype=\"FAKE:access_combined\" | eval status_group=case(status>=500, \"5xx Error\", status>=400, \"4xx Error\", status>=200 AND status<300, \"2xx OK\", 1=1, \"Other\") | timechart span=15m count by status_group"
+      }
+    },
+    "ds_cross_source": {
+      "type": "ds.search",
+      "name": "Events by Source Over Time",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry | eval source_label=case(match(sourcetype,\"cisco:asa\"), \"ASA Firewall\", match(sourcetype,\"access_combined\"), \"Apache Access\", match(sourcetype,\"servicenow\"), \"ServiceNow\", 1=1, sourcetype) | timechart span=15m count by source_label"
+      }
+    },
+    "ds_events_by_source": {
+      "type": "ds.search",
+      "name": "Events by Source Type",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry | eval source_label=case(match(sourcetype,\"cisco:asa\"), \"ASA Firewall\", match(sourcetype,\"access_combined\"), \"Apache Access\", match(sourcetype,\"servicenow\"), \"ServiceNow\", 1=1, sourcetype) | stats count by source_label | sort -count"
+      }
+    },
+    "ds_event_sequence": {
+      "type": "ds.search",
+      "name": "Event-by-Event Sequence",
+      "options": {
+        "query": "index=fake_tshrt demo_id=certificate_expiry | eval event_detail=coalesce(status, action, short_description, \"event\") | eval source_label=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"access_combined\"), \"Apache\", match(sourcetype,\"servicenow\"), \"SNOW\", 1=1, sourcetype) | table _time source_label host event_detail | sort _time | head 50 | rename source_label as \"Source\" host as \"Host\" event_detail as \"Event\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Scenario — Certificate Expiry\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `certificate_expiry` |\n| **Category** | Network |\n| **Duration** | Day 12, 00:00–07:00 (7 hours) |\n| **Severity** | High |\n| **Target** | FW-EDGE-01 + WEB-01/WEB-02 |\n| **Certificate** | *.theFakeTshirtCompany.com (DigiCert) |\n| **Outcome** | Emergency cert renewal at 07:00, service restored |\n\n**Scenario Summary:** Wildcard SSL certificate for *.theFakeTshirtCompany.com expires at midnight on Day 12. SSL handshake failures begin immediately, causing 502/503 errors for all HTTPS traffic. Low overnight traffic masks the issue for 6 hours. NOC engineer notices alerts at 06:15, identifies expired cert at 06:30, initiates emergency renewal at 06:45. New certificate installed at 07:00, services restore immediately. Preventable outage — no certificate monitoring/automation in place.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": {
+        "primary": "ds_total_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00CDAF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00CDAF"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Affected Sources",
+      "dataSources": {
+        "primary": "ds_affected_sourcetypes"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_ssl_failures": {
+      "type": "splunk.singlevalue",
+      "title": "SSL Failures (ASA)",
+      "dataSources": {
+        "primary": "ds_ssl_failures"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_http_errors": {
+      "type": "splunk.singlevalue",
+      "title": "HTTP 5xx Errors",
+      "dataSources": {
+        "primary": "ds_http_errors"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_asa_timeline": {
+      "type": "splunk.area",
+      "title": "ASA SSL Events Over Time",
+      "dataSources": {
+        "primary": "ds_asa_timeline"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#DC4E41", "#F1813F", "#F8BE34", "#53A051"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_access_timeline": {
+      "type": "splunk.area",
+      "title": "HTTP Status Codes Over Time",
+      "dataSources": {
+        "primary": "ds_access_timeline"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Requests",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#53A051", "#F8BE34", "#DC4E41"]
+      },
+      "showProgressBar": true
+    },
+    "viz_cross_source": {
+      "type": "splunk.area",
+      "title": "Cross-Source Correlation",
+      "dataSources": {
+        "primary": "ds_cross_source"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00CDAF", "#00D2FF", "#009CEB"]
+      },
+      "showProgressBar": true
+    },
+    "viz_events_donut": {
+      "type": "splunk.pie",
+      "title": "Events by Source",
+      "dataSources": {
+        "primary": "ds_events_by_source"
+      },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00CDAF", "#00D2FF", "#009CEB"]
+      }
+    },
+    "viz_evidence_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Event Sequence\n\n| Time | Event |\n|------|-------|\n| 00:00 | SSL certificate expires |\n| 00:00–06:00 | SSL failures (low traffic overnight) |\n| 06:15 | NOC engineer notices alerts |\n| 06:30 | Root cause identified |\n| 06:45 | Emergency cert renewal initiated |\n| 07:00 | New certificate installed, service restored |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_event_sequence": {
+      "type": "splunk.table",
+      "title": "Complete Event Sequence",
+      "dataSources": {
+        "primary": "ds_event_sequence"
+      },
+      "options": {
+        "count": 50,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 280 }
+      },
+      {
+        "item": "viz_kpi_total_events",
+        "type": "block",
+        "position": { "x": 0, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_sourcetypes",
+        "type": "block",
+        "position": { "x": 300, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_ssl_failures",
+        "type": "block",
+        "position": { "x": 600, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_http_errors",
+        "type": "block",
+        "position": { "x": 900, "y": 280, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_asa_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 400, "w": 600, "h": 350 }
+      },
+      {
+        "item": "viz_access_timeline",
+        "type": "block",
+        "position": { "x": 600, "y": 400, "w": 600, "h": 350 }
+      },
+      {
+        "item": "viz_cross_source",
+        "type": "block",
+        "position": { "x": 0, "y": 750, "w": 750, "h": 300 }
+      },
+      {
+        "item": "viz_events_donut",
+        "type": "block",
+        "position": { "x": 750, "y": 750, "w": 450, "h": 300 }
+      },
+      {
+        "item": "viz_evidence_header",
+        "type": "block",
+        "position": { "x": 0, "y": 1050, "w": 1200, "h": 200 }
+      },
+      {
+        "item": "viz_event_sequence",
+        "type": "block",
+        "position": { "x": 0, "y": 1250, "w": 1200, "h": 400 }
+      }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

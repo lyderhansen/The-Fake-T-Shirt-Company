@@ -24,14 +24,14 @@
       "type": "ds.search",
       "name": "Active Scenario Count",
       "options": {
-        "query": "index=fake_tshrt demo_id=* | stats dc(demo_id) as count"
+        "query": "| tstats dc(IDX_demo_id) as count where index=fake_tshrt IDX_demo_id=*"
       }
     },
     "ds_scenario_events": {
       "type": "ds.search",
       "name": "Scenario Events Over Time",
       "options": {
-        "query": "index=fake_tshrt demo_id=* | timechart span=1d count"
+        "query": "| tstats count where index=fake_tshrt IDX_demo_id=* by _time span=1d"
       }
     },
     "ds_event_timeline": {

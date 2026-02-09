@@ -1,0 +1,249 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Meraki</label>
+  <description>Meraki SD-WAN, wireless, switching, cameras, and sensors across all locations</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Meraki",
+  "description": "Meraki SD-WAN, wireless, switching, cameras, and sensors across all locations",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Meraki Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:meraki:*\" by _time span=1h"
+      }
+    },
+    "ds_unique_devices": {
+      "type": "ds.search",
+      "name": "Unique Device Count",
+      "options": {
+        "query": "| tstats dc(host) as count where index=fake_tshrt sourcetype=\"FAKE:meraki:*\""
+      }
+    },
+    "ds_sourcetype_count": {
+      "type": "ds.search",
+      "name": "Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt sourcetype=\"FAKE:meraki:*\""
+      }
+    },
+    "ds_scenario_events": {
+      "type": "ds.search",
+      "name": "Scenario Event Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:*\" demo_id=* | stats count"
+      }
+    },
+    "ds_by_device_type": {
+      "type": "ds.search",
+      "name": "Events by Device Type Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:meraki:*\" by _time sourcetype span=1h | eval device=case(match(sourcetype,\"securityappliances\"), \"MX (Security)\", match(sourcetype,\"accesspoints\") AND NOT match(sourcetype,\"health\"), \"MR (Wireless)\", match(sourcetype,\"switches\") AND NOT match(sourcetype,\"health\"), \"MS (Switching)\", match(sourcetype,\"cameras\"), \"MV (Camera)\", match(sourcetype,\"sensors\"), \"MT (Sensor)\", match(sourcetype,\"health\"), \"Health Metrics\", 1=1, \"Other\") | timechart span=1h sum(count) by device"
+      }
+    },
+    "ds_by_device_donut": {
+      "type": "ds.search",
+      "name": "Events by Device Type",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:meraki:*\" by sourcetype | eval device=case(match(sourcetype,\"securityappliances\"), \"MX (Security)\", match(sourcetype,\"accesspoints\") AND NOT match(sourcetype,\"health\"), \"MR (Wireless)\", match(sourcetype,\"switches\") AND NOT match(sourcetype,\"health\"), \"MS (Switching)\", match(sourcetype,\"cameras\"), \"MV (Camera)\", match(sourcetype,\"sensors\"), \"MT (Sensor)\", match(sourcetype,\"health\"), \"Health Metrics\", 1=1, \"Other\") | stats sum(count) as count by device | sort -count"
+      }
+    },
+    "ds_wireless_clients": {
+      "type": "ds.search",
+      "name": "Wireless Clients Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:accesspoints\" type=association | timechart span=1h dc(client_mac) as clients"
+      }
+    },
+    "ds_mx_events": {
+      "type": "ds.search",
+      "name": "MX Security Events by Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:securityappliances\" | stats count by type | sort -count | head 10"
+      }
+    },
+    "ds_camera_events": {
+      "type": "ds.search",
+      "name": "Camera Events by Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:cameras\" | stats count by type | sort -count"
+      }
+    },
+    "ds_sensor_alerts": {
+      "type": "ds.search",
+      "name": "Sensor Alerts by Type and Device",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:sensors\" | stats count by type host | sort -count | head 20 | rename type as \"Alert Type\" host as \"Sensor\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:meraki:*\" | eval device_type=case(match(sourcetype,\"securityappliances\"), \"MX\", match(sourcetype,\"accesspoints\"), \"MR\", match(sourcetype,\"switches\"), \"MS\", match(sourcetype,\"cameras\"), \"MV\", match(sourcetype,\"sensors\"), \"MT\", 1=1, \"Other\") | table _time host device_type type src dst demo_id | sort -_time | head 30 | rename device_type as \"Device\" type as \"Event Type\" src as \"Source\" dst as \"Destination\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Meraki\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:meraki:securityappliances`, `FAKE:meraki:accesspoints`, `FAKE:meraki:switches`, `FAKE:meraki:cameras`, `FAKE:meraki:sensors`, `+health` variants |\n| **Devices** | MX450/MX250/MX85 (SD-WAN), MR46 (36 APs), MS425/MS225 (11 switches), MV12/MV32/MV72 (19 cameras), MT10/MT11/MT14/MT20 (14 sensors) |\n| **Locations** | Boston (BOS), Atlanta (ATL), Austin (AUS) |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_devices": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Devices",
+      "dataSources": { "primary": "ds_unique_devices" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Sourcetypes",
+      "dataSources": { "primary": "ds_sourcetype_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_scenarios": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": { "primary": "ds_scenario_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_by_device_type": {
+      "type": "splunk.area",
+      "title": "Events by Device Type Over Time",
+      "dataSources": { "primary": "ds_by_device_type" },
+      "options": {
+        "stackMode": "stacked", "legendDisplay": "right", "nullValueDisplay": "zero",
+        "areaOpacity": 0.7, "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide", "yAxisTitleText": "Events / hour", "yAxisTitleVisibility": "show",
+        "seriesColors": ["#DC4E41", "#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#009CEB", "#F1813F"]
+      },
+      "showProgressBar": true, "showLastUpdated": true
+    },
+    "viz_device_donut": {
+      "type": "splunk.pie",
+      "title": "Events by Device Type",
+      "dataSources": { "primary": "ds_by_device_donut" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage", "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#009CEB", "#F1813F"]
+      }
+    },
+    "viz_wireless_clients": {
+      "type": "splunk.area",
+      "title": "Wireless Clients Over Time",
+      "dataSources": { "primary": "ds_wireless_clients" },
+      "options": {
+        "legendDisplay": "off", "nullValueDisplay": "zero", "areaOpacity": 0.5,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide", "yAxisTitleText": "Unique Clients", "yAxisTitleVisibility": "show",
+        "seriesColors": ["#7B56DB"]
+      },
+      "showProgressBar": true
+    },
+    "viz_mx_events": {
+      "type": "splunk.bar",
+      "title": "MX Security Events by Type",
+      "dataSources": { "primary": "ds_mx_events" },
+      "options": {
+        "seriesColors": ["#DC4E41"], "legendDisplay": "off",
+        "xAxisTitleText": "Events", "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide", "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_camera_events": {
+      "type": "splunk.pie",
+      "title": "Camera Events by Type",
+      "dataSources": { "primary": "ds_camera_events" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage", "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34"]
+      }
+    },
+    "viz_sensor_alerts": {
+      "type": "splunk.table",
+      "title": "Sensor Alerts",
+      "dataSources": { "primary": "ds_sensor_alerts" },
+      "options": { "count": 20, "showRowNumbers": false },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": { "markdown": "### Recent Events", "fontColor": "#C3CBD4" }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": { "count": 20, "showRowNumbers": false },
+      "showProgressBar": true, "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": { "token": "global_time", "defaultValue": "1767225600,1769904000" }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": { "queryParameters": { "earliest": "$global_time.earliest$", "latest": "$global_time.latest$" } }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_devices", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_sourcetypes", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_by_device_type", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_device_donut", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_wireless_clients", "type": "block", "position": { "x": 0, "y": 620, "w": 600, "h": 300 } },
+      { "item": "viz_mx_events", "type": "block", "position": { "x": 600, "y": 620, "w": 600, "h": 300 } },
+      { "item": "viz_camera_events", "type": "block", "position": { "x": 0, "y": 920, "w": 400, "h": 300 } },
+      { "item": "viz_sensor_alerts", "type": "block", "position": { "x": 400, "y": 920, "w": 800, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 1220, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 1270, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

@@ -1,0 +1,264 @@
+<dashboard version="2" theme="dark">
+  <label>Scenario - Firewall Misconfiguration</label>
+  <description>ACL misconfiguration on perimeter firewall — 2-hour customer-facing outage caused by human error</description>
+  <definition><![CDATA[
+{
+  "title": "Scenario - Firewall Misconfiguration",
+  "description": "ACL misconfiguration on perimeter firewall — 2-hour customer-facing outage caused by human error",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Firewall Misconfig Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt IDX_demo_id=firewall_misconfig by _time span=15m"
+      }
+    },
+    "ds_affected_sourcetypes": {
+      "type": "ds.search",
+      "name": "Affected Sourcetype Count",
+      "options": {
+        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt IDX_demo_id=firewall_misconfig"
+      }
+    },
+    "ds_total_denies": {
+      "type": "ds.search",
+      "name": "Total Deny Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=firewall_misconfig action=Deny OR action=denied | stats count"
+      }
+    },
+    "ds_duration": {
+      "type": "ds.search",
+      "name": "Outage Duration",
+      "options": {
+        "query": "index=fake_tshrt demo_id=firewall_misconfig | stats min(_time) as start max(_time) as end | eval duration=tostring(end-start, \"duration\") | eval count=duration | fields count"
+      }
+    },
+    "ds_event_timeline": {
+      "type": "ds.search",
+      "name": "Events Over Time (15min bins)",
+      "options": {
+        "query": "index=fake_tshrt demo_id=firewall_misconfig sourcetype=\"FAKE:cisco:asa\" | eval event_type=case(match(_raw, \"106023\"), \"ACL Deny (106023)\", match(_raw, \"111008|111010\"), \"Config Change\", match(_raw, \"605005|605004\"), \"Admin Session\", 1=1, \"Other\") | timechart span=15m count by event_type"
+      }
+    },
+    "ds_denied_sources": {
+      "type": "ds.search",
+      "name": "Denied Customer IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" demo_id=firewall_misconfig action=Deny OR action=denied | stats count by src | sort -count | head 20 | rename src as \"Source IP\""
+      }
+    },
+    "ds_event_sequence": {
+      "type": "ds.search",
+      "name": "Event-by-Event Sequence",
+      "options": {
+        "query": "index=fake_tshrt demo_id=firewall_misconfig | rex \"%ASA-(?<severity>\\d)-(?<message_id>\\d+)\" | eval event_detail=coalesce(message_id, action, \"event\") | table _time host event_detail src dst | sort _time | head 50 | rename event_detail as \"Message ID\" src as \"Source\" dst as \"Destination\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Scenario — Firewall Misconfiguration\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `firewall_misconfig` |\n| **Category** | Network |\n| **Duration** | Day 7, 10:15–12:05 (2 hours) |\n| **Severity** | High |\n| **Target** | FW-EDGE-01 (Cisco ASA 5525-X) |\n| **Root Cause** | Admin accidentally blocks traffic TO WEB-01 instead of FROM threat |\n| **Outcome** | Config rollback at 12:03, traffic normalizes by 12:05 |\n\n**Scenario Summary:** Network admin logs into FW-EDGE-01 at 10:15 to block a threat IP but mistakenly creates an ACL that blocks all customer traffic to WEB-01 (203.0.113.10). ~90 customer connections denied over 2 hours. Admin realizes the error and issues rollback command at 12:03, saving config at 12:04. Traffic normalizes immediately.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Scenario Events",
+      "dataSources": {
+        "primary": "ds_total_events"
+      },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#009CEB",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#009CEB"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_sourcetypes": {
+      "type": "splunk.singlevalue",
+      "title": "Affected Sources",
+      "dataSources": {
+        "primary": "ds_affected_sourcetypes"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_denies": {
+      "type": "splunk.singlevalue",
+      "title": "Total Denies",
+      "dataSources": {
+        "primary": "ds_total_denies"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_duration": {
+      "type": "splunk.singlevalue",
+      "title": "Outage Duration",
+      "dataSources": {
+        "primary": "ds_duration"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_event_timeline": {
+      "type": "splunk.area",
+      "title": "Events Over Time",
+      "dataSources": {
+        "primary": "ds_event_timeline"
+      },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#DC4E41", "#009CEB", "#7B56DB", "#F8BE34"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_denied_sources": {
+      "type": "splunk.bar",
+      "title": "Denied Customer IPs",
+      "dataSources": {
+        "primary": "ds_denied_sources"
+      },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Denied Connections",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_evidence_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Event Sequence\n\n| Time | Event |\n|------|-------|\n| 10:15 | Admin login (605005) |\n| 10:16 | Enter config mode (111008) |\n| 10:18 | Bad ACL added (111010) |\n| 10:20–12:02 | Customer traffic denied (106023) |\n| 12:03 | Rollback command |\n| 12:04 | Config saved |\n| 12:05 | Traffic normalizes |",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_event_sequence": {
+      "type": "splunk.table",
+      "title": "Complete Event Sequence",
+      "dataSources": {
+        "primary": "ds_event_sequence"
+      },
+      "options": {
+        "count": 50,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {
+        "item": "viz_header",
+        "type": "block",
+        "position": { "x": 0, "y": 0, "w": 1200, "h": 250 }
+      },
+      {
+        "item": "viz_kpi_total_events",
+        "type": "block",
+        "position": { "x": 0, "y": 250, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_sourcetypes",
+        "type": "block",
+        "position": { "x": 300, "y": 250, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_denies",
+        "type": "block",
+        "position": { "x": 600, "y": 250, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_kpi_duration",
+        "type": "block",
+        "position": { "x": 900, "y": 250, "w": 300, "h": 120 }
+      },
+      {
+        "item": "viz_event_timeline",
+        "type": "block",
+        "position": { "x": 0, "y": 370, "w": 700, "h": 350 }
+      },
+      {
+        "item": "viz_denied_sources",
+        "type": "block",
+        "position": { "x": 700, "y": 370, "w": 500, "h": 350 }
+      },
+      {
+        "item": "viz_evidence_header",
+        "type": "block",
+        "position": { "x": 0, "y": 720, "w": 1200, "h": 200 }
+      },
+      {
+        "item": "viz_event_sequence",
+        "type": "block",
+        "position": { "x": 0, "y": 920, "w": 1200, "h": 400 }
+      }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>
