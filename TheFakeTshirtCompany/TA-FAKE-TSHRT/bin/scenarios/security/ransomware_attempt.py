@@ -252,119 +252,195 @@ class RansomwareAttemptScenario:
 
         return events
 
+    @staticmethod
+    def _winevent_ts(dt: datetime) -> str:
+        """Format datetime to WinEventLog KV timestamp: MM/DD/YYYY HH:MM:SS AM/PM."""
+        return dt.strftime("%m/%d/%Y %I:%M:%S %p")
+
     def _winevent_4688(self, ts: datetime, hostname: str) -> str:
-        """Process creation event - Word launching macro."""
-        return f"""<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
-<System>
-<Provider Name='Microsoft-Windows-Security-Auditing' Guid='{{54849625-5478-4994-A5BA-3E3B0328C30D}}'/>
-<EventID>4688</EventID>
-<TimeCreated SystemTime='{ts.strftime("%Y-%m-%dT%H:%M:%S.%f")}Z'/>
-<Computer>{hostname}</Computer>
-</System>
-<EventData>
-<Data Name='SubjectUserName'>{self.cfg.target_user}</Data>
-<Data Name='NewProcessName'>C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE</Data>
-<Data Name='CommandLine'>"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "{self.cfg.phishing_attachment}"</Data>
-<Data Name='ParentProcessName'>C:\\Windows\\explorer.exe</Data>
-</EventData>
-</Event>
-demo_id={self.cfg.demo_id}"""
+        """Process creation event - Word launching macro (KV format)."""
+        ts_str = self._winevent_ts(ts)
+        process_id = random.randint(1000, 65535)
+        parent_process_id = random.randint(500, 5000)
+
+        return f"""{ts_str}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4688
+EventType=0
+Type=Information
+ComputerName={hostname}.theFakeTshirtCompany.com
+TaskCategory=Process Creation
+RecordNumber={random.randint(50000, 99999)}
+Keywords=Audit Success
+Message=A new process has been created.
+
+Creator Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{self.cfg.target_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Target Subject:
+\tSecurity ID:\t\tS-1-0-0
+\tAccount Name:\t\t-
+\tAccount Domain:\t\t-
+\tLogon ID:\t\t0x0
+
+Process Information:
+\tNew Process ID:\t\t0x{process_id:X}
+\tNew Process Name:\tC:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE
+\tToken Elevation Type:\tTokenElevationTypeFull (2)
+\tMandatory Label:\t\tMandatory Label\\High Mandatory Level
+\tCreator Process ID:\t0x{parent_process_id:X}
+\tCreator Process Name:\tC:\\Windows\\explorer.exe
+\tProcess Command Line:\t"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "{self.cfg.phishing_attachment}"
+demo_id={self.cfg.demo_id}
+"""
 
     def _winevent_4688_dropper(self, ts: datetime, hostname: str) -> str:
-        """Process creation event - Dropper execution."""
-        return f"""<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
-<System>
-<Provider Name='Microsoft-Windows-Security-Auditing' Guid='{{54849625-5478-4994-A5BA-3E3B0328C30D}}'/>
-<EventID>4688</EventID>
-<TimeCreated SystemTime='{ts.strftime("%Y-%m-%dT%H:%M:%S.%f")}Z'/>
-<Computer>{hostname}</Computer>
-</System>
-<EventData>
-<Data Name='SubjectUserName'>{self.cfg.target_user}</Data>
-<Data Name='NewProcessName'>{self.cfg.malware_path}</Data>
-<Data Name='CommandLine'>"{self.cfg.malware_path}" -silent -connect</Data>
-<Data Name='ParentProcessName'>C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE</Data>
-</EventData>
-</Event>
-demo_id={self.cfg.demo_id}"""
+        """Process creation event - Dropper execution (KV format)."""
+        ts_str = self._winevent_ts(ts)
+        process_id = random.randint(1000, 65535)
+        parent_process_id = random.randint(500, 5000)
+
+        return f"""{ts_str}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4688
+EventType=0
+Type=Information
+ComputerName={hostname}.theFakeTshirtCompany.com
+TaskCategory=Process Creation
+RecordNumber={random.randint(50000, 99999)}
+Keywords=Audit Success
+Message=A new process has been created.
+
+Creator Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{self.cfg.target_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Target Subject:
+\tSecurity ID:\t\tS-1-0-0
+\tAccount Name:\t\t-
+\tAccount Domain:\t\t-
+\tLogon ID:\t\t0x0
+
+Process Information:
+\tNew Process ID:\t\t0x{process_id:X}
+\tNew Process Name:\t{self.cfg.malware_path}
+\tToken Elevation Type:\tTokenElevationTypeFull (2)
+\tMandatory Label:\t\tMandatory Label\\High Mandatory Level
+\tCreator Process ID:\t0x{parent_process_id:X}
+\tCreator Process Name:\tC:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE
+\tProcess Command Line:\t"{self.cfg.malware_path}" -silent -connect
+demo_id={self.cfg.demo_id}
+"""
 
     def _winevent_4697(self, ts: datetime, hostname: str) -> str:
-        """Service installed event."""
-        return f"""<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
-<System>
-<Provider Name='Microsoft-Windows-Security-Auditing' Guid='{{54849625-5478-4994-A5BA-3E3B0328C30D}}'/>
-<EventID>4697</EventID>
-<TimeCreated SystemTime='{ts.strftime("%Y-%m-%dT%H:%M:%S.%f")}Z'/>
-<Computer>{hostname}</Computer>
-</System>
-<EventData>
-<Data Name='SubjectUserName'>{self.cfg.target_user}</Data>
-<Data Name='ServiceName'>Windows Update Helper</Data>
-<Data Name='ServiceFileName'>{self.cfg.malware_path}</Data>
-<Data Name='ServiceType'>0x10</Data>
-<Data Name='ServiceStartType'>2</Data>
-</EventData>
-</Event>
-demo_id={self.cfg.demo_id}"""
+        """Service installed event (KV format)."""
+        ts_str = self._winevent_ts(ts)
+
+        return f"""{ts_str}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4697
+EventType=0
+Type=Information
+ComputerName={hostname}.theFakeTshirtCompany.com
+TaskCategory=Security System Extension
+RecordNumber={random.randint(50000, 99999)}
+Keywords=Audit Success
+Message=A service was installed in the system.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{self.cfg.target_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Service Information:
+\tService Name:\t\tWindows Update Helper
+\tService File Name:\t{self.cfg.malware_path}
+\tService Type:\t\t0x10
+\tService Start Type:\t2
+\tService Account:\t\tLocalSystem
+demo_id={self.cfg.demo_id}
+"""
 
     def _winevent_4625(self, ts: datetime, target_ip: str) -> str:
-        """Failed logon - lateral movement attempt."""
-        return f"""<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
-<System>
-<Provider Name='Microsoft-Windows-Security-Auditing' Guid='{{54849625-5478-4994-A5BA-3E3B0328C30D}}'/>
-<EventID>4625</EventID>
-<TimeCreated SystemTime='{ts.strftime("%Y-%m-%dT%H:%M:%S.%f")}Z'/>
-<Computer>{self.cfg.target_hostname}</Computer>
-</System>
-<EventData>
-<Data Name='SubjectUserName'>-</Data>
-<Data Name='TargetUserName'>Administrator</Data>
-<Data Name='TargetDomainName'>FAKETSHIRTCO</Data>
-<Data Name='Status'>0xC000006D</Data>
-<Data Name='FailureReason'>Unknown user name or bad password</Data>
-<Data Name='LogonType'>3</Data>
-<Data Name='IpAddress'>{self.cfg.target_ip}</Data>
-<Data Name='IpPort'>445</Data>
-<Data Name='WorkstationName'>{self.cfg.target_hostname}</Data>
-</EventData>
-</Event>
-demo_id={self.cfg.demo_id}"""
+        """Failed logon - lateral movement attempt (KV format)."""
+        ts_str = self._winevent_ts(ts)
+
+        return f"""{ts_str}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4625
+EventType=0
+Type=Information
+ComputerName={self.cfg.target_hostname}.theFakeTshirtCompany.com
+TaskCategory=Logon
+RecordNumber={random.randint(50000, 99999)}
+Keywords=Audit Failure
+Message=An account failed to log on.
+
+Subject:
+\tSecurity ID:\t\tS-1-0-0
+\tAccount Name:\t\t-
+\tAccount Domain:\t\t-
+\tLogon ID:\t\t0x0
+
+Logon Type:\t\t3
+
+Account For Which Logon Failed:
+\tSecurity ID:\t\tS-1-0-0
+\tAccount Name:\t\tAdministrator
+\tAccount Domain:\t\tFAKETSHIRTCO
+
+Failure Information:
+\tFailure Reason:\t\tUnknown user name or bad password.
+\tStatus:\t\t\t0xC000006D
+\tSub Status:\t\t0xC000006A
+
+Network Information:
+\tWorkstation Name:\t{self.cfg.target_hostname}
+\tSource Network Address:\t{self.cfg.target_ip}
+\tSource Port:\t\t{random.randint(49152, 65535)}
+demo_id={self.cfg.demo_id}
+"""
 
     def _winevent_1116(self, ts: datetime, hostname: str) -> str:
-        """Windows Defender malware detection."""
-        return f"""<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
-<System>
-<Provider Name='Microsoft-Windows-Windows Defender' Guid='{{11CD958A-C507-4EF3-B3F2-5FD9DFBD2C78}}'/>
-<EventID>1116</EventID>
-<TimeCreated SystemTime='{ts.strftime("%Y-%m-%dT%H:%M:%S.%f")}Z'/>
-<Computer>{hostname}</Computer>
-</System>
-<EventData>
-<Data Name='Product Name'>Microsoft Defender Antivirus</Data>
-<Data Name='Product Version'>4.18.2301.6</Data>
-<Data Name='Detection ID'>{{B7E4C8F2-1234-5678-9ABC-DEF012345678}}</Data>
-<Data Name='Detection Time'>{ts.strftime("%Y-%m-%dT%H:%M:%SZ")}</Data>
-<Data Name='Threat ID'>2147816890</Data>
-<Data Name='Threat Name'>{self.cfg.av_signature}</Data>
-<Data Name='Severity ID'>5</Data>
-<Data Name='Severity Name'>Severe</Data>
-<Data Name='Category ID'>8</Data>
-<Data Name='Category Name'>Trojan</Data>
-<Data Name='FWLink'>https://www.microsoft.com/security/portal/threat/encyclopedia/entry.aspx?Name={self.cfg.av_signature}</Data>
-<Data Name='Path'>{self.cfg.malware_path}</Data>
-<Data Name='Origin ID'>4</Data>
-<Data Name='Origin Name'>Internet</Data>
-<Data Name='Execution ID'>0</Data>
-<Data Name='Execution Name'>Suspended</Data>
-<Data Name='Process Name'>{self.cfg.malware_path}</Data>
-<Data Name='Action ID'>2</Data>
-<Data Name='Action Name'>Quarantine</Data>
-<Data Name='Error Code'>0x00000000</Data>
-<Data Name='Error Description'>The operation completed successfully.</Data>
-<Data Name='User'>FAKETSHIRTCO\\{self.cfg.target_user}</Data>
-</EventData>
-</Event>
-demo_id={self.cfg.demo_id}"""
+        """Windows Defender malware detection (KV format)."""
+        ts_str = self._winevent_ts(ts)
+
+        return f"""{ts_str}
+LogName=Microsoft-Windows-Windows Defender/Operational
+SourceName=Microsoft-Windows-Windows Defender
+EventCode=1116
+EventType=0
+Type=Warning
+ComputerName={hostname}.theFakeTshirtCompany.com
+TaskCategory=Malware Detection
+RecordNumber={random.randint(50000, 99999)}
+Keywords=Audit Success
+Message=Microsoft Defender Antivirus has detected malware or other potentially unwanted software.
+
+\tName:\t\t\t{self.cfg.av_signature}
+\tID:\t\t\t2147816890
+\tSeverity:\t\tSevere
+\tCategory:\t\tTrojan
+\tPath:\t\t\t{self.cfg.malware_path}
+\tDetection Origin:\tInternet
+\tExecution Status:\tSuspended
+\tProcess Name:\t\t{self.cfg.malware_path}
+\tAction:\t\t\tQuarantine
+\tAction Status:\t\tSuccess
+\tAdditional Actions Required:\tNo additional actions required
+\tUser:\t\t\tFAKETSHIRTCO\\{self.cfg.target_user}
+demo_id={self.cfg.demo_id}
+"""
 
     # =========================================================================
     # MERAKI EVENTS - IDS alert and client isolation (Dashboard API JSON)

@@ -2,14 +2,14 @@
 version = 10.0.1
 modtime = 1770494414.509896000
 
-[indexes/fake_tshrt]
-owner = admin
-version = 10.0.1
-modtime = 1770625584.574887000
-
 [macros/xmlpretty]
 access = read : [ * ]
 export = system
 owner = admin
 version = 10.0.1
 modtime = 1770625965.002268000
+
+[indexes/fake_tshrt]
+owner = admin
+version = 10.0.1
+modtime = 1770639718.443891000

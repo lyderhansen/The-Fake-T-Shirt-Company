@@ -4,6 +4,31 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~00:30 UTC — Fix WinEventLog ransomware scenario event format
+
+**Affected files:**
+- `bin/scenarios/security/ransomware_attempt.py` — Converted 5 `_winevent_*` methods from XML to KV header format
+
+**Description:** Fixed a bug where ransomware scenario WinEventLog events were generated in raw XML format (`<Event xmlns=...>`) while all baseline events used the KV header format (`MM/DD/YYYY HH:MM:SS AM/PM` + `LogName=` + `EventCode=` + Message body). The `props.conf` LINE_BREAKER for `FAKE:WinEventLog` only matches the KV timestamp pattern, so XML events were never recognized as separate events by Splunk — they were concatenated into the preceding KV event.
+
+Converted methods:
+- `_winevent_4688()` — Process creation (Word macro launch)
+- `_winevent_4688_dropper()` — Process creation (malware dropper)
+- `_winevent_4697()` — Service installed (persistence)
+- `_winevent_4625()` — Failed logon (lateral movement)
+- `_winevent_1116()` — Windows Defender detection
+
+Added `_winevent_ts()` static helper method for datetime-to-KV-timestamp conversion.
+
+Note: The exfil scenario already used the correct approach (returning dicts formatted by `format_scenario_event()`).
+
+**Verification:**
+- `wineventlog` generator: 4,017 events, 7 ransomware events in KV format ✅
+- `grep -c '<Event xmlns' wineventlog_security.log` = 0 (no XML events) ✅
+- Full run: 19/19 generators OK, 3,579,185 events, 0 failures ✅
+
+---
+
 ## 2026-02-09 ~23:30 UTC — Simplified Floor Plan Document
 
 **Affected files:**
