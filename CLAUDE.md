@@ -493,30 +493,36 @@ Categories: developer, sysadmin, security, nerd, modern
 
 ## Webex Collaboration Devices
 
-### Device Inventory (17 rooms)
+### Device Inventory (21 rooms — Video Game Character Names)
 
-| Location | Room | Device | Model | Capacity |
-|----------|------|--------|-------|----------|
-| **Boston** |
-| | Cambridge (Boardroom) | WEBEX-BOS-CAMBRIDGE | Room Kit Pro + Board 85 Pro | 20 |
-| | Faneuil | WEBEX-BOS-FANEUIL | Room Kit + Board 55 | 12 |
-| | Quincy | WEBEX-BOS-QUINCY | Room Kit | 8 |
-| | North End | WEBEX-BOS-NORTHEND | Desk Pro | 4 |
-| | Back Bay | WEBEX-BOS-BACKBAY | Room Kit Mini | 6 |
-| | Engineering Lab | WEBEX-BOS-LAB | Board 55 | 8 |
-| | Harbor (Visitor) | WEBEX-BOS-HARBOR | Desk Pro | 6 |
-| | Beacon (Visitor) | WEBEX-BOS-BEACON | Room Kit Mini | 4 |
-| **Atlanta** |
-| | Peachtree (Training) | WEBEX-ATL-PEACHTREE | Room Kit Pro | 16 |
-| | Midtown | WEBEX-ATL-MIDTOWN | Room Kit + Board 55 | 10 |
-| | NOC | WEBEX-ATL-NOC | Room Kit | 6 |
-| | Buckhead | WEBEX-ATL-BUCKHEAD | Desk Pro | 4 |
-| | Decatur | WEBEX-ATL-DECATUR | Desk Pro | 4 |
-| | Innovation Lab | WEBEX-ATL-INNOVATION | Board 55 | 8 |
-| **Austin** |
-| | Congress | WEBEX-AUS-CONGRESS | Room Kit + Board 55 | 12 |
-| | 6th Street | WEBEX-AUS-6THSTREET | Room Kit Mini | 6 |
-| | Live Oak (Demo) | WEBEX-AUS-LIVEOAK | Room Kit | 8 |
+Device naming: `{TYPE}-{LOC}-{FLOOR}F-{NAME}` (e.g., `WEBEX-BOS-3F-LINK`, `MT-BOS-3F-DOOR-LINK`)
+
+| Location | Room | Floor | Device | Model | Capacity |
+|----------|------|-------|--------|-------|----------|
+| **Boston (10)** |
+| | Link (Boardroom) | 3 | WEBEX-BOS-3F-LINK | Room Kit Pro + Board 85 Pro | 20 |
+| | Zelda | 2 | WEBEX-BOS-2F-ZELDA | Room Kit + Board 55 | 12 |
+| | Samus | 2 | WEBEX-BOS-2F-SAMUS | Room Kit | 8 |
+| | Kirby | 3 | WEBEX-BOS-3F-KIRBY | Desk Pro | 4 |
+| | Yoshi | 3 | WEBEX-BOS-3F-YOSHI | Room Kit Mini | 6 |
+| | Sonic (Lab) | 3 | WEBEX-BOS-3F-SONIC | Board 55 | 8 |
+| | Peach (Visitor) | 1 | WEBEX-BOS-1F-PEACH | Desk Pro | 6 |
+| | Toad (Visitor) | 1 | WEBEX-BOS-1F-TOAD | Room Kit Mini | 4 |
+| | Mario | 2 | WEBEX-BOS-2F-MARIO | Room Kit | 10 |
+| | Luigi | 3 | WEBEX-BOS-3F-LUIGI | Room Kit | 8 |
+| **Atlanta (7)** |
+| | Cortana (Training) | 2 | WEBEX-ATL-2F-CORTANA | Room Kit Pro | 16 |
+| | Chief | 2 | WEBEX-ATL-2F-CHIEF | Room Kit + Board 55 | 10 |
+| | Ryu (Operations) | 1 | WEBEX-ATL-1F-RYU | Room Kit | 6 |
+| | Pikachu | 2 | WEBEX-ATL-2F-PIKACHU | Desk Pro | 4 |
+| | Megaman | 2 | WEBEX-ATL-2F-MEGAMAN | Desk Pro | 4 |
+| | Lara (Lab) | 2 | WEBEX-ATL-2F-LARA | Board 55 | 8 |
+| | Kratos | 1 | WEBEX-ATL-1F-KRATOS | Room Kit | 8 |
+| **Austin (4)** |
+| | Doom | 1 | WEBEX-AUS-1F-DOOM | Room Kit + Board 55 | 12 |
+| | Fox | 1 | WEBEX-AUS-1F-FOX | Room Kit Mini | 6 |
+| | Jett (Demo) | 1 | WEBEX-AUS-1F-JETT | Room Kit | 8 |
+| | Crash | 1 | WEBEX-AUS-1F-CRASH | Room Kit | 8 |
 
 ### Webex Event Types
 - **Meetings**: meeting_started, participant_joined, participant_left, meeting_ended
@@ -557,25 +563,25 @@ Meeting room sensors and Webex devices generate correlated events:
 ### Problem Rooms (Consistent Quality Issues)
 | Room | Location | Issues | Cause |
 |------|----------|--------|-------|
-| **North End** | Boston Floor 3 | `wifi_congestion`, `old_equipment` | Near busy AP, outdated codec |
-| **Peachtree** | Atlanta Floor 2 | `bandwidth_limited`, `echo_issues` | Too many video streams, bad acoustics |
+| **Kirby** | Boston Floor 3 | `wifi_congestion`, `old_equipment` | Near busy AP, outdated codec |
+| **Cortana** | Atlanta Floor 2 | `bandwidth_limited`, `echo_issues` | Too many video streams, bad acoustics |
 
 Quality metrics for problem rooms show:
 - `audio.mos_score` < 3.5 (poor/fair)
 - `video.packet_loss_pct` > 3%
 - `network.jitter_ms` > 40
-- `audio.echo_detected: true` (Peachtree only)
+- `audio.echo_detected: true` (Cortana only)
 
 ### Sunny Rooms (Temperature Variations)
 | Room | Location | Sun Direction | Peak Hours | Extra Heat |
 |------|----------|---------------|------------|------------|
-| Cambridge | Boston | South | 13:00-17:00 | +4C |
-| Midtown | Atlanta | West | 14:00-18:00 | +3.5C |
-| Congress | Austin | Southwest | 12:00-17:00 | +5C |
+| Link | Boston | South | 13:00-17:00 | +4C |
+| Chief | Atlanta | West | 14:00-18:00 | +3.5C |
+| Doom | Austin | Southwest | 12:00-17:00 | +5C |
 
 ### After-Hours Activity
 Legitimate overtime work on days 3 and 7 (NOT related to exfil scenario):
-- Rooms: Back Bay, North End, Buckhead
+- Rooms: Yoshi, Kirby, Pikachu
 - Time: 20:00-23:00
 - Creates investigatable but non-malicious sensor/Webex events
 

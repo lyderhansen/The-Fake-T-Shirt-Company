@@ -144,8 +144,8 @@ One event per attendee per meeting with individual participation details.
 {
   "sourcetype": "cisco:webex:meetings:history:meetingattendeehistory",
   "MeetingNumber": "123456789",
-  "UserName": "Cambridge Room",
-  "UserEmail": "cambridge-room@theFakeTshirtCompany.com",
+  "UserName": "Link Room",
+  "UserEmail": "link-room@theFakeTshirtCompany.com",
   "JoinTime": "01/05/2026 13:58:00",
   "LeaveTime": "01/05/2026 15:30:00",
   "Duration": "92",

@@ -1,6 +1,6 @@
 # Webex Room Devices
 
-Cisco Webex collaboration device events from 17 meeting rooms across 3 locations.
+Cisco Webex collaboration device events from 21 meeting rooms across 3 locations.
 
 ---
 
@@ -12,39 +12,44 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 | Format | JSON |
 | Output File | `output/cloud/webex_events.log` |
 | Volume | 50-200 events/day |
-| Rooms | 17 meeting rooms |
+| Rooms | 21 meeting rooms |
 
 ---
 
 ## Device Inventory
 
-### Boston (7 rooms)
+### Boston (10 rooms)
 | Room | Device ID | Model | Capacity |
 |------|-----------|-------|----------|
-| Cambridge | WEBEX-BOS-CAMBRIDGE | Room Kit Pro + Board 85 Pro | 20 |
-| Faneuil | WEBEX-BOS-FANEUIL | Room Kit + Board 55 | 12 |
-| Quincy | WEBEX-BOS-QUINCY | Room Kit | 8 |
-| North End | WEBEX-BOS-NORTHEND | Desk Pro | 4 |
-| Back Bay | WEBEX-BOS-BACKBAY | Room Kit Mini | 6 |
-| Harbor | WEBEX-BOS-HARBOR | Desk Pro | 6 |
-| Beacon | WEBEX-BOS-BEACON | Room Kit Mini | 4 |
+| Link | WEBEX-BOS-3F-LINK | Room Kit Pro + Board 85 Pro | 20 |
+| Zelda | WEBEX-BOS-2F-ZELDA | Room Kit + Board 55 | 12 |
+| Mario | WEBEX-BOS-2F-MARIO | Room Kit | 10 |
+| Samus | WEBEX-BOS-2F-SAMUS | Room Kit | 8 |
+| Luigi | WEBEX-BOS-3F-LUIGI | Room Kit | 8 |
+| Kirby | WEBEX-BOS-3F-KIRBY | Desk Pro | 4 |
+| Yoshi | WEBEX-BOS-3F-YOSHI | Room Kit Mini | 6 |
+| Peach | WEBEX-BOS-1F-PEACH | Desk Pro | 6 |
+| Toad | WEBEX-BOS-1F-TOAD | Room Kit Mini | 4 |
+| Sonic | WEBEX-BOS-3F-SONIC | Board 55 | 8 |
 
-### Atlanta (6 rooms)
+### Atlanta (7 rooms)
 | Room | Device ID | Model | Capacity |
 |------|-----------|-------|----------|
-| Peachtree | WEBEX-ATL-PEACHTREE | Room Kit Pro | 16 |
-| Midtown | WEBEX-ATL-MIDTOWN | Room Kit + Board 55 | 10 |
-| NOC | WEBEX-ATL-NOC | Room Kit | 6 |
-| Buckhead | WEBEX-ATL-BUCKHEAD | Desk Pro | 4 |
-| Decatur | WEBEX-ATL-DECATUR | Desk Pro | 4 |
-| Innovation Lab | WEBEX-ATL-INNOVATION | Board 55 | 8 |
+| Cortana | WEBEX-ATL-2F-CORTANA | Room Kit Pro | 16 |
+| Chief | WEBEX-ATL-2F-CHIEF | Room Kit + Board 55 | 10 |
+| Kratos | WEBEX-ATL-1F-KRATOS | Room Kit | 8 |
+| Ryu | WEBEX-ATL-1F-RYU | Room Kit | 6 |
+| Pikachu | WEBEX-ATL-2F-PIKACHU | Desk Pro | 4 |
+| Megaman | WEBEX-ATL-2F-MEGAMAN | Desk Pro | 4 |
+| Lara | WEBEX-ATL-2F-LARA | Board 55 | 8 |
 
-### Austin (3 rooms)
+### Austin (4 rooms)
 | Room | Device ID | Model | Capacity |
 |------|-----------|-------|----------|
-| Congress | WEBEX-AUS-CONGRESS | Room Kit + Board 55 | 12 |
-| 6th Street | WEBEX-AUS-6THSTREET | Room Kit Mini | 6 |
-| Live Oak | WEBEX-AUS-LIVEOAK | Room Kit | 8 |
+| Doom | WEBEX-AUS-1F-DOOM | Room Kit + Board 55 | 12 |
+| Crash | WEBEX-AUS-1F-CRASH | Room Kit | 8 |
+| Jett | WEBEX-AUS-1F-JETT | Room Kit | 8 |
+| Fox | WEBEX-AUS-1F-FOX | Room Kit Mini | 6 |
 
 ---
 
@@ -70,11 +75,11 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 |-------|-------------|---------|
 | `timestamp` | ISO 8601 time | `2026-01-05T14:00:00Z` |
 | `event_type` | Event type | `meeting_started` |
-| `device_id` | Device identifier | `WEBEX-BOS-CAMBRIDGE` |
+| `device_id` | Device identifier | `WEBEX-BOS-3F-LINK` |
 | `device_model` | Hardware model | `Room Kit Pro` |
 | `location` | Site | `Boston HQ` |
 | `location_code` | Site code | `BOS` |
-| `room` | Room name | `Cambridge` |
+| `room` | Room name | `Link` |
 | `meeting_id` | Meeting identifier | `123-456-789` |
 | `organizer` | Meeting host | `john.smith@theFakeTshirtCompany.com` |
 | `meeting_title` | Meeting name | `Board Meeting` |
@@ -114,11 +119,11 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 {
   "timestamp": "2026-01-05T14:00:00Z",
   "event_type": "meeting_started",
-  "device_id": "WEBEX-BOS-CAMBRIDGE",
+  "device_id": "WEBEX-BOS-3F-LINK",
   "device_model": "Room Kit Pro",
   "location": "Boston HQ",
   "location_code": "BOS",
-  "room": "Cambridge",
+  "room": "Link",
   "meeting_id": "123-456-789",
   "organizer": "john.smith@theFakeTshirtCompany.com",
   "meeting_title": "Board Meeting",
@@ -131,8 +136,8 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 {
   "timestamp": "2026-01-05T14:02:00Z",
   "event_type": "participant_joined",
-  "device_id": "WEBEX-BOS-CAMBRIDGE",
-  "room": "Cambridge",
+  "device_id": "WEBEX-BOS-3F-LINK",
+  "room": "Link",
   "meeting_id": "123-456-789",
   "participant_email": "alex.miller@theFakeTshirtCompany.com",
   "participant_name": "Alex Miller",
@@ -146,8 +151,8 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 {
   "timestamp": "2026-01-05T14:30:00Z",
   "event_type": "quality_metrics",
-  "device_id": "WEBEX-BOS-NORTHEND",
-  "room": "North End",
+  "device_id": "WEBEX-BOS-3F-KIRBY",
+  "room": "Kirby",
   "meeting_id": "987-654-321",
   "audio": {
     "mos_score": 3.2,
@@ -172,8 +177,8 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 {
   "timestamp": "2026-01-05T14:15:00Z",
   "event_type": "room_analytics",
-  "device_id": "WEBEX-BOS-CAMBRIDGE",
-  "room": "Cambridge",
+  "device_id": "WEBEX-BOS-3F-LINK",
+  "room": "Link",
   "people_count": 8,
   "ambient_noise_db": 45,
   "room_temperature_c": 23.5,
@@ -186,8 +191,8 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 {
   "timestamp": "2026-01-05T15:00:00Z",
   "event_type": "meeting_ended",
-  "device_id": "WEBEX-BOS-CAMBRIDGE",
-  "room": "Cambridge",
+  "device_id": "WEBEX-BOS-3F-LINK",
+  "room": "Link",
   "meeting_id": "123-456-789",
   "actual_duration_min": 60,
   "total_participants": 12,
@@ -201,13 +206,13 @@ Cisco Webex collaboration device events from 17 meeting rooms across 3 locations
 
 | Room | Issues | Symptoms |
 |------|--------|----------|
-| **North End** (BOS) | wifi_congestion, old_equipment | Low MOS, high jitter |
-| **Peachtree** (ATL) | bandwidth_limited, echo_issues | Video loss, echo |
+| **Kirby** (BOS) | wifi_congestion, old_equipment | Low MOS, high jitter |
+| **Cortana** (ATL) | bandwidth_limited, echo_issues | Video loss, echo |
 
 ### Problem Room Quality
 ```json
 {
-  "room": "North End",
+  "room": "Kirby",
   "quality_issue": "wifi_congestion",
   "audio": {"mos_score": 3.2},
   "video": {"packet_loss_pct": 4.5},
@@ -259,7 +264,7 @@ index=cloud sourcetype="cisco:webex:events" event_type="quality_metrics"
 Track specific room issues:
 ```spl
 index=cloud sourcetype="cisco:webex:events" event_type="quality_metrics"
-  room IN ("North End", "Peachtree")
+  room IN ("Kirby", "Cortana")
 | timechart span=1d avg(audio.mos_score) by room
 ```
 
@@ -311,16 +316,16 @@ Webex events correlate with Meraki MT sensors:
 ## Talking Points
 
 **Room Utilization:**
-> "Cambridge is our most-used room - 6+ hours of meetings daily. But look at ghost meetings - 15% of bookings are no-shows. That's wasted capacity."
+> "Link is our most-used room - 6+ hours of meetings daily. But look at ghost meetings - 15% of bookings are no-shows. That's wasted capacity."
 
 **Quality Issues:**
-> "North End consistently shows poor audio quality. MOS scores below 3.5, high jitter. This room is near a busy AP - WiFi congestion is the culprit."
+> "Kirby consistently shows poor audio quality. MOS scores below 3.5, high jitter. This room is near a busy AP - WiFi congestion is the culprit."
 
 **Sensor Correlation:**
 > "Watch the temperature: it starts rising 2 minutes before the meeting starts as people enter. During a 10-person meeting, the room temperature increases by 2-3 degrees."
 
 **Problem Rooms:**
-> "We have two problem rooms flagged for AV issues. Peachtree has echo problems - bad acoustics. North End has old equipment. These need IT attention."
+> "We have two problem rooms flagged for AV issues. Cortana has echo problems - bad acoustics. Kirby has old equipment. These need IT attention."
 
 ---
 

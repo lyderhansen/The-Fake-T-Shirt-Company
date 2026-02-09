@@ -287,8 +287,8 @@ Combine camera + sensor + Webex:
 index=network sourcetype=cisco:meraki:*
   (eventType=person_detection OR eventType=door_open OR eventType=temperature)
 | eval room=case(
-    match(deviceName, "CAMBRIDGE"), "Cambridge",
-    match(deviceName, "FANEUIL"), "Faneuil",
+    match(deviceName, "LINK"), "Link",
+    match(deviceName, "ZELDA"), "Zelda",
     true(), deviceName
 )
 | timechart span=5m avg(value) AS temp, sum(detections) AS people by room

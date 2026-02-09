@@ -60,11 +60,11 @@
   <text x="940" y="380" class="small">🪪 Badge Reader</text>
   <text x="940" y="410" class="small">Vaktrom</text>
 
-  <!-- Besøksrom Harbor -->
+  <!-- Besøksrom Peach -->
   <rect class="section" x="60" y="580" width="300" height="220"/>
-  <text x="210" y="610" text-anchor="middle" class="label">BESØKSROM “Harbor”</text>
+  <text x="210" y="610" text-anchor="middle" class="label">BESØKSROM "Peach"</text>
   <text x="80" y="650" class="small">Kapasitet: 6</text>
-  <text x="80" y="680" class="small">🖥️ WEBEX-BOS-HARBOR</text>
+  <text x="80" y="680" class="small">🖥️ WEBEX-BOS-1F-PEACH</text>
 
   <!-- Driftssenter -->
   <rect class="section" x="380" y="580" width="520" height="220"/>
@@ -79,11 +79,11 @@
   <text x="940" y="650" class="small">☕ Kjøkken / Kaffemaskin</text>
   <text x="940" y="680" class="small">📶 AP-BOS-1F-05</text>
 
-  <!-- Besøksrom Beacon -->
+  <!-- Besøksrom Toad -->
   <rect class="section" x="60" y="830" width="300" height="220"/>
-  <text x="210" y="860" text-anchor="middle" class="label">BESØKSROM “Beacon”</text>
+  <text x="210" y="860" text-anchor="middle" class="label">BESØKSROM "Toad"</text>
   <text x="80" y="900" class="small">Kapasitet: 4</text>
-  <text x="80" y="930" class="small">🖥️ WEBEX-BOS-BEACON</text>
+  <text x="80" y="930" class="small">🖥️ WEBEX-BOS-1F-TOAD</text>
 
   <!-- Shipping -->
   <rect class="section" x="380" y="830" width="520" height="220"/>

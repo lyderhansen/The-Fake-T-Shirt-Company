@@ -21,9 +21,9 @@ import random
 @dataclass
 class ScheduledMeeting:
     """Represents a scheduled meeting with timing information."""
-    room: str                    # Room name (e.g., "Faneuil")
+    room: str                    # Room name (e.g., "Zelda")
     location_code: str           # BOS, ATL, AUS
-    device_id: str               # WEBEX-BOS-FANEUIL
+    device_id: str               # WEBEX-BOS-2F-ZELDA
     start_time: datetime         # Actual meeting start time
     end_time: datetime           # Actual meeting end time
     scheduled_start: datetime    # Originally scheduled time
@@ -49,8 +49,8 @@ _walkin_schedule: Dict[str, List[ScheduledMeeting]] = {}
 AFTER_HOURS_CONFIG = {
     "days": [2, 6],  # Day 3 and 7 (0-indexed)
     "rooms": {
-        "BOS": ["Back Bay", "North End"],
-        "ATL": ["Buckhead"],
+        "BOS": ["Yoshi", "Kirby"],
+        "ATL": ["Pikachu"],
     },
     "hours": [(20, 23)],  # 20:00-23:00
 }
@@ -493,9 +493,9 @@ if __name__ == "__main__":
 
     # Add a test meeting
     test_meeting = ScheduledMeeting(
-        room="Faneuil",
+        room="Zelda",
         location_code="BOS",
-        device_id="WEBEX-BOS-FANEUIL",
+        device_id="WEBEX-BOS-2F-ZELDA",
         start_time=datetime(2026, 1, 1, 9, 0, 0),
         end_time=datetime(2026, 1, 1, 10, 0, 0),
         scheduled_start=datetime(2026, 1, 1, 9, 0, 0),
@@ -507,8 +507,8 @@ if __name__ == "__main__":
 
     print(f"\nSchedule stats: {get_schedule_stats()}")
 
-    print(f"\nMeetings for Faneuil:")
-    for m in get_meetings_for_room("BOS", "Faneuil"):
+    print(f"\nMeetings for Zelda:")
+    for m in get_meetings_for_room("BOS", "Zelda"):
         print(f"  {m.start_time} - {m.end_time}: {m.meeting_title} ({m.participant_count} people)")
 
     print(f"\nDoor events for meeting:")

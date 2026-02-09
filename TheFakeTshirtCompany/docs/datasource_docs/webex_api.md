@@ -65,7 +65,7 @@ Based upon TA: [ta_cisco_webex_add_on_for_splunk/releases/tag/v1.3.1](https://gi
   ],
   "status": "COMPLETED",
   "isRecurring": false,
-  "location": "Cambridge Room"
+  "location": "Link Room"
 }
 ```
 

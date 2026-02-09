@@ -4,6 +4,90 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-09 ~23:30 UTC — Simplified Floor Plan Document
+
+**Affected files:**
+- `docs/floor_plan.md` — NEW: Simplified floor plan replacing OFFICE_LAYOUTS.md
+- `docs/OFFICE_LAYOUTS.md` → `docs/OFFICE_LAYOUTS_old.md` — Renamed as backup
+
+**Description:** Created a simplified floor plan document (`floor_plan.md`) to replace the complex 937-line `OFFICE_LAYOUTS.md`. Key changes:
+- Replaced heavy Unicode box-drawing ASCII art (╔═║) with simple `+--+` grid format
+- Translated all content from Norwegian to English (per CLAUDE.md rules)
+- Added structured markdown equipment tables under each floor
+- Fixed Cortana room placement (ATL Floor 1 → Floor 2, matching company.py)
+- Added 4 missing rooms: Mario (BOS F2), Luigi (BOS F3), Kratos (ATL F1), Crash (AUS F1)
+- Excluded attack scenario section (physical layout only)
+- Reduced from ~937 lines to ~410 lines (~57% reduction)
+
+---
+
+## 2026-02-09 ~22:30 UTC — Ransomware Scenario Dashboard (Dashboard Studio v2)
+
+**Affected files:**
+- `default/data/ui/views/scenario_ransomware.xml` — Replaced Simple XML (v1.1) with Dashboard Studio (v2) dashboard
+
+**Description:** Rebuilt the ransomware scenario dashboard from Simple XML to Dashboard Studio format with 3 tabbed views:
+
+- **Incident Overview** — Markdown header with incident summary, 4 KPIs (Total Events, C2 Beacons, Lateral Attempts Blocked, Time to Containment), kill chain timeline table, stacked column chart (5-min intervals by sourcetype), pie chart (event distribution), and Sankey diagram (attack network flow)
+- **Attack Analysis** — Exchange phishing email trace, Windows process execution chain (color-coded by phase), C2 callback table (ASA), lateral movement attempts (Event 4625), Meraki IDS/isolation events (color-coded by type)
+- **Response & Recovery** — ServiceNow incidents (color-coded by priority), Office 365 file events (color-coded: FileModified=red, FileRestored=green), investigation SPL queries, complete event timeline
+
+Features: 15 data sources, 20 visualizations, tabbed grid layout (1440px width), color-coded table columns via DOS `matchValue()`, `seriesColorsByField` for consistent chart colors, global time range input defaulting to Jan 2026.
+
+---
+
+## 2026-02-09 ~20:00 UTC — Meeting Room Standardization (Video Game Character Names)
+
+**Background:** All 17 meeting rooms across 3 locations had Boston neighborhood names (Cambridge, Faneuil, Back Bay, etc.). Rooms were renamed to single-word video game character names, room count increased from 17 to 21, and floor info added to the device naming standard.
+
+**Device naming standard:** `{TYPE}-{LOC}-{FLOOR}F-{NAME}` (e.g., `WEBEX-BOS-3F-LINK`, `MT-BOS-3F-DOOR-LINK`)
+
+### New Room Inventory (21 rooms)
+
+| Location | Rooms | Names |
+|----------|-------|-------|
+| Boston (10) | +2 new | Link, Zelda, Samus, Kirby, Yoshi, Sonic, Peach, Toad, **Mario**, **Luigi** |
+| Atlanta (7) | +1 new | Cortana, Chief, Ryu, Pikachu, Megaman, Lara, **Kratos** |
+| Austin (4) | +1 new | Doom, Fox, Jett, **Crash** |
+
+### Name Mapping (old → new)
+
+| Old Name | New Name | Role Preserved |
+|----------|----------|----------------|
+| Cambridge | Link | Boardroom, premium, south sun |
+| Faneuil | Zelda | Conference, normal |
+| Quincy | Samus | Conference, east sun |
+| North End | Kirby | Huddle, **problematic** (wifi_congestion) |
+| Back Bay | Yoshi | Huddle, after-hours |
+| Engineering Lab | Sonic | Lab, premium |
+| Harbor | Peach | Visitor |
+| Beacon | Toad | Visitor |
+| Peachtree | Cortana | Training, **problematic** (echo_issues) |
+| Midtown | Chief | Conference, west sun |
+| NOC | Ryu | Operations, premium |
+| Buckhead | Pikachu | Huddle, after-hours |
+| Decatur | Megaman | Huddle |
+| Innovation Lab | Lara | Lab |
+| Congress | Doom | Conference, southwest sun |
+| 6th Street | Fox | Huddle |
+| Live Oak | Jett | Demo, premium |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `bin/shared/company.py` | Replaced MEETING_ROOMS dict: 17→21 rooms, new names, floor-based sensor IDs |
+| `bin/generators/generate_webex.py` | Replaced WEBEX_DEVICES dict: 21 entries with floor-based device IDs, updated fallback rooms |
+| `bin/shared/meeting_schedule.py` | Updated AFTER_HOURS_CONFIG room names |
+| `CLAUDE.md` | Updated device inventory, problem rooms, sunny rooms, after-hours sections |
+| `docs/OFFICE_LAYOUTS.md` | Updated floor plan room labels and device references |
+| `docs/datasource_docs/webex_devices.md` | Updated device inventory tables and examples |
+| `docs/datasource_docs/webex_api.md` | Updated room name in example |
+| `docs/datasource_docs/webex_meetings.md` | Updated room device example |
+| `docs/datasource_docs/meraki.md` | Updated SPL query room references |
+
+---
+
 ## 2026-02-09 ~15:00 UTC — Data Source Field Validation Fixes
 
 **Background:** `data_source_field_validation_fix_list.md` identified 37 field validation findings across 5 generators where synthetic logs deviated from real vendor output. All fixes have been implemented and verified.

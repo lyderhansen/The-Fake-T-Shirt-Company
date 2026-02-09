@@ -120,180 +120,221 @@ WEBEX_MODELS = {
     },
 }
 
-# Webex devices per location (from OFFICE_LAYOUTS.md)
+# Webex devices per location — video game character room names
+# Device naming: WEBEX-{LOC}-{FLOOR}F-{NAME}
 WEBEX_DEVICES = {
     # Boston HQ - 10 devices
-    "WEBEX-BOS-CAMBRIDGE": {
+    "WEBEX-BOS-3F-LINK": {
         "model": "Room Kit Pro",
         "location": "BOS",
         "floor": 3,
-        "room": "Cambridge",
+        "room": "Link",
         "room_type": "Boardroom",
         "capacity": 20,
         "additional_equipment": ["Board 85 Pro"],
         "serial": "FOC2345X001",
     },
-    "WEBEX-BOS-FANEUIL": {
+    "WEBEX-BOS-2F-ZELDA": {
         "model": "Room Kit",
         "location": "BOS",
         "floor": 2,
-        "room": "Faneuil",
+        "room": "Zelda",
         "room_type": "Conference Room",
         "capacity": 12,
         "additional_equipment": ["Board 55"],
         "serial": "FOC2345X002",
     },
-    "WEBEX-BOS-QUINCY": {
+    "WEBEX-BOS-2F-SAMUS": {
         "model": "Room Kit",
         "location": "BOS",
         "floor": 2,
-        "room": "Quincy",
+        "room": "Samus",
         "room_type": "Conference Room",
         "capacity": 8,
         "additional_equipment": [],
         "serial": "FOC2345X003",
     },
-    "WEBEX-BOS-NORTHEND": {
+    "WEBEX-BOS-3F-KIRBY": {
         "model": "Desk Pro",
         "location": "BOS",
-        "floor": 2,
-        "room": "North End",
+        "floor": 3,
+        "room": "Kirby",
         "room_type": "Huddle Space",
         "capacity": 4,
         "additional_equipment": [],
         "serial": "FOC2345X004",
     },
-    "WEBEX-BOS-BACKBAY": {
+    "WEBEX-BOS-3F-YOSHI": {
         "model": "Room Kit Mini",
         "location": "BOS",
         "floor": 3,
-        "room": "Back Bay",
-        "room_type": "Small Meeting Room",
+        "room": "Yoshi",
+        "room_type": "Huddle Space",
         "capacity": 6,
         "additional_equipment": [],
         "serial": "FOC2345X005",
     },
-    "WEBEX-BOS-LAB": {
+    "WEBEX-BOS-3F-SONIC": {
         "model": "Board 55",
         "location": "BOS",
         "floor": 3,
-        "room": "Engineering Lab",
+        "room": "Sonic",
         "room_type": "Collaboration Space",
         "capacity": 8,
         "additional_equipment": [],
         "serial": "FOC2345X006",
     },
-    "WEBEX-BOS-HARBOR": {
+    "WEBEX-BOS-1F-PEACH": {
         "model": "Desk Pro",
         "location": "BOS",
         "floor": 1,
-        "room": "Harbor",
+        "room": "Peach",
         "room_type": "Visitor Meeting Room",
         "capacity": 6,
         "additional_equipment": [],
         "serial": "FOC2345X007",
     },
-    "WEBEX-BOS-BEACON": {
+    "WEBEX-BOS-1F-TOAD": {
         "model": "Room Kit Mini",
         "location": "BOS",
         "floor": 1,
-        "room": "Beacon",
+        "room": "Toad",
         "room_type": "Visitor Meeting Room",
         "capacity": 4,
         "additional_equipment": [],
         "serial": "FOC2345X008",
     },
+    "WEBEX-BOS-2F-MARIO": {
+        "model": "Room Kit",
+        "location": "BOS",
+        "floor": 2,
+        "room": "Mario",
+        "room_type": "Conference Room",
+        "capacity": 10,
+        "additional_equipment": [],
+        "serial": "FOC2345X009",
+    },
+    "WEBEX-BOS-3F-LUIGI": {
+        "model": "Room Kit",
+        "location": "BOS",
+        "floor": 3,
+        "room": "Luigi",
+        "room_type": "Conference Room",
+        "capacity": 8,
+        "additional_equipment": [],
+        "serial": "FOC2345X010",
+    },
     # Atlanta Hub - 7 devices
-    "WEBEX-ATL-PEACHTREE": {
+    "WEBEX-ATL-2F-CORTANA": {
         "model": "Room Kit Pro",
         "location": "ATL",
-        "floor": 1,
-        "room": "Peachtree",
+        "floor": 2,
+        "room": "Cortana",
         "room_type": "Training Room",
         "capacity": 16,
         "additional_equipment": [],
         "serial": "FOC2345X101",
     },
-    "WEBEX-ATL-MIDTOWN": {
+    "WEBEX-ATL-2F-CHIEF": {
         "model": "Room Kit",
         "location": "ATL",
         "floor": 2,
-        "room": "Midtown",
+        "room": "Chief",
         "room_type": "Conference Room",
         "capacity": 10,
         "additional_equipment": ["Board 55"],
         "serial": "FOC2345X102",
     },
-    "WEBEX-ATL-NOC": {
+    "WEBEX-ATL-1F-RYU": {
         "model": "Room Kit",
         "location": "ATL",
         "floor": 1,
-        "room": "NOC",
+        "room": "Ryu",
         "room_type": "Operations Center",
         "capacity": 6,
         "additional_equipment": [],
         "serial": "FOC2345X103",
     },
-    "WEBEX-ATL-BUCKHEAD": {
+    "WEBEX-ATL-2F-PIKACHU": {
         "model": "Desk Pro",
         "location": "ATL",
-        "floor": 1,
-        "room": "Buckhead",
+        "floor": 2,
+        "room": "Pikachu",
         "room_type": "Huddle Space",
         "capacity": 4,
         "additional_equipment": [],
         "serial": "FOC2345X104",
     },
-    "WEBEX-ATL-DECATUR": {
+    "WEBEX-ATL-2F-MEGAMAN": {
         "model": "Desk Pro",
         "location": "ATL",
         "floor": 2,
-        "room": "Decatur",
+        "room": "Megaman",
         "room_type": "Huddle Space",
         "capacity": 4,
         "additional_equipment": [],
         "serial": "FOC2345X105",
     },
-    "WEBEX-ATL-INNOVATION": {
+    "WEBEX-ATL-2F-LARA": {
         "model": "Board 55",
         "location": "ATL",
         "floor": 2,
-        "room": "Innovation Lab",
+        "room": "Lara",
         "room_type": "Collaboration Space",
         "capacity": 8,
         "additional_equipment": [],
         "serial": "FOC2345X106",
     },
+    "WEBEX-ATL-1F-KRATOS": {
+        "model": "Room Kit",
+        "location": "ATL",
+        "floor": 1,
+        "room": "Kratos",
+        "room_type": "Conference Room",
+        "capacity": 8,
+        "additional_equipment": [],
+        "serial": "FOC2345X107",
+    },
     # Austin Office - 4 devices
-    "WEBEX-AUS-CONGRESS": {
+    "WEBEX-AUS-1F-DOOM": {
         "model": "Room Kit",
         "location": "AUS",
         "floor": 1,
-        "room": "Congress",
+        "room": "Doom",
         "room_type": "Main Conference Room",
         "capacity": 12,
         "additional_equipment": ["Board 55"],
         "serial": "FOC2345X201",
     },
-    "WEBEX-AUS-6THSTREET": {
+    "WEBEX-AUS-1F-FOX": {
         "model": "Room Kit Mini",
         "location": "AUS",
         "floor": 1,
-        "room": "6th Street",
-        "room_type": "Small Meeting Room",
+        "room": "Fox",
+        "room_type": "Huddle Space",
         "capacity": 6,
         "additional_equipment": [],
         "serial": "FOC2345X202",
     },
-    "WEBEX-AUS-LIVEOAK": {
+    "WEBEX-AUS-1F-JETT": {
         "model": "Room Kit",
         "location": "AUS",
         "floor": 1,
-        "room": "Live Oak",
+        "room": "Jett",
         "room_type": "Demo Lab",
         "capacity": 8,
         "additional_equipment": [],
         "serial": "FOC2345X203",
+    },
+    "WEBEX-AUS-1F-CRASH": {
+        "model": "Room Kit",
+        "location": "AUS",
+        "floor": 1,
+        "room": "Crash",
+        "room_type": "Conference Room",
+        "capacity": 8,
+        "additional_equipment": [],
+        "serial": "FOC2345X204",
     },
 }
 
@@ -1182,7 +1223,7 @@ def generate_webex_logs(
 
         # After-hours activity (legitimate overtime work, not exfil related)
         # Only on specific days (3, 7) in preferred smaller rooms
-        preferred_rooms = MEETING_BEHAVIOR.get("afterhours_preferred_rooms", ["Back Bay", "North End", "Buckhead"])
+        preferred_rooms = MEETING_BEHAVIOR.get("afterhours_preferred_rooms", ["Yoshi", "Kirby", "Pikachu"])
 
         for device_id, device_info in WEBEX_DEVICES.items():
             room_name = device_info.get("room", "")

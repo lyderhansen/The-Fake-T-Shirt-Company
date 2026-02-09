@@ -765,36 +765,29 @@ This applies time range tokens to ALL `ds.search` data sources globally, avoidin
 
 **display values:** `"auto-scale"` | `"actual-size"`
 
-### 6.2 Grid Layout (responsive, snap-to)
+### 6.2 Grid Layout (responsive, auto-sized)
+
+> **IMPORTANT:** Every visualization defined in the `visualizations` section **MUST** have a corresponding entry in `layout.structure`. If a visualization is missing from `structure`, it will not render. This is the most common cause of panels not appearing — especially for multi-row dashboards where it's easy to forget a panel.
+
+> **CRITICAL — NO `options` block for grid layout.** Grid layout definitions must have ONLY `type` and `structure`. Do NOT add `width`, `height`, `backgroundColor`, `display`, or `gutterSize` — these are absolute-layout-only properties. Adding an `options` block to a grid layout causes only the first row of panels to render.
 
 ```json
 "layout": {
   "type": "grid",
-  "options": {
-    "width": 1200,
-    "height": 900,
-    "display": "auto",
-    "gutterSize": 8,
-    "submitButton": false,
-    "showTitleAndDescription": true
-  },
   "globalInputs": ["input_global_trp"],
   "structure": [
-    {
-      "item": "viz_chart1",
-      "type": "block",
-      "position": {"x": 0, "y": 0, "w": 600, "h": 300}
-    },
-    {
-      "item": "viz_chart2",
-      "type": "block",
-      "position": {"x": 600, "y": 0, "w": 600, "h": 300}
-    }
+    {"item": "viz_chart1", "type": "block", "position": {"x": 0, "y": 0, "w": 600, "h": 300}},
+    {"item": "viz_chart2", "type": "block", "position": {"x": 600, "y": 0, "w": 600, "h": 300}},
+    {"item": "viz_chart3", "type": "block", "position": {"x": 0, "y": 300, "w": 1200, "h": 400}}
   ]
 }
 ```
 
-Grid widths should add up to the total layout width (default 1200). Common splits: 2 columns = 600+600, 3 columns = 400+400+400, 4 columns = 300+300+300+300.
+**Structure rules:**
+- Every `viz_*` panel needs a `{"item": "viz_xxx", "type": "block", "position": {...}}` entry
+- Grid width is always 1200. Common splits: 2 columns = 600+600, 3 columns = 400+400+400, 4 columns = 300+300+300+300
+- **Y-values must be cumulative** — each row's y = previous row's y + previous row's h (no gaps). Example: row 1 at y=0 h=300, row 2 must start at y=300, not y=310
+- Grid is always auto-sized vertically — do NOT set a total height
 
 ### 6.3 Tabbed Layout
 
@@ -815,14 +808,12 @@ Grid widths should add up to the total layout width (default 1200). Common split
   "layoutDefinitions": {
     "layout_overview": {
       "type": "grid",
-      "options": {"width": 1200},
       "structure": [
         {"item": "viz_1", "type": "block", "position": {"x": 0, "y": 0, "w": 1200, "h": 300}}
       ]
     },
     "layout_details": {
       "type": "grid",
-      "options": {"width": 1200},
       "structure": [
         {"item": "viz_2", "type": "block", "position": {"x": 0, "y": 0, "w": 1200, "h": 400}}
       ]
@@ -1115,7 +1106,7 @@ Layout grid positions for this pattern (width=1200):
 1. **Always include a global time range input** and wire it through `defaults.dataSources.ds.search.options.queryParameters`.
 2. **Use base+chain searches** when multiple visualizations need variations of the same data — avoids redundant searching.
 3. **Use `ds.test`** for prototyping layouts before wiring real searches.
-4. **Grid layout** for quick responsive dashboards; **absolute layout** for pixel-perfect designs with backgrounds and shapes.
+4. **Grid layout** for quick responsive dashboards; **absolute layout** for pixel-perfect designs with backgrounds and shapes. When using either layout, ensure **every visualization has a matching entry in `layout.structure`** — missing entries cause panels to silently not render.
 5. **Unique IDs:** Data source IDs start with `ds_`, visualization IDs with `viz_`, input IDs with `input_`.
 6. **Name all searches:** Every `ds.search` and `ds.chain` MUST have a descriptive `name` property. Use meaningful names like `"Failed Logins by Host"` instead of `"Search_1"`.
 7. **Validate JSON** before deploying — Dashboard Studio provides limited validation.

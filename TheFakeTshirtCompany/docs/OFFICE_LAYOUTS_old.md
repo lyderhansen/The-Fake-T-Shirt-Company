@@ -143,7 +143,7 @@ Detaljerte plantegninger for alle kontorlokasjoner med plassering av:
 ╠════════════════╬══════════════════════════════════════════════╬═══════════════════════╣
 ║                ║                                              ║                       ║
 ║  BESØKSROM     ║                                              ║     PAUSEROM          ║
-║  "Harbor"      ║         DRIFTSSENTER                         ║                       ║
+║  "Peach"      ║         DRIFTSSENTER                         ║                       ║
 ║  ┌──────────┐  ║  ┌────────────────────────────────────┐     ║  ┌─────────────────┐  ║
 ║  │ Kap: 6   │  ║  │                                    │     ║  │    ☕ KJØKKEN   │  ║
 ║  │          │  ║  │  🖥️  🖥️  🖥️  🖥️  🖥️   Dashboard   │     ║  │                 │  ║
@@ -157,7 +157,7 @@ Detaljerte plantegninger for alle kontorlokasjoner med plassering av:
 ╠════════════════╬══════════════════════════════════════════════╬═══════════════════════╣
 ║                ║                                              ║                       ║
 ║  BESØKSROM     ║       SHIPPING / MOTTAK                      ║   SERVERROM           ║
-║  "Beacon"      ║                                              ║   [IDF-BOS-1F]        ║
+║  "Toad"      ║                                              ║   [IDF-BOS-1F]        ║
 ║  ┌──────────┐  ║  ┌────────────────────────────────────┐     ║  ┌─────────────────┐  ║
 ║  │ Kap: 4   │  ║  │                                    │     ║  │                 │  ║
 ║  │          │  ║  │  📦 Pakkestasjon  📦 Pakkestasjon  │     ║  │ ┌─────────────┐ │  ║
@@ -193,7 +193,7 @@ ETASJE 1 - UTSTYRSLISTE:
 ────────────────────────────────────────────────────────────────────────────────────────
  🔌 Switcher      │ MS-BOS-1F-IDF1 (48 porter)
 ────────────────────────────────────────────────────────────────────────────────────────
- 🖥️ Webex         │ WEBEX-BOS-HARBOR (Desk Pro), WEBEX-BOS-BEACON (Room Kit Mini)
+ 🖥️ Webex         │ WEBEX-BOS-1F-PEACH (Desk Pro), WEBEX-BOS-1F-TOAD (Room Kit Mini)
 ────────────────────────────────────────────────────────────────────────────────────────
 ```
 
@@ -217,7 +217,7 @@ ETASJE 1 - UTSTYRSLISTE:
 ╠═══════════════════╦═══════════════════════════════════════════════╦════════════════════╣
 ║                   ║                                               ║                    ║
 ║  FINANSDIREKTØR   ║           ÅPENT KONTORLANDSKAP                ║    MØTEROM         ║
-║  (Privat kontor)  ║              FINANS                           ║    "Faneuil"       ║
+║  (Privat kontor)  ║              FINANS                           ║    "Zelda"       ║
 ║  ┌─────────────┐  ║        (Finansteam - 20 ansatte)              ║    ┌────────────┐  ║
 ║  │             │  ║  ┌─────────────────────────────────────┐      ║    │ Kap: 12    │  ║
 ║  │ Robert      │  ║  │ 🖥️🖥️🖥️🖥️🖥️  │  🖥️🖥️🖥️🖥️🖥️ │      ║    │            │  ║
@@ -236,7 +236,7 @@ ETASJE 1 - UTSTYRSLISTE:
 ╠═══════════════════╬═══════════════════════════════════════════════╬════════════════════╣
 ║                   ║                                               ║                    ║
 ║    MØTEROM        ║           ÅPENT KONTORLANDSKAP                ║    HUDDLE          ║
-║    "Quincy"       ║              MARKETING                        ║    "North End"     ║
+║    "Samus"       ║              MARKETING                        ║    "Kirby"     ║
 ║    ┌───────────┐  ║        (Marketingteam - 12 ansatte)           ║    ┌────────────┐  ║
 ║    │ Kap: 8    │  ║  ┌─────────────────────────────────────┐      ║    │ Kap: 4     │  ║
 ║    │           │  ║  │                                     │      ║    │            │  ║
@@ -270,9 +270,9 @@ ETASJE 2 - UTSTYRSLISTE:
 ────────────────────────────────────────────────────────────────────────────────────────
  🔌 Switcher      │ MS-BOS-2F-IDF1 (48 porter)
 ────────────────────────────────────────────────────────────────────────────────────────
- 🖥️ Webex         │ WEBEX-BOS-FANEUIL (Room Kit + Board 55)
-                  │ WEBEX-BOS-QUINCY (Room Kit)
-                  │ WEBEX-BOS-NORTHEND (Desk Pro)
+ 🖥️ Webex         │ WEBEX-BOS-2F-ZELDA (Room Kit + Board 55)
+                  │ WEBEX-BOS-2F-SAMUS (Room Kit)
+                  │ WEBEX-BOS-3F-KIRBY (Desk Pro)
 ────────────────────────────────────────────────────────────────────────────────────────
 
 NØKKELPERSONELL - ETASJE 2:
@@ -304,7 +304,7 @@ NØKKELPERSONELL - ETASJE 2:
 ║                                                                                        ║
 ╠═══════════════════╦═══════════════════════════════════════════════╦════════════════════╣
 ║                   ║                                               ║                    ║
-║  LEDERASSISTENT   ║            STYREROM "CAMBRIDGE"               ║   CEO KONTOR       ║
+║  LEDERASSISTENT   ║            STYREROM "LINK"               ║   CEO KONTOR       ║
 ║     OMRÅDE        ║              Kapasitet: 20                    ║                    ║
 ║  ┌─────────────┐  ║  ┌─────────────────────────────────────┐      ║  ┌──────────────┐  ║
 ║  │             │  ║  │                                     │      ║  │              │  ║
@@ -321,7 +321,7 @@ NØKKELPERSONELL - ETASJE 2:
 ║                   ║  │  🪑🪑🪑🪑🪑🪑🪑🪑🪑🪑  (20 stoler) │      ║  └──────────────┘  ║
 ║                   ║  │  🪑🪑🪑🪑🪑🪑🪑🪑🪑🪑              │      ║                    ║
 ║                   ║  │                                     │      ║                    ║
-║                   ║  │  🖥️ WEBEX-BOS-CAMBRIDGE              │      ║                    ║
+║                   ║  │  🖥️ WEBEX-BOS-3F-LINK              │      ║                    ║
 ║                   ║  │  Room Kit Pro                       │      ║                    ║
 ║                   ║  │  📹 CAM-BOS-3F-01  📹 CAM-BOS-3F-02 │      ║                    ║
 ║                   ║  └─────────────────────────────────────┘      ║                    ║
@@ -334,7 +334,7 @@ NØKKELPERSONELL - ETASJE 2:
 ║  └─────────────┘  ║  │                                     │      ║  └──────────────┘  ║
 ║                   ║  │  🖥️🖥️🖥️🖥️🖥️  │  🖥️🖥️🖥️🖥️🖥️ │      ║                    ║
 ║  JURIDISK         ║  │  (Ståbord)      │  (Ståbord)       │      ║   SAMARBEIDSROM    ║
-║  AVDELING         ║  │                 │                  │      ║   "Lab"            ║
+║  AVDELING         ║  │                 │                  │      ║   "Sonic"            ║
 ║ (Juridisk - 6)    ║  │  🖥️🖥️🖥️🖥️🖥️  │  🖥️🖥️🖥️🖥️🖥️ │      ║   ┌──────────────┐  ║
 ║  ┌─────────────┐  ║  │  (Doble skjermer på alle plasser)  │      ║   │ Kap: 8       │  ║
 ║  │             │  ║  │                                     │      ║   │              │  ║
@@ -346,7 +346,7 @@ NØKKELPERSONELL - ETASJE 2:
 ║  └─────────────┘  ║                                               ║                    ║
 ╠═══════════════════╬═══════════════════════════════════════════════╬════════════════════╣
 ║   LITE MØTEROM    ║                                               ║                    ║
-║   "Back Bay"      ║       PRIMÆR MDF / DATASENTER                 ║    PAUSEROM        ║
+║   "Yoshi"      ║       PRIMÆR MDF / DATASENTER                 ║    PAUSEROM        ║
 ║   ┌───────────┐   ║       [MDF-BOS]                               ║                    ║
 ║   │ Kap: 6    │   ║  ╔═════════════════════════════════════╗      ║  ┌──────────────┐  ║
 ║   │           │   ║  ║                                     ║      ║  │              │  ║
@@ -384,9 +384,9 @@ ETASJE 3 - UTSTYRSLISTE:
 ────────────────────────────────────────────────────────────────────────────────────────
  🔥 Firewalls     │ MX-BOS-01, MX-BOS-02 (MX450 HA-par)
 ────────────────────────────────────────────────────────────────────────────────────────
- 🖥️ Webex         │ WEBEX-BOS-CAMBRIDGE (Room Kit Pro + Board 85 Pro)
-                  │ WEBEX-BOS-BACKBAY (Room Kit Mini)
-                  │ WEBEX-BOS-LAB (Board 55)
+ 🖥️ Webex         │ WEBEX-BOS-3F-LINK (Room Kit Pro + Board 85 Pro)
+                  │ WEBEX-BOS-3F-YOSHI (Room Kit Mini)
+                  │ WEBEX-BOS-3F-SONIC (Board 55)
 ────────────────────────────────────────────────────────────────────────────────────────
 
 NØKKELPERSONELL - ETASJE 3:
@@ -435,7 +435,7 @@ NØKKELPERSONELL - ETASJE 3:
 ╠═══════════════════╦═══════════════════════════════════════════════╦════════════════════╣
 ║                   ║                                               ║                    ║
 ║   RESEPSJON       ║         IT DRIFTSSENTER                       ║       NOC          ║
-║   ┌─────────────┐ ║      (IT-team - 15 ansatte)                   ║   "Network Ops"    ║
+║   ┌─────────────┐ ║      (IT-team - 15 ansatte)                   ║   "Ryu"    ║
 ║   │             │ ║  ┌─────────────────────────────────────┐      ║   ┌──────────────┐ ║
 ║   │ 📶AP-ATL-  │ ║  │                                     │      ║   │ Kap: 6       │ ║
 ║   │   1F-01    │ ║  │  🖥️🖥️🖥️🖥️🖥️  │  🖥️🖥️🖥️🖥️🖥️ │      ║   │              │ ║
@@ -456,7 +456,7 @@ NØKKELPERSONELL - ETASJE 3:
 ╠═══════════════════╬═══════════════════════════════════════════════╬════════════════════╣
 ║                   ║                                               ║                    ║
 ║   OPPLÆRINGSLAB   ║              DATASENTER                       ║   STAGING OMRÅDE   ║
-║   "Peachtree"     ║              [DC-ATL]                         ║                    ║
+║   "Cortana"     ║              [DC-ATL]                         ║                    ║
 ║   ┌─────────────┐ ║  ╔═════════════════════════════════════╗      ║  ┌──────────────┐  ║
 ║   │ Kap: 16    │ ║  ║                                     ║      ║  │              │  ║
 ║   │             │ ║  ║  ┌─────────┐  ┌─────────┐          ║      ║  │ 📶AP-ATL-   │  ║
@@ -478,7 +478,7 @@ NØKKELPERSONELL - ETASJE 3:
 ║                   ║  ╚═════════════════════════════════════╝      ║                    ║
 ╠═══════════════════╬═══════════════════╦═══════════════════════════╬════════════════════╣
 ║   LITE MØTEROM    ║                   ║                           ║   IDF-ATL-1F       ║
-║   "Buckhead"      ║    PAUSEROM       ║       LAGER               ║                    ║
+║   "Pikachu"      ║    PAUSEROM       ║       LAGER               ║                    ║
 ║   ┌───────────┐   ║  ┌─────────────┐  ║  ┌───────────────────┐    ║  ┌──────────────┐  ║
 ║   │ Kap: 4    │   ║  │             │  ║  │                   │    ║  │              │  ║
 ║   │           │   ║  │ 📶AP-ATL-  │  ║  │  📦 Reservedeler  │    ║  │ MS-ATL-1F-   │  ║
@@ -507,9 +507,9 @@ ETASJE 1 - UTSTYRSLISTE:
 ────────────────────────────────────────────────────────────────────────────────────────
  🔥 Firewall      │ MX-ATL-01 (MX250)
 ────────────────────────────────────────────────────────────────────────────────────────
- 🖥️ Webex         │ WEBEX-ATL-NOC (Room Kit + 4 Skjermer)
-                  │ WEBEX-ATL-PEACHTREE (Room Kit Pro)
-                  │ WEBEX-ATL-BUCKHEAD (Desk Pro)
+ 🖥️ Webex         │ WEBEX-ATL-1F-RYU (Room Kit + 4 Skjermer)
+                  │ WEBEX-ATL-2F-CORTANA (Room Kit Pro)
+                  │ WEBEX-ATL-2F-PIKACHU (Desk Pro)
 ────────────────────────────────────────────────────────────────────────────────────────
 
 NØKKELPERSONELL - ETASJE 1:
@@ -543,7 +543,7 @@ NØKKELPERSONELL - ETASJE 1:
 ╠═══════════════════╦═══════════════════════════════════════════════╦════════════════════╣
 ║                   ║                                               ║                    ║
 ║    MØTEROM        ║         ÅPENT KONTORLANDSKAP                  ║    LITE MØTEROM    ║
-║    "Midtown"      ║            ENGINEERING                        ║    "Decatur"       ║
+║    "Chief"      ║            ENGINEERING                        ║    "Megaman"       ║
 ║    ┌───────────┐  ║       (Engineeringteam - 8 ansatte)           ║    ┌────────────┐  ║
 ║    │ Kap: 10   │  ║  ┌─────────────────────────────────────┐      ║    │ Kap: 4     │  ║
 ║    │           │  ║  │                                     │      ║    │            │  ║
@@ -575,7 +575,7 @@ NØKKELPERSONELL - ETASJE 1:
 ║  └─────────────┘  ║                                               ║                    ║
 ╠═══════════════════╬═══════════════════╦═══════════════════════════╬════════════════════╣
 ║   VELVÆREROM      ║                   ║    SAMARBEIDSROM          ║   IDF-ATL-2F       ║
-║   (Stille sone)   ║    PAUSEROM       ║    "Innovation"           ║                    ║
+║   (Stille sone)   ║    PAUSEROM       ║    "Lara"           ║                    ║
 ║  ┌─────────────┐  ║    (Stort)        ║    ┌─────────────────┐    ║  ┌──────────────┐  ║
 ║  │             │  ║  ┌─────────────┐  ║    │ Kap: 8          │    ║  │              │  ║
 ║  │ 🧘 Meditasjon│  ║  │             │  ║    │                 │    ║  │ MS-ATL-2F-   │  ║
@@ -595,9 +595,9 @@ ETASJE 2 - UTSTYRSLISTE:
 ────────────────────────────────────────────────────────────────────────────────────────
  🔌 Switch        │ MS-ATL-2F-IDF1 (MS225-48)
 ────────────────────────────────────────────────────────────────────────────────────────
- 🖥️ Webex         │ WEBEX-ATL-MIDTOWN (Room Kit + Board 55)
-                  │ WEBEX-ATL-DECATUR (Desk Pro)
-                  │ WEBEX-ATL-INNOVATION (Board 55)
+ 🖥️ Webex         │ WEBEX-ATL-2F-CHIEF (Room Kit + Board 55)
+                  │ WEBEX-ATL-2F-MEGAMAN (Desk Pro)
+                  │ WEBEX-ATL-2F-LARA (Board 55)
 ────────────────────────────────────────────────────────────────────────────────────────
 
 NØKKELPERSONELL - ETASJE 2:
@@ -641,7 +641,7 @@ NØKKELPERSONELL - ETASJE 2:
 ╠═══════════════════╦═══════════════════════════════════════════════╦════════════════════╣
 ║                   ║                                               ║                    ║
 ║   RESEPSJON       ║         ÅPENT KONTORLANDSKAP                  ║    MØTEROM         ║
-║   ┌─────────────┐ ║              SALG                             ║    "Congress"      ║
+║   ┌─────────────┐ ║              SALG                             ║    "Doom"      ║
 ║   │             │ ║       (Salgsteam - 15 ansatte)                ║    ┌────────────┐  ║
 ║   │ 📶AP-AUS-  │ ║  ┌─────────────────────────────────────┐      ║    │ Kap: 12    │  ║
 ║   │   1F-01    │ ║  │                                     │      ║    │            │  ║
@@ -658,7 +658,7 @@ NØKKELPERSONELL - ETASJE 2:
 ╠═══════════════════╬═══════════════════════════════════════════════╬════════════════════╣
 ║                   ║                                               ║                    ║
 ║   LITE MØTEROM    ║         ÅPENT KONTORLANDSKAP                  ║    DEMO LAB        ║
-║   "6th Street"    ║            ENGINEERING                        ║    "Live Oak"      ║
+║   "Fox"    ║            ENGINEERING                        ║    "Jett"      ║
 ║   ┌───────────┐   ║       (Engineeringteam - 12 ansatte)          ║    ┌────────────┐  ║
 ║   │ Kap: 6    │   ║  ┌─────────────────────────────────────┐      ║    │ Kap: 8     │  ║
 ║   │           │   ║  │                                     │      ║    │            │  ║
@@ -712,9 +712,9 @@ ETASJE 1 - UTSTYRSLISTE:
 ────────────────────────────────────────────────────────────────────────────────────────
  🔥 Firewall      │ MX-AUS-01 (MX85)
 ────────────────────────────────────────────────────────────────────────────────────────
- 🖥️ Webex         │ WEBEX-AUS-CONGRESS (Room Kit + Board 55)
-                  │ WEBEX-AUS-6THSTREET (Room Kit Mini)
-                  │ WEBEX-AUS-LIVEOAK (Room Kit)
+ 🖥️ Webex         │ WEBEX-AUS-1F-DOOM (Room Kit + Board 55)
+                  │ WEBEX-AUS-1F-FOX (Room Kit Mini)
+                  │ WEBEX-AUS-1F-JETT (Room Kit)
 ────────────────────────────────────────────────────────────────────────────────────────
 
 NØKKELPERSONELL - AUSTIN:
@@ -740,27 +740,27 @@ NØKKELPERSONELL - AUSTIN:
 │ Lokasjon │ Romnavn         │ Kap   │ Webex-enhet             │ Funksjoner               │
 ├──────────┼─────────────────┼───────┼─────────────────────────┼──────────────────────────┤
 │          │                 │       │                         │                          │
-│ BOSTON   │ Cambridge       │  20   │ Room Kit Pro + Board 85 │ Styremøter, videokonf.   │
-│          │ Faneuil         │  12   │ Room Kit + Board 55     │ Store møter              │
-│          │ Quincy          │   8   │ Room Kit                │ Mellomstore møter        │
-│          │ North End       │   4   │ Desk Pro                │ Huddle                   │
-│          │ Back Bay        │   6   │ Room Kit Mini           │ Små møter                │
-│          │ Lab             │   8   │ Board 55                │ Samarbeid/whiteboard     │
-│          │ Harbor          │   6   │ Desk Pro                │ Besøksmøter              │
-│          │ Beacon          │   4   │ Room Kit Mini           │ Besøksmøter              │
+│ BOSTON   │ Link            │  20   │ Room Kit Pro + Board 85 │ Styremøter, videokonf.   │
+│          │ Zelda           │  12   │ Room Kit + Board 55     │ Store møter              │
+│          │ Samus           │   8   │ Room Kit                │ Mellomstore møter        │
+│          │ Kirby           │   4   │ Desk Pro                │ Huddle                   │
+│          │ Yoshi           │   6   │ Room Kit Mini           │ Små møter                │
+│          │ Sonic           │   8   │ Board 55                │ Samarbeid/whiteboard     │
+│          │ Peach           │   6   │ Desk Pro                │ Besøksmøter              │
+│          │ Toad            │   4   │ Room Kit Mini           │ Besøksmøter              │
 ├──────────┼─────────────────┼───────┼─────────────────────────┼──────────────────────────┤
 │          │                 │       │                         │                          │
-│ ATLANTA  │ Peachtree       │  16   │ Room Kit Pro            │ Opplæring                │
-│          │ Midtown         │  10   │ Room Kit + Board 55     │ Konferanser              │
-│          │ NOC             │   6   │ Room Kit + 4 Displays   │ 24/7 Drift               │
-│          │ Buckhead        │   4   │ Desk Pro                │ Huddle                   │
-│          │ Decatur         │   4   │ Desk Pro                │ Huddle                   │
-│          │ Innovation      │   8   │ Board 55                │ Idémyldring              │
+│ ATLANTA  │ Cortana         │  16   │ Room Kit Pro            │ Opplæring                │
+│          │ Chief           │  10   │ Room Kit + Board 55     │ Konferanser              │
+│          │ Ryu (NOC)       │   6   │ Room Kit + 4 Displays   │ 24/7 Drift               │
+│          │ Pikachu         │   4   │ Desk Pro                │ Huddle                   │
+│          │ Megaman         │   4   │ Desk Pro                │ Huddle                   │
+│          │ Lara            │   8   │ Board 55                │ Idémyldring              │
 ├──────────┼─────────────────┼───────┼─────────────────────────┼──────────────────────────┤
 │          │                 │       │                         │                          │
-│ AUSTIN   │ Congress        │  12   │ Room Kit + Board 55     │ Hovedkonferanse          │
-│          │ 6th Street      │   6   │ Room Kit Mini           │ Små møter                │
-│          │ Live Oak        │   8   │ Room Kit                │ Kundedemoer              │
+│ AUSTIN   │ Doom            │  12   │ Room Kit + Board 55     │ Hovedkonferanse          │
+│          │ Fox             │   6   │ Room Kit Mini           │ Små møter                │
+│          │ Jett            │   8   │ Room Kit                │ Kundedemoer              │
 └──────────┴─────────────────┴───────┴─────────────────────────┴──────────────────────────┘
 ```
 
