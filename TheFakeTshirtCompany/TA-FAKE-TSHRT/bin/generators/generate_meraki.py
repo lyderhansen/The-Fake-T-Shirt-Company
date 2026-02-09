@@ -37,6 +37,7 @@ from shared.company import (
     USERS, USER_KEYS, get_random_user, LOCATIONS, NETWORK_CONFIG, NETWORK_IDS,
     THREAT_IP, COMP_USER, COMP_WS_IP, JESSICA_WS_IP,
     get_users_by_location, MEETING_ROOMS, MEETING_BEHAVIOR,
+    get_random_mac, KNOWN_MAC_OUIS,
 )
 from shared.meeting_schedule import (
     get_meetings_for_room, get_meetings_for_hour, get_door_events_for_meeting,
@@ -298,15 +299,21 @@ MERAKI_SSIDS = [
     {"name": "FakeTShirtCo-Voice", "vap": 3, "auth": "802.1X"},
 ]
 
-# IDS Signatures (Snort-style)
+# IDS Signatures (real Snort SID ranges with matched dest ports)
+# Each signature includes target ports for realistic port-signature correlation
 IDS_SIGNATURES = [
-    {"sig": "1:41944:2", "priority": 1, "msg": "BROWSER-IE Microsoft Edge scripting engine security bypass attempt"},
-    {"sig": "1:39867:3", "priority": 3, "msg": "INDICATOR-COMPROMISE Suspicious .tk dns query"},
-    {"sig": "1:45678:1", "priority": 2, "msg": "MALWARE-CNC Win.Trojan.Agent outbound connection"},
-    {"sig": "1:23456:4", "priority": 3, "msg": "POLICY-OTHER Cryptocurrency mining pool DNS request"},
-    {"sig": "1:34567:2", "priority": 2, "msg": "SERVER-WEBAPP SQL injection attempt"},
-    {"sig": "1:56789:1", "priority": 1, "msg": "INDICATOR-SCAN Port scan detected"},
-    {"sig": "1:67890:2", "priority": 2, "msg": "MALWARE-CNC Possible data exfiltration"},
+    {"sig": "1:41944:2", "priority": 1, "msg": "BROWSER-IE Microsoft Edge scripting engine security bypass attempt", "ports": [80, 443, 8080]},
+    {"sig": "1:39867:3", "priority": 3, "msg": "INDICATOR-COMPROMISE Suspicious .tk dns query", "ports": [53, 443]},
+    {"sig": "1:40688:5", "priority": 2, "msg": "MALWARE-CNC Win.Trojan.Agent outbound connection", "ports": [443, 8443, 4443]},
+    {"sig": "1:49897:1", "priority": 3, "msg": "POLICY-OTHER Cryptocurrency mining pool DNS request", "ports": [53, 443, 3333]},
+    {"sig": "1:31408:9", "priority": 2, "msg": "SERVER-WEBAPP SQL injection attempt", "ports": [80, 443, 8080, 8443]},
+    {"sig": "1:19559:7", "priority": 1, "msg": "INDICATOR-SCAN Nmap TCP scan detected", "ports": [22, 23, 80, 443, 445, 3389]},
+    {"sig": "1:42834:3", "priority": 2, "msg": "MALWARE-CNC Possible data exfiltration via DNS", "ports": [53, 443]},
+    {"sig": "1:45550:2", "priority": 1, "msg": "EXPLOIT-KIT Angler EK landing page detected", "ports": [80, 443]},
+    {"sig": "1:38907:4", "priority": 2, "msg": "FILE-OTHER Suspicious executable download", "ports": [80, 443, 8080]},
+    {"sig": "1:24017:6", "priority": 2, "msg": "SERVER-WEBAPP directory traversal attempt", "ports": [80, 443, 8080, 8443]},
+    {"sig": "1:2100498:8", "priority": 3, "msg": "GPL ATTACK_RESPONSE id check returned root", "ports": [22, 23]},
+    {"sig": "1:2002911:6", "priority": 2, "msg": "ET SCAN Potential SSH Scan", "ports": [22]},
 ]
 
 # SD-WAN VPN Peers
@@ -340,8 +347,8 @@ def ts_meraki_from_dt(dt: datetime) -> str:
 
 
 def generate_mac() -> str:
-    """Generate random MAC address."""
-    return ":".join([f"{random.randint(0, 255):02X}" for _ in range(6)])
+    """Generate random MAC address with known vendor OUI prefix."""
+    return get_random_mac()
 
 
 def get_random_internal_ip(location: str = None) -> str:
@@ -2630,7 +2637,8 @@ def generate_ids_alert(base_date: str, day: int, hour: int, location: str) -> Li
 
     signature = random.choice(IDS_SIGNATURES)
     src_port = random.randint(1024, 65535)
-    dst_port = random.choice([80, 443, 445, 3389])
+    # Use port matched to signature type
+    dst_port = random.choice(signature.get("ports", [80, 443]))
 
     event = mx_ids_event(ts, mx_device, signature, src_ip, src_port, dst_ip, dst_port,
                          "tcp", direction, demo_id="exfil")

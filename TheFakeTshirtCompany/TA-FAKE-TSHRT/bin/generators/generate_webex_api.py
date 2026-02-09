@@ -16,6 +16,7 @@ Timestamp format: ISO 8601 (YYYY-MM-DDTHH:MM:SS.sssZ)
 """
 
 import argparse
+import base64
 import json
 import random
 import sys
@@ -40,7 +41,7 @@ from scenarios.registry import expand_scenarios
 # =============================================================================
 
 WEBEX_SITE_URL = "theFakeTshirtCompany.webex.com"
-WEBEX_ORG_ID = f"Y2lzY29zcGFyazovL3VzL09SR0FOSVpBVElPTi8{TENANT_ID}"
+WEBEX_ORG_ID = base64.b64encode(f"ciscospark://us/ORGANIZATION/{TENANT_ID}".encode()).decode()
 
 # Meeting templates
 MEETING_TEMPLATES = [
@@ -89,22 +90,62 @@ ADMIN_AUDIT_CATEGORIES = {
 
 # Security audit event types (logins)
 SECURITY_AUDIT_EVENTS = [
-    ("LOGINS", "An user logged in", "logged into organization"),
-    ("LOGINS", "An user logged out", "logged out of organization"),
+    ("LOGINS", "A user logged in", "logged into organization"),
+    ("LOGINS", "A user logged out", "logged out of organization"),
     ("LOGINS", "Login failed", "failed login attempt for organization"),
 ]
 
-# Client types and OS versions
-CLIENT_TYPES = ["Webex Desktop", "Webex Mobile (iOS)", "Webex Mobile (Android)", "Web Browser"]
+# Correlated client profiles: (clientType, osType, osVersions, hardwareTypes, networkTypes, weight)
+_CLIENT_PROFILES = [
+    {
+        "clientType": "Webex Desktop", "osType": "Windows",
+        "osVersions": ["10.0.19045", "10.0.22621", "10.0.22631"],
+        "hardwareTypes": ["Dell Latitude 5520", "Lenovo ThinkPad X1", "HP EliteBook 840"],
+        "networkTypes": ["wifi", "ethernet"], "weight": 35,
+    },
+    {
+        "clientType": "Webex Desktop", "osType": "macOS",
+        "osVersions": ["13.6.1", "14.2.1", "14.3.0"],
+        "hardwareTypes": ["MacBook Pro", "MacBook Air", "Mac Studio"],
+        "networkTypes": ["wifi", "ethernet"], "weight": 20,
+    },
+    {
+        "clientType": "Webex Mobile (iOS)", "osType": "iOS",
+        "osVersions": ["17.2.1", "17.3.0", "17.4.0"],
+        "hardwareTypes": ["iPhone 14", "iPhone 15 Pro", "iPad Pro"],
+        "networkTypes": ["wifi", "cellular"], "weight": 15,
+    },
+    {
+        "clientType": "Webex Mobile (Android)", "osType": "Android",
+        "osVersions": ["13", "14"],
+        "hardwareTypes": ["Samsung Galaxy S23", "Google Pixel 8", "Samsung Galaxy A54"],
+        "networkTypes": ["wifi", "cellular"], "weight": 10,
+    },
+    {
+        "clientType": "Web Browser", "osType": "Windows",
+        "osVersions": ["10.0.19045", "10.0.22621", "10.0.22631"],
+        "hardwareTypes": ["Dell Latitude 5520", "Lenovo ThinkPad X1", "HP EliteBook 840"],
+        "networkTypes": ["wifi", "ethernet"], "weight": 12,
+    },
+    {
+        "clientType": "Web Browser", "osType": "macOS",
+        "osVersions": ["13.6.1", "14.2.1", "14.3.0"],
+        "hardwareTypes": ["MacBook Pro", "MacBook Air"],
+        "networkTypes": ["wifi", "ethernet"], "weight": 8,
+    },
+]
+
+# Flat client type list for call history records
+_CALL_CLIENT_TYPES = ["Webex Desktop", "Webex Mobile (iOS)", "Webex Mobile (Android)", "Web Browser"]
 CLIENT_VERSIONS = ["43.12.0.1234", "43.11.0.5678", "43.10.0.9012", "44.1.0.3456"]
-OS_TYPES = {
-    "Windows": ["10.0.19045", "10.0.22621", "10.0.22631"],
-    "macOS": ["13.6.1", "14.2.1", "14.3.0"],
-    "iOS": ["17.2.1", "17.3.0", "17.4.0"],
-    "Android": ["13", "14"],
-}
 NETWORK_TYPES = ["wifi", "ethernet", "cellular"]
 SERVER_REGIONS = ["US East", "US West", "EU West", "APAC"]
+
+
+def _pick_client_profile() -> dict:
+    """Pick a correlated client profile (clientType + OS + hardware)."""
+    weights = [p["weight"] for p in _CLIENT_PROFILES]
+    return random.choices(_CLIENT_PROFILES, weights=weights, k=1)[0]
 
 # User agents
 USER_AGENTS = [
@@ -130,10 +171,14 @@ def generate_uuid() -> str:
     return str(uuid.uuid4())
 
 
-def generate_webex_id(prefix: str = "") -> str:
-    """Generate a Webex-style base64-encoded ID."""
-    base = f"Y2lzY29zcGFyazovL3VzL{prefix}/{generate_uuid()}"
-    return base
+def generate_webex_id(prefix: str = "PEOPLE") -> str:
+    """Generate a Webex-style base64-encoded ID.
+
+    Webex IDs are base64-encoded ciscospark:// URIs.
+    e.g. ciscospark://us/PEOPLE/<uuid> → base64 encoded string.
+    """
+    uri = f"ciscospark://us/{prefix}/{generate_uuid()}"
+    return base64.b64encode(uri.encode()).decode()
 
 
 def ts_iso8601(dt: datetime) -> str:
@@ -323,7 +368,9 @@ def generate_meeting_quality_record(
 ) -> dict:
     """Generate a meeting quality record (cisco:webex:meeting:qualities)."""
     duration_mins = int((leave_time - join_time).total_seconds() / 60)
-    os_type = random.choice(list(OS_TYPES.keys()))
+
+    # Pick correlated client profile (clientType + OS + hardware)
+    profile = _pick_client_profile()
 
     audio_in, video_in = generate_quality_metrics(duration_mins)
 
@@ -334,13 +381,13 @@ def generate_meeting_quality_record(
         "joinTime": ts_iso8601(join_time),
         "leaveTime": ts_iso8601(leave_time),
         "joinMeetingTime": str(random.randint(3, 15)),
-        "clientType": random.choice(CLIENT_TYPES),
+        "clientType": profile["clientType"],
         "clientVersion": random.choice(CLIENT_VERSIONS),
-        "osType": os_type,
-        "osVersion": random.choice(OS_TYPES[os_type]),
-        "hardwareType": random.choice(["Dell Latitude 5520", "MacBook Pro", "Lenovo ThinkPad", "HP EliteBook"]),
+        "osType": profile["osType"],
+        "osVersion": random.choice(profile["osVersions"]),
+        "hardwareType": random.choice(profile["hardwareTypes"]),
         "speakerName": "Speakers (Realtek Audio)",
-        "networkType": random.choice(NETWORK_TYPES),
+        "networkType": random.choice(profile["networkTypes"]),
         "localIP": get_user_ip(user),
         "publicIP": get_public_ip(),
         "camera": random.choice(["Integrated Webcam", "Logitech C920", "Logitech Brio"]),
@@ -379,7 +426,7 @@ def generate_call_history_record(
     answered = random.random() > 0.1  # 90% answer rate
 
     record = {
-        "Call ID": generate_uuid(),
+        "Call ID": f"SSE{random.randint(10**18, 10**19 - 1)}@{get_user_ip(caller_user)}",
         "Call outcome": "Success" if answered else "NoAnswer",
         "Call outcome reason": "Normal" if answered else "NoAnswer",
         "Call type": random.choice(["SIP_ENTERPRISE", "SIP_NATIONAL", "WEBEX_CALLING"]),
@@ -387,14 +434,14 @@ def generate_call_history_record(
         "Called number": f"+1555{random.randint(1000000, 9999999)}",
         "Calling line ID": caller_user.display_name,
         "Calling number": f"+1555{random.randint(1000000, 9999999)}",
-        "Client type": random.choice(CLIENT_TYPES),
+        "Client type": random.choice(_CALL_CLIENT_TYPES),
         "Client version": random.choice(CLIENT_VERSIONS),
         "Correlation ID": generate_uuid(),
-        "Department ID": caller_user.department,
-        "Device MAC": ":".join([f"{random.randint(0, 255):02X}" for _ in range(6)]),
+        "Department ID": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dept:{caller_user.department}")),
+        "Device MAC": "".join([f"{random.randint(0, 255):02X}" for _ in range(6)]),
         "Dialed digits": f"555{random.randint(1000, 9999)}",
         "Direction": "ORIGINATING",
-        "Duration": str(duration_secs if answered else 0),
+        "Duration": duration_secs if answered else 0,
         "Start time": ts_iso8601(start_time),
         "Answer time": ts_iso8601(start_time + timedelta(seconds=random.randint(5, 20))) if answered else "",
         "Answer indicator": "Yes" if answered else "No",

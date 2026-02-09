@@ -34,6 +34,34 @@ from scenarios.registry import expand_scenarios
 # =============================================================================
 
 ENTRA_APP_LIST = list(ENTRA_APPS.keys())
+# Client app type + browser combinations (platform-correlated)
+_CLIENT_PROFILES = [
+    # (clientAppUsed, browser, operatingSystem, weight)
+    ("Browser", "Chrome 120.0", "Windows 11", 25),
+    ("Browser", "Edge 120.0", "Windows 11", 15),
+    ("Browser", "Chrome 120.0", "Windows 10", 10),
+    ("Browser", "Edge 120.0", "Windows 10", 5),
+    ("Browser", "Chrome 120.0", "macOS", 10),
+    ("Browser", "Safari 17.2", "macOS", 8),
+    ("Mobile Apps and Desktop clients", None, "Windows 11", 10),
+    ("Mobile Apps and Desktop clients", None, "Windows 10", 5),
+    ("Mobile Apps and Desktop clients", None, "macOS", 5),
+    ("Mobile Apps and Desktop clients", None, "iOS", 3),
+    ("Mobile Apps and Desktop clients", None, "Android", 2),
+    ("Other clients", None, "Windows 10", 2),
+]
+_CLIENT_PROFILE_WEIGHTS = [p[3] for p in _CLIENT_PROFILES]
+
+def _pick_client_profile():
+    """Pick a correlated client app type, browser and OS."""
+    profile = random.choices(_CLIENT_PROFILES, weights=_CLIENT_PROFILE_WEIGHTS, k=1)[0]
+    return {
+        "clientAppUsed": profile[0],
+        "browser": profile[1],
+        "operatingSystem": profile[2],
+    }
+
+# Legacy constants kept for backward compatibility
 CLIENT_APP_TYPES = ["Browser", "Mobile Apps and Desktop clients", "Other clients"]
 DEVICE_PLATFORMS = ["Windows 11", "Windows 10", "macOS", "iOS", "Android"]
 BROWSERS = ["Chrome 120.0", "Edge 120.0", "Safari 17.2", "Firefox 121.0"]
@@ -127,11 +155,19 @@ def rand_uuid() -> str:
 
 
 def get_mfa_details() -> Dict[str, Any]:
-    """Get MFA method and authentication details."""
-    mfa_type = random.randint(1, 10)
+    """Get MFA method and authentication details.
 
-    if mfa_type <= 5:
-        # 50% - Authenticator push notification
+    Distribution:
+    - 35% Authenticator push notification
+    - 20% Previously satisfied (trusted device / claim)
+    - 15% Phone call
+    - 15% FIDO2 security key (passwordless)
+    - 15% TOTP verification code
+    """
+    mfa_type = random.randint(1, 20)
+
+    if mfa_type <= 7:
+        # 35% - Authenticator push notification
         return {
             "mfaDetail": {
                 "authMethod": "Microsoft Authenticator",
@@ -143,7 +179,7 @@ def get_mfa_details() -> Dict[str, Any]:
                  "authenticationMethodDetail": "Notification approved"}
             ]
         }
-    elif mfa_type <= 7:
+    elif mfa_type <= 11:
         # 20% - MFA satisfied by claim (recent auth, trusted device)
         return {
             "mfaDetail": {
@@ -156,8 +192,8 @@ def get_mfa_details() -> Dict[str, Any]:
                  "authenticationMethodDetail": "MFA requirement satisfied by claim in the token"}
             ]
         }
-    elif mfa_type <= 9:
-        # 20% - Phone call
+    elif mfa_type <= 14:
+        # 15% - Phone call
         return {
             "mfaDetail": {
                 "authMethod": "Phone call",
@@ -169,11 +205,23 @@ def get_mfa_details() -> Dict[str, Any]:
                  "authenticationMethodDetail": "Call answered"}
             ]
         }
-    else:
-        # 10% - TOTP code
+    elif mfa_type <= 17:
+        # 15% - FIDO2 security key
         return {
             "mfaDetail": {
-                "authMethod": "TOTP",
+                "authMethod": "FIDO2 security key",
+                "authDetail": "Security key verified"
+            },
+            "authenticationDetails": [
+                {"authenticationMethod": "FIDO2 security key", "succeeded": True,
+                 "authenticationMethodDetail": "Security key verified"}
+            ]
+        }
+    else:
+        # 15% - TOTP verification code
+        return {
+            "mfaDetail": {
+                "authMethod": "Mobile app verification code",
                 "authDetail": "Code verified"
             },
             "authenticationDetails": [
@@ -204,6 +252,17 @@ def signin_success(base_date: str, day: int, hour: int, minute: int = None, seco
     ip = user.get_ip()
 
     mfa = get_mfa_details()
+    client = _pick_client_profile()
+
+    device_detail = {
+        "deviceId": user.entra_device_id,
+        "displayName": user.device_name,
+        "operatingSystem": client["operatingSystem"],
+        "isCompliant": True,
+        "isManaged": True,
+    }
+    if client["browser"]:
+        device_detail["browser"] = client["browser"]
 
     event = {
         "time": ts,
@@ -222,23 +281,21 @@ def signin_success(base_date: str, day: int, hour: int, minute: int = None, seco
             "createdDateTime": ts,
             "userDisplayName": user.display_name,
             "userPrincipalName": user.email,
-            "userId": user.user_id,
+            "userId": user.entra_object_id,
             "appId": app_id,
             "appDisplayName": app_name,
             "ipAddress": ip,
-            "clientAppUsed": "Browser",
+            "clientAppUsed": client["clientAppUsed"],
             "conditionalAccessStatus": "success",
             "isInteractive": True,
+            "authenticationRequirement": "multiFactorAuthentication",
+            "tokenIssuerType": "AzureAD",
             "riskLevelAggregated": "none",
+            "riskLevelDuringSignIn": "none",
             "riskState": "none",
+            "riskDetail": "none",
             "status": {"errorCode": 0},
-            "deviceDetail": {
-                "deviceId": user.device_id,
-                "displayName": user.device_name,
-                "operatingSystem": random.choice(DEVICE_PLATFORMS),
-                "isCompliant": True,
-                "isManaged": True
-            },
+            "deviceDetail": device_detail,
             "location": {
                 "city": user.city,
                 "countryOrRegion": user.country
@@ -268,6 +325,15 @@ def signin_failed(base_date: str, day: int, hour: int, minute: int = None, secon
     ip = user.get_ip()
 
     error_code, error_msg = random.choice(ERROR_CODES)
+    client = _pick_client_profile()
+
+    device_detail = {
+        "deviceId": user.entra_device_id,
+        "displayName": user.device_name,
+        "operatingSystem": client["operatingSystem"],
+    }
+    if client["browser"]:
+        device_detail["browser"] = client["browser"]
 
     event = {
         "time": ts,
@@ -287,19 +353,19 @@ def signin_failed(base_date: str, day: int, hour: int, minute: int = None, secon
             "createdDateTime": ts,
             "userDisplayName": user.display_name,
             "userPrincipalName": user.email,
-            "userId": user.user_id,
+            "userId": user.entra_object_id,
             "appId": "00000002-0000-0ff1-ce00-000000000000",
             "appDisplayName": "Office 365 Exchange Online",
             "ipAddress": ip,
-            "clientAppUsed": "Browser",
+            "clientAppUsed": client["clientAppUsed"],
             "conditionalAccessStatus": "failure",
             "isInteractive": True,
+            "authenticationRequirement": "multiFactorAuthentication",
+            "tokenIssuerType": "AzureAD",
             "riskState": "none",
+            "riskDetail": "none",
             "status": {"errorCode": error_code, "failureReason": error_msg},
-            "deviceDetail": {
-                "deviceId": user.device_id,
-                "displayName": user.device_name
-            },
+            "deviceDetail": device_detail,
             "location": {
                 "city": user.city,
                 "countryOrRegion": user.country
@@ -583,7 +649,7 @@ def audit_user_management(base_date: str, day: int, hour: int,
 
     user = get_random_user()
     target = {
-        "id": user.user_id,
+        "id": user.entra_object_id,
         "displayName": user.display_name,
         "type": "User"
     }
@@ -617,7 +683,7 @@ def audit_password_reset(base_date: str, day: int,
     ts = ts_iso(base_date, day, 14, random.randint(0, 30), random.randint(0, 59))
     user = get_random_user()
     target = {
-        "id": user.user_id,
+        "id": user.entra_object_id,
         "displayName": user.display_name,
         "type": "User",
         "userPrincipalName": user.email,
@@ -887,7 +953,7 @@ def audit_sspr_flow(base_date: str, day: int, hour: int, minute: int = None,
     user = get_random_user() if not target_user else None
     user_display = target_user or (user.display_name if user else "Unknown User")
     user_email = f"{target_user}@{TENANT}" if target_user else (user.email if user else f"unknown@{TENANT}")
-    user_id = user.user_id if user else rand_uuid()
+    user_id = user.entra_object_id if user else rand_uuid()
 
     if step is None:
         step = random.choice(SSPR_VERIFICATION_STEPS)
@@ -960,7 +1026,7 @@ def audit_sspr_reset(base_date: str, day: int, hour: int, minute: int = None,
     user = get_random_user() if not target_user else None
     user_display = target_user or (user.display_name if user else "Unknown User")
     user_email = f"{target_user}@{TENANT}" if target_user else (user.email if user else f"unknown@{TENANT}")
-    user_id = user.user_id if user else rand_uuid()
+    user_id = user.entra_object_id if user else rand_uuid()
 
     event = {
         "time": ts,
@@ -1031,7 +1097,7 @@ def risk_detection(base_date: str, day: int, hour: int, minute: int = None,
     user = get_random_user() if not target_user else None
     user_display = target_user or (user.display_name if user else "Unknown User")
     user_email = f"{target_user}@{TENANT}" if target_user else (user.email if user else f"unknown@{TENANT}")
-    user_id = user.user_id if user else rand_uuid()
+    user_id = user.entra_object_id if user else rand_uuid()
 
     if risk_event_type is None:
         risk_event_type, risk_description = random.choice(RISK_EVENT_TYPES)
@@ -1124,14 +1190,18 @@ def signin_lockout(base_date: str, day: int) -> List[str]:
                 "createdDateTime": ts,
                 "userDisplayName": user.display_name,
                 "userPrincipalName": user.email,
-                "userId": user.user_id,
+                "userId": user.entra_object_id,
                 "appId": "00000002-0000-0ff1-ce00-000000000000",
                 "appDisplayName": "Office 365 Exchange Online",
                 "ipAddress": ip,
                 "clientAppUsed": "Browser",
+                "authenticationRequirement": "multiFactorAuthentication",
+                "tokenIssuerType": "AzureAD",
+                "riskState": "none",
+                "riskDetail": "none",
                 "status": {"errorCode": 50053, "failureReason": "User account is locked"},
                 "deviceDetail": {
-                    "deviceId": user.device_id,
+                    "deviceId": user.entra_device_id,
                     "displayName": user.device_name
                 },
                 "location": {

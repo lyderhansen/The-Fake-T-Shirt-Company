@@ -10,6 +10,7 @@ import json
 import random
 import sys
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -37,6 +38,23 @@ GCP_BUCKETS = [f"{ORG_NAME_LOWER}-data", f"{ORG_NAME_LOWER}-backups", f"{ORG_NAM
 GCP_FUNCTIONS = ["processData", "sendAlerts", "transformRecords"]
 GCP_INSTANCES = ["instance-prod-1", "instance-prod-2", "instance-web-1"]
 
+# Zone mapping per resource type (for realistic zone variation)
+_RESOURCE_ZONES = {
+    "gce_instance": [f"{GCP_REGION}-a", f"{GCP_REGION}-b", f"{GCP_REGION}-c"],
+    "gcs_bucket": [GCP_REGION],                # Regional, no zone suffix
+    "cloud_function": [f"{GCP_REGION}"],        # Regional
+    "bigquery_dataset": ["US"],                  # Multi-region
+}
+
+# User agent profiles for GCP API callers
+_GCP_USER_AGENTS = [
+    "google-cloud-sdk/462.0.1 gcloud/462.0.1",                                    # gcloud CLI
+    "Mozilla/5.0 (compatible; Google-Cloud-Console)",                               # GCP Console
+    "google-api-python-client/2.108.0 Python/3.11.6 Linux/5.15.0-91-generic",     # Python SDK
+    "google-api-go-client/0.5 Cloud-SDK/462.0.1",                                  # Go SDK
+    "google-cloud-sdk/462.0.1 gcloud/terraform",                                   # Terraform
+]
+
 
 def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool:
     """Check if event should get exfil demo_id.
@@ -58,30 +76,69 @@ def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool
 
 def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int,
                    method_name: str, service_name: str, principal: str,
-                   log_type: str = LOG_TYPE_ADMIN_ACTIVITY) -> Dict[str, Any]:
+                   log_type: str = LOG_TYPE_ADMIN_ACTIVITY,
+                   resource_type: str = "gce_instance") -> Dict[str, Any]:
     """Create base GCP audit log structure.
 
     Args:
         log_type: Either LOG_TYPE_ADMIN_ACTIVITY or LOG_TYPE_DATA_ACCESS
+        resource_type: GCP resource type (gce_instance, gcs_bucket, cloud_function, bigquery_dataset)
+
+    Field validation fixes applied:
+        - zone: Varies per resource type (compute=zone, storage=region, BQ=multi-region)
+        - callerSuppliedUserAgent: Varied (Console, gcloud, Python SDK, Go SDK, Terraform)
+        - authorizationInfo: Added with permission, resource, granted
+        - status: Added {code: 0, message: ""}
+        - receiveTimestamp: Added (event timestamp + small offset)
+        - severity: INFO for success (configurable for errors)
     """
+    # Determine zone/location based on resource type
+    zone_options = _RESOURCE_ZONES.get(resource_type, [f"{GCP_REGION}-a"])
+    zone = random.choice(zone_options)
+
+    # Vary user agent
+    user_agent = random.choice(_GCP_USER_AGENTS)
+
+    # Derive permission from method name (e.g., "storage.objects.get" → "storage.objects.get")
+    permission = method_name
+
+    ts = ts_gcp(base_date, day, hour, minute, second)
+
+    # receiveTimestamp = event time + small pipeline delay (50-500ms)
+    try:
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError:
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+    receive_dt = dt + timedelta(milliseconds=random.randint(50, 500))
+    receive_ts = receive_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
     return {
         "protoPayload": {
             "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
             "serviceName": service_name,
             "methodName": method_name,
             "authenticationInfo": {"principalEmail": principal},
+            "authorizationInfo": [
+                {
+                    "permission": permission,
+                    "resource": f"projects/{GCP_PROJECT}",
+                    "granted": True,
+                }
+            ],
             "requestMetadata": {
                 "callerIp": get_internal_ip(),
-                "callerSuppliedUserAgent": "google-cloud-sdk/400.0.0",
+                "callerSuppliedUserAgent": user_agent,
             },
             "resourceName": f"projects/{GCP_PROJECT}",
+            "status": {"code": 0, "message": ""},
         },
         "insertId": uuid.uuid4().hex[:16],
         "resource": {
-            "type": "gce_instance",
-            "labels": {"project_id": GCP_PROJECT, "zone": f"{GCP_REGION}-a"},
+            "type": resource_type,
+            "labels": {"project_id": GCP_PROJECT, "zone": zone},
         },
-        "timestamp": ts_gcp(base_date, day, hour, minute, second),
+        "timestamp": ts,
+        "receiveTimestamp": receive_ts,
         "severity": "INFO",
         "logName": f"projects/{GCP_PROJECT}/logs/cloudaudit.googleapis.com%2F{log_type}",
     }
@@ -93,7 +150,8 @@ def gcp_compute_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     principal = random.choice(GCP_SERVICE_ACCOUNTS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
-                           "v1.compute.instances.list", "compute.googleapis.com", principal)
+                           "v1.compute.instances.list", "compute.googleapis.com", principal,
+                           resource_type="gce_instance")
     return event
 
 
@@ -110,9 +168,8 @@ def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list 
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "storage.objects.get", "storage.googleapis.com", principal,
-                           log_type=log_type)
+                           log_type=log_type, resource_type="gcs_bucket")
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/data_{random.randint(1000, 9999)}.json"
-    event["resource"]["type"] = "gcs_bucket"
 
     if active_scenarios and should_tag_exfil(day, "storage.objects.get", active_scenarios):
         event["demo_id"] = "exfil"
@@ -127,9 +184,9 @@ def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: li
     bucket = random.choice(GCP_BUCKETS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
-                           "storage.objects.create", "storage.googleapis.com", principal)
+                           "storage.objects.create", "storage.googleapis.com", principal,
+                           resource_type="gcs_bucket")
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/upload_{random.randint(1000, 9999)}.csv"
-    event["resource"]["type"] = "gcs_bucket"
 
     if active_scenarios and should_tag_exfil(day, "storage.objects.create", active_scenarios):
         event["demo_id"] = "exfil"
@@ -145,9 +202,9 @@ def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.cloud.functions.v1.CloudFunctionsService.CallFunction",
-                           "cloudfunctions.googleapis.com", principal)
+                           "cloudfunctions.googleapis.com", principal,
+                           resource_type="cloud_function")
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/locations/{GCP_REGION}/functions/{func}"
-    event["resource"]["type"] = "cloud_function"
     return event
 
 
@@ -157,7 +214,8 @@ def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     principal = random.choice(GCP_SERVICE_ACCOUNTS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
-                           "jobservice.jobcompleted", "bigquery.googleapis.com", principal)
+                           "jobservice.jobcompleted", "bigquery.googleapis.com", principal,
+                           resource_type="bigquery_dataset")
     event["protoPayload"]["serviceData"] = {
         "jobCompletedEvent": {
             "job": {
@@ -165,7 +223,6 @@ def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
             }
         }
     }
-    event["resource"]["type"] = "bigquery_dataset"
     return event
 
 

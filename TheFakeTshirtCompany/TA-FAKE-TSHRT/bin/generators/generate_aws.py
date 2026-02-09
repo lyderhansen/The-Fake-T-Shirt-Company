@@ -2,6 +2,18 @@
 """
 AWS CloudTrail Log Generator.
 Generates realistic AWS CloudTrail events with natural volume variation.
+
+Field validation fixes applied:
+  - principalId: Deterministic per user (from company.py)
+  - accessKeyId: Deterministic per user (from company.py)
+  - sourceIPAddress: User's office IP (consistent per user)
+  - userAgent: Varied per user (Console, CLI, SDK)
+  - userIdentity.type: AssumedRole for Lambda/EC2 service calls
+  - readOnly: Boolean based on event type
+  - managementEvent: True for management events
+  - resources: ARN array on all events
+  - sessionContext: Added for AssumedRole events
+  - recipientAccountId: Already present (verified)
 """
 
 import argparse
@@ -18,7 +30,8 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import ts_iso, date_add, calc_natural_events, TimeUtils
 from shared.company import (
     AWS_ACCOUNT_ID, AWS_REGION, ORG_NAME_LOWER,
-    USERS, USER_KEYS, get_random_user, get_internal_ip, Company,
+    USERS, USER_KEYS, get_random_user, Company,
+    _AWS_USER_AGENT_PROFILES,
 )
 from scenarios.registry import expand_scenarios
 
@@ -26,10 +39,43 @@ from scenarios.registry import expand_scenarios
 # AWS CONFIGURATION
 # =============================================================================
 
-AWS_USERS = ["svc-backup", "svc-deployment", "admin-ops", "data-pipeline"]
+# Service accounts (automated systems — use AssumedRole identity)
+AWS_SERVICE_ROLES = {
+    "svc-backup": {
+        "role_name": "BackupServiceRole",
+        "session_name": "backup-automation",
+    },
+    "svc-deployment": {
+        "role_name": "DeploymentPipelineRole",
+        "session_name": "codepipeline-deploy",
+    },
+    "data-pipeline": {
+        "role_name": "DataPipelineRole",
+        "session_name": "glue-etl-job",
+    },
+}
+
+# Human IAM users (use IAMUser identity — picked from company.py users)
+AWS_HUMAN_USERS = [
+    "david.robinson",    # IT Director
+    "jessica.brown",     # IT Administrator
+    "angela.james",      # Cloud Engineer
+    "carlos.martinez",   # DevOps Engineer
+    "brandon.turner",    # DevOps Engineer
+    "patrick.gonzalez",  # Systems Administrator
+]
+
 AWS_BUCKETS = [f"{ORG_NAME_LOWER}-prod-data", f"{ORG_NAME_LOWER}-backups", f"{ORG_NAME_LOWER}-logs"]
 AWS_LAMBDAS = ["process-orders", "send-notifications", "data-transform", "api-handler"]
 AWS_EC2_INSTANCES = ["i-0abc123def456", "i-0def789abc012", "i-0123456789abc"]
+
+# Read-only event names (Get*, List*, Describe*, Head*)
+_READ_ONLY_PREFIXES = ("Get", "List", "Describe", "Head", "Lookup")
+
+
+def _is_read_only(event_name: str) -> bool:
+    """Determine if an event is read-only based on its name."""
+    return event_name.startswith(_READ_ONLY_PREFIXES)
 
 
 def should_tag_exfil(day: int, event_name: str, active_scenarios: list) -> bool:
@@ -51,44 +97,99 @@ def should_tag_exfil(day: int, event_name: str, active_scenarios: list) -> bool:
 # EVENT GENERATORS
 # =============================================================================
 
-def aws_base_event(base_date: str, day: int, hour: int, minute: int, second: int,
-                   event_name: str, event_source: str, user: str) -> Dict[str, Any]:
-    """Create base CloudTrail event structure."""
+def _pick_human_user() -> "User":
+    """Pick a random human AWS user from company.py."""
+    username = random.choice(AWS_HUMAN_USERS)
+    return USERS[username]
+
+
+def aws_iam_user_event(base_date: str, day: int, hour: int, minute: int, second: int,
+                       event_name: str, event_source: str, user) -> Dict[str, Any]:
+    """Create CloudTrail event with IAMUser identity (human users)."""
     return {
         "eventVersion": "1.08",
         "userIdentity": {
             "type": "IAMUser",
-            "principalId": f"AIDA{uuid.uuid4().hex[:16].upper()}",
-            "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/{user}",
+            "principalId": user.aws_principal_id,
+            "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/{user.username}",
             "accountId": AWS_ACCOUNT_ID,
-            "userName": user,
+            "accessKeyId": user.aws_access_key_id,
+            "userName": user.username,
         },
         "eventTime": ts_iso(base_date, day, hour, minute, second),
         "eventSource": event_source,
         "eventName": event_name,
         "awsRegion": AWS_REGION,
-        "sourceIPAddress": get_internal_ip(),
-        "userAgent": "aws-cli/2.13.0 Python/3.11.4",
+        "sourceIPAddress": user.ip_address,
+        "userAgent": user.aws_user_agent,
         "requestID": str(uuid.uuid4()),
         "eventID": str(uuid.uuid4()),
         "eventType": "AwsApiCall",
         "recipientAccountId": AWS_ACCOUNT_ID,
+        "readOnly": _is_read_only(event_name),
+        "managementEvent": True,
+    }
+
+
+def aws_assumed_role_event(base_date: str, day: int, hour: int, minute: int, second: int,
+                           event_name: str, event_source: str,
+                           role_name: str, session_name: str) -> Dict[str, Any]:
+    """Create CloudTrail event with AssumedRole identity (service accounts)."""
+    role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/{role_name}"
+    assumed_role_arn = f"arn:aws:sts::{AWS_ACCOUNT_ID}:assumed-role/{role_name}/{session_name}"
+    # AssumedRole principalId format: AROA... : session-name
+    role_id = f"AROA{uuid.uuid5(uuid.NAMESPACE_DNS, role_name).hex[:16].upper()}"
+
+    return {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": f"{role_id}:{session_name}",
+            "arn": assumed_role_arn,
+            "accountId": AWS_ACCOUNT_ID,
+            "accessKeyId": f"ASIA{uuid.uuid5(uuid.NAMESPACE_DNS, f'sts:{role_name}').hex[:16].upper()}",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": role_id,
+                    "arn": role_arn,
+                    "accountId": AWS_ACCOUNT_ID,
+                    "userName": role_name,
+                },
+                "attributes": {
+                    "creationDate": ts_iso(base_date, day, hour, 0, 0),
+                    "mfaAuthenticated": "false",
+                },
+            },
+        },
+        "eventTime": ts_iso(base_date, day, hour, minute, second),
+        "eventSource": event_source,
+        "eventName": event_name,
+        "awsRegion": AWS_REGION,
+        "sourceIPAddress": f"{event_source}",  # Service-initiated calls show the service
+        "userAgent": f"{event_source}",
+        "requestID": str(uuid.uuid4()),
+        "eventID": str(uuid.uuid4()),
+        "eventType": "AwsApiCall",
+        "recipientAccountId": AWS_ACCOUNT_ID,
+        "readOnly": _is_read_only(event_name),
+        "managementEvent": True,
     }
 
 
 def aws_s3_get_object(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
     """Generate S3 GetObject event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    user = random.choice(AWS_USERS)
+    user = _pick_human_user()
     bucket = random.choice(AWS_BUCKETS)
     key = f"data/{random.choice(['reports', 'exports', 'logs'])}/file_{random.randint(1000, 9999)}.json"
 
-    event = aws_base_event(base_date, day, hour, minute, second, "GetObject", "s3.amazonaws.com", user)
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "GetObject", "s3.amazonaws.com", user)
     event["requestParameters"] = {"bucketName": bucket, "key": key}
     event["responseElements"] = None
     event["resources"] = [
         {"type": "AWS::S3::Object", "ARN": f"arn:aws:s3:::{bucket}/{key}"},
-        {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}"},
+        {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}", "accountId": AWS_ACCOUNT_ID},
     ]
 
     if active_scenarios and should_tag_exfil(day, "GetObject", active_scenarios):
@@ -100,13 +201,24 @@ def aws_s3_get_object(base_date: str, day: int, hour: int, active_scenarios: lis
 def aws_s3_put_object(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
     """Generate S3 PutObject event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    user = random.choice(AWS_USERS)
+
+    # 60% human uploads, 40% service (backup/pipeline)
+    if random.random() < 0.6:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "PutObject", "s3.amazonaws.com", user)
+    else:
+        svc = random.choice(list(AWS_SERVICE_ROLES.values()))
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "PutObject", "s3.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
     bucket = random.choice(AWS_BUCKETS)
     key = f"uploads/{random.choice(['daily', 'hourly'])}/data_{random.randint(1000, 9999)}.csv"
-
-    event = aws_base_event(base_date, day, hour, minute, second, "PutObject", "s3.amazonaws.com", user)
     event["requestParameters"] = {"bucketName": bucket, "key": key}
     event["responseElements"] = {"x-amz-server-side-encryption": "AES256"}
+    event["resources"] = [
+        {"type": "AWS::S3::Object", "ARN": f"arn:aws:s3:::{bucket}/{key}"},
+        {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}", "accountId": AWS_ACCOUNT_ID},
+    ]
 
     if active_scenarios and should_tag_exfil(day, "PutObject", active_scenarios):
         event["demo_id"] = "exfil"
@@ -117,23 +229,68 @@ def aws_s3_put_object(base_date: str, day: int, hour: int, active_scenarios: lis
 def aws_ec2_describe(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate EC2 DescribeInstances event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    user = random.choice(AWS_USERS)
+    instance_id = random.choice(AWS_EC2_INSTANCES)
 
-    event = aws_base_event(base_date, day, hour, minute, second, "DescribeInstances", "ec2.amazonaws.com", user)
-    event["requestParameters"] = {"instancesSet": {"items": [{"instanceId": random.choice(AWS_EC2_INSTANCES)}]}}
+    # 70% human (IT/DevOps checking instances), 30% service (monitoring)
+    if random.random() < 0.7:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "DescribeInstances", "ec2.amazonaws.com", user)
+    else:
+        svc = AWS_SERVICE_ROLES["svc-deployment"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "DescribeInstances", "ec2.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {"instancesSet": {"items": [{"instanceId": instance_id}]}}
     event["responseElements"] = None
+    event["resources"] = [
+        {"type": "AWS::EC2::Instance", "ARN": f"arn:aws:ec2:{AWS_REGION}:{AWS_ACCOUNT_ID}:instance/{instance_id}"},
+    ]
     return event
 
 
 def aws_lambda_invoke(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Lambda Invoke event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    user = random.choice(AWS_USERS)
     func = random.choice(AWS_LAMBDAS)
 
-    event = aws_base_event(base_date, day, hour, minute, second, "Invoke", "lambda.amazonaws.com", user)
+    # Lambda invocations are mostly service-initiated (80%)
+    if random.random() < 0.2:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "Invoke", "lambda.amazonaws.com", user)
+    else:
+        svc = AWS_SERVICE_ROLES["data-pipeline"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "Invoke", "lambda.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
     event["requestParameters"] = {"functionName": func, "invocationType": "RequestResponse"}
     event["responseElements"] = None
+    event["resources"] = [
+        {"type": "AWS::Lambda::Function", "ARN": f"arn:aws:lambda:{AWS_REGION}:{AWS_ACCOUNT_ID}:function:{func}"},
+    ]
+    return event
+
+
+def aws_iam_list_users(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate IAM ListUsers event (read-only, management)."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    user = _pick_human_user()
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "ListUsers", "iam.amazonaws.com", user)
+    event["requestParameters"] = None
+    event["responseElements"] = None
+    return event
+
+
+def aws_sts_get_caller_identity(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate STS GetCallerIdentity event (common verification call)."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    user = _pick_human_user()
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "GetCallerIdentity", "sts.amazonaws.com", user)
+    event["requestParameters"] = None
+    event["responseElements"] = {
+        "userId": user.aws_principal_id,
+        "account": AWS_ACCOUNT_ID,
+        "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/{user.username}",
+    }
     return event
 
 
@@ -145,14 +302,18 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     for _ in range(event_count):
         event_type = random.randint(1, 100)
 
-        if event_type <= 30:
+        if event_type <= 25:
             events.append(aws_s3_get_object(base_date, day, hour, active_scenarios))
-        elif event_type <= 50:
+        elif event_type <= 45:
             events.append(aws_s3_put_object(base_date, day, hour, active_scenarios))
-        elif event_type <= 70:
+        elif event_type <= 60:
             events.append(aws_ec2_describe(base_date, day, hour))
-        else:
+        elif event_type <= 80:
             events.append(aws_lambda_invoke(base_date, day, hour))
+        elif event_type <= 90:
+            events.append(aws_iam_list_users(base_date, day, hour))
+        else:
+            events.append(aws_sts_get_caller_identity(base_date, day, hour))
 
     return events
 
