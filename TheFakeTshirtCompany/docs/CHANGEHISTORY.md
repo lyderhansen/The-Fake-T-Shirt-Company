@@ -4,6 +4,70 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-11 ~02:30 UTC — Add SourceMAC and DestinationMAC to Sysmon Event ID 3 (NetworkConnect)
+
+Real Sysmon Event ID 3 (NetworkConnect) includes `SourceMAC` and `DestMAC` fields — our generator was missing them. Now that persistent MAC addresses exist for all users and servers, this gap is closed.
+
+**Affected files:**
+- `bin/generators/generate_sysmon.py` — Added `get_mac_for_ip, get_random_mac` imports; added `SourceMAC` and `DestinationMAC` fields to `sysmon_eid3()`. Known user/server IPs get their persistent MAC via `get_mac_for_ip()`; external IPs get a random MAC via `get_random_mac()`.
+- `bin/shared/company.py` — Added `_IP_TO_SERVER` lookup dict, `_build_server_ip_lookup()`, and `get_server_by_ip()` helper. Updated `get_mac_for_ip()` to resolve both user IPs AND server IPs (previously only resolved user IPs).
+
+**What does NOT change:**
+- WinEventLog — Real Windows Security events (4624, 4625, etc.) don't contain MAC fields. Correct behavior.
+- Perfmon — Real Perfmon counters reference adapter names, not MACs. Correct behavior.
+- Other Sysmon EIDs — Only EID 3 (NetworkConnect) has MAC fields in real Sysmon.
+
+**Verification:**
+- Sysmon generation: SourceMAC and DestinationMAC fields present in EID 3 output
+- Known user IPs resolve to persistent MACs (e.g., alex.miller 10.10.30.55 → persistent MAC)
+- Server IPs resolve to persistent MACs (e.g., DC-BOS-01 10.10.20.10 → `DC:71:96:A5:D5:71`)
+- External IPs get random MACs (different each generation)
+
+---
+
+## 2026-02-11 ~01:00 UTC — Identity management infrastructure: App catalog, group definitions, enriched audit events, Splunk ES lookups, Employee Changes dashboard
+
+Complete identity data model overhaul to enable realistic Entra ID audit event analysis and Splunk ES asset/identity correlation.
+
+**What changed:**
+
+1. **Company data model** (`bin/shared/company.py`):
+   - Replaced `ENTRA_APPS` (7 flat entries) with `ENTRA_APP_CATALOG` (16 structured apps: M365 E3, Splunk, CrowdStrike, Workday, NetSuite, Salesforce, Jira, GitHub, Confluence, Cisco Secure Access, etc.) — each with app ID, category, license type, and department-based access rules
+   - Replaced `ENTRA_GROUPS` (14 flat names) with `ENTRA_GROUP_DEFINITIONS` (22 groups with membership rules: department, location, VPN, VIP, app-specific)
+   - Replaced `ENTRA_ROLES` (6 flat names) with `ENTRA_ROLE_DEFINITIONS` (10 roles) + `ENTRA_ROLE_ASSIGNMENTS` (explicit user→role mappings)
+   - Added `get_user_groups(user)`, `get_user_app_licenses(user)`, `get_user_roles(username)` helpers
+   - Added `generate_asset_lookup_csv()` — Splunk ES-compatible asset inventory (187 rows)
+   - Added `generate_identity_lookup_csv()` — Splunk ES-compatible identity inventory (175 rows)
+   - All backward-compatible: `ENTRA_APPS`, `ENTRA_GROUPS`, `ENTRA_ROLES` aliases still work
+
+2. **Enriched Entra ID audit events** (`bin/generators/generate_entraid.py`):
+   - Added 4 new audit functions: `audit_add_member_to_group()`, `audit_remove_member_from_group()`, `audit_update_user()`, `audit_assign_license()` — all with real group/app/role/attribute names in `modifiedProperties`
+   - Expanded `ADMIN_ACCOUNTS` from 3 to 7 (added mike.johnson, jessica.brown, sarah.wilson, ad.sync) with `_resolve_admin()` for runtime USERS lookup
+   - Rewrote `generate_audit_day()` with proper frequency distribution: 2-4 group changes/day, 1-3 attribute updates/day, license every 3-5 days, role changes every 5-7 days
+   - Legacy `audit_user_management()` preserved as wrapper delegating to enriched functions
+
+3. **Splunk ES lookups**:
+   - `lookups/asset_inventory.csv` — 187 rows (175 workstations + 12 servers) with ES headers: ip, mac, nt_host, dns, owner, priority, lat, long, city, country, bunit, category, is_expected, should_timesync, should_update, requires_av
+   - `lookups/identity_inventory.csv` — 175 rows with ES headers: identity, nick, first, last, email, managedBy, priority, bunit, category (normal/privileged), watchlist (alex.miller=true)
+   - `default/transforms.conf` — Added `[asset_inventory]` and `[identity_inventory]` lookup stanzas
+
+4. **Employee Changes dashboard** (`default/data/ui/views/discovery_-_employee_changes.xml`):
+   - Dashboard Studio v2, grid layout, dark theme
+   - Row 1: 4 single values (Total, Group, Role, License changes)
+   - Row 2: Stacked area chart (changes over time by activity type)
+   - Row 3: Recent changes table (time, activity, admin, target user, details)
+   - Row 4: Top changed users (bar) + Changes by admin (pie)
+   - Row 5: Group membership changes detail table
+
+**Verification:**
+- All 19 generators: 3,578,611 events (38.6s) — PASS
+- Entra ID audit: 341 events (14 days) with enriched details: 33 group adds, 9 group removes, 28 user updates, 3 license assignments, 1 role change, 23 password resets, 162 SSPR flows + exfil scenario events
+- 20 distinct group names seen in events (SG-All-Employees through SG-VPN-Users)
+- Asset lookup CSV: 187 rows (175 workstations + 12 servers), correct ES headers
+- Identity lookup CSV: 175 rows, alex.miller on watchlist, 3 privileged users identified
+
+---
+
 ## 2026-02-10 ~20:00 UTC — Add persistent MAC addresses for network client visibility
 
 Every employee workstation and server now has a deterministic, persistent MAC address (UUID5-based, matching the pattern used for Entra ID Object IDs and AWS Principal IDs). This enables Splunk analysts to track client devices across the network stack by MAC ↔ IP ↔ hostname ↔ username correlation.

@@ -1,0 +1,231 @@
+<dashboard version="2" theme="dark">
+  <label>Discovery - Employee Changes</label>
+  <description>Entra ID audit events — identity lifecycle changes including group membership, role assignments, license provisioning, and user attribute updates</description>
+  <definition><![CDATA[
+{
+  "title": "Discovery - Employee Changes",
+  "description": "Entra ID audit events — identity lifecycle changes including group membership, role assignments, license provisioning, and user attribute updates",
+  "dataSources": {
+    "ds_total_changes": {
+      "type": "ds.search",
+      "name": "Total Identity Changes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\", \"Update user\", \"Add app role assignment to user\", \"Add member to role\", \"Remove member from role\", \"Reset user password\")\n| stats count"
+      }
+    },
+    "ds_group_changes": {
+      "type": "ds.search",
+      "name": "Group Membership Changes Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\")\n| stats count"
+      }
+    },
+    "ds_role_changes": {
+      "type": "ds.search",
+      "name": "Role Assignment Changes Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to role\", \"Remove member from role\")\n| stats count"
+      }
+    },
+    "ds_license_changes": {
+      "type": "ds.search",
+      "name": "License Assignment Changes Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity=\"Add app role assignment to user\"\n| stats count"
+      }
+    },
+    "ds_changes_over_time": {
+      "type": "ds.search",
+      "name": "Identity Changes Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\", \"Update user\", \"Add app role assignment to user\", \"Add member to role\", \"Remove member from role\")\n| timechart span=1d count by activity"
+      }
+    },
+    "ds_recent_changes": {
+      "type": "ds.search",
+      "name": "Recent Identity Changes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\", \"Update user\", \"Add app role assignment to user\", \"Add member to role\", \"Remove member from role\", \"Reset user password\")\n| spath path=\"properties.initiatedBy.user.displayName\" output=admin\n| spath path=\"properties.targetResources{}.displayName\" output=target_user\n| spath path=\"properties.targetResources{}.modifiedProperties{}.displayName\" output=property_name\n| spath path=\"properties.targetResources{}.modifiedProperties{}.newValue\" output=new_value\n| spath path=\"properties.targetResources{}.modifiedProperties{}.oldValue\" output=old_value\n| eval details=case(\n    activity==\"Add member to group\" OR activity==\"Remove member from group\", \"Group: \".mvindex(new_value,0).mvindex(old_value,0),\n    activity==\"Update user\", mvindex(property_name,0).\": \".mvindex(old_value,0).\" → \".mvindex(new_value,0),\n    activity==\"Add app role assignment to user\", \"App: \".mvindex(new_value,2),\n    activity==\"Add member to role\" OR activity==\"Remove member from role\", \"Role: \".mvindex(new_value,0).mvindex(old_value,0),\n    1=1, mvindex(property_name,0))\n| table _time, activity, admin, target_user, details\n| sort - _time\n| head 50"
+      }
+    },
+    "ds_top_changed_users": {
+      "type": "ds.search",
+      "name": "Top Changed Users",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\", \"Update user\", \"Add app role assignment to user\", \"Add member to role\", \"Remove member from role\")\n| spath path=\"properties.targetResources{}.displayName\" output=target_user\n| stats count by target_user\n| sort - count\n| head 10"
+      }
+    },
+    "ds_changes_by_admin": {
+      "type": "ds.search",
+      "name": "Changes by Admin",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\", \"Update user\", \"Add app role assignment to user\", \"Add member to role\", \"Remove member from role\", \"Reset user password\")\n| spath path=\"properties.initiatedBy.user.displayName\" output=admin\n| stats count by admin"
+      }
+    },
+    "ds_group_detail": {
+      "type": "ds.search",
+      "name": "Group Membership Change Details",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:audit\"\n| spath path=\"properties.activityDisplayName\" output=activity\n| where activity IN (\"Add member to group\", \"Remove member from group\")\n| spath path=\"properties.initiatedBy.user.displayName\" output=admin\n| spath path=\"properties.targetResources{}.displayName\" output=target_user\n| spath path=\"properties.targetResources{}.userPrincipalName\" output=upn\n| spath path=\"properties.targetResources{}.modifiedProperties{}.displayName\" output=prop_name\n| spath path=\"properties.targetResources{}.modifiedProperties{}.newValue\" output=new_val\n| spath path=\"properties.targetResources{}.modifiedProperties{}.oldValue\" output=old_val\n| eval group_name=coalesce(mvindex(new_val,0), mvindex(old_val,0))\n| eval action=if(activity==\"Add member to group\", \"Added\", \"Removed\")\n| table _time, admin, target_user, group_name, action\n| sort - _time\n| head 50"
+      }
+    }
+  },
+  "visualizations": {
+    "viz_total_changes": {
+      "type": "splunk.singlevalue",
+      "title": "Total Changes",
+      "dataSources": {
+        "primary": "ds_total_changes"
+      },
+      "options": {
+        "majorColor": "#5794DE",
+        "backgroundColor": "transparent",
+        "unit": "",
+        "unitPosition": "after"
+      }
+    },
+    "viz_group_changes": {
+      "type": "splunk.singlevalue",
+      "title": "Group Changes",
+      "dataSources": {
+        "primary": "ds_group_changes"
+      },
+      "options": {
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_role_changes": {
+      "type": "splunk.singlevalue",
+      "title": "Role Changes",
+      "dataSources": {
+        "primary": "ds_role_changes"
+      },
+      "options": {
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_license_changes": {
+      "type": "splunk.singlevalue",
+      "title": "License Changes",
+      "dataSources": {
+        "primary": "ds_license_changes"
+      },
+      "options": {
+        "majorColor": "#00CDAF",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_changes_over_time": {
+      "type": "splunk.area",
+      "title": "Identity Changes Over Time",
+      "dataSources": {
+        "primary": "ds_changes_over_time"
+      },
+      "options": {
+        "seriesColorsByField": {
+          "Add member to group": "#7B56DB",
+          "Remove member from group": "#AE8CFF",
+          "Update user": "#009CEB",
+          "Add app role assignment to user": "#00CDAF",
+          "Add member to role": "#F8BE34",
+          "Remove member from role": "#FF677B"
+        },
+        "legendDisplay": "bottom",
+        "stackMode": "stacked",
+        "areaOpacity": 0.6,
+        "nullValueDisplay": "zero",
+        "yAxisTitleText": "Changes",
+        "xAxisTitleVisibility": "hide"
+      }
+    },
+    "viz_recent_changes": {
+      "type": "splunk.table",
+      "title": "Recent Identity Changes",
+      "dataSources": {
+        "primary": "ds_recent_changes"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      }
+    },
+    "viz_top_changed_users": {
+      "type": "splunk.bar",
+      "title": "Top Changed Users",
+      "dataSources": {
+        "primary": "ds_top_changed_users"
+      },
+      "options": {
+        "seriesColors": ["#009CEB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Changes",
+        "yAxisTitleVisibility": "hide",
+        "dataValuesDisplay": "all"
+      }
+    },
+    "viz_changes_by_admin": {
+      "type": "splunk.pie",
+      "title": "Changes by Admin",
+      "dataSources": {
+        "primary": "ds_changes_by_admin"
+      },
+      "options": {
+        "seriesColors": ["#7B56DB", "#009CEB", "#00CDAF", "#DD9900", "#FF677B", "#CB2196", "#813193"],
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true
+      }
+    },
+    "viz_group_detail": {
+      "type": "splunk.table",
+      "title": "Group Membership Changes",
+      "dataSources": {
+        "primary": "ds_group_detail"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      }
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1735689600,1767225600"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      {"item": "viz_total_changes",     "type": "block", "position": {"x": 0,   "y": 0,   "w": 300, "h": 120}},
+      {"item": "viz_group_changes",     "type": "block", "position": {"x": 300, "y": 0,   "w": 300, "h": 120}},
+      {"item": "viz_role_changes",      "type": "block", "position": {"x": 600, "y": 0,   "w": 300, "h": 120}},
+      {"item": "viz_license_changes",   "type": "block", "position": {"x": 900, "y": 0,   "w": 300, "h": 120}},
+      {"item": "viz_changes_over_time", "type": "block", "position": {"x": 0,   "y": 120, "w": 1200, "h": 300}},
+      {"item": "viz_recent_changes",    "type": "block", "position": {"x": 0,   "y": 420, "w": 1200, "h": 350}},
+      {"item": "viz_top_changed_users", "type": "block", "position": {"x": 0,   "y": 770, "w": 600, "h": 300}},
+      {"item": "viz_changes_by_admin",  "type": "block", "position": {"x": 600, "y": 770, "w": 600, "h": 300}},
+      {"item": "viz_group_detail",      "type": "block", "position": {"x": 0,   "y": 1070, "w": 1200, "h": 350}}
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

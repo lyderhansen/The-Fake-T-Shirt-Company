@@ -25,7 +25,9 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import ts_iso, ts_iso_ms, date_add, calc_natural_events, TimeUtils
 from shared.company import (
     TENANT, TENANT_ID, USERS, USER_KEYS, ENTRA_APPS,
+    ENTRA_APP_CATALOG, ENTRA_GROUP_DEFINITIONS, ENTRA_ROLE_ASSIGNMENTS,
     get_random_user, get_us_ip, get_world_ip, Company,
+    get_user_groups, get_user_app_licenses, get_user_roles,
 )
 from scenarios.registry import expand_scenarios
 
@@ -86,12 +88,36 @@ SPRAY_GEOS = [
 ]
 
 # Admin accounts for audit events
+# Service accounts use fixed IDs; real employees resolve from USERS dict at runtime.
 # Using Boston management subnet (10.10.10.x) and Atlanta IT subnet (10.20.30.x)
 ADMIN_ACCOUNTS = {
-    "sec.admin": ("user-sec-admin-id", "Security Admin", "10.10.10.50"),
-    "helpdesk": ("user-helpdesk-id", "Helpdesk Admin", "10.10.10.51"),
-    "it.admin": ("user-it-admin-id", "IT Admin", "10.20.30.10"),  # Atlanta IT
+    "sec.admin":     ("user-sec-admin-id",  "Security Admin",   "10.10.10.50"),
+    "helpdesk":      ("user-helpdesk-id",   "Helpdesk Admin",   "10.10.10.51"),
+    "it.admin":      ("user-it-admin-id",   "IT Admin",         "10.20.30.10"),   # Atlanta IT
+    "mike.johnson":  (None, None, None),    # CTO — resolve from USERS
+    "jessica.brown": (None, None, None),    # IT Admin — resolve from USERS
+    "sarah.wilson":  (None, None, None),    # CFO — resolve from USERS
+    "ad.sync":       ("user-adsync-id",     "AD Connect Sync",  "10.10.20.10"),   # DC-BOS-01
 }
+
+# Weighted admin selection for baseline events (routine ops done by these admins)
+_BASELINE_ADMIN_KEYS = ["it.admin", "it.admin", "it.admin", "helpdesk", "helpdesk", "ad.sync"]
+
+
+def _resolve_admin(admin_key: str):
+    """Resolve admin account info. Returns (id, display_name, ip).
+
+    For service accounts, returns static values from ADMIN_ACCOUNTS.
+    For real employees, resolves from USERS dict.
+    """
+    entry = ADMIN_ACCOUNTS.get(admin_key)
+    if entry and entry[0] is not None:
+        return entry
+    # Try to resolve from USERS
+    user = USERS.get(admin_key)
+    if user:
+        return (user.entra_object_id, user.display_name, user.ip_address)
+    return ("admin-id", "Admin", "10.10.10.50")
 
 # Exfil scenario users - for demo_id tagging
 EXFIL_USERS = {"jessica.brown", "alex.miller"}
@@ -594,7 +620,7 @@ def audit_base(ts: str, category: str, activity: str, admin_key: str, target_jso
                target_username: str = None, day: int = None,
                active_scenarios: list = None) -> str:
     """Generate base audit event."""
-    admin_id, admin_name, admin_ip = ADMIN_ACCOUNTS.get(admin_key, ("admin-id", "Admin", "10.10.10.50"))
+    admin_id, admin_name, admin_ip = _resolve_admin(admin_key)
     audit_id = f"audit-{random.randint(10000, 99999)}"
 
     event = {
@@ -636,27 +662,200 @@ def audit_base(ts: str, category: str, activity: str, admin_key: str, target_jso
     return json.dumps(event)
 
 
+# =============================================================================
+# ENRICHED AUDIT EVENT GENERATORS (with real group/app/role details)
+# =============================================================================
+
+def audit_add_member_to_group(base_date: str, day: int, hour: int, minute: int = None,
+                               target_user=None, group_name: str = None,
+                               admin_key: str = None, demo_id: str = None,
+                               active_scenarios: list = None) -> str:
+    """Add user to Entra security group — with real group name and user details."""
+    if minute is None:
+        minute = random.randint(0, 59)
+    ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
+    if admin_key is None:
+        admin_key = random.choice(_BASELINE_ADMIN_KEYS)
+
+    # Pick a real user and group
+    if target_user is None:
+        target_user = get_random_user()
+    if group_name is None:
+        group_name = random.choice(list(ENTRA_GROUP_DEFINITIONS.keys()))
+
+    # Generate deterministic group ID
+    group_id = str(uuid.uuid5(uuid.UUID("a1b2c3d4-e5f6-7890-abcd-ef0123456789"), f"group:{group_name}"))
+
+    target = {
+        "id": target_user.entra_object_id,
+        "displayName": target_user.display_name,
+        "type": "User",
+        "userPrincipalName": target_user.email,
+        "modifiedProperties": [
+            {"displayName": "Group.DisplayName", "newValue": f'"{group_name}"'},
+            {"displayName": "Group.ObjectID", "newValue": f'"{group_id}"'},
+        ]
+    }
+    event_str = audit_base(ts, "GroupManagement", "Add member to group", admin_key, target,
+                           target_username=target_user.username, day=day,
+                           active_scenarios=active_scenarios)
+    if demo_id:
+        event = json.loads(event_str)
+        event["demo_id"] = demo_id
+        return json.dumps(event)
+    return event_str
+
+
+def audit_remove_member_from_group(base_date: str, day: int, hour: int, minute: int = None,
+                                    target_user=None, group_name: str = None,
+                                    admin_key: str = None, demo_id: str = None,
+                                    active_scenarios: list = None) -> str:
+    """Remove user from Entra security group — with real group name and user details."""
+    if minute is None:
+        minute = random.randint(0, 59)
+    ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
+    if admin_key is None:
+        admin_key = random.choice(_BASELINE_ADMIN_KEYS)
+
+    if target_user is None:
+        target_user = get_random_user()
+    if group_name is None:
+        group_name = random.choice(list(ENTRA_GROUP_DEFINITIONS.keys()))
+
+    group_id = str(uuid.uuid5(uuid.UUID("a1b2c3d4-e5f6-7890-abcd-ef0123456789"), f"group:{group_name}"))
+
+    target = {
+        "id": target_user.entra_object_id,
+        "displayName": target_user.display_name,
+        "type": "User",
+        "userPrincipalName": target_user.email,
+        "modifiedProperties": [
+            {"displayName": "Group.DisplayName", "oldValue": f'"{group_name}"'},
+            {"displayName": "Group.ObjectID", "oldValue": f'"{group_id}"'},
+        ]
+    }
+    event_str = audit_base(ts, "GroupManagement", "Remove member from group", admin_key, target,
+                           target_username=target_user.username, day=day,
+                           active_scenarios=active_scenarios)
+    if demo_id:
+        event = json.loads(event_str)
+        event["demo_id"] = demo_id
+        return json.dumps(event)
+    return event_str
+
+
+def audit_update_user(base_date: str, day: int, hour: int, minute: int = None,
+                      target_user=None, attribute: str = None,
+                      old_value: str = None, new_value: str = None,
+                      admin_key: str = None, demo_id: str = None,
+                      active_scenarios: list = None) -> str:
+    """Update user attribute in Entra ID — with modifiedProperties old→new values."""
+    if minute is None:
+        minute = random.randint(0, 59)
+    ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
+    if admin_key is None:
+        admin_key = random.choice(_BASELINE_ADMIN_KEYS)
+
+    if target_user is None:
+        target_user = get_random_user()
+
+    # Pick a realistic attribute change if not specified
+    if attribute is None:
+        _ATTR_CHANGES = [
+            ("JobTitle", "Analyst", "Senior Analyst"),
+            ("JobTitle", "Engineer", "Senior Engineer"),
+            ("Department", "Engineering", "IT"),
+            ("Department", "Sales", "Marketing"),
+            ("Manager", "old.manager", "new.manager"),
+            ("MobilePhone", "+1-555-0100", "+1-555-0200"),
+            ("OfficeLocation", "Floor 1", "Floor 2"),
+            ("CompanyName", "The FAKE T-Shirt Company", "The FAKE T-Shirt Company"),
+        ]
+        attr_choice = random.choice(_ATTR_CHANGES)
+        attribute = attr_choice[0]
+        old_value = attr_choice[1]
+        new_value = attr_choice[2]
+
+    target = {
+        "id": target_user.entra_object_id,
+        "displayName": target_user.display_name,
+        "type": "User",
+        "userPrincipalName": target_user.email,
+        "modifiedProperties": [
+            {"displayName": attribute, "oldValue": f'"{old_value}"', "newValue": f'"{new_value}"'},
+        ]
+    }
+    event_str = audit_base(ts, "UserManagement", "Update user", admin_key, target,
+                           target_username=target_user.username, day=day,
+                           active_scenarios=active_scenarios)
+    if demo_id:
+        event = json.loads(event_str)
+        event["demo_id"] = demo_id
+        return json.dumps(event)
+    return event_str
+
+
+def audit_assign_license(base_date: str, day: int, hour: int, minute: int = None,
+                         target_user=None, app_name: str = None,
+                         admin_key: str = None, demo_id: str = None,
+                         active_scenarios: list = None) -> str:
+    """Assign application license/role to user — with real app name from catalog."""
+    if minute is None:
+        minute = random.randint(0, 59)
+    ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
+    if admin_key is None:
+        admin_key = random.choice(_BASELINE_ADMIN_KEYS)
+
+    if target_user is None:
+        target_user = get_random_user()
+    if app_name is None:
+        # Pick from non-all_users apps (interesting assignments)
+        _dept_apps = [name for name, info in ENTRA_APP_CATALOG.items()
+                      if not info.get("all_users")]
+        app_name = random.choice(_dept_apps) if _dept_apps else "Microsoft Office 365"
+
+    app_id = ENTRA_APP_CATALOG.get(app_name, {}).get("id", "app-unknown-001")
+
+    target = {
+        "id": target_user.entra_object_id,
+        "displayName": target_user.display_name,
+        "type": "User",
+        "userPrincipalName": target_user.email,
+        "modifiedProperties": [
+            {"displayName": "AppRole.DisplayName", "newValue": f'"User"'},
+            {"displayName": "AppRole.Value", "newValue": f'"Default Access"'},
+            {"displayName": "Application.DisplayName", "newValue": f'"{app_name}"'},
+            {"displayName": "Application.ObjectID", "newValue": f'"{app_id}"'},
+        ]
+    }
+    event_str = audit_base(ts, "ApplicationManagement", "Add app role assignment to user", admin_key, target,
+                           target_username=target_user.username, day=day,
+                           active_scenarios=active_scenarios)
+    if demo_id:
+        event = json.loads(event_str)
+        event["demo_id"] = demo_id
+        return json.dumps(event)
+    return event_str
+
+
+# Legacy function kept for backward compatibility (scenarios may call it)
 def audit_user_management(base_date: str, day: int, hour: int,
                           active_scenarios: list = None) -> str:
-    """Generate random user management audit event."""
-    minute = random.randint(0, 59)
-    second = random.randint(0, 59)
-    ts = ts_iso(base_date, day, hour, minute, second)
+    """Generate random user management audit event (legacy wrapper)."""
+    # Delegate to specific enriched functions
+    event_type = random.choices(
+        ["group_add", "group_remove", "update_user", "license"],
+        weights=[35, 15, 35, 15], k=1
+    )[0]
 
-    activities = ["Update user", "Update group", "Add member to group", "Remove member from group"]
-    activity = random.choice(activities)
-    admin_key = random.choice(list(ADMIN_ACCOUNTS.keys()))
-
-    user = get_random_user()
-    target = {
-        "id": user.entra_object_id,
-        "displayName": user.display_name,
-        "type": "User"
-    }
-
-    return audit_base(ts, "UserManagement", activity, admin_key, target,
-                      target_username=user.username, day=day,
-                      active_scenarios=active_scenarios)
+    if event_type == "group_add":
+        return audit_add_member_to_group(base_date, day, hour, active_scenarios=active_scenarios)
+    elif event_type == "group_remove":
+        return audit_remove_member_from_group(base_date, day, hour, active_scenarios=active_scenarios)
+    elif event_type == "update_user":
+        return audit_update_user(base_date, day, hour, active_scenarios=active_scenarios)
+    else:
+        return audit_assign_license(base_date, day, hour, active_scenarios=active_scenarios)
 
 
 # =============================================================================
@@ -1217,24 +1416,90 @@ def signin_lockout(base_date: str, day: int) -> List[str]:
 
 def generate_audit_day(base_date: str, day: int, base_count: int,
                        active_scenarios: list = None) -> List[str]:
-    """Generate audit events for one day."""
+    """Generate enriched audit events for one day.
+
+    Event distribution (all with real group/app/role/attribute details):
+    - Group membership changes: 2-4/day (add + occasional remove)
+    - User attribute updates: 1-3/day (title, department, manager, phone, office)
+    - License/app assignments: every 3-5 days
+    - Directory role changes: every 5-7 days
+    - Password resets: 1-2/day
+    - CA policy updates: weekly
+    - Certificate updates: bi-weekly
+    - SSPR flows: 5-10/day
+    """
     events = []
 
-    # Random user management events
-    count = random.randint(base_count, base_count + 5)
-    for _ in range(count):
+    # ---- Group membership changes (2-4 per day) ----
+    group_count = random.randint(2, 4)
+    for _ in range(group_count):
         hour = random.randint(8, 17)
-        events.append(audit_user_management(base_date, day, hour, active_scenarios))
+        user = get_random_user()
+        # 75% adds, 25% removes
+        if random.random() < 0.75:
+            # Pick a group the user should logically belong to
+            user_groups = get_user_groups(user)
+            group = random.choice(user_groups) if user_groups else random.choice(list(ENTRA_GROUP_DEFINITIONS.keys()))
+            events.append(audit_add_member_to_group(
+                base_date, day, hour, target_user=user, group_name=group,
+                active_scenarios=active_scenarios
+            ))
+        else:
+            # Remove from a non-essential group
+            all_groups = list(ENTRA_GROUP_DEFINITIONS.keys())
+            group = random.choice(all_groups)
+            events.append(audit_remove_member_from_group(
+                base_date, day, hour, target_user=user, group_name=group,
+                active_scenarios=active_scenarios
+            ))
 
-    # Day-specific operational events
-    if day == 1:
-        events.append(audit_ca_policy(base_date, day))
-    elif day == 4:
+    # ---- User attribute updates (1-3 per day) ----
+    attr_count = random.randint(1, 3)
+    for _ in range(attr_count):
+        hour = random.randint(9, 16)
+        events.append(audit_update_user(
+            base_date, day, hour, active_scenarios=active_scenarios
+        ))
+
+    # ---- License/app assignments (every 3-5 days) ----
+    if day % random.randint(3, 5) == 0:
+        hour = random.randint(9, 15)
+        events.append(audit_assign_license(
+            base_date, day, hour, active_scenarios=active_scenarios
+        ))
+
+    # ---- Directory role changes (every 5-7 days) ----
+    if day % random.randint(5, 7) == 0:
+        hour = random.randint(10, 14)
+        # Pick a real role and member
+        role_names = list(ENTRA_ROLE_ASSIGNMENTS.keys())
+        role = random.choice(role_names)
+        members = ENTRA_ROLE_ASSIGNMENTS[role]
+        if members:
+            member_key = random.choice(members)
+            member_user = USERS.get(member_key)
+            if member_user:
+                events.append(audit_add_member_to_role(
+                    base_date, day, hour, random.randint(0, 59),
+                    target_user=member_user.display_name, role_name=role,
+                    admin_key="sec.admin"
+                ))
+
+    # ---- Password resets (1-2 per day) ----
+    reset_count = random.randint(1, 2)
+    for _ in range(reset_count):
         events.append(audit_password_reset(base_date, day, active_scenarios))
-    elif day == 6:
+
+    # ---- Operational events (periodic) ----
+    # CA policy update every ~7 days
+    if day % 7 == 1:
+        events.append(audit_ca_policy(base_date, day))
+
+    # Certificate update every ~10 days
+    if day % 10 == 6:
         events.append(audit_cert_update(base_date, day))
 
-    # SSPR flow events (~5-10 per day, during business hours)
+    # ---- SSPR flow events (~5-10 per day, during business hours) ----
     sspr_count = random.randint(5, 10)
     for _ in range(sspr_count):
         hour = random.randint(8, 17)

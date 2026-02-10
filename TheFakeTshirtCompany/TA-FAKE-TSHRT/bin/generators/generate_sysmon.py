@@ -49,6 +49,7 @@ from shared.company import (
     TENANT, COMP_USER, COMP_WS_IP, COMP_WS_HOSTNAME,
     LATERAL_USER, JESSICA_WS_IP, JESSICA_WS_HOSTNAME,
     THREAT_IP, PHISHING_DOMAIN,
+    get_mac_for_ip, get_random_mac,
 )
 from scenarios.registry import expand_scenarios
 
@@ -411,6 +412,10 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
                 dst_hostname = f"{srv_name}.theFakeTshirtCompany.com"
                 break
 
+    # Resolve MACs — persistent for known user/server IPs, random for external
+    src_mac = get_mac_for_ip(src_ip) or get_random_mac()
+    dst_mac = get_mac_for_ip(dst_ip) or get_random_mac()
+
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
@@ -425,11 +430,13 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
         f"SourceHostname: {computer}.theFakeTshirtCompany.com",
         f"SourcePort: {src_port}",
         f"SourcePortName: ",
+        f"SourceMAC: {src_mac}",
         f"DestinationIsIpv6: false",
         f"DestinationIp: {dst_ip}",
         f"DestinationHostname: {dst_hostname}",
         f"DestinationPort: {dst_port}",
         f"DestinationPortName: {_port_name(dst_port)}",
+        f"DestinationMAC: {dst_mac}",
     ]
     return _wrap_kv_event(header, MESSAGE_LABELS[3], msg_lines, demo_id)
 
