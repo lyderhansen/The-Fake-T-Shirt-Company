@@ -438,7 +438,7 @@ def generate_call_history_record(
         "Client version": random.choice(CLIENT_VERSIONS),
         "Correlation ID": generate_uuid(),
         "Department ID": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dept:{caller_user.department}")),
-        "Device MAC": "".join([f"{random.randint(0, 255):02X}" for _ in range(6)]),
+        "Device MAC": caller_user.mac_address.replace(":", ""),  # Webex API format: no colons
         "Dialed digits": f"555{random.randint(1000, 9999)}",
         "Direction": "ORIGINATING",
         "Duration": duration_secs if answered else 0,

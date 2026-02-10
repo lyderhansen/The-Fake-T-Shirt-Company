@@ -81,6 +81,10 @@ class RansomwareAttemptScenario:
     def __init__(self, config: RansomwareAttemptConfig = None, demo_id_enabled: bool = True):
         self.cfg = config or RansomwareAttemptConfig()
         self.demo_id_enabled = demo_id_enabled
+        # Resolve Brooklyn White's persistent MAC address
+        from shared.company import USERS
+        target_user = USERS.get(self.cfg.target_user)
+        self.target_mac = target_user.mac_address if target_user else "AA:BB:CC:DD:EE:20"
 
     def is_active(self, day: int) -> bool:
         """Check if scenario is active on this day."""
@@ -481,7 +485,7 @@ demo_id={self.cfg.demo_id}
             "deviceMac": "00:18:0A:C0:01:01",  # MX-AUS-01 MAC
             "deviceName": "MX-AUS-01",
             "deviceSerial": "MX-AUS-01",
-            "clientMac": "AA:BB:CC:DD:EE:20",
+            "clientMac": self.target_mac,
             "srcIp": f"{self.cfg.target_ip}:49152",
             "destIp": f"{self.cfg.lateral_targets[0]}:445",
             "protocol": "tcp/ip",
@@ -504,7 +508,7 @@ demo_id={self.cfg.demo_id}
                 "deviceMac": "00:18:0A:C0:01:01",
                 "deviceName": "MX-AUS-01",
                 "deviceSerial": "MX-AUS-01",
-                "clientMac": "AA:BB:CC:DD:EE:20",
+                "clientMac": self.target_mac,
                 "srcIp": f"{self.cfg.target_ip}:{49152 + i}",
                 "destIp": f"{target}:445",
                 "protocol": "tcp/ip",
@@ -525,8 +529,8 @@ demo_id={self.cfg.demo_id}
         ) + timedelta(days=day)
         iso_iso = iso_ts.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
-        # Get target MAC (generate consistent one)
-        target_mac = "AA:BB:CC:DD:EE:20"  # Consistent for brooklyn.white
+        # Use Brooklyn White's persistent MAC address
+        target_mac = self.target_mac
 
         mx_events.append({
             "occurredAt": iso_iso,

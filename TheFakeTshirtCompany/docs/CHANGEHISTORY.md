@@ -4,6 +4,28 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~20:00 UTC — Add persistent MAC addresses for network client visibility
+
+Every employee workstation and server now has a deterministic, persistent MAC address (UUID5-based, matching the pattern used for Entra ID Object IDs and AWS Principal IDs). This enables Splunk analysts to track client devices across the network stack by MAC ↔ IP ↔ hostname ↔ username correlation.
+
+**Affected files:**
+- `bin/shared/company.py` — Added `_generate_mac_address()` function (UUID5 + SHA-256 OUI selection), `mac_address` property on both User and Server dataclasses, `get_user_by_ip()` / `get_mac_for_ip()` IP→user lookup helpers, `generate_mac_lookup_csv()` for Splunk enrichment. Workstation MACs use Dell/Lenovo/HP OUIs; server MACs use Intel OUIs.
+- `bin/generators/generate_meraki.py` — Updated MR wireless events: known users on 802.1X / corporate SSID get their persistent MAC+IP instead of random. Updated MX firewall, URL, and security events: IP-based MAC lookup resolves known users. Added imports for `get_user_by_ip`, `get_mac_for_ip`.
+- `bin/scenarios/security/ransomware_attempt.py` — Replaced 4 hardcoded `"AA:BB:CC:DD:EE:20"` MACs with Brooklyn White's persistent MAC (`self.target_mac` resolved from USERS in `__init__`). All IDS alerts, client isolation, and disassociation events now use her real device MAC.
+- `bin/generators/generate_webex_api.py` — Fixed Device MAC field in calling CDR: replaced random hex string with `caller_user.mac_address.replace(":", "")` for deterministic MACs in Webex API no-colon format.
+- `lookups/mac_inventory.csv` — New file: 187 entries (175 user workstations + 12 servers) mapping mac_address → ip_address, hostname, username, display_name, location, department, device_type.
+- `default/transforms.conf` — Added `[mac_inventory]` lookup definition for Splunk enrichment.
+
+**Verification:**
+- All 19 generators: 3,580,854 events (39.7s)
+- 175 unique user MACs, 12 unique server MACs — zero collisions ✓
+- Alex Miller (10.10.30.55): 23 MR wireless events with persistent MAC `00:50:B6:2B:7C:3E` ✓
+- Brooklyn White ransomware: 4 MX events + 1 MR disassociation all with `34:17:EB:CC:53:83` ✓
+- MR wireless MAC distribution: 53.3% known-user persistent MACs, 46.7% random (guest/IoT) ✓
+- Webex API: deterministic MACs in no-colon format, cross-referenced to user lookup ✓
+
+---
+
 ## 2026-02-10 ~17:00 UTC — Fix 13 logical issues across all 7 scenarios
 
 Thorough review of all scenarios identified 13 logical issues — wrong ASA log directions, ServiceNow timeline misalignments, inconsistent resolution states, missing cross-generator integration, dead code bugs, and inaccurate message IDs.

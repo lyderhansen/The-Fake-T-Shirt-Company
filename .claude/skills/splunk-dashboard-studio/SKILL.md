@@ -1154,6 +1154,12 @@ index=main | stats count as value by src_zone, dest_zone
 index=main | stats count, sparkline(count, 1h) as sparkline by host
 ```
 
+> **IMPORTANT — Nested JSON field quoting:** When using `eval`, `where`, `if`, or `case` with dotted field names from JSON sourcetypes (e.g., `properties.status.errorCode`, `requestParameters.bucketName`), you MUST wrap the field in single quotes:
+> - ✅ `| eval status=if('properties.status.errorCode'=0, "Success", "Failed")`
+> - ❌ `| eval status=if(properties.status.errorCode=0, "Success", "Failed")`
+>
+> This applies everywhere dots appear in field names. `stats` and `table` commands handle dotted fields without quotes, but `eval`/`where`/`if`/`case` do not.
+
 ---
 
 ## 12. Output Checklist

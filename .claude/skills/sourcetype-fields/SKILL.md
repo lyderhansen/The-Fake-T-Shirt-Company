@@ -10,6 +10,12 @@ Complete field inventory for all sourcetypes in `index=fake_tshrt`. Data spans J
 **Common fields on ALL sourcetypes:** `host`, `source`, `sourcetype`, `index` (fake_tshrt), `_time`
 **Scenario tagging:** `IDX_demo_id` (indexed), `demo_id` (search-time) - values: exfil, ransomware_attempt, memory_leak, cpu_runaway, disk_filling, firewall_misconfig, certificate_expiry
 
+> **SPL Quoting Rule for Nested Fields:** When using `eval`, `where`, `if`, `case`, or `search` with dotted field names (e.g., `properties.status.errorCode`, `requestParameters.bucketName`), you MUST wrap the field name in single quotes:
+> - ✅ `| eval status=if('properties.status.errorCode'=0, "Success", "Failed")`
+> - ❌ `| eval status=if(properties.status.errorCode=0, "Success", "Failed")`
+>
+> This applies to ALL fields with dots — Splunk treats unquoted dots as sub-search operators. Commands like `stats`, `table`, and `fields` handle dotted fields without quotes, but `eval`/`where`/`if`/`case` do not.
+
 ## Quick Reference
 
 | # | Sourcetype | Category | Fields | Host(s) | vendor_product |

@@ -38,6 +38,7 @@ from shared.company import (
     THREAT_IP, COMP_USER, COMP_WS_IP, JESSICA_WS_IP,
     get_users_by_location, MEETING_ROOMS, MEETING_BEHAVIOR,
     get_random_mac, KNOWN_MAC_OUIS,
+    get_user_by_ip, get_mac_for_ip,
 )
 from shared.meeting_schedule import (
     get_meetings_for_room, get_meetings_for_hour, get_door_events_for_meeting,
@@ -346,8 +347,10 @@ def ts_meraki_from_dt(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
-def generate_mac() -> str:
-    """Generate random MAC address with known vendor OUI prefix."""
+def generate_mac(user=None) -> str:
+    """Generate MAC address — persistent for known users, random for unknown devices."""
+    if user is not None:
+        return user.mac_address
     return get_random_mac()
 
 
@@ -1577,14 +1580,15 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
             sport = random.randint(1024, 65535)
             dport = random.choice([80, 443, 53, 8080, 3389, 22, 25, 587])
             action = "allow" if random.random() < 0.95 else "deny"
-            events.append(mx_firewall_event(ts, mx_device, src, dst, protocol, sport, dport, action))
+            mac = get_mac_for_ip(src) or generate_mac()
+            events.append(mx_firewall_event(ts, mx_device, src, dst, protocol, sport, dport, action, mac=mac))
 
         elif event_type == "url":
             src_ip = get_random_internal_ip(location)
             src_port = random.randint(1024, 65535)
             dst_ip = get_random_external_ip()
             dst_port = random.choice([80, 443, 8080])
-            mac = generate_mac()
+            mac = get_mac_for_ip(src_ip) or generate_mac()
             url = random.choice([
                 f"http://www.example{random.randint(1,100)}.com/page",
                 f"https://cdn.example.com/assets/{random.randint(1000,9999)}",
@@ -1618,7 +1622,7 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
             )[0]
 
             client_ip = get_random_internal_ip(location)
-            client_mac = generate_mac()
+            client_mac = get_mac_for_ip(client_ip) or generate_mac()
 
             if sec_subtype == "content_filtering":
                 category = random.choice(blocked_categories)
@@ -1673,11 +1677,23 @@ def generate_mr_baseline_hour(base_date: str, day: int, hour: int,
         ts = ts_meraki(base_date, day, hour, minute, second)
 
         ap = random.choice(aps)
-        client_mac = generate_mac()
         ssid_info = random.choice(MERAKI_SSIDS)
 
-        # Generate client IP based on location
-        client_ip = get_random_internal_ip(location)
+        # Determine if this event is from a known user (persistent MAC)
+        # Corporate 802.1X SSIDs always identify users; Corp SSID associations
+        # are 70% known users (the rest are transient/unrecognized devices)
+        selected_user = None
+        if ssid_info["auth"] == "802.1X" and location_users:
+            selected_user = random.choice(location_users)
+        elif ssid_info["name"] == "FakeTShirtCo-Corp" and location_users and random.random() < 0.7:
+            selected_user = random.choice(location_users)
+
+        if selected_user:
+            client_mac = selected_user.mac_address
+            client_ip = selected_user.ip_address
+        else:
+            client_mac = generate_mac()  # Random for guest/IoT
+            client_ip = get_random_internal_ip(location)
 
         # Event types - core wireless events only
         # Health metrics (signal quality, channel utilization, etc.) are now
@@ -1707,20 +1723,18 @@ def generate_mr_baseline_hour(base_date: str, day: int, hour: int,
                 client_ip=client_ip
             ))
         elif event_type == "8021x":
-            if ssid_info["auth"] == "802.1X" and location_users:
-                user = random.choice(location_users)
-                identity = f"{user.username}@theFakeTshirtCompany.com"
-                # Use the user's actual IP if available
-                user_ip = user.ip if hasattr(user, 'ip') and user.ip else client_ip
+            if ssid_info["auth"] == "802.1X" and selected_user:
+                identity = f"{selected_user.username}@theFakeTshirtCompany.com"
+                # client_mac and client_ip already set to user's persistent values
                 if random.random() < 0.95:
                     events.append(mr_8021x_success_event(
                         ts, ap, identity, client_mac, ssid_info["vap"], radio,
-                        client_ip=user_ip
+                        client_ip=client_ip
                     ))
                 else:
                     events.append(mr_8021x_failure_event(
                         ts, ap, identity, client_mac, ssid_info["vap"], radio,
-                        client_ip=user_ip
+                        client_ip=client_ip
                     ))
         elif event_type == "wpa":
             if ssid_info["auth"] == "PSK":
