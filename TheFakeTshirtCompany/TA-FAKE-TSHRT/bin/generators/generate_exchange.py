@@ -3,6 +3,16 @@
 Exchange Message Tracking Log Generator.
 Generates realistic email flow logs in JSON format with natural volume variation.
 
+Includes:
+  - Internal, inbound, and outbound email flow
+  - Calendar invites/responses (correlated with Webex meetings)
+  - Distribution list announcements
+  - External system notifications (AWS, Azure, Jira, etc.)
+  - Out of Office auto-replies
+  - Spam filtered messages
+  - Failed outbound delivery (~3%): bounces, NDRs, rejected
+  - SPF/DKIM/DMARC authentication results on inbound email
+
 Includes exfil scenario support:
   - Phishing campaign targeting Jessica Brown (IT Admin)
   - Credential harvesting and mailbox compromise
@@ -101,6 +111,27 @@ CALENDAR_RESPONSES = [
 # OOO users per day (~3-5% of employees)
 OOO_PERCENTAGE = 0.04
 
+# SPF/DKIM/DMARC authentication results with realistic distribution
+# Most legitimate inbound passes all checks; some softfail/neutral
+AUTH_RESULTS_GOOD = [
+    {"SPF": "Pass", "DKIM": "Pass", "DMARC": "Pass", "CompAuth": "pass"},
+]
+AUTH_RESULTS_MIXED = [
+    {"SPF": "SoftFail", "DKIM": "Pass", "DMARC": "Pass", "CompAuth": "pass"},
+    {"SPF": "Pass", "DKIM": "None", "DMARC": "BestGuessPass", "CompAuth": "pass"},
+    {"SPF": "Neutral", "DKIM": "Pass", "DMARC": "Pass", "CompAuth": "pass"},
+    {"SPF": "Pass", "DKIM": "Fail", "DMARC": "Fail", "CompAuth": "fail"},
+]
+
+# Outbound failure reasons and DSN codes
+OUTBOUND_FAILURE_REASONS = [
+    ("550 5.1.1 The email account that you tried to reach does not exist", "NDR"),
+    ("550 5.7.1 Recipient address rejected: Access denied", "Rejected"),
+    ("452 4.2.2 Mailbox full - recipient storage quota exceeded", "Deferred"),
+    ("550 5.4.1 Recipient address rejected: domain not found", "NDR"),
+    ("421 4.7.0 Connection refused, try again later", "Deferred"),
+]
+
 
 # =============================================================================
 # EVENT GENERATORS
@@ -144,7 +175,7 @@ def internal_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 
 
 def inbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
-    """Generate inbound email event."""
+    """Generate inbound email event with SPF/DKIM/DMARC authentication results."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
     ts = ts_iso(base_date, day, hour, minute, second)
 
@@ -156,7 +187,13 @@ def inbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     msg_id = generate_message_id(domain)
     size = random.randint(2000, 2000000)
 
-    return {
+    # SPF/DKIM/DMARC: 85% all-pass, 15% mixed results
+    if random.random() < 0.85:
+        auth = AUTH_RESULTS_GOOD[0]
+    else:
+        auth = random.choice(AUTH_RESULTS_MIXED)
+
+    event = {
         "Received": ts,
         "SenderAddress": sender,
         "RecipientAddress": recipient.email,
@@ -171,7 +208,13 @@ def inbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
         "Directionality": "Inbound",
         "ConnectorId": "Inbound from Internet",
         "SourceContext": "External inbound",
+        "SPFResult": auth["SPF"],
+        "DKIMResult": auth["DKIM"],
+        "DMARCResult": auth["DMARC"],
+        "CompAuth": auth["CompAuth"],
     }
+
+    return event
 
 
 def outbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
@@ -202,6 +245,55 @@ def outbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
         "Directionality": "Outbound",
         "ConnectorId": "Outbound to Internet",
         "SourceContext": "External outbound",
+    }
+
+
+def failed_outbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate failed outbound email event (bounce/NDR/rejected).
+
+    ~3% of outbound email fails: recipient doesn't exist, mailbox full,
+    domain not found, or remote server rejects the message.
+    """
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    ts = ts_iso(base_date, day, hour, minute, second)
+
+    sender = get_random_user()
+    domain = random.choice(EXTERNAL_MAIL_DOMAINS + PARTNER_DOMAINS)
+    # Failed emails often go to bad addresses
+    bad_prefixes = ["contact", "info", "old-employee", "typo", "noreply", "test"]
+    recipient = f"{random.choice(bad_prefixes)}@{domain}"
+
+    subject = random.choice(EMAIL_SUBJECTS_INTERNAL)
+    msg_id = generate_message_id()
+    size = random.randint(5000, 500000)
+
+    failure_msg, failure_type = random.choice(OUTBOUND_FAILURE_REASONS)
+
+    # Determine status based on failure type
+    if failure_type == "NDR":
+        status = "Failed"
+    elif failure_type == "Deferred":
+        status = "Pending"
+    else:
+        status = "Failed"
+
+    return {
+        "Received": ts,
+        "SenderAddress": sender.email,
+        "RecipientAddress": recipient,
+        "Subject": subject,
+        "Status": status,
+        "ToIP": f"{random.randint(1, 223)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}",
+        "FromIP": random.choice(EXCHANGE_SERVER_IPS),
+        "Size": size,
+        "MessageId": msg_id,
+        "MessageTraceId": str(uuid.uuid4()),
+        "Organization": TENANT,
+        "Directionality": "Outbound",
+        "ConnectorId": "Outbound to Internet",
+        "SourceContext": "External outbound",
+        "FailureDetail": failure_msg,
+        "FailureType": failure_type,
     }
 
 
@@ -302,6 +394,10 @@ def spam_filtered(base_date: str, day: int, hour: int) -> Dict[str, Any]:
         "SourceContext": "External inbound",
         "SpamScore": str(random.randint(6, 9)),
         "SCL": str(random.randint(6, 9)),
+        "SPFResult": random.choice(["Fail", "SoftFail", "None"]),
+        "DKIMResult": random.choice(["Fail", "None"]),
+        "DMARCResult": random.choice(["Fail", "None"]),
+        "CompAuth": "fail",
     }
 
 
@@ -589,15 +685,17 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     """Generate baseline events for one hour.
 
     Updated event distribution for realistic email volume:
-    - 35% Internal email
-    - 20% Inbound external
-    - 15% Outbound external
+    - 34% Internal email
+    - 19% Inbound external (with SPF/DKIM/DMARC results)
+    - 14% Outbound external (delivered)
     - 8% Distribution list / announcements
     - 7% External system notifications
-    - 7% Calendar invites (basic, non-Webex)
+    - 6% Calendar invites (basic, non-Webex)
     - 5% Calendar responses
+    - 3% Failed outbound (bounces, NDRs, rejected)
     - 2% Auto-replies (OOO)
     - 1% Spam filtered
+    - 1% Failed inbound (DMARC reject)
     """
     events = []
 
@@ -607,28 +705,31 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     for _ in range(event_count):
         event_type = random.randint(1, 100)
 
-        if event_type <= 35:
+        if event_type <= 34:
             # Internal email
             events.append(internal_message(base_date, day, hour))
-        elif event_type <= 55:
-            # Inbound external
+        elif event_type <= 53:
+            # Inbound external (with SPF/DKIM/DMARC)
             events.append(inbound_message(base_date, day, hour))
-        elif event_type <= 70:
-            # Outbound external
+        elif event_type <= 67:
+            # Outbound external (delivered)
             events.append(outbound_message(base_date, day, hour))
-        elif event_type <= 78:
+        elif event_type <= 75:
             # Distribution list / announcements
             events.append(distribution_list_email(base_date, day, hour))
-        elif event_type <= 85:
+        elif event_type <= 82:
             # External system notifications (AWS, Azure, Jira, etc.)
             events.append(external_system_notification(base_date, day, hour))
-        elif event_type <= 92:
+        elif event_type <= 88:
             # Calendar invites (basic, for non-Webex meetings)
             events.append(calendar_invite(base_date, day, hour))
-        elif event_type <= 97:
+        elif event_type <= 93:
             # Calendar responses
             events.append(calendar_response(base_date, day, hour))
-        elif event_type <= 99:
+        elif event_type <= 96:
+            # Failed outbound delivery (bounces, NDRs)
+            events.append(failed_outbound_message(base_date, day, hour))
+        elif event_type <= 98:
             # Auto-replies (OOO)
             ooo_event = auto_reply_ooo(base_date, day, hour, ooo_users)
             if ooo_event:
@@ -636,8 +737,11 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
             else:
                 # Fallback to internal message if no OOO users
                 events.append(internal_message(base_date, day, hour))
-        else:
+        elif event_type <= 99:
             # Spam filtered
+            events.append(spam_filtered(base_date, day, hour))
+        else:
+            # Spam with DMARC failure (hard reject)
             events.append(spam_filtered(base_date, day, hour))
 
     return events

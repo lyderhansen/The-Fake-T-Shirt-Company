@@ -6,6 +6,10 @@ Generates WinEventLog-style KV events for Microsoft-Windows-Sysmon/Operational.
 Event IDs covered:
     1  - Process Create
     3  - Network Connection
+    5  - Process Terminated
+    7  - Image Loaded (DLL)
+    8  - CreateRemoteThread
+    10 - ProcessAccess
     11 - File Create
     13 - Registry Value Set
     22 - DNS Query
@@ -68,6 +72,10 @@ SYSTEM_USER = "NT AUTHORITY\\SYSTEM"
 TASK_CATEGORIES = {
     1: "Process Create (rule: ProcessCreate)",
     3: "Network connection detected (rule: NetworkConnect)",
+    5: "Process terminated (rule: ProcessTerminate)",
+    7: "Image loaded (rule: ImageLoad)",
+    8: "CreateRemoteThread detected (rule: CreateRemoteThread)",
+    10: "Process accessed (rule: ProcessAccess)",
     11: "File created (rule: FileCreate)",
     13: "Registry value set (rule: RegistryEvent)",
     22: "Dns query (rule: DnsQuery)",
@@ -77,6 +85,10 @@ TASK_CATEGORIES = {
 MESSAGE_LABELS = {
     1: "Process Create:",
     3: "Network connection detected:",
+    5: "Process terminated:",
+    7: "Image loaded:",
+    8: "CreateRemoteThread detected:",
+    10: "Process accessed:",
     11: "File created:",
     13: "Registry value set:",
     22: "Dns query:",
@@ -96,6 +108,9 @@ SYSMON_SERVERS = {
     "SQL-PROD-01": {"ip": "10.10.20.30", "location": "BOS", "role": "sql"},
     "APP-BOS-01": {"ip": "10.10.20.40", "location": "BOS", "role": "app"},
     "BACKUP-ATL-01": {"ip": "10.20.20.20", "location": "ATL", "role": "backup"},
+    "WSUS-BOS-01": {"ip": "10.10.20.50", "location": "BOS", "role": "wsus"},
+    "RADIUS-BOS-01": {"ip": "10.10.20.51", "location": "BOS", "role": "radius"},
+    "PRINT-BOS-01": {"ip": "10.10.20.53", "location": "BOS", "role": "print"},
 }
 
 # Server-specific baseline processes
@@ -123,6 +138,18 @@ SERVER_PROCESSES = {
     ],
     "backup": [
         {"image": "C:\\Windows\\System32\\wbengine.exe", "name": "wbengine.exe", "system": True},
+        {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
+    ],
+    "wsus": [
+        {"image": "C:\\Program Files\\Update Services\\Tools\\wsusutil.exe", "name": "wsusutil.exe", "system": True},
+        {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
+    ],
+    "radius": [
+        {"image": "C:\\Windows\\System32\\ias.exe", "name": "ias.exe", "system": True},
+        {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
+    ],
+    "print": [
+        {"image": "C:\\Windows\\System32\\spoolsv.exe", "name": "spoolsv.exe", "system": True},
         {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
     ],
 }
@@ -177,6 +204,9 @@ PARENT_CHAINS = {
     "vssadmin.exe": ("services.exe", "C:\\Windows\\System32\\services.exe"),
     "wbengine.exe": ("services.exe", "C:\\Windows\\System32\\services.exe"),
     "dotnet.exe": ("w3wp.exe", "C:\\Windows\\System32\\inetsrv\\w3wp.exe"),
+    "wsusutil.exe": ("services.exe", "C:\\Windows\\System32\\services.exe"),
+    "ias.exe": ("services.exe", "C:\\Windows\\System32\\services.exe"),
+    "spoolsv.exe": ("services.exe", "C:\\Windows\\System32\\services.exe"),
 }
 
 # DNS query targets
@@ -257,9 +287,73 @@ WORKSTATION_FILE_TARGETS = [
     "C:\\Users\\{user}\\AppData\\Local\\Temp\\{rand}.tmp",
 ]
 
-# Event ID distribution weights
-SERVER_EID_WEIGHTS = {1: 30, 3: 25, 11: 15, 13: 15, 22: 15}
-WORKSTATION_EID_WEIGHTS = {1: 35, 3: 25, 11: 15, 13: 10, 22: 15}
+# =============================================================================
+# DLL LISTS FOR EID 7 (Image Loaded)
+# =============================================================================
+
+# Common system DLLs loaded by server processes
+SERVER_DLLS = [
+    "C:\\Windows\\System32\\ntdll.dll",
+    "C:\\Windows\\System32\\kernel32.dll",
+    "C:\\Windows\\System32\\advapi32.dll",
+    "C:\\Windows\\System32\\rpcrt4.dll",
+    "C:\\Windows\\System32\\sechost.dll",
+    "C:\\Windows\\System32\\ws2_32.dll",
+    "C:\\Windows\\System32\\crypt32.dll",
+    "C:\\Windows\\System32\\msvcrt.dll",
+    "C:\\Windows\\System32\\ole32.dll",
+    "C:\\Windows\\System32\\combase.dll",
+    "C:\\Windows\\System32\\wldap32.dll",
+    "C:\\Windows\\System32\\dnsapi.dll",
+    "C:\\Windows\\System32\\netapi32.dll",
+    "C:\\Windows\\System32\\schannel.dll",
+]
+
+# DLLs loaded by workstation/application processes
+WORKSTATION_DLLS = [
+    "C:\\Windows\\System32\\ntdll.dll",
+    "C:\\Windows\\System32\\kernel32.dll",
+    "C:\\Windows\\System32\\user32.dll",
+    "C:\\Windows\\System32\\gdi32.dll",
+    "C:\\Windows\\System32\\shell32.dll",
+    "C:\\Windows\\System32\\shlwapi.dll",
+    "C:\\Windows\\System32\\ole32.dll",
+    "C:\\Windows\\System32\\oleaut32.dll",
+    "C:\\Windows\\System32\\msvcrt.dll",
+    "C:\\Windows\\System32\\uxtheme.dll",
+    "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\AppvIsvSubsystems64.dll",
+    "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\C2R64.dll",
+]
+
+# =============================================================================
+# PROCESS ACCESS FLAGS FOR EID 10
+# =============================================================================
+
+# Common legitimate access masks for ProcessAccess
+PROCESS_ACCESS_MASKS = [
+    ("0x1000", "PROCESS_QUERY_LIMITED_INFORMATION"),
+    ("0x0400", "PROCESS_QUERY_INFORMATION"),
+    ("0x1410", "PROCESS_QUERY_LIMITED_INFORMATION|PROCESS_VM_READ"),
+    ("0x1FFFFF", "PROCESS_ALL_ACCESS"),  # rare in baseline
+]
+
+# Targets for legitimate ProcessAccess (EID 10)
+LSASS_PATH = "C:\\Windows\\System32\\lsass.exe"
+PROCESS_ACCESS_TARGETS_SERVER = [
+    "C:\\Windows\\System32\\svchost.exe",
+    "C:\\Windows\\System32\\csrss.exe",
+    "C:\\Windows\\System32\\services.exe",
+    LSASS_PATH,  # legitimate lsass access from svchost/wininit
+]
+PROCESS_ACCESS_TARGETS_WS = [
+    "C:\\Windows\\System32\\svchost.exe",
+    "C:\\Windows\\System32\\csrss.exe",
+    "C:\\Windows\\explorer.exe",
+]
+
+# Event ID distribution weights (updated with new EIDs)
+SERVER_EID_WEIGHTS = {1: 22, 3: 20, 5: 12, 7: 15, 8: 1, 10: 5, 11: 10, 13: 8, 22: 7}
+WORKSTATION_EID_WEIGHTS = {1: 25, 3: 20, 5: 12, 7: 15, 8: 0, 10: 3, 11: 10, 13: 5, 22: 10}
 
 # Base events per peak hour (scale=1.0)
 SERVER_BASE_EVENTS_PER_HOUR = 18  # Per server, ~125/day at peak
@@ -503,6 +597,118 @@ def sysmon_eid22(ts: datetime, computer: str, user: str, image: str,
     return _wrap_kv_event(header, MESSAGE_LABELS[22], msg_lines, demo_id)
 
 
+def sysmon_eid5(ts: datetime, computer: str, user: str, image: str,
+                demo_id: str = None) -> str:
+    """EID 5 - Process Terminated."""
+    header = _kv_header(5, computer, ts)
+    utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {random.randint(1000, 65000)}",
+        f"Image: {image}",
+        f"User: {user}",
+    ]
+    return _wrap_kv_event(header, MESSAGE_LABELS[5], msg_lines, demo_id)
+
+
+def sysmon_eid7(ts: datetime, computer: str, user: str, image: str,
+                image_loaded: str, demo_id: str = None) -> str:
+    """EID 7 - Image Loaded (DLL)."""
+    header = _kv_header(7, computer, ts)
+    utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+
+    dll_name = image_loaded.rsplit("\\", 1)[-1] if "\\" in image_loaded else image_loaded
+    signed = "true" if "Windows" in image_loaded or "Microsoft" in image_loaded else "false"
+    signer = "Microsoft Windows" if signed == "true" else "-"
+
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"ProcessGuid: {_generate_guid()}",
+        f"ProcessId: {random.randint(1000, 65000)}",
+        f"Image: {image}",
+        f"ImageLoaded: {image_loaded}",
+        f"FileVersion: 10.0.19041.1 (WinBuild.160101.0800)",
+        f"Description: {dll_name}",
+        f"Product: Microsoft Windows Operating System",
+        f"Company: Microsoft Corporation",
+        f"OriginalFileName: {dll_name}",
+        f"Hashes: {_generate_hashes(image_loaded)}",
+        f"Signed: {signed}",
+        f"Signature: {signer}",
+        f"SignatureStatus: Valid",
+        f"User: {user}",
+    ]
+    return _wrap_kv_event(header, MESSAGE_LABELS[7], msg_lines, demo_id)
+
+
+def sysmon_eid8(ts: datetime, computer: str, source_user: str,
+                source_image: str, source_pid: int,
+                target_image: str, target_pid: int,
+                demo_id: str = None) -> str:
+    """EID 8 - CreateRemoteThread.
+
+    Very rare in baseline (legitimate: AV scanning, debugging, .NET CLR).
+    Primarily appears in attack scenarios (process injection).
+    """
+    header = _kv_header(8, computer, ts)
+    utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"SourceProcessGuid: {_generate_guid()}",
+        f"SourceProcessId: {source_pid}",
+        f"SourceImage: {source_image}",
+        f"TargetProcessGuid: {_generate_guid()}",
+        f"TargetProcessId: {target_pid}",
+        f"TargetImage: {target_image}",
+        f"NewThreadId: {random.randint(1000, 30000)}",
+        f"StartAddress: 0x{random.randint(0x7FF600000000, 0x7FF6FFFFFFFF):016X}",
+        f"StartModule: -",
+        f"StartFunction: -",
+        f"SourceUser: {source_user}",
+        f"TargetUser: NT AUTHORITY\\SYSTEM",
+    ]
+    return _wrap_kv_event(header, MESSAGE_LABELS[8], msg_lines, demo_id)
+
+
+def sysmon_eid10(ts: datetime, computer: str, source_user: str,
+                 source_image: str, target_image: str,
+                 granted_access: str, call_trace: str = "",
+                 demo_id: str = None) -> str:
+    """EID 10 - ProcessAccess.
+
+    Key for detecting LSASS credential dumping. Baseline shows legitimate
+    access from svchost.exe, csrss.exe, wininit.exe.
+    """
+    header = _kv_header(10, computer, ts)
+    utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+
+    if not call_trace:
+        call_trace = "C:\\Windows\\SYSTEM32\\ntdll.dll+9D4C4|C:\\Windows\\System32\\KERNELBASE.dll+2B3ED"
+
+    msg_lines = [
+        f"RuleName: -",
+        f"UtcTime: {utc_time}",
+        f"SourceProcessGUID: {_generate_guid()}",
+        f"SourceProcessId: {random.randint(1000, 65000)}",
+        f"SourceThreadId: {random.randint(1000, 30000)}",
+        f"SourceImage: {source_image}",
+        f"TargetProcessGUID: {_generate_guid()}",
+        f"TargetProcessId: {random.randint(500, 5000)}",
+        f"TargetImage: {target_image}",
+        f"GrantedAccess: {granted_access}",
+        f"CallTrace: {call_trace}",
+        f"SourceUser: {source_user}",
+        f"TargetUser: NT AUTHORITY\\SYSTEM",
+    ]
+    return _wrap_kv_event(header, MESSAGE_LABELS[10], msg_lines, demo_id)
+
+
 def _port_name(port: int) -> str:
     """Map common port numbers to service names."""
     names = {
@@ -576,6 +782,43 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
         reg_path = random.choice(SERVER_REGISTRY_PATHS)
         return sysmon_eid13(ts, computer, user, image, "SetValue", reg_path,
                             f"DWORD (0x{random.randint(0, 0xFF):08x})")
+
+    elif eid == 5:
+        # Process Terminated — mirrors process create
+        return sysmon_eid5(ts, computer, user, image)
+
+    elif eid == 7:
+        # Image Loaded (DLL) — common system DLLs loaded by server processes
+        dll = random.choice(SERVER_DLLS)
+        return sysmon_eid7(ts, computer, user, image, dll)
+
+    elif eid == 8:
+        # CreateRemoteThread — very rare in baseline (AV/monitoring only)
+        # Only legitimate source: Windows Defender scanning a service
+        source_image = "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24090.11-0\\MsMpEng.exe"
+        target_image = random.choice([
+            "C:\\Windows\\System32\\svchost.exe",
+            "C:\\Windows\\System32\\lsass.exe",
+        ])
+        return sysmon_eid8(ts, computer, SYSTEM_USER, source_image,
+                           random.randint(1000, 5000), target_image,
+                           random.randint(500, 5000))
+
+    elif eid == 10:
+        # ProcessAccess — legitimate access to system processes
+        target = random.choice(PROCESS_ACCESS_TARGETS_SERVER)
+        # lsass access only from svchost or wininit (legitimate)
+        if target == LSASS_PATH:
+            source_image = random.choice([
+                "C:\\Windows\\System32\\svchost.exe",
+                "C:\\Windows\\System32\\wininit.exe",
+            ])
+            access_mask = "0x1000"  # QUERY_LIMITED_INFORMATION
+        else:
+            source_image = image
+            access_mask, _ = random.choice(PROCESS_ACCESS_MASKS[:3])  # never ALL_ACCESS baseline
+        return sysmon_eid10(ts, computer, SYSTEM_USER, source_image,
+                            target, access_mask)
 
     elif eid == 22:
         # DNS Query
@@ -668,6 +911,21 @@ def _generate_workstation_event(ts: datetime, user_obj) -> str:
         reg_path = random.choice(WORKSTATION_REGISTRY_PATHS)
         return sysmon_eid13(ts, computer, user_str, image, "SetValue", reg_path,
                             f"DWORD (0x{random.randint(0, 0xFF):08x})")
+
+    elif eid == 5:
+        # Process Terminated
+        return sysmon_eid5(ts, computer, user_str, image)
+
+    elif eid == 7:
+        # Image Loaded (DLL)
+        dll = random.choice(WORKSTATION_DLLS)
+        return sysmon_eid7(ts, computer, user_str, image, dll)
+
+    elif eid == 10:
+        # ProcessAccess — workstation processes accessing system processes
+        target = random.choice(PROCESS_ACCESS_TARGETS_WS)
+        access_mask, _ = random.choice(PROCESS_ACCESS_MASKS[:2])  # limited access only
+        return sysmon_eid10(ts, computer, user_str, image, target, access_mask)
 
     elif eid == 22:
         # DNS Query

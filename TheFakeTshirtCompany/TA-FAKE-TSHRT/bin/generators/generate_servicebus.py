@@ -37,6 +37,25 @@ SERVICE_BUS_NAMESPACE = "faketshirtcompany-prod"
 PAYMENT_METHODS = ["Visa", "Mastercard", "American Express", "PayPal", "Apple Pay", "Google Pay"]
 CARRIERS = ["USPS", "UPS", "FedEx", "DHL"]
 
+# Baseline ServiceBus error rates (independent of scenario effects)
+# ~3% of messages experience transient failures (retried), ~0.5% dead-lettered
+_SB_TRANSIENT_FAILURE_RATE = 0.03
+_SB_DEAD_LETTER_RATE = 0.005
+
+_SB_DEAD_LETTER_REASONS = [
+    "MaxDeliveryCountExceeded",
+    "TTLExpiredException",
+    "MessageSizeExceeded",
+    "SessionCannotBeLocked",
+]
+
+_SB_TRANSIENT_ERRORS = [
+    "ServiceBusy",
+    "ServerBusy",
+    "MessageLockLost",
+    "SessionLockLost",
+]
+
 
 # =============================================================================
 # HELPERS
@@ -112,6 +131,57 @@ def get_scenario_effect(scenario: str, day: int, hour: int) -> dict:
     return {"delay_mult": delay_mult, "failure_rate": failure_rate, "has_effect": has_effect}
 
 
+def _sb_maybe_inject_transient(event: Dict) -> Dict:
+    """Potentially inject a transient failure into a ServiceBus event (~3% chance).
+
+    Transient failures result in retries (deliveryCount > 1) but ultimately succeed.
+    """
+    if random.random() > _SB_TRANSIENT_FAILURE_RATE:
+        return event
+
+    # Transient: message was retried but succeeded
+    event["deliveryCount"] = random.randint(2, 4)
+    event["processingTimeMs"] = random.randint(800, 5000)  # Slower due to retries
+    event["properties"] = event.get("properties", {})
+    event["properties"]["retryReason"] = random.choice(_SB_TRANSIENT_ERRORS)
+    return event
+
+
+def generate_dead_letter_event(order_id: str, tshirtcid: str, customer_id: str,
+                                session_id: str, ts: datetime, event_type: str,
+                                seq_num: int) -> Dict:
+    """Generate a dead-letter queue event for a message that permanently failed."""
+    delay = random.randint(60, 600)  # 1-10 min after original
+    event_ts_dt = add_seconds(ts, delay)
+    message_id = generate_message_id(order_id, f"DLQ-{event_type}")
+    event_ts = format_ts(event_ts_dt)
+
+    reason = random.choice(_SB_DEAD_LETTER_REASONS)
+
+    return {
+        "messageId": message_id,
+        "sessionId": session_id,
+        "correlationId": tshirtcid,
+        "enqueuedTimeUtc": event_ts,
+        "sequenceNumber": seq_num,
+        "deliveryCount": random.randint(5, 10),  # Max retries exhausted
+        "namespace": SERVICE_BUS_NAMESPACE,
+        "queueName": f"{get_queue_name(event_type)}/$deadletterqueue",
+        "topicName": get_topic_name(event_type),
+        "status": "DeadLettered",
+        "deadLetterReason": reason,
+        "deadLetterErrorDescription": f"Message moved to DLQ: {reason}",
+        "processingTimeMs": random.randint(100, 1000),
+        "body": {
+            "eventType": event_type,
+            "timestamp": event_ts,
+            "tshirtcid": tshirtcid,
+            "orderId": order_id,
+            "customerId": customer_id,
+        }
+    }
+
+
 # =============================================================================
 # EVENT GENERATORS
 # =============================================================================
@@ -163,7 +233,7 @@ def generate_order_created(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["body"]["demo_id"] = scenario
 
-    return event
+    return _sb_maybe_inject_transient(event)
 
 
 def generate_payment_processed(order_id: str, tshirtcid: str, customer_id: str,
@@ -222,7 +292,7 @@ def generate_payment_processed(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["body"]["demo_id"] = scenario
 
-    return event
+    return _sb_maybe_inject_transient(event)
 
 
 def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
@@ -278,7 +348,7 @@ def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["body"]["demo_id"] = scenario
 
-    return event
+    return _sb_maybe_inject_transient(event)
 
 
 def generate_shipment_created(order_id: str, tshirtcid: str, customer_id: str,
@@ -330,7 +400,7 @@ def generate_shipment_created(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["body"]["demo_id"] = scenario
 
-    return event
+    return _sb_maybe_inject_transient(event)
 
 
 def generate_shipment_dispatched(order_id: str, tshirtcid: str, customer_id: str,
@@ -378,7 +448,7 @@ def generate_shipment_dispatched(order_id: str, tshirtcid: str, customer_id: str
     if effect["has_effect"]:
         event["body"]["demo_id"] = scenario
 
-    return event
+    return _sb_maybe_inject_transient(event)
 
 
 # =============================================================================
@@ -480,6 +550,14 @@ def generate_servicebus_logs(
             order_id, tshirtcid, customer_id, session_id, ts, order_scenario, seq_num))
         seq_num += 1
 
+        # Baseline dead-letter events (~0.5% of orders get a dead-lettered message)
+        if random.random() < _SB_DEAD_LETTER_RATE:
+            dlq_event_type = random.choice(["OrderCreated", "PaymentProcessed",
+                                             "InventoryReserved", "ShipmentCreated"])
+            all_events.append(generate_dead_letter_event(
+                order_id, tshirtcid, customer_id, session_id, ts, dlq_event_type, seq_num))
+            seq_num += 1
+
     # Sort by enqueuedTimeUtc
     all_events.sort(key=lambda x: x["enqueuedTimeUtc"])
 
@@ -492,9 +570,12 @@ def generate_servicebus_logs(
     order_count = len(order_registry)
 
     if not quiet:
+        retry_count = sum(1 for e in all_events if e.get("deliveryCount", 1) > 1 and e.get("status") != "DeadLettered")
+        dlq_count = sum(1 for e in all_events if e.get("status") == "DeadLettered")
         print(f"\n  Complete!", file=sys.stderr)
         print(f"  Orders: {order_count:,}", file=sys.stderr)
-        print(f"  Events: {event_count:,} (5 per order)", file=sys.stderr)
+        print(f"  Events: {event_count:,}", file=sys.stderr)
+        print(f"  Retried: {retry_count:,} ({retry_count * 100 // max(event_count, 1)}%) | Dead-lettered: {dlq_count:,}", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
 
     return event_count

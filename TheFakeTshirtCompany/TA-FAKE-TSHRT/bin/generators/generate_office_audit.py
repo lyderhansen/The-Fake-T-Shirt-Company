@@ -162,10 +162,50 @@ USER_AGENTS = [
     "OneDrive/23.235.1118",
 ]
 
+# Baseline failure rate for file operations (~3%)
+_M365_FAILURE_RATE = 0.03
+
+# Failure reasons for M365 operations
+_M365_FAILURE_REASONS = [
+    "FileNotFound",
+    "AccessDenied",
+    "FileLocked",
+    "QuotaExceeded",
+    "VirusDetected",
+    "BlockedByPolicy",
+]
+
+# External domains for sharing invitations
+_EXTERNAL_SHARE_DOMAINS = [
+    "partner-company.com", "consulting-group.net", "vendor-solutions.com",
+    "agency-creative.com", "client-org.net",
+]
+
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
+def _m365_maybe_inject_failure(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Potentially mark an M365 file operation as failed (~3% chance).
+
+    Only applies to file operations (not team management or messages).
+    """
+    operation = event.get("Operation", "")
+    # Only fail file operations
+    file_ops = {"FileAccessed", "FileModified", "FileDownloaded", "FileUploaded",
+                "FileSyncUploadedFull", "FileCheckedOut", "FileCheckedIn",
+                "ChannelFileUploaded", "ChannelFileAccessed"}
+    if operation not in file_ops:
+        return event
+
+    if random.random() > _M365_FAILURE_RATE:
+        return event
+
+    event["ResultStatus"] = "Failed"
+    event["ResultStatusDetail"] = random.choice(_M365_FAILURE_REASONS)
+    return event
+
 
 def _weighted_choice(choices: List[Tuple[str, int]]) -> str:
     """Pick from weighted choices."""
@@ -246,6 +286,10 @@ def generate_sharepoint_event(start_date: str, day: int, hour: int,
     if demo_id:
         event["demo_id"] = demo_id
 
+    # Inject baseline failures (only for non-scenario events)
+    if not demo_id:
+        event = _m365_maybe_inject_failure(event)
+
     return event
 
 
@@ -291,6 +335,10 @@ def generate_onedrive_event(start_date: str, day: int, hour: int,
 
     if demo_id:
         event["demo_id"] = demo_id
+
+    # Inject baseline failures (only for non-scenario events)
+    if not demo_id:
+        event = _m365_maybe_inject_failure(event)
 
     return event
 
@@ -339,6 +387,61 @@ def generate_teams_event(start_date: str, day: int, hour: int,
         filename, ext = random.choice(files)
         event["SourceFileName"] = filename
         event["SourceFileExtension"] = ext
+
+    if demo_id:
+        event["demo_id"] = demo_id
+
+    # Inject baseline failures for file operations in Teams (only for non-scenario events)
+    if not demo_id:
+        event = _m365_maybe_inject_failure(event)
+
+    return event
+
+
+def generate_sharing_invitation(start_date: str, day: int, hour: int,
+                                 user=None, demo_id: str = None) -> Dict[str, Any]:
+    """Generate a SharingInvitationCreated event (external sharing)."""
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    ts = ts_iso(start_date, day, hour, minute, second)
+
+    if user is None:
+        user = get_random_user()
+
+    site = _get_site_for_user(user)
+    files = _get_files_for_department(user.department)
+    filename, ext = random.choice(files)
+    site_url = f"{SP_BASE_URL}{site['url_slug']}"
+    object_id = f"{site_url}/Shared Documents/{filename}"
+
+    # External recipient
+    ext_domain = random.choice(_EXTERNAL_SHARE_DOMAINS)
+    ext_first = random.choice(["john", "jane", "mark", "lisa", "david", "sarah", "mike", "emma"])
+    ext_email = f"{ext_first}@{ext_domain}"
+
+    event = {
+        "Id": str(uuid.uuid4()),
+        "RecordType": 14,  # SharePointSharingOperation
+        "CreationTime": ts,
+        "Operation": "SharingInvitationCreated",
+        "OrganizationId": ORG_ID,
+        "UserType": 0,
+        "UserKey": _generate_user_key(user.username),
+        "Workload": "SharePoint",
+        "UserId": user.email,
+        "ClientIP": user.ip_address,
+        "ResultStatus": "Succeeded",
+        "ObjectId": object_id,
+        "SiteUrl": site_url,
+        "SourceRelativeUrl": "Shared Documents",
+        "SourceFileName": filename,
+        "SourceFileExtension": ext,
+        "ItemType": "File",
+        "EventSource": "SharePoint",
+        "UserAgent": random.choice(USER_AGENTS),
+        "TargetUserOrGroupName": ext_email,
+        "TargetUserOrGroupType": "Guest",
+    }
 
     if demo_id:
         event["demo_id"] = demo_id
@@ -587,7 +690,11 @@ def generate_office_audit_logs(
                 workload = _weighted_choice(workload_weights)
 
                 if workload == "sharepoint":
-                    event = generate_sharepoint_event(start_date, day, hour)
+                    # ~3% of SharePoint events are external sharing invitations
+                    if random.random() < 0.03:
+                        event = generate_sharing_invitation(start_date, day, hour)
+                    else:
+                        event = generate_sharepoint_event(start_date, day, hour)
                 elif workload == "onedrive":
                     event = generate_onedrive_event(start_date, day, hour)
                 else:
@@ -616,10 +723,13 @@ def generate_office_audit_logs(
 
     # Final summary
     if not quiet:
+        failed_count = sum(1 for e in all_events if e.get("ResultStatus") == "Failed")
+        sharing_count = sum(1 for e in all_events if e.get("Operation") == "SharingInvitationCreated")
         print(f"  [M365 Audit] Complete! {len(all_events):,} events written",
               file=sys.stderr)
+        print(f"          failures: {failed_count:,} ({failed_count * 100 // max(len(all_events), 1)}%) | sharing invites: {sharing_count:,}", file=sys.stderr)
         if demo_id_count:
-            print(f"          \u2514\u2500 demo_id events: {demo_id_count:,}", file=sys.stderr)
+            print(f"          demo_id events: {demo_id_count:,}", file=sys.stderr)
 
     return len(all_events)
 

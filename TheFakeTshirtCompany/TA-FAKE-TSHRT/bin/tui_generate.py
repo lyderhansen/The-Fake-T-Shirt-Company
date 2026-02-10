@@ -3,16 +3,17 @@
 Interactive TUI for Splunk Log Generator using curses (Python stdlib).
 No external dependencies required!
 
-Layout (2x2 grid with double-line box drawing):
-  ╔══════════════════════════════╦═══════════════════════════════╗
-  ║  SOURCES                     ║  SCENARIOS                    ║
-  ║  [x] all          All 17 gen ║  [x] all        All 7 scen   ║
-  ║  [ ] cloud        aws, gcp.. ║  [ ] exfil      14-day APT   ║
-  ╠══════════════════════════════╬═══════════════════════════════╣
-  ║  CONFIGURATION               ║  MERAKI HEALTH                ║
-  ║  [TEST] Output -> tmp/       ║  [x] Enable Health            ║
-  ║  Start Date: 2026-01-01      ║  Interval: 5 min              ║
-  ╚══════════════════════════════╩═══════════════════════════════╝
+Layout (3-col top, 2-col bottom with double-line box drawing):
+  ╔═══════════════╦═══════════════╦═══════════════╗
+  ║  > GROUPS      ║  > SOURCES     ║  * SCENARIOS   ║
+  ║  [x] all       ║  [ ] asa       ║  [x] all       ║
+  ║  [ ] cloud     ║  [ ] aws       ║  [ ] exfil     ║
+  ║  [ ] network   ║  [ ] gcp       ║  [ ] ransom..  ║
+  ╠═══════════════╩═══════╦═══════╩═══════════════╣
+  ║  # CONFIGURATION       ║  ~ MERAKI HEALTH       ║
+  ║  [TEST] Output -> tmp/ ║  [x] Enable Health     ║
+  ║  Start Date: 2026-01-01║  Interval: 5 min       ║
+  ╚════════════════════════╩════════════════════════╝
 
 Usage:
     python3 tui_generate.py
@@ -57,30 +58,36 @@ TSHIRT_ASCII = [
 # ═══════════════════════════════════════════════════════════════════════
 
 # Double-line box drawing
-BOX_TL = "╔"    # Top-left
-BOX_TR = "╗"    # Top-right
-BOX_BL = "╚"    # Bottom-left
-BOX_BR = "╝"    # Bottom-right
-BOX_H = "═"     # Horizontal
-BOX_V = "║"     # Vertical
-BOX_TJ = "╦"    # Top junction
-BOX_BJ = "╩"    # Bottom junction
-BOX_LJ = "╠"    # Left junction
-BOX_RJ = "╣"    # Right junction
-BOX_CJ = "╬"    # Center junction (cross)
+BOX_TL = "\u2554"    # Top-left
+BOX_TR = "\u2557"    # Top-right
+BOX_BL = "\u255a"    # Bottom-left
+BOX_BR = "\u255d"    # Bottom-right
+BOX_H = "\u2550"     # Horizontal
+BOX_V = "\u2551"     # Vertical
+BOX_TJ = "\u2566"    # Top junction
+BOX_BJ = "\u2569"    # Bottom junction
+BOX_LJ = "\u2560"    # Left junction
+BOX_RJ = "\u2563"    # Right junction
+BOX_CJ = "\u256c"    # Center junction (cross)
+
+# Mixed junctions (double-horizontal, single-vertical and vice versa)
+# For mid-border: top cols end (double-H meets single-V going down)
+MIX_T_UP = "\u2569"     # ╩  double-H, double-V going up (top col ends)
+MIX_T_DOWN = "\u2566"   # ╦  double-H, double-V going down (bottom col starts)
 
 # Single-line for internal dividers
-LINE_H = "─"
-LINE_V = "│"
+LINE_H = "\u2500"
+LINE_V = "\u2502"
 
-# Section icons (safe Unicode — single-width characters)
+# Section icons (safe Unicode -- single-width characters)
+ICON_GROUPS = ">"
 ICON_SOURCES = ">"
 ICON_SCENARIOS = "*"
 ICON_CONFIG = "#"
 ICON_MERAKI = "~"
 
 # Braille spinner frames for generation progress
-SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+SPINNER_FRAMES = "\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f"
 
 
 class MenuItem:
@@ -94,13 +101,14 @@ class MenuItem:
 
 
 class TUIApp:
-    """Main TUI application using curses with 2x2 grid layout."""
+    """Main TUI application using curses with 3-col top + 2-col bottom grid layout."""
 
-    # Section indices for 2x2 grid
-    SECTION_SOURCES = 0      # Top-left
-    SECTION_SCENARIOS = 1    # Top-right
-    SECTION_CONFIG = 2       # Bottom-left
-    SECTION_MERAKI = 3       # Bottom-right
+    # Section indices for grid
+    SECTION_GROUPS = 0       # Top-left
+    SECTION_SOURCES = 1      # Top-middle
+    SECTION_SCENARIOS = 2    # Top-right
+    SECTION_CONFIG = 3       # Bottom-left
+    SECTION_MERAKI = 4       # Bottom-right
 
     def __init__(self, stdscr):
         self.stdscr = stdscr
@@ -128,19 +136,19 @@ class TUIApp:
         curses.init_pair(7, curses.COLOR_BLACK, curses.COLOR_YELLOW)   # Test mode badge
         curses.init_pair(8, curses.COLOR_BLACK, curses.COLOR_GREEN)    # Production mode badge
 
-        # Build source menu items
-        self.sources = [MenuItem("all", "all", f"All {len(GENERATORS)} gen", selected=True)]
+        # Build source GROUPS menu items (top-left)
+        self.source_groups = [MenuItem("all", "all", f"All {len(GENERATORS)} gen", selected=True)]
         for grp, srcs in SOURCE_GROUPS.items():
             if grp != "all":
                 desc = ", ".join(srcs[:2])
                 if len(srcs) > 2:
                     desc += ".."
-                self.sources.append(MenuItem(f"grp:{grp}", grp, f"[grp] {desc}"))
-        self.sources.append(MenuItem("---", LINE_H * 18, ""))
-        for source in GENERATORS.keys():
-            self.sources.append(MenuItem(source, source, ""))
+                self.source_groups.append(MenuItem(f"grp:{grp}", grp, f"{desc}"))
 
-        # Build scenario menu items
+        # Build individual SOURCES menu items (top-middle)
+        self.source_items = [MenuItem(source, source, "") for source in GENERATORS.keys()]
+
+        # Build scenario menu items (top-right)
         self.scenarios = [
             MenuItem("all", "all", f"All {len(IMPLEMENTED_SCENARIOS)}", selected=True),
             MenuItem("none", "none", "Baseline", selected=False),
@@ -150,20 +158,20 @@ class TUIApp:
             for s in IMPLEMENTED_SCENARIOS
         ])
 
-        # Configuration values (test_mode is first item)
+        # Configuration values (bottom-left)
         self.config = [
             MenuItem("test_mode", "Output Mode", "", selected=True),   # True = TEST, False = PROD
             MenuItem("start_date", "Start Date", DEFAULT_START_DATE),
             MenuItem("days", "Days", str(DEFAULT_DAYS)),
             MenuItem("scale", "Scale", str(DEFAULT_SCALE)),
-            MenuItem("clients", "Perfmon Clients", "5"),
-            MenuItem("client_interval", "Client Interval", "30"),
-            MenuItem("orders_per_day", "Orders/Day", "224"),
+            MenuItem("clients", "Perfmon Clients (5-175)", "5"),
+            MenuItem("client_interval", "Client Interval (5-60)", "30"),
+            MenuItem("orders_per_day", "Orders/Day (1-10000)", "224"),
             MenuItem("full_metrics", "Full Metrics", "", selected=False),
             MenuItem("show_files", "Show File Paths", "", selected=False),
         ]
 
-        # Meraki Health configuration
+        # Meraki Health configuration (bottom-right)
         self.meraki = [
             MenuItem("meraki_health_enabled", "Enable Health", "", selected=True),
             MenuItem("meraki_health_interval", "Interval (min)", "5"),
@@ -173,8 +181,10 @@ class TUIApp:
 
     def get_current_items(self):
         """Get the items list for the current section."""
-        if self.current_section == self.SECTION_SOURCES:
-            return self.sources
+        if self.current_section == self.SECTION_GROUPS:
+            return self.source_groups
+        elif self.current_section == self.SECTION_SOURCES:
+            return self.source_items
         elif self.current_section == self.SECTION_SCENARIOS:
             return self.scenarios
         elif self.current_section == self.SECTION_CONFIG:
@@ -210,21 +220,34 @@ class TUIApp:
     # ═══════════════════════════════════════════════════════════════════
 
     def draw(self):
-        """Draw the entire TUI with 2x2 grid layout and double-line borders."""
+        """Draw the entire TUI with 3-col top + 2-col bottom grid layout."""
         self.stdscr.erase()
         h, w = self.stdscr.getmaxyx()
 
-        if w < 60 or h < 20:
-            self.safe_addstr(h // 2, 2, "Terminal too small! Need 60x20 minimum.", curses.color_pair(5))
+        if w < 70 or h < 20:
+            self.safe_addstr(h // 2, 2, "Terminal too small! Need 70x20 minimum.", curses.color_pair(5))
             self.stdscr.refresh()
             return
 
         border_attr = curses.color_pair(6)
 
-        # Calculate layout
-        mid_col = w // 2
-        inner_left = mid_col - 2
-        inner_right = w - mid_col - 3
+        # ═══════════ CALCULATE COLUMN POSITIONS ═══════════
+        # Top row: 3 columns
+        col1_w = w // 3           # Groups column
+        col2_w = w // 3           # Sources column
+        col3_w = w - col1_w - col2_w  # Scenarios column (remainder)
+        c1 = col1_w              # First vertical divider position
+        c2 = col1_w + col2_w     # Second vertical divider position
+
+        # Bottom row: 2 columns
+        mid_col = w // 2          # Bottom vertical divider position
+
+        # Inner widths for content (accounting for borders + padding)
+        inner_col1 = col1_w - 3
+        inner_col2 = col2_w - 2
+        inner_col3 = col3_w - 3
+        inner_left_bot = mid_col - 3
+        inner_right_bot = w - mid_col - 3
 
         # Row positions
         top_border = 0
@@ -232,7 +255,7 @@ class TUIApp:
         content_start = 2
 
         # Calculate section heights
-        max_top_items = max(len(self.sources), len(self.scenarios))
+        max_top_items = max(len(self.source_groups), len(self.source_items), len(self.scenarios))
         max_bottom_items = max(len(self.config), len(self.meraki))
 
         top_height = min(max_top_items + 2, (h - 14) // 2)
@@ -241,7 +264,11 @@ class TUIApp:
         bottom_border = mid_border + 1 + bottom_height
 
         # ═══════════ TOP BORDER ═══════════
-        top_line = BOX_TL + BOX_H * (mid_col - 1) + BOX_TJ + BOX_H * (w - mid_col - 2) + BOX_TR
+        # ╔════════╦════════╦════════╗
+        top_line = (BOX_TL
+                    + BOX_H * (c1 - 1) + BOX_TJ
+                    + BOX_H * (c2 - c1 - 1) + BOX_TJ
+                    + BOX_H * (w - c2 - 2) + BOX_TR)
         self.safe_addstr(top_border, 0, top_line, border_attr)
 
         # ═══════════ TITLE ═══════════
@@ -262,17 +289,33 @@ class TUIApp:
         self.safe_addstr(title_row, w - 1, BOX_V, border_attr)
 
         # ═══════════ SECTION DIVIDER UNDER TITLE ═══════════
-        div_line = BOX_LJ + BOX_H * (mid_col - 1) + BOX_CJ + BOX_H * (w - mid_col - 2) + BOX_RJ
+        # ╠════════╬════════╬════════╣
+        div_line = (BOX_LJ
+                    + BOX_H * (c1 - 1) + BOX_CJ
+                    + BOX_H * (c2 - c1 - 1) + BOX_CJ
+                    + BOX_H * (w - c2 - 2) + BOX_RJ)
         self.safe_addstr(content_start, 0, div_line, border_attr)
 
-        # ═══════════ TOP-LEFT: SOURCES ═══════════
+        # ═══════════ TOP-LEFT: GROUPS ═══════════
         self._draw_section_content(
             start_row=content_start + 1,
             col=2,
-            width=inner_left,
+            width=inner_col1,
+            height=top_height - 1,
+            title=f"{ICON_GROUPS} GROUPS",
+            items=self.source_groups,
+            section_id=self.SECTION_GROUPS,
+            show_checkbox=True,
+        )
+
+        # ═══════════ TOP-MIDDLE: SOURCES ═══════════
+        self._draw_section_content(
+            start_row=content_start + 1,
+            col=c1 + 2,
+            width=inner_col2,
             height=top_height - 1,
             title=f"{ICON_SOURCES} SOURCES",
-            items=self.sources,
+            items=self.source_items,
             section_id=self.SECTION_SOURCES,
             show_checkbox=True,
         )
@@ -280,8 +323,8 @@ class TUIApp:
         # ═══════════ TOP-RIGHT: SCENARIOS ═══════════
         self._draw_section_content(
             start_row=content_start + 1,
-            col=mid_col + 2,
-            width=inner_right,
+            col=c2 + 2,
+            width=inner_col3,
             height=top_height - 1,
             title=f"{ICON_SCENARIOS} SCENARIOS",
             items=self.scenarios,
@@ -292,18 +335,36 @@ class TUIApp:
         # Vertical dividers for top section
         for r in range(content_start + 1, mid_border):
             self.safe_addstr(r, 0, BOX_V, border_attr)
-            self.safe_addstr(r, mid_col, LINE_V, border_attr)
+            self.safe_addstr(r, c1, LINE_V, border_attr)
+            self.safe_addstr(r, c2, LINE_V, border_attr)
             self.safe_addstr(r, w - 1, BOX_V, border_attr)
 
         # ═══════════ MIDDLE BORDER ═══════════
-        mid_line = BOX_LJ + BOX_H * (mid_col - 1) + BOX_CJ + BOX_H * (w - mid_col - 2) + BOX_RJ
-        self.safe_addstr(mid_border, 0, mid_line, border_attr)
+        # Build character-by-character: top has dividers at c1, c2; bottom at mid_col
+        mid_chars = []
+        for i in range(w):
+            if i == 0:
+                mid_chars.append(BOX_LJ)
+            elif i == w - 1:
+                mid_chars.append(BOX_RJ)
+            elif i == c1 or i == c2:
+                # Top column divider ends
+                if i == mid_col:
+                    mid_chars.append(BOX_CJ)  # Both top and bottom divider
+                else:
+                    mid_chars.append(BOX_BJ)  # Top divider ends, no bottom divider
+            elif i == mid_col:
+                # Bottom column divider starts (no top divider here)
+                mid_chars.append(BOX_TJ)
+            else:
+                mid_chars.append(BOX_H)
+        self.safe_addstr(mid_border, 0, "".join(mid_chars), border_attr)
 
         # ═══════════ BOTTOM-LEFT: CONFIG ═══════════
         self._draw_config_section(
             start_row=mid_border + 1,
             col=2,
-            width=inner_left,
+            width=inner_left_bot,
             height=bottom_height,
             title=f"{ICON_CONFIG} CONFIGURATION",
             items=self.config,
@@ -314,7 +375,7 @@ class TUIApp:
         self._draw_meraki_section(
             start_row=mid_border + 1,
             col=mid_col + 2,
-            width=inner_right,
+            width=inner_right_bot,
             height=bottom_height,
             section_id=self.SECTION_MERAKI,
         )
@@ -443,13 +504,10 @@ class TUIApp:
                 break
 
             if show_checkbox:
-                if item.key == "---":
-                    text = f"  {item.label}"
-                else:
-                    checkbox = "[x]" if item.selected else "[ ]"
-                    text = f"{checkbox} {item.label:<12}"
-                    if item.description:
-                        text += f" {item.description}"
+                checkbox = "[x]" if item.selected else "[ ]"
+                text = f"{checkbox} {item.label:<12}"
+                if item.description:
+                    text += f" {item.description}"
             else:
                 text = f"  {item.label}"
 
@@ -457,7 +515,7 @@ class TUIApp:
 
             if i == self.current_row and is_active:
                 self.safe_addstr(item_row, col, text, curses.color_pair(1))
-            elif item.selected and show_checkbox and item.key != "---":
+            elif item.selected and show_checkbox:
                 self.safe_addstr(item_row, col, text, curses.color_pair(2))
             else:
                 self.safe_addstr(item_row, col, text)
@@ -606,16 +664,21 @@ class TUIApp:
         return preview
 
     def _get_sources_str(self) -> str:
-        """Get comma-separated string of selected sources."""
+        """Get comma-separated string of selected sources from groups and items."""
+        # Check if "all" group is selected
+        for s in self.source_groups:
+            if s.selected and s.key == "all":
+                return "all"
+
         selected = []
-        for s in self.sources:
-            if s.selected and s.key != "---":
-                if s.key == "all":
-                    return "all"
-                elif s.key.startswith("grp:"):
-                    selected.append(s.key[4:])
-                else:
-                    selected.append(s.key)
+        # Collect selected groups
+        for s in self.source_groups:
+            if s.selected and s.key.startswith("grp:"):
+                selected.append(s.key[4:])
+        # Collect selected individual sources
+        for s in self.source_items:
+            if s.selected:
+                selected.append(s.key)
         return ",".join(selected) if selected else "all"
 
     def _get_scenarios_str(self) -> str:
@@ -666,27 +729,27 @@ class TUIApp:
         digits = [
             # 3
             [
-                " ████ ",
-                "    █ ",
-                " ████ ",
-                "    █ ",
-                " ████ ",
+                " \u2588\u2588\u2588\u2588 ",
+                "    \u2588 ",
+                " \u2588\u2588\u2588\u2588 ",
+                "    \u2588 ",
+                " \u2588\u2588\u2588\u2588 ",
             ],
             # 2
             [
-                " ████ ",
-                "    █ ",
-                " ████ ",
-                " █    ",
-                " ████ ",
+                " \u2588\u2588\u2588\u2588 ",
+                "    \u2588 ",
+                " \u2588\u2588\u2588\u2588 ",
+                " \u2588    ",
+                " \u2588\u2588\u2588\u2588 ",
             ],
             # 1
             [
-                "   █  ",
-                "   █  ",
-                "   █  ",
-                "   █  ",
-                "   █  ",
+                "   \u2588  ",
+                "   \u2588  ",
+                "   \u2588  ",
+                "   \u2588  ",
+                "   \u2588  ",
             ],
         ]
 
@@ -749,23 +812,25 @@ class TUIApp:
             # Vertical navigation
             if key in (curses.KEY_UP, ord('k')):
                 self.current_row = max(0, self.current_row - 1)
-                if self.current_section == self.SECTION_SOURCES and items[self.current_row].key == "---":
-                    self.current_row = max(0, self.current_row - 1)
             elif key in (curses.KEY_DOWN, ord('j')):
                 self.current_row = min(len(items) - 1, self.current_row + 1)
-                if self.current_section == self.SECTION_SOURCES and items[self.current_row].key == "---":
-                    self.current_row = min(len(items) - 1, self.current_row + 1)
 
-            # Horizontal navigation
+            # Horizontal navigation — 3 columns on top, 2 on bottom
             elif key in (curses.KEY_LEFT, ord('h')):
-                if self.current_section == self.SECTION_SCENARIOS:
+                if self.current_section == self.SECTION_SOURCES:
+                    self.current_section = self.SECTION_GROUPS
+                    self.current_row = min(self.current_row, len(self.source_groups) - 1)
+                elif self.current_section == self.SECTION_SCENARIOS:
                     self.current_section = self.SECTION_SOURCES
-                    self.current_row = min(self.current_row, len(self.sources) - 1)
+                    self.current_row = min(self.current_row, len(self.source_items) - 1)
                 elif self.current_section == self.SECTION_MERAKI:
                     self.current_section = self.SECTION_CONFIG
                     self.current_row = min(self.current_row, len(self.config) - 1)
             elif key in (curses.KEY_RIGHT, ord('l')):
-                if self.current_section == self.SECTION_SOURCES:
+                if self.current_section == self.SECTION_GROUPS:
+                    self.current_section = self.SECTION_SOURCES
+                    self.current_row = min(self.current_row, len(self.source_items) - 1)
+                elif self.current_section == self.SECTION_SOURCES:
                     self.current_section = self.SECTION_SCENARIOS
                     self.current_row = min(self.current_row, len(self.scenarios) - 1)
                 elif self.current_section == self.SECTION_CONFIG:
@@ -774,9 +839,8 @@ class TUIApp:
 
             # Toggle checkbox
             elif key == ord(' '):
-                if self.current_section == self.SECTION_SOURCES:
-                    if items[self.current_row].key != "---":
-                        items[self.current_row].selected = not items[self.current_row].selected
+                if self.current_section in (self.SECTION_GROUPS, self.SECTION_SOURCES):
+                    items[self.current_row].selected = not items[self.current_row].selected
                 elif self.current_section == self.SECTION_SCENARIOS:
                     items[self.current_row].selected = not items[self.current_row].selected
                 elif self.current_section == self.SECTION_CONFIG:
@@ -799,10 +863,10 @@ class TUIApp:
 
             # Tab to switch sections
             elif key == ord('\t'):
-                self.current_section = (self.current_section + 1) % 4
+                self.current_section = (self.current_section + 1) % 5
                 self.current_row = 0
             elif key == curses.KEY_BTAB:
-                self.current_section = (self.current_section - 1) % 4
+                self.current_section = (self.current_section - 1) % 5
                 self.current_row = 0
 
             # Generate

@@ -72,6 +72,36 @@ AWS_EC2_INSTANCES = ["i-0abc123def456", "i-0def789abc012", "i-0123456789abc"]
 # Read-only event names (Get*, List*, Describe*, Head*)
 _READ_ONLY_PREFIXES = ("Get", "List", "Describe", "Head", "Lookup")
 
+# Baseline error definitions (3-5% of events)
+# Format: (errorCode, errorMessage, applicable_event_names)
+_AWS_BASELINE_ERRORS = [
+    ("AccessDenied", "Access Denied", ["GetObject", "PutObject", "DeleteObject", "Invoke"]),
+    ("NoSuchKey", "The specified key does not exist.", ["GetObject", "DeleteObject"]),
+    ("NoSuchBucket", "The specified bucket does not exist", ["GetObject", "PutObject"]),
+    ("Throttling", "Rate exceeded", ["DescribeInstances", "ListUsers", "Invoke", "GetObject"]),
+    ("UnauthorizedAccess", "User is not authorized to perform this operation", ["CreateAccessKey", "DeleteAccessKey", "AssumeRole"]),
+]
+_BASELINE_ERROR_RATE = 0.04  # 4% of baseline events fail
+
+
+def _maybe_inject_error(event: Dict[str, Any], event_name: str) -> Dict[str, Any]:
+    """Potentially inject an error into a baseline event (~4% chance)."""
+    if random.random() > _BASELINE_ERROR_RATE:
+        return event
+
+    # Find applicable errors for this event type
+    applicable = [(code, msg) for code, msg, events in _AWS_BASELINE_ERRORS
+                   if event_name in events]
+    if not applicable:
+        return event
+
+    error_code, error_msg = random.choice(applicable)
+    event["errorCode"] = error_code
+    event["errorMessage"] = error_msg
+    # Failed events have no responseElements
+    event["responseElements"] = None
+    return event
+
 
 def _is_read_only(event_name: str) -> bool:
     """Determine if an event is read-only based on its name."""
@@ -195,7 +225,7 @@ def aws_s3_get_object(base_date: str, day: int, hour: int, active_scenarios: lis
     if active_scenarios and should_tag_exfil(day, "GetObject", active_scenarios):
         event["demo_id"] = "exfil"
 
-    return event
+    return _maybe_inject_error(event, "GetObject")
 
 
 def aws_s3_put_object(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
@@ -223,7 +253,24 @@ def aws_s3_put_object(base_date: str, day: int, hour: int, active_scenarios: lis
     if active_scenarios and should_tag_exfil(day, "PutObject", active_scenarios):
         event["demo_id"] = "exfil"
 
-    return event
+    return _maybe_inject_error(event, "PutObject")
+
+
+def aws_s3_delete_object(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate S3 DeleteObject event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    user = _pick_human_user()
+    bucket = random.choice(AWS_BUCKETS)
+    key = f"data/{random.choice(['temp', 'old', 'archive'])}/file_{random.randint(1000, 9999)}.json"
+
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "DeleteObject", "s3.amazonaws.com", user)
+    event["requestParameters"] = {"bucketName": bucket, "key": key}
+    event["responseElements"] = None
+    event["resources"] = [
+        {"type": "AWS::S3::Object", "ARN": f"arn:aws:s3:::{bucket}/{key}"},
+        {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}", "accountId": AWS_ACCOUNT_ID},
+    ]
+    return _maybe_inject_error(event, "DeleteObject")
 
 
 def aws_ec2_describe(base_date: str, day: int, hour: int) -> Dict[str, Any]:
@@ -245,7 +292,7 @@ def aws_ec2_describe(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event["resources"] = [
         {"type": "AWS::EC2::Instance", "ARN": f"arn:aws:ec2:{AWS_REGION}:{AWS_ACCOUNT_ID}:instance/{instance_id}"},
     ]
-    return event
+    return _maybe_inject_error(event, "DescribeInstances")
 
 
 def aws_lambda_invoke(base_date: str, day: int, hour: int) -> Dict[str, Any]:
@@ -267,7 +314,7 @@ def aws_lambda_invoke(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event["resources"] = [
         {"type": "AWS::Lambda::Function", "ARN": f"arn:aws:lambda:{AWS_REGION}:{AWS_ACCOUNT_ID}:function:{func}"},
     ]
-    return event
+    return _maybe_inject_error(event, "Invoke")
 
 
 def aws_iam_list_users(base_date: str, day: int, hour: int) -> Dict[str, Any]:
@@ -294,26 +341,164 @@ def aws_sts_get_caller_identity(base_date: str, day: int, hour: int) -> Dict[str
     return event
 
 
+def aws_sts_assume_role(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate STS AssumeRole event (service account role assumption)."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    svc_key = random.choice(list(AWS_SERVICE_ROLES.keys()))
+    svc = AWS_SERVICE_ROLES[svc_key]
+
+    # 60% service-initiated, 40% human-initiated
+    if random.random() < 0.4:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "AssumeRole", "sts.amazonaws.com", user)
+    else:
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "AssumeRole", "sts.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
+    role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/{svc['role_name']}"
+    event["requestParameters"] = {
+        "roleArn": role_arn,
+        "roleSessionName": svc["session_name"],
+        "durationSeconds": 3600,
+    }
+    event["responseElements"] = {
+        "credentials": {
+            "accessKeyId": f"ASIA{uuid.uuid5(uuid.NAMESPACE_DNS, f'sts:{svc_key}').hex[:16].upper()}",
+            "expiration": ts_iso(base_date, day, hour + 1 if hour < 23 else 23, minute, second),
+        },
+        "assumedRoleUser": {
+            "assumedRoleId": f"AROA{uuid.uuid5(uuid.NAMESPACE_DNS, svc['role_name']).hex[:16].upper()}:{svc['session_name']}",
+            "arn": f"arn:aws:sts::{AWS_ACCOUNT_ID}:assumed-role/{svc['role_name']}/{svc['session_name']}",
+        },
+    }
+    return _maybe_inject_error(event, "AssumeRole")
+
+
+def aws_console_login(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate ConsoleLogin event (AWS Management Console sign-in)."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    user = _pick_human_user()
+
+    event = {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": user.aws_principal_id,
+            "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/{user.username}",
+            "accountId": AWS_ACCOUNT_ID,
+            "userName": user.username,
+        },
+        "eventTime": ts_iso(base_date, day, hour, minute, second),
+        "eventSource": "signin.amazonaws.com",
+        "eventName": "ConsoleLogin",
+        "awsRegion": AWS_REGION,
+        "sourceIPAddress": user.ip_address,
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "requestID": str(uuid.uuid4()),
+        "eventID": str(uuid.uuid4()),
+        "eventType": "AwsConsoleSignIn",
+        "recipientAccountId": AWS_ACCOUNT_ID,
+        "readOnly": False,
+        "managementEvent": True,
+    }
+
+    # ~5% of console logins fail
+    if random.random() < 0.05:
+        event["responseElements"] = {"ConsoleLogin": "Failure"}
+        event["additionalEventData"] = {
+            "LoginTo": f"https://console.aws.amazon.com/console/home?region={AWS_REGION}",
+            "MobileVersion": "No",
+            "MFAUsed": "No",
+        }
+        event["errorMessage"] = "Failed authentication"
+    else:
+        event["responseElements"] = {"ConsoleLogin": "Success"}
+        event["additionalEventData"] = {
+            "LoginTo": f"https://console.aws.amazon.com/console/home?region={AWS_REGION}",
+            "MobileVersion": "No",
+            "MFAUsed": random.choice(["Yes", "Yes", "Yes", "No"]),  # 75% MFA
+        }
+
+    return event
+
+
+def aws_iam_create_access_key(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate IAM CreateAccessKey event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    user = _pick_human_user()
+    target_user = random.choice(AWS_HUMAN_USERS)
+
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "CreateAccessKey", "iam.amazonaws.com", user)
+    event["requestParameters"] = {"userName": target_user}
+    event["responseElements"] = {
+        "accessKey": {
+            "accessKeyId": f"AKIA{uuid.uuid4().hex[:16].upper()}",
+            "status": "Active",
+            "userName": target_user,
+        }
+    }
+    return _maybe_inject_error(event, "CreateAccessKey")
+
+
+def aws_iam_delete_access_key(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate IAM DeleteAccessKey event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    user = _pick_human_user()
+    target_user = random.choice(AWS_HUMAN_USERS)
+
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "DeleteAccessKey", "iam.amazonaws.com", user)
+    event["requestParameters"] = {
+        "userName": target_user,
+        "accessKeyId": f"AKIA{uuid.uuid4().hex[:16].upper()}",
+    }
+    event["responseElements"] = None
+    return _maybe_inject_error(event, "DeleteAccessKey")
+
+
 def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
                           active_scenarios: list = None) -> List[Dict[str, Any]]:
-    """Generate baseline events for one hour."""
+    """Generate baseline events for one hour.
+
+    Event distribution (updated with new event types):
+    - 20% S3 GetObject
+    - 15% S3 PutObject
+    - 3%  S3 DeleteObject (cleanup, lifecycle)
+    - 12% EC2 DescribeInstances
+    - 18% Lambda Invoke
+    - 8%  IAM ListUsers
+    - 7%  STS GetCallerIdentity
+    - 8%  STS AssumeRole (service role assumptions)
+    - 5%  ConsoleLogin (human console sign-ins)
+    - 2%  IAM CreateAccessKey (key rotation)
+    - 2%  IAM DeleteAccessKey (key rotation)
+    """
     events = []
 
     for _ in range(event_count):
         event_type = random.randint(1, 100)
 
-        if event_type <= 25:
+        if event_type <= 20:
             events.append(aws_s3_get_object(base_date, day, hour, active_scenarios))
-        elif event_type <= 45:
+        elif event_type <= 35:
             events.append(aws_s3_put_object(base_date, day, hour, active_scenarios))
-        elif event_type <= 60:
+        elif event_type <= 38:
+            events.append(aws_s3_delete_object(base_date, day, hour))
+        elif event_type <= 50:
             events.append(aws_ec2_describe(base_date, day, hour))
-        elif event_type <= 80:
+        elif event_type <= 68:
             events.append(aws_lambda_invoke(base_date, day, hour))
-        elif event_type <= 90:
+        elif event_type <= 76:
             events.append(aws_iam_list_users(base_date, day, hour))
-        else:
+        elif event_type <= 83:
             events.append(aws_sts_get_caller_identity(base_date, day, hour))
+        elif event_type <= 91:
+            events.append(aws_sts_assume_role(base_date, day, hour))
+        elif event_type <= 96:
+            events.append(aws_console_login(base_date, day, hour))
+        elif event_type <= 98:
+            events.append(aws_iam_create_access_key(base_date, day, hour))
+        else:
+            events.append(aws_iam_delete_access_key(base_date, day, hour))
 
     return events
 
@@ -403,11 +588,14 @@ def generate_aws_logs(
             f.write(json.dumps(event) + "\n")
 
     if not quiet:
-        # Count exfil events
+        # Count exfil events and errors
         exfil_count = sum(1 for e in all_events if e.get("demo_id") == "exfil")
+        error_count = sum(1 for e in all_events if "errorCode" in e or
+                          (e.get("responseElements", {}) or {}).get("ConsoleLogin") == "Failure")
         print(f"  [AWS] Complete! {len(all_events):,} events written", file=sys.stderr)
+        print(f"        errors: {error_count:,} ({error_count * 100 // max(len(all_events), 1)}%)", file=sys.stderr)
         if exfil_count:
-            print(f"          exfil events: {exfil_count}", file=sys.stderr)
+            print(f"        exfil events: {exfil_count}", file=sys.stderr)
 
     return len(all_events)
 

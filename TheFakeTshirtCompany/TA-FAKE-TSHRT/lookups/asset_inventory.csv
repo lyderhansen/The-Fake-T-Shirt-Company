@@ -1,9 +1,16 @@
 ip,mac,nt_host,dns,owner,priority,lat,long,city,country,bunit,category,pci_domain,is_expected,should_timesync,should_update,requires_av
+10.10.10.10,DC:71:96:BC:7B:15,BASTION-BOS-01,bastion-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
 10.10.20.10,DC:71:96:A5:D5:71,DC-BOS-01,dc-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
 10.10.20.11,48:51:B7:FC:53:2E,DC-BOS-02,dc-bos-02.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
 10.10.20.20,48:51:B7:E3:9E:96,FILE-BOS-01,file-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
 10.10.20.30,DC:71:96:5F:D3:1B,SQL-PROD-01,sql-prod-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
 10.10.20.40,80:86:F2:33:2C:8D,APP-BOS-01,app-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
+10.10.20.50,DC:71:96:74:4A:E0,WSUS-BOS-01,wsus-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
+10.10.20.51,48:51:B7:2C:DE:D6,RADIUS-BOS-01,radius-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
+10.10.20.52,A4:34:D9:10:21:73,PROXY-BOS-01,proxy-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
+10.10.20.53,80:86:F2:9C:5B:B8,PRINT-BOS-01,print-bos-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
+10.10.20.60,DC:71:96:2C:30:F3,SAP-PROD-01,sap-prod-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
+10.10.20.61,48:51:B7:FB:BC:69,SAP-DB-01,sap-db-01.theFakeTshirtCompany.com,IT,critical,42.3601,-71.0589,Boston,US,IT,server,,true,true,true,false
 10.10.30.10,94:57:A5:86:A1:C3,BOS-WS-JSMITH01,bos-ws-jsmith01.theFakeTshirtCompany.com,john.smith,critical,42.3601,-71.0589,Boston,US,Executive,workstation,,true,true,true,true
 10.10.30.100,E8:6A:64:6B:5B:52,BOS-WS-OMOORE01,bos-ws-omoore01.theFakeTshirtCompany.com,olivia.moore,critical,42.3601,-71.0589,Boston,US,Marketing,workstation,,true,true,true,true
 10.10.30.101,E8:6A:64:A5:5C:7B,BOS-WS-SJOHNSON01,bos-ws-sjohnson01.theFakeTshirtCompany.com,skylar.johnson,medium,42.3601,-71.0589,Boston,US,Marketing,workstation,,true,true,true,true

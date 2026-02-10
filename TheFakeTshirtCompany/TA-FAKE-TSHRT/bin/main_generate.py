@@ -44,6 +44,7 @@ from generators.generate_mssql import generate_mssql_logs
 from generators.generate_sysmon import generate_sysmon_logs
 from generators.generate_servicenow import generate_servicenow_logs
 from generators.generate_office_audit import generate_office_audit_logs
+from generators.generate_sap import generate_sap_logs
 
 # =============================================================================
 # GENERATOR REGISTRY
@@ -69,6 +70,7 @@ GENERATORS: Dict[str, Callable] = {
     "sysmon": generate_sysmon_logs,
     "servicenow": generate_servicenow_logs,
     "office_audit": generate_office_audit_logs,
+    "sap": generate_sap_logs,
 }
 
 # Group sources for easy selection
@@ -84,6 +86,7 @@ SOURCE_GROUPS = {
     "retail": ["orders", "servicebus"],
     "collaboration": ["webex", "webex_ta", "webex_api"],
     "itsm": ["servicenow"],
+    "erp": ["sap"],
 }
 
 # Dependencies: These generators must run AFTER their dependencies
@@ -95,6 +98,7 @@ GENERATOR_DEPENDENCIES = {
     "servicebus": ["access"],
     "meraki": ["webex"],  # Meraki door sensors use Webex meeting schedule
     "exchange": ["webex"],  # Exchange calendar emails use Webex meeting schedule
+    "sap": ["access"],     # SAP reads order_registry.json for sales order correlation
 }
 
 
@@ -276,6 +280,9 @@ Output Directories:
     # Re-import OUTPUT_BASE after potential override
     from shared.config import OUTPUT_BASE as current_output_base
 
+    # Label for show-files output (reflects test/prod mode)
+    output_label = "output/tmp" if args.test else "output"
+
     # Launch TUI if requested
     if args.tui:
         from tui_generate import main as tui_main
@@ -415,9 +422,9 @@ Output Directories:
                                 file_path = current_output_base / f
                                 if file_path.exists():
                                     line_count = sum(1 for _ in open(file_path))
-                                    print(f"       → output/{f:45} {line_count:>10,}")
+                                    print(f"       → {output_label}/{f:45} {line_count:>10,}")
                                 else:
-                                    print(f"       → output/{f:45} {'(not created)':>10}")
+                                    print(f"       → {output_label}/{f:45} {'(not created)':>10}")
         else:
             # Sequential execution
             for name in phase_sources:
@@ -437,9 +444,9 @@ Output Directories:
                             file_path = current_output_base / f
                             if file_path.exists():
                                 line_count = sum(1 for _ in open(file_path))
-                                print(f"       → output/{f:45} {line_count:>10,}")
+                                print(f"       → {output_label}/{f:45} {line_count:>10,}")
                             else:
-                                print(f"       → output/{f:45} {'(not created)':>10}")
+                                print(f"       → {output_label}/{f:45} {'(not created)':>10}")
 
         return phase_results
 

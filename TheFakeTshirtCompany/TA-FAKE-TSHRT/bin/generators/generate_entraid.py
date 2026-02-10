@@ -5,7 +5,8 @@ Generates sign-in and audit logs with natural volume variation.
 
 Includes:
 - Successful sign-ins with MFA variations (Authenticator, phone, TOTP, previously satisfied)
-- Failed sign-ins with various error codes
+- Failed sign-ins with various error codes (50053, 50058, 70011 added)
+- Service principal sign-ins (non-interactive, ~15/hour)
 - Background spray noise from world IPs
 - Audit events (user management, group management, policy updates)
 - Operational events (CA policy updates, password resets, cert updates, lockouts)
@@ -74,6 +75,9 @@ ERROR_CODES = [
     (50076, "MFA required"),
     (50074, "Strong authentication required"),
     (53003, "Blocked by Conditional Access"),
+    (50053, "Account is locked"),
+    (50058, "Silent sign-in interrupted - user needs to sign in again"),
+    (70011, "Invalid scope - the app requested a scope that was not granted"),
 ]
 
 # Geographies for spray noise
@@ -596,7 +600,7 @@ def signin_spray_noise(base_date: str, day: int, hour: int) -> str:
 
 def generate_signin_hour(base_date: str, day: int, hour: int, event_count: int,
                         active_scenarios: list = None) -> List[str]:
-    """Generate sign-in events for one hour."""
+    """Generate sign-in events for one hour (interactive + service principal)."""
     events = []
 
     for _ in range(event_count):
@@ -609,7 +613,135 @@ def generate_signin_hour(base_date: str, day: int, hour: int, event_count: int,
     if random.random() < 0.25:
         events.append(signin_spray_noise(base_date, day, hour))
 
+    # Service principal sign-ins (~15/hour, constant — machines don't sleep)
+    sp_count = random.randint(10, 20)
+    for _ in range(sp_count):
+        events.append(signin_service_principal(base_date, day, hour))
+
     return events
+
+
+# =============================================================================
+# SERVICE PRINCIPAL SIGN-INS (non-interactive)
+# =============================================================================
+
+# Service principals (automated app identities that sign in to Entra ID)
+SERVICE_PRINCIPALS = [
+    {
+        "appDisplayName": "SAP S/4HANA Connector",
+        "appId": "sp-sap-connector-id",
+        "servicePrincipalId": "sp-sap-001",
+        "ipAddress": "10.10.20.60",       # SAP-PROD-01
+        "resourceDisplayName": "Microsoft Graph",
+        "resourceId": "00000003-0000-0000-c000-000000000000",
+    },
+    {
+        "appDisplayName": "Veeam Backup Agent",
+        "appId": "sp-veeam-backup-id",
+        "servicePrincipalId": "sp-veeam-001",
+        "ipAddress": "10.20.20.20",       # BACKUP-ATL-01
+        "resourceDisplayName": "Azure Storage",
+        "resourceId": "e406a681-f3d4-42a8-90b6-c2b029497af1",
+    },
+    {
+        "appDisplayName": "Splunk Cloud Forwarder",
+        "appId": "sp-splunk-fwd-id",
+        "servicePrincipalId": "sp-splunk-001",
+        "ipAddress": "10.20.20.30",       # MON-ATL-01
+        "resourceDisplayName": "Microsoft Graph",
+        "resourceId": "00000003-0000-0000-c000-000000000000",
+    },
+    {
+        "appDisplayName": "GitHub Actions CI/CD",
+        "appId": "sp-github-cicd-id",
+        "servicePrincipalId": "sp-github-001",
+        "ipAddress": "10.20.20.40",       # DEV-ATL-01
+        "resourceDisplayName": "Azure DevOps",
+        "resourceId": "499b84ac-1321-427f-aa17-267ca6975798",
+    },
+    {
+        "appDisplayName": "Nagios Monitoring Agent",
+        "appId": "sp-nagios-mon-id",
+        "servicePrincipalId": "sp-nagios-001",
+        "ipAddress": "10.20.20.30",       # MON-ATL-01
+        "resourceDisplayName": "Microsoft Graph",
+        "resourceId": "00000003-0000-0000-c000-000000000000",
+    },
+]
+
+# Service principal sign-in error codes (rare failures)
+SP_ERROR_CODES = [
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),           # 5x success = ~83% success rate
+    (7000215, "Invalid client secret provided"),
+    (7000222, "Client certificate expired"),
+]
+
+
+def signin_service_principal(base_date: str, day: int, hour: int) -> str:
+    """Generate service principal (non-interactive) sign-in event.
+
+    Service principals sign in constantly — automated jobs, API calls,
+    background services. These are machine-to-machine auth events.
+    """
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    ts = ts_iso(base_date, day, hour, minute, second)
+    cid = rand_uuid()
+
+    sp = random.choice(SERVICE_PRINCIPALS)
+    error_code, error_msg = random.choice(SP_ERROR_CODES)
+    success = error_code == 0
+
+    event = {
+        "time": ts,
+        "resourceId": f"/tenants/{TENANT_ID}/providers/Microsoft.aadiam",
+        "operationName": "Sign-in activity",
+        "category": "ServicePrincipalSignInLogs",
+        "tenantId": TENANT_ID,
+        "resultType": str(error_code),
+        "callerIpAddress": sp["ipAddress"],
+        "correlationId": cid,
+        "identity": sp["appDisplayName"],
+        "Level": 4,
+        "location": "US",
+        "properties": {
+            "id": cid,
+            "createdDateTime": ts,
+            "appId": sp["appId"],
+            "appDisplayName": sp["appDisplayName"],
+            "servicePrincipalId": sp["servicePrincipalId"],
+            "servicePrincipalName": sp["appDisplayName"],
+            "ipAddress": sp["ipAddress"],
+            "resourceDisplayName": sp["resourceDisplayName"],
+            "resourceId": sp["resourceId"],
+            "isInteractive": False,
+            "tokenIssuerType": "AzureAD",
+            "riskState": "none",
+            "status": {
+                "errorCode": error_code,
+                "failureReason": error_msg if not success else None
+            },
+            "location": {
+                "city": "Internal",
+                "countryOrRegion": "US"
+            },
+            "authenticationDetails": [
+                {
+                    "authenticationMethod": "Client secret" if success else "Client certificate",
+                    "succeeded": success,
+                }
+            ]
+        }
+    }
+
+    if not success:
+        event["resultDescription"] = error_msg
+
+    return json.dumps(event)
 
 
 # =============================================================================

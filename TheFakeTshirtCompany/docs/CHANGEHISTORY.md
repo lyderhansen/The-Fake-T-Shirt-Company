@@ -4,6 +4,266 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~13:40 UTC — TUI 3-column layout refactor + show-files path fix
+
+Refactored TUI from 2×2 grid to 3-column top row (`Source Groups | Sources | Scenarios`) with 2-column bottom row (`Configuration | Meraki Health`). Fixed `--show-files` displaying hardcoded `output/` instead of `output/tmp/` in test mode.
+
+**Affected files:**
+
+### TUI (`bin/tui_generate.py`) — Full rewrite
+- **3-column top row:** Split `self.sources` into `self.source_groups` (top-left) and `self.source_items` (top-middle), with `self.scenarios` (top-right)
+- **5 sections:** `SECTION_GROUPS=0`, `SECTION_SOURCES=1`, `SECTION_SCENARIOS=2`, `SECTION_CONFIG=3`, `SECTION_MERAKI=4`
+- **Border drawing:** Character-by-character mid-border construction handles 3→2 column junction transitions (`╩` where top divider ends, `╦` where bottom divider starts, `╬` where both align)
+- **Navigation:** Left/Right cycles 3 columns on top row, 2 on bottom row. Tab cycles all 5 sections.
+- **Source selection:** `_get_sources_str()` combines selections from both groups and individual items
+- **Help text:** Added range hints to config labels — `Perfmon Clients (5-175)`, `Client Interval (5-60)`, `Orders/Day (1-10000)`
+- **Removed separator:** No longer needed since groups and individual sources are in separate columns
+- **Min terminal width:** Increased from 60 to 70
+
+### CLI (`bin/main_generate.py`) — show-files path fix
+- Added `output_label = "output/tmp" if args.test else "output"` after output base determination
+- Fixed 4 print statements (2 in parallel block, 2 in sequential block) to use `output_label` instead of hardcoded `output/`
+- Verified: `--show-files --test` now correctly shows `output/tmp/network/cisco_asa.log`
+
+**Verification:**
+- TUI module compiles: **PASS**
+- TUIApp class structure: 5 section constants, `source_groups` + `source_items` lists — **PASS**
+- show-files path fix: `output/tmp/` displayed correctly in test mode — **PASS**
+
+---
+
+## 2026-02-10 ~22:00 UTC — Phase 8: Documentation + lookups regeneration
+
+Updated CLAUDE.md and regenerated lookup CSVs to reflect all Phase 1-7 changes.
+
+**Affected files:**
+
+### CLAUDE.md
+- Updated project overview: 20 generators (was 18), 19 servers, added SAP/ERP/Sysmon/MSSQL mentions
+- Updated repository structure: 20 generators (was 18)
+- Updated Available Log Sources table: Added SAP S/4HANA, Sysmon, MSSQL rows; updated count
+- Updated Source Groups: Added `erp` group, expanded `windows` group
+- Expanded Key Servers section: Full 19-server inventory with IPs, organized by location (14 Boston, 5 Atlanta)
+- Added SAP audit log format example
+- Added SAP SPL query examples
+- Updated Development Notes: Correct index name (`fake_tshrt`), server count, SAP correlation note
+
+### Lookups
+- **`lookups/asset_inventory.csv`:** Regenerated — 194 rows (175 users + 19 servers)
+- **`lookups/identity_inventory.csv`:** Regenerated — 175 rows
+- **`lookups/mac_inventory.csv`:** Regenerated — 194 rows
+
+**Verification (3-day test, all generators, all scenarios):**
+- Full run: 842,846 events — **PASS**
+
+---
+
+## 2026-02-10 ~21:00 UTC — Phase 7: Access health checks + ServiceNow lifecycle improvements
+
+Added monitoring health check probes, bot crawler traffic, and expanded HTTP status codes to Access generator. Enhanced ServiceNow incident lifecycle with reopening, priority escalation, and SLA breach detection.
+
+**Affected files:**
+
+### Access (`bin/generators/generate_access.py`)
+- **Health check probes (NEW):** MON-ATL-01 (10.20.20.30) pings `/health`, `/health/db`, `/health/cache` every 30 seconds, 24/7. Uses Nagios user agent. ~2,880 events/day. Helps establish monitoring baseline and detect when health checks stop (outage indicator).
+- **Bot crawl requests (NEW):** Googlebot (66.249.x.x) crawling `/robots.txt`, `/sitemap.xml`, `/sitemap_products.xml`, `/favicon.ico`, `/.well-known/security.txt`. 2-5 per hour, daytime-weighted. ~60 events/day.
+- **New HTTP status codes (NEW):** Added 401 Unauthorized (0.5%), 403 Forbidden (0.5%), 429 Too Many Requests (0.3%) to baseline traffic. Previously only had 200/301/304/404/500. Critical for detecting brute force (401 spikes), misconfigurations (403), and rate limiting (429).
+- Updated `get_status_code()` distribution: 200 (94%), 304 (1.8%), 301 (1.4%), 404 (1.2%), 401 (0.5%), 403 (0.5%), 429 (0.3%), 500 (0.3%).
+
+### ServiceNow (`bin/generators/generate_servicenow.py`)
+- **Incident reopening (NEW):** ~8% of resolved incidents get reopened by end users. Generates Reopen → Re-resolve → Re-close events with `reopen_count=1` field. Realistic lifecycle: customer reports issue not fixed, tech re-investigates, re-resolves.
+- **Priority escalation (NEW):** ~10% of P3+ incidents get escalated mid-lifecycle (e.g., P3→P2, P4→P3). Generates escalation event with `escalated_from`/`escalated_to` fields and reason (e.g., "Business impact increased", "SLA at risk").
+- **SLA breach detection (NEW):** Compares actual resolution time against priority-based SLA targets. Adds `sla_breached="true"` field to Resolved events when SLA is exceeded. SLA targets: P1=4h, P2=8h, P3=24h, P4=72h, P5=168h.
+
+**Verification (3-day test, all generators, all scenarios):**
+- Full run: 844,157 events — **PASS**
+- Access: 17,078 events (1-day spot check). Health checks: 8,640 (3-day). Bot crawl paths: 257. HTTP 401: 175, 403: 210, 429: 98.
+- ServiceNow: 321 events (3-day). Reopened incidents: 12 (~8%). Priority escalations: 3 (~10% of P3+). SLA breached: present on qualifying resolved events.
+
+---
+
+## 2026-02-10 ~19:30 UTC — Phase 6: SAP ERP generator (NEW)
+
+New generator producing SAP S/4HANA audit log events, correlated with existing order/product data.
+
+**New files:**
+
+### SAP Generator (`bin/generators/generate_sap.py`) — NEW
+- **Sourcetype:** `sap:auditlog` (pipe-delimited, matches PowerConnect for SAP format)
+- **Format:** `timestamp|host|dialog_type|user|tcode|status|description|document_number|details`
+- **Event categories:**
+  - **Transaction execution** (~80/hr peak): VA01/VA02/VA03 (Sales), VL01N (Delivery), VF01 (Billing), MIGO (Goods Movement), FB01 (GL Posting), F-28 (Payment), MM01/MM02 (Material Master), FK01 (Vendor), VD01/VD02 (Customer), ME21N (Purchase Order), SM37/STMS/SU01/RZ20 (Basis)
+  - **User activity** (~30/hr peak): Login/logout, failed login (wrong password, user locked, user doesn't exist), password change, authorization check failures (S_TCODE, F_BKPF_BUK, M_BEST_WRK, etc.)
+  - **Inventory movements** (~40/hr peak): Goods Receipt (101), Goods Issue (201/261/601), Stock Transfer (301), Receipt Without PO (501). ~1% variance warnings.
+  - **Financial postings** (~15/hr peak): Invoice, incoming payment, GL journal entry, cost center allocation, vendor payment. Weekday-only.
+  - **Batch jobs:** Nightly MRP run (2 AM), daily reports (5 AM), posting period close (day 0), weekly inventory recount (Sunday 4 AM).
+  - **System events:** Transport imports, parameter changes. 1-2/day on weekdays.
+- **SAP user mapping:** Company employees mapped by department — Finance→FI/CO, Sales→SD, Operations→MM/WM, Executive→Reporting, IT→BASIS. Plus service accounts (sap.batch, sap.rfc, sap.idoc).
+- **Order correlation:** Reads `order_registry.json` and creates VA01 (Sales Order) events correlated with customer IDs and cart totals.
+- **Material master:** All 72 products from `products.py` mapped as SAP material numbers (M-0001 through M-0072).
+- **~2% transaction failure rate** (authorization check failures, document locks, number range exhaustion).
+- **Business-hours weighted:** Full volume patterns with weekend reduction (~25% of weekday).
+
+**Modified files:**
+
+### Config (`bin/shared/config.py`)
+- Added `erp` output directory to `OUTPUT_DIRS` and `set_output_base()`
+- Added `sap` entry to `GENERATOR_OUTPUT_FILES`
+
+### Main orchestrator (`bin/main_generate.py`)
+- Imported `generate_sap_logs` from new generator
+- Added `sap` to `GENERATORS` registry
+- Added `erp` source group (containing `sap`)
+- Added `sap` to `GENERATOR_DEPENDENCIES` (depends on `access` for order_registry.json)
+
+### Splunk configuration
+- **`default/props.conf`:** Added `[FAKE:sap:auditlog]` stanza with pipe-delimited field extraction (DELIMS/FIELDS), timestamp parsing, CIM field aliases (vendor_product, vendor, product, app, src, action, signature)
+- **`default/inputs.conf`:** Added monitor input for `erp/sap_audit.log` with host=SAP-PROD-01
+
+**Verification (3-day test, all generators, all scenarios):**
+- Full run: 833,565 events — **PASS**
+- SAP: 3,275 events. T-code distribution: MIGO 810, LOGIN 321, LOGOUT 202, FB01 194, VF01 162, F-28 150. Status: 3,095 success, 164 error, 15 warning. Batch jobs: 10 (MRP, reports, period close). VA01 orders correlated: 77 (from 949 in registry). 6 vendors, 72 materials.
+
+---
+
+## 2026-02-10 ~18:00 UTC — Phase 5: Entra ID service principals + Perfmon server-role counters
+
+Added non-interactive service principal sign-ins to Entra ID and expanded Perfmon with SQL Server counters, memory pressure indicators, and disk queue depth.
+
+**Affected files:**
+
+### Entra ID (`bin/generators/generate_entraid.py`)
+- **Service Principal Sign-ins (NEW):** ~15 events/hour (constant — machines don't follow business hours). 5 service principals: SAP S/4HANA Connector, Veeam Backup Agent, Splunk Cloud Forwarder, GitHub Actions CI/CD, Nagios Monitoring Agent. Category: `ServicePrincipalSignInLogs`. ~83% success rate; failures: 7000215 (invalid client secret), 7000222 (expired certificate).
+- **New error codes:** 50053 (Account locked), 50058 (Silent sign-in interrupted), 70011 (Invalid scope). Added to existing interactive sign-in error code pool.
+
+### Perfmon (`bin/generators/generate_perfmon.py`)
+- **SQL Server counters (NEW, SQL-PROD-01 only):** `Batch Requests/sec` (SQLServer:SQL Statistics, 50-500 scaling with activity), `Page life expectancy` (SQLServer:Buffer Manager, 2000-5000 normal, 100-500 during cpu_runaway), `Buffer cache hit ratio` (97-99.9% normal, 85-95% during scenario), `Lock Waits/sec` (SQLServer:Locks, 0-3 normal, 10-50 during scenario).
+- **Pages/sec (NEW, all servers):** Memory counter tracking paging activity. 0-20 normal, >100 during memory pressure scenarios.
+- **Current Disk Queue Length (NEW, all servers):** LogicalDisk counter for I/O bottleneck detection. 0-2 normal, 5-20 during disk_filling/scenario conditions.
+- **New server coverage:** WSUS-BOS-01, RADIUS-BOS-01, PRINT-BOS-01, APP-BOS-01, DC-ATL-01, BACKUP-ATL-01 added to SERVER_RAM_MB and SERVER_DISK_GB mappings.
+
+**Verification (3-day test, all generators, all scenarios):**
+- Full run: 832,188 events — **PASS**
+- Entra ID: 1,874 events. Service principal sign-ins: 1,073. SP errors: 303 (162 expired cert, 141 invalid secret). New error codes: 50053=5, 50058=6, 70011=3.
+- Perfmon: 149,616 events. SQL Server counters: 864 each (Batch Requests/sec, Page life expectancy, Buffer cache hit ratio, Lock Waits/sec). Pages/sec: 8,640 events (all servers). Current Disk Queue Length: 8,640 events (all servers).
+
+---
+
+## 2026-02-10 ~16:30 UTC — Phase 4: ASA traffic realism + Exchange failures
+
+Improved ASA perimeter firewall realism and added email delivery failures with authentication results.
+
+**Affected files:**
+
+### ASA (`bin/generators/generate_asa.py`)
+- **Hub-spoke site-to-site traffic:** BOS is now the hub (~70% of inter-site traffic involves BOS). Previously, all three sites had equal traffic distribution. ATL and AUS are spokes — most branch traffic goes to BOS for DC/file/app access; spoke-to-spoke (ATL↔AUS) is only ~30%.
+- **DC-specific traffic (NEW):** Kerberos (88), LDAP (389/636), DNS (53), SMB (445), RPC (135), Global Catalog (3268). Workstations and servers constantly talk to DCs for auth and group policy. ~10% of baseline events. Weighted distribution: Kerberos 30%, LDAP 25%, DNS 15%, SMB 10%, LDAPS 10%, RPC 5%, GC 5%.
+- **Internal ACL deny events (NEW):** Policy violations from workstations trying direct SQL access, unauthorized RDP, IoT scanning SMB, guest network reaching internal servers, SSH to DMZ from non-jumpboxes. ~1% of baseline events. Uses internal ACL names from company.py.
+- **New server traffic (NEW):** WSUS (8530/8531), PROXY (3128/8080), SAP (3200/3300/8000/50013), SAP HANA (30015/30013), Bastion SSH (22). ~4% of baseline events. Bastion traffic uses "management" zone naming.
+- **ICMP health checks (NEW):** MON-ATL-01 pings critical infrastructure (DCs, SQL, WEB, SAP, BACKUP). ~3% of baseline events. Uses ASA-6-302020 (ICMP built).
+- Updated event distribution: reduced Web from 30→25%, Outbound TCP from 20→16%, DNS from 15→12%, Site-to-site from 12→9% to accommodate new event types while maintaining total event counts.
+
+### Exchange (`bin/generators/generate_exchange.py`)
+- **Failed outbound delivery (NEW):** ~3% of total events are bounce/NDR/rejected messages. Failure reasons include: recipient not found (550 5.1.1), access denied (550 5.7.1), mailbox full (452 4.2.2), domain not found (550 5.4.1), connection refused (421 4.7.0). Events include `FailureDetail` and `FailureType` (NDR/Rejected/Deferred) fields.
+- **SPF/DKIM/DMARC authentication results (NEW):** All inbound email now includes `SPFResult`, `DKIMResult`, `DMARCResult`, and `CompAuth` fields. 85% all-pass, 15% mixed results (SoftFail, Neutral, BestGuessPass). Spam messages have failing auth results (Fail/None).
+- Updated event distribution: Internal 34%, Inbound 19%, Outbound 14%, DL 8%, System notifications 7%, Calendar 6%, Responses 5%, Failed outbound 3%, OOO 2%, Spam 2%.
+
+**Verification (3-day test, all generators, all scenarios):**
+- Full run: 808,959 events — **PASS**
+- ASA: 100,406 events. DC traffic: 9,658. Internal ACL denies: 558. New server traffic: 5,137. ICMP: 1,639. Management zone (Bastion): 942. Hub-spoke: BOS involved in 70.3% of site-to-site traffic.
+- Exchange: 8,124 events. Failed outbound: 243 (3.0%). SPF/DKIM/DMARC fields on 1,738 inbound events. Auth pass rate: 84%. Failure types: NDR 98, Deferred 96, Rejected 49.
+
+---
+
+## 2026-02-10 ~14:00 UTC — Phase 3: Endpoint detection — Sysmon, WinEventLog, Linux auth.log
+
+Expanded endpoint detection coverage: 4 new Sysmon EIDs, 4 new WinEventLog EIDs, and a completely new Linux auth.log output.
+
+**Affected files:**
+
+### Sysmon (`bin/generators/generate_sysmon.py`)
+- **EID 5 (Process Terminated):** Completes process lifecycle — every process that starts (EID 1) should eventually terminate. ~12% of server/workstation events.
+- **EID 7 (Image Loaded / DLL):** DLL loading baseline. Generates legitimate system DLL loads (ntdll.dll, kernel32.dll, advapi32.dll, etc.) for both servers and workstations. ~15% of events. Includes Signed/Signature/SignatureStatus fields for DLL sideloading detection baseline.
+- **EID 8 (CreateRemoteThread):** Process injection detection baseline. Very rare (~1% server only, 0% workstation). Only legitimate source: Windows Defender (MsMpEng.exe) scanning svchost/lsass. Any other source is suspicious.
+- **EID 10 (ProcessAccess):** LSASS credential dumping baseline. ~5% server, ~3% workstation. Server-side lsass access only from svchost.exe or wininit.exe with QUERY_LIMITED_INFORMATION (0x1000). Any PROCESS_ALL_ACCESS to lsass is suspicious.
+- Added 3 new servers to SYSMON_SERVERS: WSUS-BOS-01, RADIUS-BOS-01, PRINT-BOS-01 with role-specific processes (wsusutil.exe, ias.exe, spoolsv.exe).
+- Updated EID weight distributions to include new EIDs while maintaining realistic proportions.
+
+### WinEventLog (`bin/generators/generate_wineventlog.py`)
+- **EID 4740 (Account Lockout):** ~1-3/day during business hours. Users forget passwords after weekends/vacations. Key for password spray detection.
+- **EID 4768 (Kerberos TGT Request):** ~10/peak hour (proportional to logon activity). 98% success, 2% failure (0x18=pre-auth failed, 0x17=expired, 0x6=unknown). Key for Kerberoasting/AS-REP roasting baseline.
+- **EID 4776 (NTLM Credential Validation):** ~3/peak hour (lower than Kerberos in modern AD). 97% success, 3% failure (bad password, unknown user). Key for NTLM relay/pass-the-hash detection.
+- **EID 4698 (Scheduled Task Created):** ~2-5/day. Higher during maintenance windows (3-4 AM). System account for automated tasks, admin accounts during business hours. Key for persistence detection.
+- Added all 4 new EIDs to `format_scenario_event()` routing for scenario support.
+- Added scheduled task templates (Windows Update, Defrag, DiskCleanup, Backup, Monitoring).
+
+### Linux auth.log (`bin/generators/generate_linux.py`)
+- **New output:** `linux/auth.log` — entirely new auth log generation alongside existing metrics.
+- **SSH Accepted publickey:** Admin/service users (root, svc.deploy, svc.monitor, ansible) from management network (10.10.10.x). Includes key type (RSA/ED25519/ECDSA) and fingerprint.
+- **SSH Failed password:** Internet scanner noise on exposed hosts (WEB-01, WEB-02, BASTION-BOS-01). Uses 6 scanner IPs and 10 common scanner usernames. Heavier at night (2-6 attempts) vs daytime (0-3).
+- **sudo commands:** 15 realistic admin commands (systemctl, journalctl, netstat, iptables, docker, etc.).
+- **cron jobs:** Deterministic per-host schedules (logrotate, backup, health checks, etc.). 9 hosts with 2-5 cron jobs each.
+- **systemd service events:** Per-host service definitions (nginx, php-fpm, nagios, docker, squid, sshd, SAP services). Rare restarts/reloads (~8%/hour).
+- **PAM session open/close:** Correlates with SSH accepted events.
+
+### Configuration files
+- `bin/shared/config.py` — Added `linux/auth.log` to `GENERATOR_OUTPUT_FILES["linux"]`.
+- `default/inputs.conf` — Added `[monitor://...linux/auth.log]` with sourcetype `FAKE:linux:auth`.
+- `default/props.conf` — Added `[FAKE:linux:auth]` stanza with timestamp parsing (syslog format), host extraction, and field extractions (process, pid, user, src, src_port, action).
+- `default/transforms.conf` — Added `[set_host_from_auth_log]` transform for syslog-format host extraction.
+
+**Verification (3-day test, all generators, all scenarios):**
+- Total: 810,512 events across all generators (pass)
+- Sysmon EIDs: 1=1,635 | 3=1,344 | 5=879 | 7=1,061 | 8=29 | 10=290 | 11=699 | 13=439 | 22=634
+- WinEventLog new EIDs: 4768=202 | 4776=86 | 4740=2 | 4698=3
+- Linux auth.log: 2,809 events (SSH accepted=162, SSH failed=463, sudo=144, cron=1,728, systemd=47)
+
+---
+
+## 2026-02-10 ~22:00 UTC — Phase 2: Failed operations across cloud/retail generators
+
+The single biggest realism gap — 0% failure rate everywhere — is now fixed. All cloud and retail generators now produce realistic baseline error events.
+
+**Affected files:**
+- `bin/generators/generate_aws.py` — Added ~4% baseline failures (AccessDenied, NoSuchKey, NoSuchBucket, Throttling, UnauthorizedAccess). Added 5 new API actions: DeleteObject, AssumeRole, ConsoleLogin (with 5% login failures + MFA field), CreateAccessKey, DeleteAccessKey. Updated event distribution to include new actions.
+- `bin/generators/generate_gcp.py` — Added ~3% baseline failures (PERMISSION_DENIED, NOT_FOUND, RESOURCE_EXHAUSTED, UNAUTHENTICATED). Failed events set severity=ERROR and authorizationInfo.granted=false. Added compute start/stop and IAM SA key create events. Updated event distribution.
+- `bin/generators/generate_office_audit.py` — Added ~3% baseline failures for file operations (FileNotFound, AccessDenied, FileLocked, QuotaExceeded, VirusDetected, BlockedByPolicy). Added SharingInvitationCreated event type (~3% of SharePoint events) with external guest recipients.
+- `bin/generators/generate_orders.py` — Added ~7% order failures: payment_declined (~5%), fraud_detected (~1%), address_invalid (~1%). Failed orders produce fewer events (stop at failure point) and generate $0 revenue. Each failure includes failureType and failureReason fields.
+- `bin/generators/generate_servicebus.py` — Added ~3% transient failures (retried messages with deliveryCount > 1 and retryReason field). Added ~0.5% dead-letter queue events with deadLetterReason and deadLetterErrorDescription fields. DLQ queue names use `/$deadletterqueue` suffix.
+
+**New fields added:**
+- AWS: `errorCode`, `errorMessage`, `additionalEventData.MFAUsed`, `responseElements.ConsoleLogin`
+- GCP: `severity: "ERROR"`, `protoPayload.status.code: 7/5/8/16`
+- M365: `ResultStatusDetail` (reason for failure)
+- Orders: `failureType`, `failureReason`, `payment.declineReason`
+- ServiceBus: `deadLetterReason`, `deadLetterErrorDescription`, `properties.retryReason`
+
+**Verification:**
+- Full 3-day test: 806,384 events, all generators pass
+- AWS: 4% errors (13/299 events)
+- GCP: 4% errors (10/245 events)
+- M365: 1% failures (62/3,471 events) + 23 sharing invites
+- Orders: 5.5% failed (3,856/69,727 orders) — 4% payment declined, ~0.8% fraud, ~0.8% address invalid
+- ServiceBus: ~3% retried, ~0.5% dead-lettered
+
+---
+
+## 2026-02-10 ~20:00 UTC — Phase 1: Infrastructure expansion — 7 new servers, DNS config, SAP in app catalog
+
+Added 7 new servers to company.py, internal DNS configuration, replaced NetSuite with SAP S/4HANA in Entra app catalog, regenerated all lookup CSVs.
+
+**Affected files:**
+- `bin/shared/company.py` — Added INTERNAL_DNS_SERVERS (DC-based per location). Added 7 servers to _SERVER_DATA: WSUS-BOS-01, RADIUS-BOS-01, PROXY-BOS-01, PRINT-BOS-01, SAP-PROD-01, SAP-DB-01, BASTION-BOS-01. Replaced NetSuite with SAP S/4HANA in ENTRA_APP_CATALOG. Renamed SG-App-NetSuite-Users → SG-App-SAP-Users.
+- `lookups/asset_inventory.csv` — Regenerated: 194 rows (175 users + 19 servers)
+- `lookups/identity_inventory.csv` — Regenerated: 175 rows
+- `lookups/mac_inventory.csv` — Regenerated: 194 rows
+
+**Verification:**
+- 19 servers total (10 Windows, 9 Linux)
+- Full 3-day generation test: 807,196 events, no errors
+
+---
+
 ## 2026-02-11 ~02:30 UTC — Add SourceMAC and DestinationMAC to Sysmon Event ID 3 (NetworkConnect)
 
 Real Sysmon Event ID 3 (NetworkConnect) includes `SourceMAC` and `DestMAC` fields — our generator was missing them. Now that persistent MAC addresses exist for all users and servers, this gap is closed.

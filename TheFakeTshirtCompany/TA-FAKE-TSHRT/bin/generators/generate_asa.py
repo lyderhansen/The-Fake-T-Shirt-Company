@@ -22,12 +22,17 @@ Network Architecture:
 
 Includes:
 - TCP sessions (Built + Teardown with correlated connection IDs)
-- DNS queries
+- DNS queries (external + internal DNS via DCs)
 - NAT translations
 - VPN sessions
 - SSL handshakes
 - Admin commands
 - Background scan noise (external port scans DENIED)
+- Internal ACL deny events (misconfigured workstations, rogue traffic)
+- DC-specific traffic (Kerberos 88, LDAP 389/636, DNS 53, SMB 445)
+- New server traffic (WSUS, PROXY, SAP, BASTION)
+- ICMP baseline (monitoring health checks)
+- Hub-spoke site-to-site (BOS=70% hub, ATL/AUS spokes)
 - Operational events (maintenance, capacity, interface flapping, cert warnings)
 - C2 beacon traffic (for exfil scenario)
 - Large data transfer detection (for exfil scenario)
@@ -49,8 +54,8 @@ from shared.config import Config, DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCAL
 from shared.time_utils import TimeUtils, ts_syslog, date_add, calc_natural_events
 from shared.company import Company, ASA_PERIMETER, DNS_SERVERS, THREAT_IP, TENANT
 from shared.company import (
-    ASA_WEB_PORTS, ASA_SCAN_PORTS, ASA_TEARDOWN_REASONS, ASA_EXT_ACLS,
-    VPN_USERS, USERS,
+    ASA_WEB_PORTS, ASA_SCAN_PORTS, ASA_TEARDOWN_REASONS, ASA_EXT_ACLS, ASA_INT_ACLS,
+    VPN_USERS, USERS, SERVERS, INTERNAL_DNS_SERVERS,
     get_internal_ip, get_us_ip, get_external_ip, get_dmz_ip, get_world_ip,
 )
 
@@ -258,6 +263,230 @@ def asa_deny_external(base_date: str, day: int, hour: int, minute: int, second: 
 
 
 # =============================================================================
+# DC-SPECIFIC TRAFFIC (Kerberos, LDAP, DNS, SMB)
+# =============================================================================
+
+# Domain controller IPs for all sites
+DC_IPS = {
+    "BOS": ["10.10.20.10", "10.10.20.11"],  # DC-BOS-01, DC-BOS-02
+    "ATL": ["10.20.20.10"],                   # DC-ATL-01
+}
+
+# DC service ports and protocols
+DC_SERVICES = [
+    (88, "TCP", "Kerberos"),     # Kerberos authentication
+    (389, "TCP", "LDAP"),        # LDAP queries
+    (636, "TCP", "LDAPS"),       # LDAP over TLS
+    (53, "UDP", "DNS"),          # Internal DNS
+    (445, "TCP", "SMB"),         # Group Policy, file shares
+    (135, "TCP", "RPC"),         # RPC endpoint mapper
+    (3268, "TCP", "GC"),         # Global Catalog
+]
+
+# DC service weights — Kerberos and LDAP dominate
+DC_SERVICE_WEIGHTS = [30, 25, 10, 15, 10, 5, 5]
+
+
+def asa_dc_traffic(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
+    """Generate domain controller traffic (Kerberos, LDAP, DNS, SMB).
+
+    Workstations and servers constantly talk to DCs for authentication,
+    group policy, and DNS resolution. This is the backbone of AD traffic.
+    """
+    events = []
+
+    # Pick a source (any internal host) and destination DC
+    src_site = random.choices(["BOS", "ATL", "AUS"], weights=[60, 25, 15])[0]
+    src = get_internal_ip(src_site)
+    sp = random.randint(49152, 65535)
+
+    # DCs are mostly in BOS, some traffic goes to ATL DC
+    if src_site == "ATL" and random.random() < 0.7:
+        dc_ip = random.choice(DC_IPS["ATL"])
+        dst_site = "ATL"
+    else:
+        dc_ip = random.choice(DC_IPS["BOS"])
+        dst_site = "BOS"
+
+    service = random.choices(DC_SERVICES, weights=DC_SERVICE_WEIGHTS)[0]
+    dp, proto, svc_name = service
+
+    cid = random.randint(100000, 999999)
+
+    # DC traffic is generally small and fast
+    bytes_val = random.randint(200, 50000)
+    duration_secs = random.randint(0, 5)
+
+    total_start_secs = minute * 60 + second
+    total_end_secs = total_start_secs + duration_secs
+    end_min = min(59, total_end_secs // 60)
+    end_sec = total_end_secs % 60 if end_min < 59 else 59
+
+    start_ts = ts_syslog(base_date, day, hour, minute, second)
+    teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
+
+    pri6 = asa_pri(6)
+
+    if proto == "UDP":
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302015: Built outbound UDP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dc_ip}/{dp} ({dc_ip}/{dp})")
+        events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302016: Teardown UDP connection {cid} for inside:{dc_ip}/{dp} to inside:{src}/{sp} duration 0:0:{duration_secs} bytes {bytes_val}")
+    else:
+        dur = f"0:0:{duration_secs}"
+        reason = random.choice(ASA_TEARDOWN_REASONS)
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dc_ip}/{dp} ({dc_ip}/{dp})")
+        events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to inside:{dc_ip}/{dp} duration {dur} bytes {bytes_val} {reason}")
+
+    return events
+
+
+# =============================================================================
+# INTERNAL ACL DENY EVENTS
+# =============================================================================
+
+# Internal deny scenarios (misconfigurations, policy violations)
+INTERNAL_DENY_SCENARIOS = [
+    # (src_subnet, dst_ip, dst_port, description)
+    ("user", "server", 1433, "Workstation trying direct SQL access"),
+    ("user", "server", 3389, "Unauthorized RDP to server"),
+    ("user", "server", 22, "SSH from non-admin workstation"),
+    ("iot", "server", 445, "IoT device scanning SMB"),
+    ("guest", "server", 80, "Guest network reaching internal server"),
+    ("user", "dmz", 22, "SSH to DMZ from non-jumpbox"),
+]
+
+
+def asa_deny_internal(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
+    """Generate internal ACL deny event (policy violations, misconfigurations)."""
+    ts = ts_syslog(base_date, day, hour, minute, second)
+
+    scenario = random.choice(INTERNAL_DENY_SCENARIOS)
+    src_type, dst_type, port, _ = scenario
+
+    # Generate source IP based on type
+    site = random.choice(["BOS", "ATL", "AUS"])
+    prefix = {"BOS": "10.10", "ATL": "10.20", "AUS": "10.30"}[site]
+
+    if src_type == "user":
+        src = f"{prefix}.30.{random.randint(10, 200)}"
+    elif src_type == "iot":
+        src = f"{prefix}.60.{random.randint(10, 50)}"
+    elif src_type == "guest":
+        src = f"{prefix}.80.{random.randint(10, 50)}"
+    else:
+        src = get_internal_ip(site)
+
+    # Generate destination IP
+    if dst_type == "server":
+        server = random.choice(list(SERVERS.values()))
+        dst = server.ip
+    elif dst_type == "dmz":
+        dst = get_dmz_ip()
+    else:
+        dst = get_internal_ip()
+
+    sport = random.randint(49152, 65535)
+    acl = random.choice(ASA_INT_ACLS)
+
+    pri4 = asa_pri(4)
+    return f'{pri4}{ts} {ASA_HOSTNAME} %ASA-4-106023: Deny tcp src inside:{src}/{sport} dst inside:{dst}/{port} by access-group "{acl}" [0x0, 0x0]'
+
+
+# =============================================================================
+# NEW SERVER TRAFFIC (WSUS, PROXY, SAP, BASTION)
+# =============================================================================
+
+# Server-specific traffic patterns
+NEW_SERVER_TRAFFIC = [
+    # (server_hostname, service_ports, description)
+    ("WSUS-BOS-01", [(8530, "TCP"), (8531, "TCP")], "Windows Update"),
+    ("PROXY-BOS-01", [(3128, "TCP"), (8080, "TCP")], "Web Proxy"),
+    ("SAP-PROD-01", [(3200, "TCP"), (3300, "TCP"), (8000, "TCP"), (50013, "TCP")], "SAP Application"),
+    ("SAP-DB-01", [(30015, "TCP"), (30013, "TCP")], "SAP HANA DB"),
+    ("BASTION-BOS-01", [(22, "TCP")], "SSH Jumpbox"),
+]
+
+
+def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
+    """Generate traffic to/from new infrastructure servers."""
+    events = []
+
+    server_entry = random.choice(NEW_SERVER_TRAFFIC)
+    hostname, ports, desc = server_entry
+    server = SERVERS.get(hostname)
+    if not server:
+        return events
+
+    port_info = random.choice(ports)
+    dp, proto = port_info
+
+    # Source: internal workstation or server
+    src_site = random.choice(["BOS", "ATL", "AUS"])
+    src = get_internal_ip(src_site)
+    sp = random.randint(49152, 65535)
+    dst = server.ip
+
+    cid = random.randint(100000, 999999)
+    bytes_val = random.randint(1000, 200000)
+    duration_secs = random.randint(1, 30)
+
+    total_start_secs = minute * 60 + second
+    total_end_secs = total_start_secs + duration_secs
+    end_min = min(59, total_end_secs // 60)
+    end_sec = total_end_secs % 60 if end_min < 59 else 59
+
+    dur = f"0:0:{duration_secs}"
+    reason = random.choice(ASA_TEARDOWN_REASONS)
+
+    start_ts = ts_syslog(base_date, day, hour, minute, second)
+    teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
+
+    # Bastion traffic gets special naming (management zone)
+    if hostname.startswith("BASTION"):
+        src_zone = "inside"
+        dst_zone = "management"
+    else:
+        src_zone = "inside"
+        dst_zone = "inside"
+
+    pri6 = asa_pri(6)
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for {src_zone}:{src}/{sp} ({src}/{sp}) to {dst_zone}:{dst}/{dp} ({dst}/{dp})")
+    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for {src_zone}:{src}/{sp} to {dst_zone}:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
+
+    return events
+
+
+# =============================================================================
+# ICMP BASELINE (Monitoring Health Checks)
+# =============================================================================
+
+def asa_icmp_ping(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
+    """Generate ICMP ping event (monitoring server health checks).
+
+    MON-ATL-01 pings critical infrastructure. ASA logs permitted ICMP.
+    """
+    ts = ts_syslog(base_date, day, hour, minute, second)
+
+    mon_ip = "10.20.20.30"  # MON-ATL-01
+
+    # Ping targets: critical servers, DCs, web servers, network devices
+    targets = [
+        "10.10.20.10",   # DC-BOS-01
+        "10.10.20.11",   # DC-BOS-02
+        "10.10.20.30",   # SQL-PROD-01
+        "172.16.1.10",   # WEB-01
+        "172.16.1.11",   # WEB-02
+        "10.10.20.60",   # SAP-PROD-01
+        "10.10.20.61",   # SAP-DB-01
+        "10.20.20.10",   # DC-ATL-01
+        "10.20.20.20",   # BACKUP-ATL-01
+    ]
+    dst = random.choice(targets)
+
+    pri6 = asa_pri(6)
+    return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-302020: Built inbound ICMP connection for inside:{mon_ip}/0 ({mon_ip}/0) to inside:{dst}/0 ({dst}/0)"
+
+
+# =============================================================================
 # WEB-CORRELATED TRAFFIC (DMZ)
 # =============================================================================
 
@@ -355,13 +584,30 @@ def get_site_ip(site: str, subnet: str = "30") -> str:
 
 
 def asa_site_to_site(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
-    """Generate inter-site traffic (BOS↔ATL↔AUS via SD-WAN)."""
+    """Generate inter-site traffic using hub-spoke model.
+
+    BOS is the hub (70% of traffic involves BOS).
+    ATL↔AUS direct traffic is only 30% (spoke-to-spoke via VPN).
+    Most branch traffic goes BOS↔ATL or BOS↔AUS for DC/file/app access.
+    """
     events = []
 
-    # Pick random site pair
-    sites = ["BOS", "ATL", "AUS"]
-    src_site = random.choice(sites)
-    dst_site = random.choice([s for s in sites if s != src_site])
+    # Hub-spoke: 70% involves BOS as either src or dst
+    if random.random() < 0.70:
+        # Hub traffic: BOS ↔ ATL or BOS ↔ AUS
+        spoke = random.choices(["ATL", "AUS"], weights=[60, 40])[0]
+        if random.random() < 0.6:
+            # Spoke → Hub (branch users accessing BOS resources)
+            src_site, dst_site = spoke, "BOS"
+        else:
+            # Hub → Spoke (replication, GPO push, etc.)
+            src_site, dst_site = "BOS", spoke
+    else:
+        # Spoke-to-spoke: ATL ↔ AUS (30%)
+        if random.random() < 0.5:
+            src_site, dst_site = "ATL", "AUS"
+        else:
+            src_site, dst_site = "AUS", "ATL"
 
     cid = random.randint(100000, 999999)
     src = get_site_ip(src_site)
@@ -555,16 +801,20 @@ def generate_day_events(base_date: str, day: int) -> List[str]:
 def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int) -> List[str]:
     """Generate baseline events for one hour.
 
-    Event distribution (updated for perimeter traffic):
-    - 30% Web sessions (inbound to DMZ) - correlates with access logs
-    - 20% Outbound TCP sessions (users browsing)
-    - 15% DNS queries
-    - 12% Site-to-site traffic (BOS↔ATL↔AUS)
-    - 8% NAT translations
-    - 6% VPN sessions
-    - 4% SSL handshakes
+    Event distribution (updated for perimeter + internal traffic):
+    - 25% Web sessions (inbound to DMZ) - correlates with access logs
+    - 16% Outbound TCP sessions (users browsing)
+    - 12% DNS queries (external)
+    - 10% DC traffic (Kerberos, LDAP, DNS, SMB) — AD backbone
+    - 9% Site-to-site traffic (hub-spoke: BOS=70%)
+    - 7% NAT translations
+    - 5% VPN sessions
+    - 4% New server traffic (WSUS, PROXY, SAP, BASTION)
+    - 3% SSL handshakes
+    - 3% ICMP health checks (monitoring)
     - 3% HTTP inspection events
     - 2% Admin commands
+    - 1% Internal ACL denies
     """
     events = []
 
@@ -573,36 +823,48 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
         second = random.randint(0, 59)
         event_type = random.randint(1, 100)
 
-        if event_type <= 30:
+        if event_type <= 25:
             # Web sessions to DMZ (WEB-01/02)
             events.extend(asa_web_session(base_date, day, hour, minute, second))
-        elif event_type <= 50:
+        elif event_type <= 41:
             # Outbound TCP sessions
             events.extend(asa_tcp_session(base_date, day, hour, minute, second))
-        elif event_type <= 65:
-            # DNS queries
+        elif event_type <= 53:
+            # DNS queries (external)
             events.extend(asa_dns_query(base_date, day, hour, minute, second))
-        elif event_type <= 77:
-            # Site-to-site traffic
+        elif event_type <= 63:
+            # DC traffic (Kerberos, LDAP, DNS, SMB)
+            events.extend(asa_dc_traffic(base_date, day, hour, minute, second))
+        elif event_type <= 72:
+            # Site-to-site traffic (hub-spoke)
             events.extend(asa_site_to_site(base_date, day, hour, minute, second))
-        elif event_type <= 85:
+        elif event_type <= 79:
             # NAT translations
             events.append(asa_nat(base_date, day, hour, minute, second))
             # Also add web NAT occasionally
             if random.random() < 0.3:
                 events.append(asa_web_nat(base_date, day, hour, minute, second))
-        elif event_type <= 91:
+        elif event_type <= 84:
             # VPN sessions
             events.append(asa_vpn(base_date, day, hour, minute, second))
-        elif event_type <= 95:
+        elif event_type <= 88:
+            # New server traffic (WSUS, PROXY, SAP, BASTION)
+            events.extend(asa_new_server_traffic(base_date, day, hour, minute, second))
+        elif event_type <= 91:
             # SSL handshakes
             events.append(asa_ssl(base_date, day, hour, minute, second))
-        elif event_type <= 98:
+        elif event_type <= 94:
+            # ICMP health checks (monitoring pings)
+            events.append(asa_icmp_ping(base_date, day, hour, minute, second))
+        elif event_type <= 97:
             # HTTP inspection
             events.append(asa_http_inspect(base_date, day, hour, minute, second))
-        else:
+        elif event_type <= 99:
             # Admin commands
             events.append(asa_admin(base_date, day, hour, minute, second))
+        else:
+            # Internal ACL denies (policy violations)
+            events.append(asa_deny_internal(base_date, day, hour, minute, second))
 
     # Background scan noise (scaled with traffic - more traffic = more scans)
     scan_count = max(1, event_count // 100)  # ~1% of traffic is scan attempts

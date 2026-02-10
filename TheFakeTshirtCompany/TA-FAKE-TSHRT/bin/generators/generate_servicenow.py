@@ -906,6 +906,10 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
         else:
             close_notes = random.choice(GENERIC_CLOSE_NOTES["software"])
 
+    # Check SLA breach: if resolve_hours exceeds SLA target for this priority
+    sla_target_hours = PRIORITIES[incident.priority]["resolve_hours"][1]  # max target
+    sla_breached = resolve_hours > sla_target_hours
+
     fields = {
         "sys_updated_on": resolved_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "number": incident.number,
@@ -915,9 +919,31 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
         "close_code": random.choice(CLOSE_CODES[:2]),  # Mostly Solved/Workaround
         "close_notes": close_notes,
     }
+    if sla_breached:
+        fields["sla_breached"] = "true"
     if incident.demo_id:
         fields["demo_id"] = incident.demo_id
     events.append(format_kv_line(fields))
+
+    # Priority escalation: ~10% chance for P3+ incidents, mid-lifecycle
+    escalated = False
+    if incident.priority >= 3 and random.random() < 0.10:
+        escalated = True
+        escalation_time = incident.opened_at + timedelta(hours=resolve_hours * 0.4)
+        new_priority = max(1, incident.priority - 1)
+        esc_fields = {
+            "sys_updated_on": escalation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "number": incident.number,
+            "state": "In Progress",
+            "priority": new_priority,
+            "urgency": new_priority,
+            "work_notes": f"Priority escalated from {incident.priority} to {new_priority} - customer impact increasing",
+        }
+        if sla_breached:
+            esc_fields["sla_breached"] = "true"
+        if incident.demo_id:
+            esc_fields["demo_id"] = incident.demo_id
+        events.append(format_kv_line(esc_fields))
 
     # Event 5: Closed (1-24 hours after resolved)
     close_delay = random.randint(1, 24)
@@ -931,6 +957,61 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
     if incident.demo_id:
         fields["demo_id"] = incident.demo_id
     events.append(format_kv_line(fields))
+
+    # Incident reopening: ~8% of resolved incidents get reopened
+    if random.random() < 0.08:
+        reopen_delay = random.randint(2, 48)  # 2-48 hours after close
+        reopen_time = closed_time + timedelta(hours=reopen_delay)
+
+        # Reopen event
+        reopen_fields = {
+            "sys_updated_on": reopen_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "number": incident.number,
+            "state": "In Progress",
+            "reopen_count": 1,
+            "work_notes": random.choice([
+                "Issue recurred after initial fix",
+                "User reports problem not fully resolved",
+                "Related symptoms returned after restart",
+                "Workaround no longer effective",
+            ]),
+        }
+        if incident.demo_id:
+            reopen_fields["demo_id"] = incident.demo_id
+        events.append(format_kv_line(reopen_fields))
+
+        # Re-resolve (1-8 hours after reopen)
+        reresolve_delay = random.uniform(1, 8)
+        reresolve_time = reopen_time + timedelta(hours=reresolve_delay)
+
+        reresolve_fields = {
+            "sys_updated_on": reresolve_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "number": incident.number,
+            "state": "Resolved",
+            "resolved_by": assigned_to,
+            "close_code": "Solved",
+            "close_notes": random.choice([
+                "Root cause identified and permanent fix applied",
+                "Applied vendor hotfix, monitoring for recurrence",
+                "Replaced component, issue confirmed resolved",
+                "Configuration corrected, verified with user",
+            ]),
+        }
+        if incident.demo_id:
+            reresolve_fields["demo_id"] = incident.demo_id
+        events.append(format_kv_line(reresolve_fields))
+
+        # Re-close
+        reclose_time = reresolve_time + timedelta(hours=random.randint(1, 12))
+        reclose_fields = {
+            "sys_updated_on": reclose_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "number": incident.number,
+            "state": "Closed",
+            "reopen_count": 1,
+        }
+        if incident.demo_id:
+            reclose_fields["demo_id"] = incident.demo_id
+        events.append(format_kv_line(reclose_fields))
 
     return events
 

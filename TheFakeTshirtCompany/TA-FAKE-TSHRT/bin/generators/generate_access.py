@@ -190,14 +190,20 @@ def get_status_code(error_rate: int = 0) -> int:
             return 500
 
     roll = random.randint(1, 1000)
-    if roll <= 950:
+    if roll <= 940:
         return 200
-    elif roll <= 970:
+    elif roll <= 958:
         return 304
-    elif roll <= 985:
+    elif roll <= 972:
         return 301
-    elif roll <= 995:
+    elif roll <= 984:
         return 404
+    elif roll <= 989:
+        return 401    # Unauthorized (expired session, bad API key)
+    elif roll <= 994:
+        return 403    # Forbidden (access denied)
+    elif roll <= 997:
+        return 429    # Too Many Requests (rate limiting)
     else:
         return 500
 
@@ -205,6 +211,75 @@ def get_status_code(error_rate: int = 0) -> int:
 def format_apache_time(dt: datetime) -> str:
     """Format datetime as Apache log timestamp."""
     return dt.strftime("[%d/%b/%Y:%H:%M:%S +0000]")
+
+
+# Monitoring server IP (MON-ATL-01) for health check probes
+HEALTH_CHECK_IP = "10.20.20.30"
+HEALTH_CHECK_UA = "Nagios/4.4.6 (health_check)"
+HEALTH_PATHS = ["/health", "/health/db", "/health/cache"]
+
+# Bot crawl paths
+BOT_CRAWL_PATHS = [
+    "/robots.txt", "/sitemap.xml", "/sitemap_products.xml",
+    "/favicon.ico", "/.well-known/security.txt",
+]
+
+
+def generate_health_check_events(base_date: str, day: int, hour: int) -> List[str]:
+    """Generate monitoring health check probes from MON-ATL-01.
+
+    ~2 probes per minute (every 30s), cycling through health endpoints.
+    Returns list of Apache combined log lines.
+    """
+    events = []
+    dt = date_add(base_date, day)
+
+    for minute in range(60):
+        for sec_offset in (0, 30):
+            second = sec_offset + random.randint(0, 3)
+            ts = format_apache_time(dt.replace(hour=hour, minute=minute, second=min(second, 59)))
+            path = random.choice(HEALTH_PATHS)
+            # Health checks are fast and always succeed (unless scenario overrides)
+            rt = random.randint(2, 8)
+            size = random.randint(50, 200)
+            line = (
+                f'{HEALTH_CHECK_IP} - - {ts} "GET {path} HTTP/1.1" 200 {size} '
+                f'"-" "{HEALTH_CHECK_UA}" response_time={rt}'
+            )
+            events.append(line)
+
+    return events
+
+
+def generate_bot_crawl_events(base_date: str, day: int, hour: int) -> List[str]:
+    """Generate search engine bot crawl requests.
+
+    ~2-5 per hour for robots.txt, sitemap.xml, etc.
+    """
+    events = []
+    dt = date_add(base_date, day)
+    count = random.randint(2, 5)
+
+    for _ in range(count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts = format_apache_time(dt.replace(hour=hour, minute=minute, second=second))
+        path = random.choice(BOT_CRAWL_PATHS)
+        ua = random.choice(BOT_AGENTS)
+        rt = random.randint(5, 25)
+        size = random.randint(200, 5000) if path != "/favicon.ico" else random.randint(1000, 4000)
+        status = 200
+        # ~5% chance of 404 for bots hitting non-existent paths
+        if random.random() < 0.05:
+            status = 404
+            size = random.randint(200, 500)
+        line = (
+            f'{"66.249." + str(random.randint(64, 95)) + "." + str(random.randint(1, 254))} '
+            f'- - {ts} "GET {path} HTTP/1.1" {status} {size} "-" "{ua}" response_time={rt}'
+        )
+        events.append(line)
+
+    return events
 
 
 # =============================================================================
@@ -662,6 +737,12 @@ def generate_access_logs(
                         error_rate=error_rate,
                         demo_id=demo_id if error_rate > 0 else None
                     ))
+
+            # Health check probes from MON-ATL-01 (every 30s, all hours)
+            all_events.extend(generate_health_check_events(start_date, day, hour))
+
+            # Search engine bot crawls (2-5 per hour)
+            all_events.extend(generate_bot_crawl_events(start_date, day, hour))
 
         if not quiet:
             print(f"  [Access] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)

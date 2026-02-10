@@ -42,6 +42,7 @@ OUTPUT_DIRS = {
     "retail": OUTPUT_BASE / "retail",
     "servicebus": OUTPUT_BASE / "servicebus",
     "itsm": OUTPUT_BASE / "itsm",
+    "erp": OUTPUT_BASE / "erp",
 }
 
 # Output filenames
@@ -119,6 +120,7 @@ GENERATOR_OUTPUT_FILES = {
         "linux/df.log",
         "linux/iostat.log",
         "linux/interfaces.log",
+        "linux/auth.log",
     ],
     "mssql": ["windows/mssql_errorlog.log"],
     "sysmon": ["windows/sysmon_operational.log"],
@@ -128,6 +130,7 @@ GENERATOR_OUTPUT_FILES = {
         "itsm/servicenow_change.log",
     ],
     "office_audit": ["cloud/office_audit.json"],
+    "sap": ["erp/sap_audit.log"],
 }
 
 # =============================================================================
@@ -241,6 +244,7 @@ def set_output_base(base_path: Path):
         "retail": OUTPUT_BASE / "retail",
         "servicebus": OUTPUT_BASE / "servicebus",
         "itsm": OUTPUT_BASE / "itsm",
+        "erp": OUTPUT_BASE / "erp",
     }
 
 

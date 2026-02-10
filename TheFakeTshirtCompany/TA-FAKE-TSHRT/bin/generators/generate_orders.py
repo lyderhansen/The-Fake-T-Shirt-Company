@@ -44,6 +44,29 @@ FREE_SHIPPING_THRESHOLD = 50
 
 PAYMENT_METHODS = ["Visa", "Mastercard", "American Express", "PayPal", "Apple Pay", "Google Pay"]
 
+# Order failure configuration
+# ~5% payment declined, ~1% fraud detected, ~1% address invalid = ~7% total failure rate
+ORDER_FAILURE_TYPES = [
+    ("payment_declined", 0.05, [
+        "Insufficient funds",
+        "Card expired",
+        "Card number invalid",
+        "Transaction limit exceeded",
+        "Do not honor",
+    ]),
+    ("fraud_detected", 0.01, [
+        "Velocity check failed: too many orders from IP in 1 hour",
+        "Address mismatch: billing/shipping country different",
+        "Device fingerprint flagged",
+        "High-risk BIN detected",
+    ]),
+    ("address_invalid", 0.01, [
+        "ZIP/postal code does not match state/region",
+        "Address validation failed: street not found",
+        "PO Box not accepted for this product type",
+    ]),
+]
+
 # =============================================================================
 # CUSTOMER DATA - UNITED STATES (70%)
 # =============================================================================
@@ -355,13 +378,80 @@ def generate_order_events(registry_entry: Dict) -> List[Dict]:
     if scenario and scenario != "none":
         base_event["demo_id"] = scenario
 
+    # Check for order failure (only baseline orders, not scenario-tagged)
+    failure_type = None
+    failure_reason = None
+    if not scenario or scenario == "none":
+        roll = random.random()
+        cumulative = 0.0
+        for ftype, frate, freasons in ORDER_FAILURE_TYPES:
+            cumulative += frate
+            if roll < cumulative:
+                failure_type = ftype
+                failure_reason = random.choice(freasons)
+                break
+
     # Generate separate events for each status
     events = []
 
-    # Event 1: created
+    # Event 1: created (always happens)
     event_created = {**base_event, "status": "created", "timestamp": ts_created.strftime("%Y-%m-%dT%H:%M:%SZ")}
     events.append(event_created)
 
+    # Handle failures — order stops at the failure point
+    if failure_type == "payment_declined":
+        # Payment fails — order stops after created + payment_declined
+        event_failed = {
+            **base_event,
+            "status": "payment_declined",
+            "timestamp": ts_payment.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "payment": {
+                "method": payment_method,
+                "transactionId": txn_id,
+                "declineReason": failure_reason,
+            },
+            "failureType": "payment_declined",
+            "failureReason": failure_reason,
+        }
+        events.append(event_failed)
+        return events, region, 0  # No revenue for failed orders
+
+    elif failure_type == "fraud_detected":
+        # Fraud detected during payment — order cancelled
+        event_fraud = {
+            **base_event,
+            "status": "cancelled",
+            "timestamp": ts_payment.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "failureType": "fraud_detected",
+            "failureReason": failure_reason,
+        }
+        events.append(event_fraud)
+        return events, region, 0
+
+    elif failure_type == "address_invalid":
+        # Created → payment OK → address validation fails during processing
+        event_payment = {
+            **base_event,
+            "status": "payment_confirmed",
+            "timestamp": ts_payment.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "payment": {
+                "method": payment_method,
+                "transactionId": txn_id
+            }
+        }
+        events.append(event_payment)
+
+        event_addr_fail = {
+            **base_event,
+            "status": "address_validation_failed",
+            "timestamp": ts_processing.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "failureType": "address_invalid",
+            "failureReason": failure_reason,
+        }
+        events.append(event_addr_fail)
+        return events, region, 0
+
+    # Successful order — full lifecycle
     # Event 2: payment_confirmed
     event_payment = {
         **base_event,
@@ -451,6 +541,7 @@ def generate_orders(
     region_revenue = {"US": 0, "UK": 0, "DE": 0, "FR": 0, "NL": 0, "NO": 0}
     total_revenue = 0
     order_count = 0
+    failed_orders = {"payment_declined": 0, "fraud_detected": 0, "address_invalid": 0}
 
     for i, entry in enumerate(order_registry):
         if not quiet and (i + 1) % 100 == 0:
@@ -459,6 +550,13 @@ def generate_orders(
         events, region, total = generate_order_events(entry)
         all_events.extend(events)
         order_count += 1
+
+        # Count failures
+        for e in events:
+            ft = e.get("failureType")
+            if ft and ft in failed_orders:
+                failed_orders[ft] += 1
+                break  # Only count once per order
 
         region_counts[region] += 1
         region_revenue[region] += total
@@ -475,10 +573,16 @@ def generate_orders(
     event_count = len(all_events)
 
     if not quiet:
+        total_failed = sum(failed_orders.values())
         print(f"\n  Complete!", file=sys.stderr)
-        print(f"  Orders: {order_count:,}", file=sys.stderr)
-        print(f"  Events: {event_count:,} (5 per order)", file=sys.stderr)
+        print(f"  Orders: {order_count:,} ({order_count - total_failed:,} successful, {total_failed:,} failed)", file=sys.stderr)
+        print(f"  Events: {event_count:,}", file=sys.stderr)
         print(f"  Revenue: ${total_revenue:,} USD", file=sys.stderr)
+        if total_failed:
+            print(f"\n  Failures:", file=sys.stderr)
+            for ftype, fcount in failed_orders.items():
+                if fcount > 0:
+                    print(f"    {ftype}: {fcount} ({fcount * 100 // order_count}%)", file=sys.stderr)
         print(f"\n  By Region:", file=sys.stderr)
         for region in ["US", "UK", "DE", "FR", "NL", "NO"]:
             count = region_counts[region]

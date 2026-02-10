@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Linux System Metrics Generator.
+Linux System Metrics Generator + Auth Log Generator.
 Generates CPU, memory, disk, and network metrics with natural variation.
+Also generates auth.log events (SSH, sudo, cron, systemd) for Linux servers.
 
 Includes scenario support:
   - exfil: High CPU/memory during staging, high network during exfiltration
@@ -17,8 +18,8 @@ from typing import List, Dict, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import Config, DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
-from shared.time_utils import TimeUtils, ts_linux, date_add, get_hour_activity_level, is_weekend
-from shared.company import Company, LINUX_SERVERS, SERVERS
+from shared.time_utils import TimeUtils, ts_linux, date_add, get_hour_activity_level, is_weekend, calc_natural_events
+from shared.company import Company, LINUX_SERVERS, SERVERS, USERS, USER_KEYS, get_random_user
 from scenarios.security import ExfilScenario
 from scenarios.ops import MemoryLeakScenario
 from scenarios.ops.disk_filling import DiskFillingScenario
@@ -226,6 +227,301 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
 
 
 # =============================================================================
+# AUTH.LOG CONFIGURATION
+# =============================================================================
+
+# SSH key types for publickey auth
+SSH_KEY_TYPES = ["RSA", "ED25519", "ECDSA"]
+
+# Linux admin/service users that SSH into servers
+LINUX_ADMIN_USERS = ["root", "svc.deploy", "svc.monitor", "ansible"]
+
+# Cron jobs per server (host -> list of (minute, user, command))
+CRON_JOBS = {
+    "WEB-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (5, "www-data", "/usr/local/bin/cleanup_sessions.sh"),
+        (15, "root", "/usr/local/bin/ssl_check.sh"),
+        (30, "root", "/usr/bin/certbot renew --quiet"),
+    ],
+    "WEB-02": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (5, "www-data", "/usr/local/bin/cleanup_sessions.sh"),
+    ],
+    "MON-ATL-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (5, "nagios", "/usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg"),
+        (10, "root", "/usr/local/bin/backup_configs.sh"),
+        (30, "root", "/usr/local/bin/disk_cleanup.sh"),
+        (45, "root", "/usr/local/bin/health_report.sh"),
+    ],
+    "DEV-ATL-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (15, "jenkins", "/usr/local/bin/prune_builds.sh"),
+    ],
+    "DEV-ATL-02": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+    ],
+    "PROXY-BOS-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (10, "root", "/usr/local/bin/update_blocklists.sh"),
+        (30, "root", "/usr/local/bin/squid_cache_purge.sh"),
+    ],
+    "BASTION-BOS-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (15, "root", "/usr/local/bin/session_audit.sh"),
+    ],
+    "SAP-PROD-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (5, "sapadm", "/usr/sap/scripts/sapcontrol_check.sh"),
+    ],
+    "SAP-DB-01": [
+        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
+        (5, "hdbadm", "/usr/sap/HDB/HDB00/exe/sapcontrol -prot NI_HTTP -nr 00 -function GetProcessList"),
+        (30, "root", "/usr/local/bin/hana_backup_check.sh"),
+    ],
+}
+
+# Systemd services per server
+SYSTEMD_SERVICES = {
+    "WEB-01": ["nginx", "php-fpm", "redis-server", "fail2ban"],
+    "WEB-02": ["nginx", "php-fpm", "redis-server", "fail2ban"],
+    "MON-ATL-01": ["nagios", "snmpd", "rsyslog", "prometheus-node-exporter"],
+    "DEV-ATL-01": ["jenkins", "docker", "containerd"],
+    "DEV-ATL-02": ["docker", "containerd"],
+    "PROXY-BOS-01": ["squid", "fail2ban", "rsyslog"],
+    "BASTION-BOS-01": ["sshd", "fail2ban", "auditd"],
+    "SAP-PROD-01": ["sapstartsrv", "sapinit"],
+    "SAP-DB-01": ["sapstartsrv", "sapinit", "hdbdaemon"],
+}
+
+# Sudo commands run by admins
+SUDO_COMMANDS = [
+    "systemctl status nginx",
+    "systemctl restart php-fpm",
+    "tail -100 /var/log/syslog",
+    "journalctl -u nginx --since '1 hour ago'",
+    "cat /etc/hosts",
+    "netstat -tlnp",
+    "df -h",
+    "free -m",
+    "top -bn1 | head -20",
+    "cat /var/log/auth.log | tail -50",
+    "iptables -L -n",
+    "apt list --upgradable",
+    "yum check-update",
+    "docker ps",
+    "ps aux | grep java",
+]
+
+# Failed SSH source IPs (internet scanners — low baseline noise)
+SSH_SCANNER_IPS = [
+    "45.227.255.10", "103.45.67.89", "198.51.100.42",
+    "91.134.56.78", "185.156.73.44", "112.85.42.105",
+]
+SSH_SCANNER_USERS = [
+    "root", "admin", "test", "ubuntu", "oracle", "postgres",
+    "ftpuser", "mysql", "git", "deploy",
+]
+
+# Base auth events per peak hour per host
+AUTH_BASE_EVENTS_PER_PEAK_HOUR = 8
+
+
+# =============================================================================
+# AUTH.LOG EVENT GENERATORS
+# =============================================================================
+
+def _auth_ts(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
+    """Generate auth.log timestamp: 'Jan  5 14:23:45'."""
+    dt = date_add(base_date, day).replace(hour=hour, minute=minute, second=second)
+    # Auth.log uses abbreviated month, space-padded day
+    return dt.strftime("%b %e %H:%M:%S")
+
+
+def auth_ssh_accepted(base_date: str, day: int, hour: int, minute: int, second: int,
+                      host: str, user: str, source_ip: str,
+                      auth_method: str = "publickey",
+                      demo_id: str = "") -> str:
+    """Generate successful SSH login event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    port = random.randint(49152, 65535)
+
+    if auth_method == "publickey":
+        key_type = random.choice(SSH_KEY_TYPES)
+        key_fp = ":".join(f"{random.randint(0, 255):02x}" for _ in range(16))
+        line = f"{ts} {host} sshd[{random.randint(1000, 30000)}]: Accepted publickey for {user} from {source_ip} port {port} ssh2: {key_type} SHA256:{key_fp}"
+    else:
+        line = f"{ts} {host} sshd[{random.randint(1000, 30000)}]: Accepted password for {user} from {source_ip} port {port} ssh2"
+
+    if demo_id:
+        line += f" demo_id={demo_id}"
+    return line
+
+
+def auth_ssh_failed(base_date: str, day: int, hour: int, minute: int, second: int,
+                    host: str, user: str, source_ip: str,
+                    demo_id: str = "") -> str:
+    """Generate failed SSH login event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    port = random.randint(49152, 65535)
+    line = f"{ts} {host} sshd[{random.randint(1000, 30000)}]: Failed password for {'invalid user ' if user in SSH_SCANNER_USERS else ''}{user} from {source_ip} port {port} ssh2"
+    if demo_id:
+        line += f" demo_id={demo_id}"
+    return line
+
+
+def auth_sudo(base_date: str, day: int, hour: int, minute: int, second: int,
+              host: str, user: str, command: str,
+              demo_id: str = "") -> str:
+    """Generate sudo command execution event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    line = f"{ts} {host} sudo: {user} : TTY=pts/{random.randint(0, 5)} ; PWD=/home/{user} ; USER=root ; COMMAND={command}"
+    if demo_id:
+        line += f" demo_id={demo_id}"
+    return line
+
+
+def auth_cron(base_date: str, day: int, hour: int, minute: int, second: int,
+              host: str, user: str, command: str) -> str:
+    """Generate cron job execution event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    return f"{ts} {host} CRON[{random.randint(10000, 50000)}]: ({user}) CMD ({command})"
+
+
+def auth_systemd(base_date: str, day: int, hour: int, minute: int, second: int,
+                 host: str, service: str, action: str) -> str:
+    """Generate systemd service event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    if action == "started":
+        return f"{ts} {host} systemd[1]: Started {service}.service - {service} service."
+    elif action == "stopped":
+        return f"{ts} {host} systemd[1]: Stopped {service}.service - {service} service."
+    elif action == "reloaded":
+        return f"{ts} {host} systemd[1]: Reloading {service}.service - {service} service..."
+    return f"{ts} {host} systemd[1]: {service}.service: {action}"
+
+
+def auth_session_open(base_date: str, day: int, hour: int, minute: int, second: int,
+                      host: str, user: str, session_id: int) -> str:
+    """Generate PAM session open event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    return f"{ts} {host} systemd-logind[{random.randint(500, 2000)}]: New session {session_id} of user {user}."
+
+
+def auth_session_close(base_date: str, day: int, hour: int, minute: int, second: int,
+                       host: str, user: str, session_id: int) -> str:
+    """Generate PAM session close event."""
+    ts = _auth_ts(base_date, day, hour, minute, second)
+    return f"{ts} {host} systemd-logind[{random.randint(500, 2000)}]: Session {session_id} logged out. Waiting for processes to exit."
+
+
+# =============================================================================
+# AUTH.LOG BASELINE GENERATION
+# =============================================================================
+
+def generate_auth_hour(base_date: str, day: int, hour: int, host: str,
+                       scale: float = 1.0) -> List[str]:
+    """Generate auth.log events for one host for one hour.
+
+    Event mix:
+    - SSH accepted (publickey from admins/deploy) ~30%
+    - SSH failed (internet scanners, low) ~10%
+    - sudo commands ~20%
+    - cron jobs (deterministic per-hour) ~20%
+    - systemd service events ~10%
+    - session open/close ~10%
+    """
+    events = []
+    dt = date_add(base_date, day)
+    is_wknd = is_weekend(dt)
+
+    # Calculate event count with natural variation
+    event_count = calc_natural_events(
+        max(1, int(AUTH_BASE_EVENTS_PER_PEAK_HOUR * scale)),
+        base_date, day, hour, "windows"  # use windows activity curve
+    )
+
+    session_counter = day * 100 + hour * 4 + random.randint(1, 10)
+
+    # --- Cron jobs (deterministic — at specific minutes each hour) ---
+    host_crons = CRON_JOBS.get(host, [])
+    for cron_minute, cron_user, cron_cmd in host_crons:
+        events.append(auth_cron(base_date, day, hour, cron_minute,
+                                random.randint(0, 2), host, cron_user, cron_cmd))
+
+    # --- SSH accepted (admin logins) ---
+    ssh_count = max(0, int(event_count * 0.25))
+    for _ in range(ssh_count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        # IT admins SSH into servers
+        admin_user = random.choice(LINUX_ADMIN_USERS)
+        # Source IP: internal management network
+        source_ip = f"10.10.10.{random.randint(2, 50)}"
+
+        events.append(auth_ssh_accepted(base_date, day, hour, minute, second,
+                                        host, admin_user, source_ip, "publickey"))
+        # Session open
+        session_counter += 1
+        events.append(auth_session_open(base_date, day, hour, minute,
+                                        min(59, second + 1), host, admin_user,
+                                        session_counter))
+
+        # Session close (some time later)
+        if random.random() < 0.6:
+            close_minute = min(59, minute + random.randint(5, 30))
+            events.append(auth_session_close(base_date, day, hour, close_minute,
+                                             random.randint(0, 59), host,
+                                             admin_user, session_counter))
+
+    # --- SSH failed (internet scanner noise) ---
+    # Only on hosts with external exposure (web servers, bastion)
+    if host in ("WEB-01", "WEB-02", "BASTION-BOS-01"):
+        # Low but consistent: 1-4 per hour, heavier at night
+        if hour < 6 or hour > 22:
+            fail_count = random.randint(2, 6)
+        else:
+            fail_count = random.randint(0, 3)
+
+        for _ in range(fail_count):
+            minute = random.randint(0, 59)
+            second = random.randint(0, 59)
+            scanner_ip = random.choice(SSH_SCANNER_IPS)
+            scanner_user = random.choice(SSH_SCANNER_USERS)
+            events.append(auth_ssh_failed(base_date, day, hour, minute, second,
+                                          host, scanner_user, scanner_ip))
+
+    # --- sudo commands ---
+    sudo_count = max(0, int(event_count * 0.2))
+    if is_wknd:
+        sudo_count = max(0, sudo_count // 3)
+    for _ in range(sudo_count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        admin_user = random.choice(LINUX_ADMIN_USERS[:2])  # root, svc.deploy
+        cmd = random.choice(SUDO_COMMANDS)
+        events.append(auth_sudo(base_date, day, hour, minute, second,
+                                host, admin_user, cmd))
+
+    # --- systemd service events ---
+    host_services = SYSTEMD_SERVICES.get(host, [])
+    if host_services:
+        # Service restarts/reloads: rare
+        if random.random() < 0.08:
+            minute = random.randint(0, 59)
+            second = random.randint(0, 59)
+            service = random.choice(host_services)
+            action = random.choice(["reloaded", "started"])
+            events.append(auth_systemd(base_date, day, hour, minute, second,
+                                       host, service, action))
+
+    # Sort by timestamp (minute:second extracted from the auth.log timestamp)
+    events.sort(key=lambda e: e.split(host)[0] if host in e else "")
+    return events
+
+
+# =============================================================================
 # MAIN GENERATOR
 # =============================================================================
 
@@ -286,6 +582,9 @@ def generate_linux_logs(
         "interfaces": [],
     }
 
+    # Auth.log events (separate collection)
+    auth_events = []
+
     for day in range(days):
         dt = date_add(start_date, day)
         is_wknd = is_weekend(dt)
@@ -310,6 +609,13 @@ def generate_linux_logs(
                     for metric_type, lines in metrics.items():
                         all_metrics[metric_type].extend(lines)
 
+            # Auth.log events (once per hour, not per interval)
+            for host in LINUX_SERVERS:
+                auth_hour_events = generate_auth_hour(
+                    start_date, day, hour, host, scale
+                )
+                auth_events.extend(auth_hour_events)
+
         if not quiet:
             print(f"  [Linux] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
 
@@ -322,8 +628,16 @@ def generate_linux_logs(
                 f.write(line + "\n")
         total_events += len(lines)
 
+    # Write auth.log
+    auth_path = out_dir / "auth.log"
+    with open(auth_path, "w") as f:
+        for line in auth_events:
+            f.write(line + "\n")
+    auth_count = len(auth_events)
+    total_events += auth_count
+
     if not quiet:
-        print(f"  [Linux] Complete! {total_events:,} metric samples written", file=sys.stderr)
+        print(f"  [Linux] Complete! {total_events:,} events ({total_events - auth_count:,} metrics + {auth_count:,} auth.log)", file=sys.stderr)
 
     return total_events
 

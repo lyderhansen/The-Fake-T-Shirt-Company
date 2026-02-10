@@ -3,6 +3,14 @@
 Windows Performance Monitor Generator.
 Generates CPU, memory, disk, and network metrics for Windows servers and clients.
 
+Includes:
+  - Processor (% Processor Time, % User Time, % Privileged Time, % Idle Time)
+  - Memory (Available MBytes, % Committed Bytes In Use, Cache Bytes, Pages/sec)
+  - LogicalDisk (% Free Space, Free Megabytes, % Disk Time, Current Disk Queue Length)
+  - Network Interface (Bytes Received/sec, Bytes Sent/sec)
+  - SQL Server counters on SQL-PROD-01 (Batch Requests/sec, Page Life Expectancy,
+    Buffer Cache Hit Ratio, Lock Waits/sec)
+
 Options:
   --clients N          Number of client workstations (default: 5, min: 5, max: 175)
   --client-interval N  Interval in minutes for non-scenario clients (default: 30, min: 5, max: 60)
@@ -124,6 +132,12 @@ def memory_metric(ts: str, host: str, ram_min: int, ram_max: int,
     events.append(format_perfmon_event(ts, host, "Memory", "Memory", "% Committed Bytes In Use", "_Total", ram, demo_id))
     events.append(format_perfmon_event(ts, host, "Memory", "Memory", "Cache Bytes", "_Total", cache_mb * 1024 * 1024, demo_id))
 
+    # Pages/sec: indicates paging (memory pressure). Normal: 0-50. High: >100.
+    pages_per_sec = random.uniform(0, 20) * (0.5 + 0.5 * hour_mult)
+    if scenario_override and ram > 85:
+        pages_per_sec = random.uniform(100, 500)  # Heavy paging during memory pressure
+    events.append(format_perfmon_event(ts, host, "Memory", "Memory", "Pages/sec", "_Total", pages_per_sec, demo_id))
+
     return events
 
 
@@ -140,9 +154,15 @@ def disk_metric(ts: str, host: str, total_gb: int, hour_mult: float,
     if disk_busy:
         disk_time = min(95, disk_time * 3)  # High disk time during scenario
 
+    # Current Disk Queue Length: 0-2 normal, >5 = bottleneck
+    disk_queue = random.uniform(0, 2) * hour_mult
+    if disk_busy:
+        disk_queue = random.uniform(5, 20)  # Heavy queuing during scenario
+
     events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "% Free Space", "C:", 100 - used_pct, demo_id))
     events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "Free Megabytes", "C:", free_mb, demo_id))
     events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "% Disk Time", "C:", disk_time, demo_id))
+    events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "Current Disk Queue Length", "C:", disk_queue, demo_id))
 
     return events
 
@@ -187,11 +207,20 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
         # When scenario is active, don't apply hour_mult reduction
         scenario_override = demo_id is not None
 
+    proc_events = processor_metric(ts, host, cpu_min, cpu_max, hour_mult, demo_id, scenario_override)
+    mem_events = memory_metric(ts, host, ram_min, ram_max, ram_mb, hour_mult, demo_id, scenario_override)
+    disk_events = disk_metric(ts, host, disk_gb, hour_mult, demo_id, disk_busy, io_mult)
+    net_events = network_metric(ts, host, hour_mult, demo_id)
+
+    # SQL Server-specific counters (SQL-PROD-01 only)
+    sql_events = sql_server_metrics(ts, host, hour_mult, demo_id, scenario_override)
+    proc_events.extend(sql_events)  # Append SQL metrics to processor file
+
     metrics = {
-        "processor": processor_metric(ts, host, cpu_min, cpu_max, hour_mult, demo_id, scenario_override),
-        "memory": memory_metric(ts, host, ram_min, ram_max, ram_mb, hour_mult, demo_id, scenario_override),
-        "disk": disk_metric(ts, host, disk_gb, hour_mult, demo_id, disk_busy, io_mult),
-        "network": network_metric(ts, host, hour_mult, demo_id),
+        "processor": proc_events,
+        "memory": mem_events,
+        "disk": disk_events,
+        "network": net_events,
     }
 
     return metrics
@@ -201,19 +230,94 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
 # SERVER CONFIGURATION
 # =============================================================================
 
+# RAM and disk sizes per server (overrides default 16GB / 256GB)
 SERVER_RAM_MB = {
-    "DC-01": 16384,
-    "DC-02": 16384,
-    "FILE-01": 32768,
+    "DC-BOS-01": 16384,
+    "DC-BOS-02": 16384,
+    "FILE-BOS-01": 32768,
     "SQL-PROD-01": 65536,
+    "APP-BOS-01": 32768,
+    "WSUS-BOS-01": 16384,
+    "RADIUS-BOS-01": 8192,
+    "PRINT-BOS-01": 8192,
+    "DC-ATL-01": 16384,
+    "BACKUP-ATL-01": 32768,
 }
 
 SERVER_DISK_GB = {
-    "DC-01": 256,
-    "DC-02": 256,
-    "FILE-01": 2048,
+    "DC-BOS-01": 256,
+    "DC-BOS-02": 256,
+    "FILE-BOS-01": 2048,
     "SQL-PROD-01": 1024,
+    "APP-BOS-01": 512,
+    "WSUS-BOS-01": 1024,    # WSUS needs large disk for update packages
+    "RADIUS-BOS-01": 128,
+    "PRINT-BOS-01": 256,
+    "DC-ATL-01": 256,
+    "BACKUP-ATL-01": 4096,  # Backup server has large storage
 }
+
+
+# =============================================================================
+# SQL SERVER COUNTERS (SQL-PROD-01 only)
+# =============================================================================
+
+def sql_server_metrics(ts: str, host: str, hour_mult: float,
+                       demo_id: str = None, scenario_override: bool = False) -> List[str]:
+    """Generate SQL Server-specific performance counters.
+
+    Only applicable to SQL-PROD-01. Includes:
+    - Batch Requests/sec: 50-500 (scales with activity)
+    - Page Life Expectancy: 300-5000 (lower = memory pressure)
+    - Buffer Cache Hit Ratio: 95-99.9% (healthy)
+    - Lock Waits/sec: 0-5 (low in baseline)
+    """
+    events = []
+    if host != "SQL-PROD-01":
+        return events
+
+    # Batch Requests/sec: scales with business activity
+    base_batch = random.uniform(50, 200)
+    if scenario_override:
+        batch = base_batch * 3  # Higher during scenario
+    else:
+        batch = base_batch * (0.3 + 0.7 * hour_mult)
+    events.append(format_perfmon_event(ts, host, "SQLServer:SQL Statistics",
+                                        "SQLServer:SQL Statistics",
+                                        "Batch Requests/sec", "_Total",
+                                        batch, demo_id))
+
+    # Page Life Expectancy: higher = healthier (300 is concerning)
+    # Healthy baseline: 2000-5000. Lower during high activity.
+    base_ple = random.uniform(2000, 5000)
+    if scenario_override:
+        ple = random.uniform(100, 500)  # Memory pressure during scenario
+    else:
+        ple = base_ple * (0.5 + 0.5 * (1.0 - hour_mult))  # Inverse: busier = lower PLE
+    events.append(format_perfmon_event(ts, host, "SQLServer:Buffer Manager",
+                                        "SQLServer:Buffer Manager",
+                                        "Page life expectancy", "",
+                                        max(100, ple), demo_id))
+
+    # Buffer Cache Hit Ratio: 95-99.9% is healthy
+    cache_hit = random.uniform(97.0, 99.9)
+    if scenario_override:
+        cache_hit = random.uniform(85.0, 95.0)  # Lower during scenario
+    events.append(format_perfmon_event(ts, host, "SQLServer:Buffer Manager",
+                                        "SQLServer:Buffer Manager",
+                                        "Buffer cache hit ratio", "",
+                                        cache_hit, demo_id))
+
+    # Lock Waits/sec: 0-5 in baseline
+    lock_waits = random.uniform(0, 3) * hour_mult
+    if scenario_override:
+        lock_waits = random.uniform(10, 50)  # High lock contention during scenario
+    events.append(format_perfmon_event(ts, host, "SQLServer:Locks",
+                                        "SQLServer:Locks",
+                                        "Lock Waits/sec", "_Total",
+                                        lock_waits, demo_id))
+
+    return events
 
 
 # =============================================================================

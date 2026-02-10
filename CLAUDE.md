@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office), producing correlated events across 18 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT), cloud (AWS CloudTrail, GCP Audit, Entra ID), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Perfmon, Linux), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
+**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office) and 19 servers, producing correlated events across 20 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT), cloud (AWS CloudTrail, GCP Audit, Entra ID), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Sysmon, Perfmon, MSSQL, Linux), ERP (SAP S/4HANA), ITSM (ServiceNow), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
 
 ## Output Preferences
 
@@ -89,7 +89,7 @@ The-Fake-T-Shirt-Company/
     │   ├── bin/                  # Python code
     │   │   ├── main_generate.py  # CLI orchestrator (parallel execution)
     │   │   ├── tui_generate.py   # Interactive TUI (curses-based)
-    │   │   ├── generators/       # 18 data source generators
+    │   │   ├── generators/       # 20 data source generators
     │   │   ├── scenarios/        # Scenario implementations + registry
     │   │   ├── shared/           # Config, company data, time utils
     │   │   └── output/           # Generated log files (gitignored)
@@ -119,7 +119,7 @@ The-Fake-T-Shirt-Company/
 
 ## Available Log Sources
 
-18 generators producing correlated log data:
+20 generators producing correlated log data:
 
 | Source | Generator | Output Format | Splunk Sourcetype |
 |--------|-----------|---------------|-------------------|
@@ -143,16 +143,20 @@ The-Fake-T-Shirt-Company/
 | **Windows** |
 | Perfmon | generate_perfmon.py | Multiline KV | perfmon |
 | WinEventLog | generate_wineventlog.py | XML | XmlWinEventLog |
+| Sysmon | generate_sysmon.py | XML | XmlWinEventLog:Microsoft-Windows-Sysmon/Operational |
+| MSSQL | generate_mssql.py | Multiline | mssql:errorlog |
 | **Linux** |
-| vmstat/df/iostat | generate_linux.py | Syslog KV | linux:* |
+| vmstat/df/iostat/auth | generate_linux.py | Syslog KV | linux:* |
 | **Web/Retail** |
 | Apache Access | generate_access.py | Combined log | access_combined |
 | Orders | generate_orders.py | JSON | retail:orders |
 | ServiceBus | generate_servicebus.py | JSON | azure:servicebus |
+| **ERP** |
+| SAP S/4HANA | generate_sap.py | Pipe-delimited | sap:auditlog |
 | **ITSM** |
 | ServiceNow | generate_servicenow.py | Key-value | servicenow:incident |
 
-**Dependencies:** orders and servicebus depend on access (via order_registry.json).
+**Dependencies:** orders, servicebus, and sap depend on access (via order_registry.json).
 
 ## CLI Options
 
@@ -195,12 +199,13 @@ The TUI also has a `[TEST]/[PROD]` toggle in the Configuration section.
 - `all` - All sources
 - `cloud` - aws, gcp, entraid
 - `network` - asa, meraki
-- `windows` - wineventlog, perfmon
+- `windows` - wineventlog, perfmon, mssql, sysmon
 - `linux` - linux
 - `web` - access
 - `office` - office_audit, exchange
 - `email` - exchange
 - `retail` - orders, servicebus
+- `erp` - sap
 - `collaboration` - webex, webex_ta, webex_api
 - `itsm` - servicenow
 
@@ -337,17 +342,38 @@ Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
 - Location: Frankfurt, Germany
 - ASN: AS205100 (F3 Netze e.V.)
 
-### Key Servers
+### Key Servers (19 total)
 
-| Hostname | Role | Location | OS |
-|----------|------|----------|-----|
-| BOS-DC-01, BOS-DC-02 | Domain Controllers | Boston | Windows |
-| BOS-FILE-01 | File Server | Boston | Windows |
-| SQL-PROD-01 | SQL Database | Boston | Windows |
-| ATL-DC-01 | Domain Controller | Atlanta | Windows |
-| ATL-FILE-01 | File Server | Atlanta | Windows |
-| WEB-01, WEB-02 | Web Servers | Boston DMZ | Linux |
-| MON-ATL-01 | Monitoring Server | Atlanta | Linux |
+**Boston HQ (10.10.x.x) — 14 servers:**
+
+| Hostname | IP | Role | OS |
+|----------|-----|------|-----|
+| DC-BOS-01 | 10.10.20.10 | Domain Controller | Windows |
+| DC-BOS-02 | 10.10.20.11 | Domain Controller | Windows |
+| FILE-BOS-01 | 10.10.20.20 | File Server | Windows |
+| SQL-PROD-01 | 10.10.20.30 | SQL Database | Windows |
+| APP-BOS-01 | 10.10.20.40 | Application Server (IIS/.NET) | Windows |
+| WSUS-BOS-01 | 10.10.20.50 | WSUS Patch Server | Windows |
+| RADIUS-BOS-01 | 10.10.20.51 | RADIUS NPS Server | Windows |
+| PROXY-BOS-01 | 10.10.20.52 | Web Proxy | Linux |
+| PRINT-BOS-01 | 10.10.20.53 | Print Server | Windows |
+| SAP-PROD-01 | 10.10.20.60 | SAP Application Server | Linux |
+| SAP-DB-01 | 10.10.20.61 | SAP HANA Database | Linux |
+| BASTION-BOS-01 | 10.10.10.10 | Bastion Host (management subnet) | Linux |
+| WEB-01 | 172.16.1.10 | Web Server (DMZ) | Linux |
+| WEB-02 | 172.16.1.11 | Web Server (DMZ) | Linux |
+
+**Atlanta Hub (10.20.x.x) — 5 servers:**
+
+| Hostname | IP | Role | OS |
+|----------|-----|------|-----|
+| DC-ATL-01 | 10.20.20.10 | Domain Controller | Windows |
+| BACKUP-ATL-01 | 10.20.20.20 | Backup Server | Windows |
+| MON-ATL-01 | 10.20.20.30 | Monitoring Server | Linux |
+| DEV-ATL-01 | 10.20.20.40 | Dev/Test Server | Linux |
+| DEV-ATL-02 | 10.20.20.41 | Dev/Test Server | Linux |
+
+**Austin (10.30.x.x) — 0 servers** (branch office, no local infrastructure)
 
 ## Shared Utilities (bin/shared/)
 
@@ -416,6 +442,13 @@ demo_host=SQL-PROD-01
 ### ServiceNow Key-Value
 ```
 number="INC0001234" state="In Progress" priority="2" short_description="CPU runaway on SQL-PROD-01" assignment_group="IT Operations"
+```
+
+### SAP Audit Log (Pipe-delimited)
+```
+2026-01-05 14:23:45|SAP-PROD-01|DIA|alex.miller|VA01|S|Create Sales Order|SO-2026-00123|Sales order created for customer C-10042, 3 items, total $234.56
+2026-01-05 14:24:12|SAP-PROD-01|DIA|warehouse.user|MIGO|S|Goods Receipt 101|MAT-2026-04567|GR for PO 456, material M-0001 "Hack the Planet Tee", qty 500
+2026-01-05 02:00:05|SAP-PROD-01|BTC|sap.batch|SM37|S|Background Job Complete|MRP_NIGHTLY_RUN|MRP run completed, planned orders: 12, processing time: 847s
 ```
 
 ### Webex TA JSON (Meetings History)
@@ -618,6 +651,12 @@ index=windows demo_host="SQL-PROD-01" | timechart avg(Value) by counter
 
 # Order revenue by product type
 index=retail sourcetype="retail:orders" | stats sum(total) by product_type
+
+# SAP transaction activity by T-code
+index=erp sourcetype="sap:auditlog" | stats count by tcode | sort -count
+
+# SAP failed operations
+index=erp sourcetype="sap:auditlog" status="E" | stats count by user, tcode, description
 ```
 
 ---
@@ -850,10 +889,12 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
 
 - All generators are self-contained Python files with no external dependencies
 - The Meraki generator is the largest and most complex (~126K lines)
-- Output goes to `bin/output/` organized by category (network/, cloud/, windows/, etc.)
+- Output goes to `bin/output/` organized by category (network/, cloud/, windows/, linux/, web/, retail/, erp/, itsm/, servicebus/)
 - Default timeline: 14 days starting 2026-01-01
-- Splunk index: `splunk_demo`
+- Splunk index: `fake_tshrt`
 - All scenario events queryable via `demo_id` field in Splunk
+- 19 servers across 2 locations (14 Boston, 5 Atlanta), 175 employees across 3 locations
+- SAP generator correlates with orders via `order_registry.json` (NDJSON format, one JSON object per line)
 
 ## Future Enhancements
 

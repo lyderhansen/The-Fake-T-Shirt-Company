@@ -498,6 +498,188 @@ Additional Information:
 
 
 # =============================================================================
+# NEW SECURITY EVENT TEMPLATES (Phase 3)
+# =============================================================================
+
+# Scheduled task templates for EID 4698
+SCHEDULED_TASK_TEMPLATES = [
+    ("\\Microsoft\\Windows\\WindowsUpdate\\Automatic App Update", "C:\\Windows\\System32\\UsoClient.exe StartInteractiveScan"),
+    ("\\Microsoft\\Windows\\Defrag\\ScheduledDefrag", "C:\\Windows\\System32\\defrag.exe -c -h -k -g -$"),
+    ("\\Microsoft\\Windows\\DiskCleanup\\SilentCleanup", "C:\\Windows\\System32\\cleanmgr.exe /autoclean /d C:"),
+    ("\\Microsoft\\Windows\\TaskScheduler\\Maintenance Configurator", "C:\\Windows\\System32\\taskhostw.exe"),
+    ("\\Backup\\NightlyBackup", '"C:\\Program Files\\Windows Server Backup\\wbadmin.exe" start backup -quiet'),
+    ("\\Monitoring\\HealthCheck", "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -File C:\\Scripts\\HealthCheck.ps1"),
+]
+
+
+def event_4740(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, user: str, caller_computer: str,
+               demo_id: str = None) -> str:
+    """Generate account lockout event (4740).
+
+    Key for: Password spray detection, brute force detection.
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    event = f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4740
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=User Account Management
+RecordNumber={record}
+Keywords=Audit Success
+Message=A user account was locked out.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-18
+\tAccount Name:\t\t{computer}$
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x3E7
+
+Account That Was Locked Out:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{user}
+
+Additional Information:
+\tCaller Computer Name:\t{caller_computer}
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
+def event_4768(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, user: str, source_ip: str,
+               result_code: str = "0x0",
+               demo_id: str = None) -> str:
+    """Generate Kerberos TGT request event (4768).
+
+    Key for: Kerberoasting baseline, AS-REP roasting detection.
+    result_code: 0x0=success, 0x6=unknown principal, 0x12=disabled,
+                 0x17=expired, 0x18=pre-auth failed.
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    keywords = "Audit Success" if result_code == "0x0" else "Audit Failure"
+    ticket_options = random.choice(["0x40810010", "0x50800000", "0x40810000"])
+    encryption = random.choice(["0x12", "0x17"])  # AES256, RC4
+
+    event = f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4768
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=Kerberos Authentication Service
+RecordNumber={record}
+Keywords={keywords}
+Message=A Kerberos authentication ticket (TGT) was requested.
+
+Account Information:
+\tAccount Name:\t\t{user}
+\tSupplied Realm Name:\tFAKETSHIRTCO.COM
+\tUser ID:\t\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+
+Service Information:
+\tService Name:\t\tkrbtgt
+\tService ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-502
+
+Network Information:
+\tClient Address:\t\t::ffff:{source_ip}
+\tClient Port:\t\t{random.randint(49152, 65535)}
+
+Additional Information:
+\tTicket Options:\t\t{ticket_options}
+\tResult Code:\t\t{result_code}
+\tTicket Encryption Type:\t{encryption}
+\tPre-Authentication Type:\t15
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
+def event_4776(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, user: str, workstation: str,
+               error_code: str = "0x0",
+               demo_id: str = None) -> str:
+    """Generate NTLM credential validation event (4776).
+
+    Key for: NTLM relay detection, pass-the-hash detection.
+    error_code: 0x0=success, 0xC000006A=bad password,
+                0xC0000064=unknown user, 0xC0000234=locked out.
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    keywords = "Audit Success" if error_code == "0x0" else "Audit Failure"
+
+    event = f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4776
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=Credential Validation
+RecordNumber={record}
+Keywords={keywords}
+Message=The computer attempted to validate the credentials for an account.
+
+Authentication Package:\tMICROSOFT_AUTHENTICATION_PACKAGE_V1_0
+Logon Account:\t{user}
+Source Workstation:\t{workstation}
+Error Code:\t{error_code}
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
+def event_4698(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, user: str, task_name: str, task_content: str,
+               demo_id: str = None) -> str:
+    """Generate scheduled task created event (4698).
+
+    Key for: Persistence detection (attacker-created tasks).
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    event = f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4698
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=Other Object Access Events
+RecordNumber={record}
+Keywords=Audit Success
+Message=A scheduled task was created.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Task Information:
+\tTask Name:\t\t{task_name}
+\tTask Content:\t\t{task_content}
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
+# =============================================================================
 # APPLICATION EVENT TEMPLATES
 # =============================================================================
 
@@ -848,6 +1030,130 @@ def generate_baseline_app_info_events(base_date: str, day: int, hour: int) -> Li
 
 
 # =============================================================================
+# NEW BASELINE GENERATORS (Phase 3: EID 4740, 4768, 4776, 4698)
+# =============================================================================
+
+def generate_baseline_kerberos_tgt(base_date: str, day: int, hour: int, count: int) -> List[str]:
+    """Generate baseline Kerberos TGT request events (4768).
+
+    Every user/service logon starts with a TGT request. Volume should be
+    proportional to logon activity. ~2-3x logon count (machines + users).
+    """
+    events = []
+    dc_computers = ["DC-BOS-01", "DC-BOS-02", "DC-ATL-01"]
+
+    for _ in range(count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        user = get_random_user()
+        computer = random.choice(dc_computers)
+        source_ip = user.get_ip()
+
+        # 98% success, 2% failure (mistyped password, expired)
+        if random.random() < 0.02:
+            result_code = random.choice(["0x18", "0x17", "0x6"])
+        else:
+            result_code = "0x0"
+
+        events.append(event_4768(base_date, day, hour, minute, second,
+                                 computer, user.username, source_ip,
+                                 result_code))
+
+    return events
+
+
+def generate_baseline_ntlm_validation(base_date: str, day: int, hour: int, count: int) -> List[str]:
+    """Generate baseline NTLM credential validation events (4776).
+
+    NTLM is used for legacy auth, file shares, internal web apps.
+    Lower volume than Kerberos in a modern AD environment.
+    """
+    events = []
+    dc_computers = ["DC-BOS-01", "DC-BOS-02", "DC-ATL-01"]
+
+    for _ in range(count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        user = get_random_user()
+        computer = random.choice(dc_computers)
+        ws_name = f"{user.username.split('.')[0].upper()}-PC"
+
+        # 97% success, 3% failure (stale cached creds, typos)
+        if random.random() < 0.03:
+            error_code = random.choice(["0xC000006A", "0xC0000064"])
+        else:
+            error_code = "0x0"
+
+        events.append(event_4776(base_date, day, hour, minute, second,
+                                 computer, user.username, ws_name, error_code))
+
+    return events
+
+
+def generate_baseline_account_lockouts(base_date: str, day: int, hour: int) -> List[str]:
+    """Generate baseline account lockout events (4740).
+
+    Very low volume: ~1-3 per day during business hours.
+    Users forget passwords after weekends, vacations, password resets.
+    """
+    events = []
+
+    # Only during business hours, very low probability
+    if hour < 7 or hour > 18:
+        return events
+
+    # ~8% chance per business hour = ~1 lockout/day average
+    if random.random() > 0.08:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    user = get_random_user()
+    computer = random.choice(["DC-BOS-01", "DC-BOS-02", "DC-ATL-01"])
+    caller = f"{user.username.split('.')[0].upper()}-PC"
+
+    events.append(event_4740(base_date, day, hour, minute, second,
+                             computer, user.username, caller))
+    return events
+
+
+def generate_baseline_scheduled_tasks(base_date: str, day: int, hour: int) -> List[str]:
+    """Generate baseline scheduled task creation events (4698).
+
+    Low volume: Windows creates/re-registers tasks during updates,
+    admin scripts, maintenance. ~2-5/day spread across servers.
+    """
+    events = []
+
+    # Scheduled tasks are mostly created during maintenance (early morning)
+    # or business hours (admin activity)
+    if hour in [3, 4]:
+        prob = 0.15  # Higher during maintenance window
+    elif 9 <= hour <= 16:
+        prob = 0.03
+    else:
+        prob = 0.005
+
+    if random.random() > prob:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    computer = random.choice(WINDOWS_SERVERS)
+    task_name, task_content = random.choice(SCHEDULED_TASK_TEMPLATES)
+
+    # System account for automated tasks, admin for manual
+    if hour in [3, 4]:
+        user = f"{computer}$"
+    else:
+        user = random.choice(["it.admin", "sec.admin", "svc.backup"])
+
+    events.append(event_4698(base_date, day, hour, minute, second,
+                             computer, user, task_name, task_content))
+    return events
+
+
+# =============================================================================
 # MAIN GENERATOR
 # =============================================================================
 
@@ -907,6 +1213,8 @@ def generate_wineventlog(
 
     base_logons_per_peak_hour = max(1, int(5 * scale))
     base_system_events_per_peak_hour = max(1, int(30 * scale))  # ~30 System events/peak hour
+    base_kerberos_tgt_per_peak_hour = max(1, int(10 * scale))   # TGT requests (higher than logons)
+    base_ntlm_per_peak_hour = max(1, int(3 * scale))           # NTLM validation (lower than Kerberos)
 
     if not quiet:
         print("=" * 70, file=sys.stderr)
@@ -938,10 +1246,18 @@ def generate_wineventlog(
             # Calculate system event count using natural variation
             system_count = calc_natural_events(base_system_events_per_peak_hour, start_date, day, hour, "windows")
 
+            # Calculate Kerberos/NTLM counts
+            kerberos_count = calc_natural_events(base_kerberos_tgt_per_peak_hour, start_date, day, hour, "windows")
+            ntlm_count = calc_natural_events(base_ntlm_per_peak_hour, start_date, day, hour, "windows")
+
             # Security events (baseline)
             security_events.extend(generate_baseline_logons(start_date, day, hour, logon_count))
             security_events.extend(generate_baseline_special_logons(start_date, day, hour))
             security_events.extend(generate_baseline_failed_logons(start_date, day, hour))
+            security_events.extend(generate_baseline_kerberos_tgt(start_date, day, hour, kerberos_count))
+            security_events.extend(generate_baseline_ntlm_validation(start_date, day, hour, ntlm_count))
+            security_events.extend(generate_baseline_account_lockouts(start_date, day, hour))
+            security_events.extend(generate_baseline_scheduled_tasks(start_date, day, hour))
 
             # System events (baseline) - NEW comprehensive generator
             system_events.extend(generate_baseline_system_hour(start_date, day, hour, system_count))
@@ -1050,6 +1366,25 @@ def format_scenario_event(base_date: str, day: int, hour: int, event_dict: dict,
         return event_4728(base_date, day, hour, minute, second, computer,
                           event_dict.get("admin_user", "it.admin"),
                           user, event_dict.get("group_name", "Domain Admins"),
+                          demo_id)
+    elif event_id == 4740:
+        return event_4740(base_date, day, hour, minute, second, computer,
+                          user, event_dict.get("caller_computer", "UNKNOWN-PC"),
+                          demo_id)
+    elif event_id == 4768:
+        return event_4768(base_date, day, hour, minute, second, computer, user,
+                          event_dict.get("source_ip", "10.10.30.50"),
+                          event_dict.get("result_code", "0x0"),
+                          demo_id)
+    elif event_id == 4776:
+        return event_4776(base_date, day, hour, minute, second, computer,
+                          user, event_dict.get("workstation", "UNKNOWN-PC"),
+                          event_dict.get("error_code", "0x0"),
+                          demo_id)
+    elif event_id == 4698:
+        return event_4698(base_date, day, hour, minute, second, computer,
+                          user, event_dict.get("task_name", "\\Unknown\\Task"),
+                          event_dict.get("task_content", "unknown.exe"),
                           demo_id)
     elif event_id == 4769:
         return event_4769(base_date, day, hour, minute, second, computer, user,

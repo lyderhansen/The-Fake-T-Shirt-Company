@@ -70,6 +70,47 @@ def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool
     # Tag storage access and list operations
     return method_name in ["storage.objects.get", "storage.objects.list", "storage.objects.create"]
 
+
+# GCP baseline error definitions (3% of events)
+# Format: (gRPC code, message, applicable_methods)
+_GCP_BASELINE_ERRORS = [
+    (7, "PERMISSION_DENIED: The caller does not have permission", [
+        "storage.objects.get", "storage.objects.create", "v1.compute.instances.list",
+        "iam.serviceAccounts.keys.create",
+    ]),
+    (5, "NOT_FOUND: The specified resource was not found", [
+        "storage.objects.get", "v1.compute.instances.get",
+        "google.cloud.functions.v1.CloudFunctionsService.CallFunction",
+    ]),
+    (8, "RESOURCE_EXHAUSTED: Quota exceeded", [
+        "jobservice.jobcompleted", "v1.compute.instances.start",
+        "google.cloud.functions.v1.CloudFunctionsService.CallFunction",
+    ]),
+    (16, "UNAUTHENTICATED: Request had invalid authentication credentials", [
+        "storage.objects.get", "storage.objects.create", "iam.serviceAccounts.keys.create",
+    ]),
+]
+_GCP_BASELINE_ERROR_RATE = 0.03  # 3% of baseline events fail
+
+
+def _gcp_maybe_inject_error(event: Dict[str, Any], method_name: str) -> Dict[str, Any]:
+    """Potentially inject an error into a GCP baseline event (~3% chance)."""
+    if random.random() > _GCP_BASELINE_ERROR_RATE:
+        return event
+
+    # Find applicable errors for this method
+    applicable = [(code, msg) for code, msg, methods in _GCP_BASELINE_ERRORS
+                   if method_name in methods]
+    if not applicable:
+        return event
+
+    error_code, error_msg = random.choice(applicable)
+    event["protoPayload"]["status"] = {"code": error_code, "message": error_msg}
+    event["protoPayload"]["authorizationInfo"][0]["granted"] = False
+    event["severity"] = "ERROR"
+    return event
+
+
 # =============================================================================
 # EVENT GENERATORS
 # =============================================================================
@@ -152,7 +193,7 @@ def gcp_compute_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "v1.compute.instances.list", "compute.googleapis.com", principal,
                            resource_type="gce_instance")
-    return event
+    return _gcp_maybe_inject_error(event, "v1.compute.instances.list")
 
 
 def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list = None,
@@ -174,7 +215,7 @@ def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list 
     if active_scenarios and should_tag_exfil(day, "storage.objects.get", active_scenarios):
         event["demo_id"] = "exfil"
 
-    return event
+    return _gcp_maybe_inject_error(event, "storage.objects.get")
 
 
 def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
@@ -191,7 +232,7 @@ def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: li
     if active_scenarios and should_tag_exfil(day, "storage.objects.create", active_scenarios):
         event["demo_id"] = "exfil"
 
-    return event
+    return _gcp_maybe_inject_error(event, "storage.objects.create")
 
 
 def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
@@ -205,7 +246,36 @@ def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
                            "cloudfunctions.googleapis.com", principal,
                            resource_type="cloud_function")
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/locations/{GCP_REGION}/functions/{func}"
-    return event
+    return _gcp_maybe_inject_error(event, "google.cloud.functions.v1.CloudFunctionsService.CallFunction")
+
+
+def gcp_compute_start_stop(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate Compute Engine start/stop instance event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    instance = random.choice(GCP_INSTANCES)
+    action = random.choice(["start", "stop"])
+    method = f"v1.compute.instances.{action}"
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           method, "compute.googleapis.com", principal,
+                           resource_type="gce_instance")
+    event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/zones/{GCP_REGION}-a/instances/{instance}"
+    return _gcp_maybe_inject_error(event, f"v1.compute.instances.{action}")
+
+
+def gcp_iam_sa_key_create(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate IAM service account key creation event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    target_sa = random.choice(GCP_SERVICE_ACCOUNTS)
+
+    event = gcp_base_event(base_date, day, hour, minute, second,
+                           "google.iam.admin.v1.CreateServiceAccountKey",
+                           "iam.googleapis.com", principal,
+                           resource_type="gce_instance")
+    event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/serviceAccounts/{target_sa}"
+    return _gcp_maybe_inject_error(event, "iam.serviceAccounts.keys.create")
 
 
 def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
@@ -223,46 +293,65 @@ def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
             }
         }
     }
-    return event
+    return _gcp_maybe_inject_error(event, "jobservice.jobcompleted")
 
 
 def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
                           active_scenarios: list = None) -> List[Dict[str, Any]]:
     """Generate baseline events for one hour.
 
-    Event distribution:
-    - 20% compute.instances.list (admin_activity)
-    - 15% storage.objects.get (admin_activity - management operations)
-    - 25% storage.objects.get (data_access - actual data reads)
-    - 10% storage.objects.create (admin_activity)
-    - 15% Cloud Functions call (admin_activity)
-    - 15% BigQuery query (admin_activity)
+    Event distribution (updated with new event types):
+    - 17% compute.instances.list (admin_activity)
+    - 13% storage.objects.get (admin_activity - management operations)
+    - 22% storage.objects.get (data_access - actual data reads)
+    - 9%  storage.objects.create (admin_activity)
+    - 13% Cloud Functions call (admin_activity)
+    - 13% BigQuery query (admin_activity)
+    - 5%  compute.instances.start/stop (admin_activity)
+    - 3%  IAM SA key create (admin_activity)
+    - 5%  compute.instances.get (data_access)
     """
     events = []
 
     for _ in range(event_count):
         event_type = random.randint(1, 100)
 
-        if event_type <= 20:
+        if event_type <= 17:
             # Compute list (admin_activity)
             events.append(gcp_compute_list(base_date, day, hour))
-        elif event_type <= 35:
+        elif event_type <= 30:
             # Storage get - management (admin_activity)
             events.append(gcp_storage_get(base_date, day, hour, active_scenarios,
                                          log_type=LOG_TYPE_ADMIN_ACTIVITY))
-        elif event_type <= 60:
+        elif event_type <= 52:
             # Storage get - data reads (data_access)
             events.append(gcp_storage_get(base_date, day, hour, active_scenarios,
                                          log_type=LOG_TYPE_DATA_ACCESS))
-        elif event_type <= 70:
+        elif event_type <= 61:
             # Storage create (admin_activity)
             events.append(gcp_storage_create(base_date, day, hour, active_scenarios))
-        elif event_type <= 85:
+        elif event_type <= 74:
             # Cloud Functions (admin_activity)
             events.append(gcp_function_call(base_date, day, hour))
-        else:
+        elif event_type <= 87:
             # BigQuery (admin_activity)
             events.append(gcp_bigquery_query(base_date, day, hour))
+        elif event_type <= 92:
+            # Compute start/stop (admin_activity)
+            events.append(gcp_compute_start_stop(base_date, day, hour))
+        elif event_type <= 95:
+            # IAM SA key create (admin_activity)
+            events.append(gcp_iam_sa_key_create(base_date, day, hour))
+        else:
+            # Compute get (data_access) — reuse compute list but as data_access
+            minute, second = random.randint(0, 59), random.randint(0, 59)
+            principal = random.choice(GCP_SERVICE_ACCOUNTS)
+            instance = random.choice(GCP_INSTANCES)
+            event = gcp_base_event(base_date, day, hour, minute, second,
+                                   "v1.compute.instances.get", "compute.googleapis.com", principal,
+                                   log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance")
+            event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/zones/{GCP_REGION}-a/instances/{instance}"
+            events.append(_gcp_maybe_inject_error(event, "v1.compute.instances.get"))
 
     return events
 
@@ -359,9 +448,11 @@ def generate_gcp_logs(
         # Count by log type
         admin_count = sum(1 for e in all_events if "activity" in e.get("logName", ""))
         data_access_count = sum(1 for e in all_events if "data_access" in e.get("logName", ""))
+        error_count = sum(1 for e in all_events if e.get("severity") == "ERROR")
         exfil_count = sum(1 for e in all_events if e.get("demo_id") == "exfil")
         print(f"  [GCP] Complete! {len(all_events):,} events written", file=sys.stderr)
-        print(f"        admin_activity: {admin_count:,} | data_access: {data_access_count:,} | exfil: {exfil_count:,}", file=sys.stderr)
+        print(f"        admin_activity: {admin_count:,} | data_access: {data_access_count:,}", file=sys.stderr)
+        print(f"        errors: {error_count:,} ({error_count * 100 // max(len(all_events), 1)}%) | exfil: {exfil_count:,}", file=sys.stderr)
 
     return len(all_events)
 
