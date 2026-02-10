@@ -248,6 +248,63 @@ def set_output_base(base_path: Path):
     }
 
 
+def move_output_to_production(quiet: bool = False) -> dict:
+    """Move generated files from output/tmp/ to output/ for Splunk ingestion.
+
+    Always generates to output/tmp/ first (safe staging area), then moves
+    completed files atomically to output/ where Splunk's inputs.conf monitors.
+    Uses shutil.move() which calls os.rename() on same filesystem (atomic on POSIX).
+
+    Returns:
+        dict with keys:
+            moved   - list of relative paths successfully moved
+            skipped - list of relative paths not found in staging
+            errors  - list of error message strings
+    """
+    import shutil
+    import os
+
+    staging_base = OUTPUT_BASE_PRODUCTION / "tmp"
+    production_base = OUTPUT_BASE_PRODUCTION
+
+    # Build complete file list from GENERATOR_OUTPUT_FILES + order_registry.json
+    all_files = []
+    for files in GENERATOR_OUTPUT_FILES.values():
+        all_files.extend(files)
+    # order_registry.json is monitored by Splunk but not in GENERATOR_OUTPUT_FILES
+    if "web/order_registry.json" not in all_files:
+        all_files.append("web/order_registry.json")
+
+    result = {"moved": [], "skipped": [], "errors": []}
+
+    for rel_path in all_files:
+        src = staging_base / rel_path
+        dest = production_base / rel_path
+
+        if not src.exists():
+            result["skipped"].append(rel_path)
+            continue
+
+        try:
+            os.makedirs(dest.parent, exist_ok=True)
+            shutil.move(str(src), str(dest))
+            result["moved"].append(rel_path)
+        except Exception as e:
+            result["errors"].append(f"{rel_path}: {e}")
+
+    # Clean up empty subdirectories in staging (but keep staging_base itself)
+    if staging_base.exists():
+        for dirpath, dirnames, filenames in os.walk(str(staging_base), topdown=False):
+            dirpath = Path(dirpath)
+            if dirpath != staging_base and not any(dirpath.iterdir()):
+                try:
+                    dirpath.rmdir()
+                except OSError:
+                    pass
+
+    return result
+
+
 # =============================================================================
 # CONFIG CLASS
 # =============================================================================

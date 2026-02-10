@@ -148,8 +148,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 main_generate.py --all                              # All sources (test mode, output/tmp/)
-  python3 main_generate.py --all --no-test                    # All sources (production, output/)
+  python3 main_generate.py --all                              # All sources (generates to tmp/, moves to output/)
+  python3 main_generate.py --all --test                       # All sources (test mode, stays in output/tmp/)
   python3 main_generate.py --all --scenarios=all              # All sources, all scenarios
   python3 main_generate.py --sources=asa,entraid              # Specific sources
   python3 main_generate.py --sources=cloud                    # All cloud sources
@@ -160,8 +160,8 @@ Examples:
   python3 main_generate.py --all --show-files                 # Show output file paths in progress
 
 Output Modes:
-  --test (default)  Write to output/tmp/ — safe for testing, won't affect Splunk
-  --no-test         Write to output/ — production mode, Splunk reads from here
+  (default)         Generate to output/tmp/, then move to output/ for Splunk ingestion
+  --test            Generate to output/tmp/ only — safe for testing, no move to output/
 
 Source Groups:
   all           - All sources (19 generators)
@@ -230,10 +230,8 @@ Output Directories:
 
     parser.add_argument("--all", action="store_true", help="Generate all log sources")
     parser.add_argument("--tui", action="store_true", help="Launch interactive TUI interface")
-    parser.add_argument("--test", action="store_true", default=True,
-                        help="Test mode: write to output/tmp/ (default)")
-    parser.add_argument("--no-test", dest="test", action="store_false",
-                        help="Production mode: write to output/ (for Splunk ingestion)")
+    parser.add_argument("--test", action="store_true", default=False,
+                        help="Test mode: generate to output/tmp/ only (no move to output/)")
     parser.add_argument("--sources", default="all", help="Comma-separated sources or groups")
     parser.add_argument("--start-date", default=DEFAULT_START_DATE, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help="Number of days")
@@ -270,12 +268,9 @@ Output Directories:
 
     args = parser.parse_args()
 
-    # Configure output directory based on test mode
-    # Must happen BEFORE any generator runs (they use get_output_path() from config)
-    if args.test:
-        set_output_base(OUTPUT_BASE_PRODUCTION / "tmp")
-    else:
-        set_output_base(OUTPUT_BASE_PRODUCTION)
+    # Always generate to output/tmp/ first (safe staging area)
+    # Files are moved to output/ after successful generation (unless --test)
+    set_output_base(OUTPUT_BASE_PRODUCTION / "tmp")
 
     # Re-import OUTPUT_BASE after potential override
     from shared.config import OUTPUT_BASE as current_output_base
@@ -326,7 +321,7 @@ Output Directories:
 
     # Print banner
     if not args.quiet:
-        mode_label = "TEST (output/tmp/)" if args.test else "PRODUCTION (output/)"
+        mode_label = "TEST (output/tmp/ only)" if args.test else "PRODUCTION (tmp/ → output/)"
         print("=" * 70)
         print("  Splunk Log Generator (Python)")
         print("=" * 70)
@@ -465,6 +460,34 @@ Output Directories:
     successful = sum(1 for r in results if r["success"])
     failed = sum(1 for r in results if not r["success"])
 
+    # Move files to production (output/) if not in test mode and all generators succeeded
+    move_result = None
+    if not args.test and failed == 0:
+        if not args.quiet:
+            print()
+            print("  Moving files to output/ for Splunk ingestion...")
+        from shared.config import move_output_to_production
+        move_result = move_output_to_production(quiet=args.quiet)
+        if not args.quiet:
+            print(f"  Moved {len(move_result['moved'])} files to output/")
+            if move_result['skipped']:
+                print(f"  Skipped {len(move_result['skipped'])} files (not generated)")
+            if move_result['errors']:
+                for err in move_result['errors']:
+                    print(f"  ERROR: {err}", file=sys.stderr)
+    elif not args.test and failed > 0:
+        if not args.quiet:
+            print()
+            print(f"  WARNING: {failed} generator(s) failed — files remain in output/tmp/")
+
+    # Determine output location for summary
+    if not args.test and failed == 0:
+        output_summary = "output/ (ready for Splunk)"
+    elif args.test:
+        output_summary = "output/tmp/ (test mode)"
+    else:
+        output_summary = "output/tmp/ (not moved due to errors)"
+
     if not args.quiet:
         print()
         print("=" * 70)
@@ -473,6 +496,7 @@ Output Directories:
         print(f"  Total Time:    {total_time:.1f}s")
         print(f"  Generators:    {successful} successful, {failed} failed")
         print(f"  Throughput:    {total_events / total_time:,.0f} events/sec")
+        print(f"  Output:        {output_summary}")
         print("=" * 70)
 
     # Print failures

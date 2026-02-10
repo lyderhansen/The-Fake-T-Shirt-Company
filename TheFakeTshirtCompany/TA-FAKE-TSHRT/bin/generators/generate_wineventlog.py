@@ -1154,6 +1154,129 @@ def generate_baseline_scheduled_tasks(base_date: str, day: int, hour: int) -> Li
 
 
 # =============================================================================
+# WINDOWS DEFENDER BASELINE EVENTS
+# =============================================================================
+
+def event_defender(base_date: str, day: int, hour: int, minute: int, second: int,
+                   computer: str, event_id: int, event_type_str: str,
+                   message: str, demo_id: str = None) -> str:
+    """Generate a Windows Defender operational event.
+
+    Uses LogName=Microsoft-Windows-Windows Defender/Operational to match
+    real Windows Defender event log channel.
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    event = f"""{ts}
+LogName=Microsoft-Windows-Windows Defender/Operational
+SourceName=Microsoft-Windows-Windows Defender
+EventCode={event_id}
+EventType=0
+Type={event_type_str}
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=None
+RecordNumber={record}
+Keywords=Classic
+Message={message}
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
+def generate_baseline_defender_events(base_date: str, day: int, hour: int) -> List[str]:
+    """Generate baseline Windows Defender operational events.
+
+    Produces ambient Defender events that real Windows servers generate:
+    - EventCode 1000: Scan started (nightly, 02:00-03:00 AM)
+    - EventCode 1001: Scan completed (5-15 min after start)
+    - EventCode 2000: Definition updates (2-3 per day, spread across hours)
+    - EventCode 5007: Configuration changed (patch day only, day 7)
+
+    Volume: ~40-50 events/day across all Windows servers = ~640 over 14 days.
+    """
+    events = []
+
+    # Scheduled scan: 02:00-03:00 AM on every server
+    if hour == 2:
+        for computer in WINDOWS_SERVERS:
+            # Stagger scan starts across the hour
+            scan_minute = random.randint(0, 40)
+            scan_second = random.randint(0, 59)
+
+            # 1000: Scan started
+            events.append(event_defender(
+                base_date, day, hour, scan_minute, scan_second,
+                computer, 1000, "Information",
+                "Microsoft Defender Antivirus scan has started.\n"
+                "\tScan Type: AntiSpyware\n"
+                "\tScan Parameters: Quick Scan\n"
+                f"\tUser: {computer}$\\SYSTEM"
+            ))
+
+            # 1001: Scan completed (5-15 min later)
+            complete_minute = min(scan_minute + random.randint(5, 15), 59)
+            duration_sec = (complete_minute - scan_minute) * 60 + random.randint(10, 50)
+            items_scanned = random.randint(45000, 120000)
+
+            events.append(event_defender(
+                base_date, day, hour, complete_minute, random.randint(0, 59),
+                computer, 1001, "Information",
+                "Microsoft Defender Antivirus scan has finished.\n"
+                "\tScan Type: AntiSpyware\n"
+                "\tScan Parameters: Quick Scan\n"
+                f"\tScan Duration: {duration_sec} seconds\n"
+                f"\tItems Scanned: {items_scanned}\n"
+                "\tThreats Detected: 0"
+            ))
+
+    # Definition updates: 2-3 times/day spread across hours 6, 12, 18
+    if hour in [6, 12, 18]:
+        for computer in WINDOWS_SERVERS:
+            # ~80% chance each update window (so avg ~2.4/day/server)
+            if random.random() > 0.80:
+                continue
+
+            minute = random.randint(0, 59)
+            second = random.randint(0, 59)
+
+            # Build version numbers based on day progression
+            build_base = 600 + day * 2 + (hour // 6)
+            prev_build = build_base - 1
+
+            events.append(event_defender(
+                base_date, day, hour, minute, second,
+                computer, 2000, "Information",
+                "Microsoft Defender Antivirus Security Intelligence Update.\n"
+                f"\tCurrent Security Intelligence Version: 1.407.{build_base}.0\n"
+                f"\tPrevious Security Intelligence Version: 1.407.{prev_build}.0\n"
+                "\tUpdate Source: Microsoft Update Server\n"
+                "\tUpdate Stage: Search"
+            ))
+
+    # Configuration change: patch day (day 7) during maintenance (03:00-04:00)
+    if day == 7 and hour == 3:
+        for computer in WINDOWS_SERVERS:
+            if random.random() > 0.70:  # Not all servers at once
+                continue
+
+            minute = random.randint(10, 50)
+            second = random.randint(0, 59)
+
+            events.append(event_defender(
+                base_date, day, hour, minute, second,
+                computer, 5007, "Information",
+                "Microsoft Windows Defender Antivirus Configuration has changed.\n"
+                "\tFeature Name: Signature Update Interval\n"
+                "\tOld Value: 24\n"
+                "\tNew Value: 8"
+            ))
+
+    return events
+
+
+# =============================================================================
 # MAIN GENERATOR
 # =============================================================================
 
@@ -1258,6 +1381,7 @@ def generate_wineventlog(
             security_events.extend(generate_baseline_ntlm_validation(start_date, day, hour, ntlm_count))
             security_events.extend(generate_baseline_account_lockouts(start_date, day, hour))
             security_events.extend(generate_baseline_scheduled_tasks(start_date, day, hour))
+            security_events.extend(generate_baseline_defender_events(start_date, day, hour))
 
             # System events (baseline) - NEW comprehensive generator
             system_events.extend(generate_baseline_system_hour(start_date, day, hour, system_count))

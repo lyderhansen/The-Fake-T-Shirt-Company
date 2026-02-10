@@ -4,6 +4,156 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-10 ~17:30 UTC — Windows Defender baseline events, LogName regex fix, timestamp parsing fixes
+
+Four related fixes improving WinEventLog realism, source routing accuracy, and timestamp parsing across 7 sourcetypes.
+
+**Affected files:**
+
+### `bin/generators/generate_wineventlog.py` — Defender baseline events
+
+Previously only 1 Defender event existed (EventCode=1116 from ransomware scenario). Added 4 baseline event types to simulate routine Windows Defender activity across all Windows servers:
+
+| EventCode | Description | Frequency |
+|-----------|-------------|-----------|
+| 1000 | Scan started | 1/day/server at 02:00-03:00 AM |
+| 1001 | Scan completed | 5-15 min after scan start |
+| 2000 | Definitions updated | 2-3×/day/server (hours 6, 12, 18) |
+| 5007 | Configuration changed | 1× on patch day (day 7) |
+
+- **Added `event_defender()` template:** Generates `LogName=Microsoft-Windows-Windows Defender/Operational` events with proper `SourceName`, `EventType`, `RecordNumber`
+- **Added `generate_baseline_defender_events()`:** Called in main hourly loop, appends to `security_events` list
+- **Volume:** ~640 events over 14 days (~45/day across 10 Windows servers)
+
+### `default/transforms.conf` — LogName regex fix
+
+```ini
+# BEFORE:
+REGEX = LogName=(\S+)
+
+# AFTER:
+REGEX = LogName=(.+)
+```
+
+`\S+` stopped at the space in `Microsoft-Windows-Windows Defender/Operational`, capturing only `Microsoft-Windows-Windows` → wrong `source` field in Splunk. Changed to `.+` to capture until end-of-line.
+
+### `default/props.conf` — ServiceBus timestamp fix (2 issues)
+
+**Issue 1 — Missing space in TIME_PREFIX:**
+```ini
+# BEFORE:
+TIME_PREFIX = \"enqueuedTimeUtc\":\"
+
+# AFTER:
+TIME_PREFIX = \"enqueuedTimeUtc\": \"
+```
+The generator produces `"enqueuedTimeUtc": "2026-..."` (with space after colon) but TIME_PREFIX had no space, so Splunk never found the timestamp anchor → all events indexed at ingestion time.
+
+**Issue 2 — Invalid `%3N` format:**
+```ini
+# BEFORE:
+TIME_FORMAT = %Y-%m-%dT%H:%M:%S.%3NZ
+
+# AFTER:
+TIME_FORMAT = %Y-%m-%dT%H:%M:%S.%fZ
+```
+`%3N` is not a valid Splunk strptime directive. `%f` is correct for fractional seconds (microseconds).
+
+### `default/props.conf` — `%3N` → `%f` across 6 sourcetypes
+
+The same invalid `%3N` was found in 5 additional sourcetypes beyond ServiceBus:
+
+| Sourcetype | TIME_FORMAT fixed |
+|------------|-------------------|
+| `FAKE:azure:servicebus` | `%Y-%m-%dT%H:%M:%S.%fZ` |
+| `FAKE:cisco:asa` | `%b %d %Y %H:%M:%S.%f` |
+| `FAKE:cisco:webex:events` | `%Y-%m-%dT%H:%M:%S.%fZ` |
+| `FAKE:cisco:webex:meetings:history:meetingAttendeeReport` | `%m/%d/%Y %H:%M:%S.%f` |
+| `FAKE:cisco:webex:meetings:history:meetingUsageReport` | `%m/%d/%Y %H:%M:%S.%f` |
+| `FAKE:cisco:webex:meetings:history:meetingReport` | `%m/%d/%Y %H:%M:%S.%f` |
+
+**Verification (2-day test, wineventlog):**
+- 92 Defender events generated (20 scan start/complete + 52 def updates + 20 other) — **PASS**
+- EventCode distribution: 1000×10, 1001×10, 2000×52, 5007×10, 1116×10 — **PASS**
+- LogName regex `(.+)` captures full `Microsoft-Windows-Windows Defender/Operational` — **PASS**
+
+**Note:** Requires Splunk restart for props.conf/transforms.conf changes to take effect. Previously ingested data needs re-indexing for correct timestamp parsing and source routing.
+
+---
+
+## 2026-02-10 ~15:25 UTC — Auto-move: generate to output/tmp/ then move to output/
+
+Always generate logs to `output/tmp/` (staging), then atomically move completed files to `output/` for Splunk ingestion. Prevents Splunk from ingesting partial files during generation.
+
+**New CLI behavior:**
+
+| Flag | Behavior |
+|------|----------|
+| *(default)* | Generate to `output/tmp/` → move to `output/` |
+| `--test` | Generate to `output/tmp/` only (no move) |
+| ~~`--no-test`~~ | **Removed** |
+
+**Affected files:**
+
+### `bin/shared/config.py`
+- **Added `move_output_to_production()`:** Moves all known generator output files from `output/tmp/` to `output/` using `shutil.move()` (atomic via `os.rename()` on same filesystem). Cleans up empty staging subdirectories. Returns result dict with moved/skipped/errors.
+
+### `bin/main_generate.py`
+- **Removed `--no-test` flag**, changed `--test` default from `True` to `False`
+- **Always generates to `output/tmp/`** regardless of mode
+- **Added move step** after successful generation (all generators must pass, skipped if `--test`)
+- **Updated banner/summary** to show mode label and final output location
+- **Updated help text** to reflect new output modes
+
+### `bin/tui_generate.py`
+- **Changed default** from TEST to PROD (`selected=False` for test_mode)
+- **Updated status bar:** Shows `tmp/ → output/` for PROD, `output/tmp/ only` for TEST
+- **Updated command preview/argv:** Shows `--test` instead of `--no-test`
+- **Updated mode label** in generation summary
+
+**Verification:**
+- PROD mode: 35,045 ASA events generated → moved 1 file to `output/` — **PASS**
+- TEST mode: 35,133 ASA events generated → files stay in `output/tmp/` — **PASS**
+- `--show-files` PROD: Shows `output/network/cisco_asa.log` (final destination) — **PASS**
+- `--show-files` TEST: Shows `output/tmp/network/cisco_asa.log` — **PASS**
+- Staging cleanup: `output/tmp/network/` removed after move — **PASS**
+
+---
+
+## 2026-02-10 ~14:55 UTC — Fix Perfmon SQL Server sourcetype routing
+
+SQL Server Perfmon events from SQL-PROD-01 (`SQLServer:SQL Statistics`, `SQLServer:Buffer Manager`, `SQLServer:Locks`) were stuck at `FAKE:Perfmon:Generic` because the routing regex only matched `(LogicalDisk|Memory|Processor)`. Added per-component sourcetype routing aligned with the official Splunk Add-on for Microsoft SQL Server naming convention.
+
+**Affected files:**
+
+### `default/transforms.conf`
+- **Added 3 routing stanzas:** `FAKE_st_perfmon_sqlserver_sql_statistics`, `FAKE_st_perfmon_sqlserver_buffer_manager`, `FAKE_st_perfmon_sqlserver_locks`
+- **Added field extraction:** `extract_perfmon_sqlserver_fields` — extracts `sql_component`, `counter`, `instance`, `value`
+
+### `default/props.conf`
+- **Updated `[FAKE:Perfmon:Generic]`:** Added 3 SQL Server transforms to `TRANSFORMS-route_sourcetype` chain
+- **Added 3 new sourcetype stanzas:**
+  - `[FAKE:Perfmon:SQLServer:sql_statistics]` — Batch Requests/sec
+  - `[FAKE:Perfmon:SQLServer:buffer_manager]` — Page life expectancy, Buffer cache hit ratio
+  - `[FAKE:Perfmon:SQLServer:locks]` — Lock Waits/sec
+
+**New sourcetype mapping:**
+
+| object= | → Sourcetype |
+|---------|-------------|
+| `SQLServer:SQL Statistics` | `FAKE:Perfmon:SQLServer:sql_statistics` |
+| `SQLServer:Buffer Manager` | `FAKE:Perfmon:SQLServer:buffer_manager` |
+| `SQLServer:Locks` | `FAKE:Perfmon:SQLServer:locks` |
+
+**Verification (2-day test, perfmon + cpu_runaway):**
+- 99,744 events generated — **PASS**
+- 2,304 SQL Server events (576 sql_statistics + 1,152 buffer_manager + 576 locks) — **PASS**
+- All 3 routing regexes match target events — **PASS**
+
+**Note:** Requires re-index of existing Perfmon data for previously ingested events to route to new sourcetypes.
+
+---
+
 ## 2026-02-10 ~13:40 UTC — TUI 3-column layout refactor + show-files path fix
 
 Refactored TUI from 2×2 grid to 3-column top row (`Source Groups | Sources | Scenarios`) with 2-column bottom row (`Configuration | Meraki Health`). Fixed `--show-files` displaying hardcoded `output/` instead of `output/tmp/` in test mode.

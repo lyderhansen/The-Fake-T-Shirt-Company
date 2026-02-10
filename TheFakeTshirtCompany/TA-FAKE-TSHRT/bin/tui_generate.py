@@ -160,7 +160,7 @@ class TUIApp:
 
         # Configuration values (bottom-left)
         self.config = [
-            MenuItem("test_mode", "Output Mode", "", selected=True),   # True = TEST, False = PROD
+            MenuItem("test_mode", "Output Mode", "", selected=False),  # True = TEST, False = PROD (default)
             MenuItem("start_date", "Start Date", DEFAULT_START_DATE),
             MenuItem("days", "Days", str(DEFAULT_DAYS)),
             MenuItem("scale", "Scale", str(DEFAULT_SCALE)),
@@ -463,7 +463,7 @@ class TUIApp:
         else:
             src_count = len(sources_str.split(","))
 
-        output_dir = "output/tmp/" if is_test else "output/"
+        output_dir = "output/tmp/ only" if is_test else "tmp/ → output/"
         mode_str = "TEST" if is_test else "PROD"
 
         if is_test:
@@ -632,9 +632,9 @@ class TUIApp:
 
         preview = f"--sources={sources_str} --scenarios={scenarios_str} --days={days}"
 
-        # Test mode (only show --no-test since --test is default)
-        if not is_test:
-            preview += " --no-test"
+        # Test mode (only show --test since production is default)
+        if is_test:
+            preview += " --test"
 
         # Configuration options (only show non-defaults)
         if scale != "1.0":
@@ -912,7 +912,7 @@ def main():
 
     if result:
         is_test = result.get('test_mode', True)
-        mode_label = "TEST (output/tmp/)" if is_test else "PRODUCTION (output/)"
+        mode_label = "TEST (output/tmp/ only)" if is_test else "PRODUCTION (tmp/ → output/)"
 
         print("\n" + "=" * 60)
         print("  Generating logs with configuration:")
@@ -948,8 +948,8 @@ def main():
             f"--orders-per-day={result['orders_per_day']}",
             f"--meraki-health-interval={result['meraki_health_interval']}",
         ]
-        if not is_test:
-            sys.argv.append("--no-test")
+        if is_test:
+            sys.argv.append("--test")
         if result['full_metrics']:
             sys.argv.append("--full-metrics")
         if result['show_files']:
