@@ -1,9 +1,9 @@
 <dashboard version="2" theme="dark">
-  <label>Scenario - Data Exfiltration</label>
-  <description>APT-style data exfiltration - 14-day attack spanning reconnaissance, initial access, lateral movement, persistence, and exfiltration</description>
+  <label>Scenario - Data Exfiltration (Absolute)</label>
+  <description>APT-style data exfiltration - absolute layout story dashboard</description>
   <definition><![CDATA[
 {
-  "title": "Scenario - Data Exfiltration",
+  "title": "Scenario - Data Exfiltration (Absolute)",
   "description": "APT-style data exfiltration -- 14-day attack spanning reconnaissance, initial access, lateral movement, persistence, and exfiltration",
   "dataSources": {
     "ds_kpi_events": {
@@ -43,9 +43,9 @@
     },
     "ds_attack_linkgraph": {
       "type": "ds.search",
-      "name": "Attack Journey -- 6-Phase Kill Chain",
+      "name": "Attack Journey -- Full Kill Chain Link Graph",
       "options": {
-        "query": "| makeresults count=24 | streamstats count as row | eval Recon=case(row=1,\"185.220.101.42\",row=2,\"185.220.101.42\",1=1,\"\") | eval Initial_Access=case(row=1,\"Port scan 3306/5432/1433\",row=2,\"Phishing rnicrosoft-security.com\",row=3,\"jessica.brown clicks link\",row=4,\"Credentials harvested\",1=1,\"\") | eval Lateral_Movement=case(row=1,\"FW-EDGE-01 (691 denies)\",row=2,\"jessica.brown (IT Admin)\",row=3,\"jessica.brown (IT Admin)\",row=4,\"jessica.brown (IT Admin)\",row=5,\"jessica.brown (IT Admin)\",row=6,\"jessica.brown (IT Admin)\",row=7,\"alex.miller (Finance BOS)\",row=8,\"alex.miller (Finance BOS)\",1=1,\"\") | eval Persistence=case(row=2,\"Email fwd protonmail.com\",row=3,\"O365 FileAccessed x16\",row=4,\"Email fwd protonmail.com\",row=5,\"VPN pivot ATL to BOS\",row=6,\"alex.miller (Finance BOS)\",row=7,\"EntraID risk: maliciousIP\",row=8,\"AWS + GCP enumeration\",row=9,\"IAM user svc-datasync\",row=10,\"Consent DataSync Service\",row=11,\"GCP SA key created\",row=12,\"C2 beacon 185.220.101.42\",row=13,\"SharePoint download x188\",row=14,\"rclone to Google Drive\",row=15,\"curl POST to C2 server\",row=16,\"AWS S3 PutObject x196\",1=1,\"\") | eval Exfiltration=case(row=9,\"AttachUserPolicy AdminAccess\",row=12,\"Data staging (backup.txt)\",row=13,\"188 finance docs stolen\",row=14,\"data_batch_4.zip exfiled\",row=15,\"backup.txt uploaded\",row=16,\"196 S3 objects exfiled\",row=17,\"del data_batch_*.zip\",1=1,\"\") | eval Response=case(row=17,\"Evidence cleanup detected\",row=18,\"INC0000208 P1 opened\",row=19,\"Confirm alex.miller compromised\",row=20,\"Revoke all sessions\",row=21,\"Remove-InboxRule jessica.brown\",row=22,\"CHG0000039 remediation\",row=23,\"Credentials rotated\",row=24,\"Endpoints isolated\",1=1,\"\") | where Recon!=\"\" OR Initial_Access!=\"\" OR Lateral_Movement!=\"\" OR Persistence!=\"\" OR Exfiltration!=\"\" OR Response!=\"\" | table Recon Initial_Access Lateral_Movement Persistence Exfiltration Response"
+        "query": "| makeresults | eval data=\"185.220.101.42 (Threat Actor),Port scan 3306/23/5432/1433,FW-EDGE-01 (ASA)|FW-EDGE-01 (ASA),691 deny events logged,SOC Visibility|185.220.101.42 (Threat Actor),Phishing from rnicrosoft-security.com,jessica.brown (IT Admin)|jessica.brown (IT Admin),Clicks phishing link,rnicrosoft-security.com/verify|rnicrosoft-security.com/verify,Credentials harvested,185.220.101.42 (Threat Actor)|185.220.101.42 (Threat Actor),Sign-in with stolen creds,EntraID (jessica.brown)|EntraID (jessica.brown),Authenticated from ATL,10.20.30.15 (Atlanta)|jessica.brown (IT Admin),Email forward rule created,protonmail.com (attacker)|jessica.brown (IT Admin),O365 FileAccessed x16,SharePoint Documents|jessica.brown (IT Admin),Pivot ATL to BOS via VPN,Boston Network (10.10.x.x)|Boston Network (10.10.x.x),Lateral movement detected,MX-BOS-01 (Meraki IDS)|185.220.101.42 (Threat Actor),Sign-in as alex.miller,EntraID (alex.miller)|EntraID (alex.miller),Risk: maliciousIPAddress,185.220.101.42 flagged|EntraID (alex.miller),Authenticated from BOS,10.10.30.55 (Finance)|alex.miller (Finance BOS),AWS ListBuckets,s3://faketshirt-finance-data|alex.miller (Finance BOS),GCP storage.objects.list,faketshirtcompany-prod-01|alex.miller (Finance BOS),AWS CreateUser,svc-datasync (IAM backdoor)|svc-datasync (IAM backdoor),AttachUserPolicy,AdministratorAccess|alex.miller (Finance BOS),Consent: DataSync Service,Mail.Read + Files.Read.All|alex.miller (Finance BOS),GCP SA key created,storage.admin role|alex.miller (Finance BOS),C2 beacon HTTPS,185.220.101.42 (Threat Actor)|alex.miller (Finance BOS),SharePoint download x188,Finance Reports + Contracts|alex.miller (Finance BOS),PowerShell Base64 encode,Data staging (backup.txt)|Data staging (backup.txt),curl POST to C2,185.220.101.42/upload|alex.miller (Finance BOS),rclone copy data_batch_4.zip,Google Drive (gdrive:backup/)|alex.miller (Finance BOS),AWS S3 PutObject x196,s3://external-staging|alex.miller (Finance BOS),del data_batch_*.zip,Evidence cleanup|SOC Visibility,INC0000208 opened,P1 Security Incident|P1 Security Incident,Confirm user compromised,alex.miller (Finance BOS)|P1 Security Incident,Revoke all sessions,alex.miller sessions killed|P1 Security Incident,Remove-InboxRule,jessica.brown forward deleted|P1 Security Incident,CHG0000039 remediation,Credentials rotated + isolated\" | makemv delim=\"|\" data | mvexpand data | rex field=data \"(?<Source>[^,]+),(?<Action>[^,]+),(?<Target>[^,]+)\" | table Source Action Target"
       }
     },
     "ds_attack_timeline": {
@@ -169,6 +169,62 @@
     }
   },
   "visualizations": {
+    "viz_bg_header": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1.0,
+        "strokeColor": "transparent"
+      }
+    },
+    "viz_bg_phase1": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#1A1A10",
+        "fillOpacity": 0.3,
+        "strokeColor": "transparent"
+      }
+    },
+    "viz_bg_phase2": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#1A1015",
+        "fillOpacity": 0.3,
+        "strokeColor": "transparent"
+      }
+    },
+    "viz_bg_phase3": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#101A1F",
+        "fillOpacity": 0.3,
+        "strokeColor": "transparent"
+      }
+    },
+    "viz_bg_phase4": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#1A1520",
+        "fillOpacity": 0.3,
+        "strokeColor": "transparent"
+      }
+    },
+    "viz_bg_phase5": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#1A1015",
+        "fillOpacity": 0.3,
+        "strokeColor": "transparent"
+      }
+    },
+    "viz_bg_response": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#0A1A0F",
+        "fillOpacity": 0.3,
+        "strokeColor": "transparent"
+      }
+    },
     "viz_header_md": {
       "type": "splunk.markdown",
       "options": {
@@ -242,20 +298,19 @@
     },
     "viz_attack_linkgraph": {
       "type": "splunk.linkgraph",
-      "title": "🔗 Attack Journey -- Kill Chain by Phase (Recon -> Initial Access -> Lateral Movement -> Persistence -> Exfiltration -> Response)",
+      "title": "🔗 Attack Journey -- Full Kill Chain (32 steps: Recon -> Phishing -> Lateral Movement -> Persistence -> Exfiltration -> Incident Response)",
       "dataSources": {
         "primary": "ds_attack_linkgraph"
       },
       "options": {
-        "fieldOrder": ["Recon", "Initial_Access", "Lateral_Movement", "Persistence", "Exfiltration", "Response"],
         "nodeColor": "#2A2B36",
         "nodeHighlightColor": "#DC4E41",
         "linkColor": "#DC4E41",
         "linkWidth": 2,
-        "nodeWidth": 180,
-        "nodeHeight": 28,
-        "nodeSpacingX": 10,
-        "nodeSpacingY": 4,
+        "nodeWidth": 350,
+        "nodeHeight": 32,
+        "nodeSpacingX": 60,
+        "nodeSpacingY": 6,
         "showNodeCounts": true,
         "showValueCounts": true,
         "resultLimit": 50,
@@ -600,175 +655,229 @@
     }
   },
   "layout": {
-    "type": "grid",
     "globalInputs": ["input_global_trp"],
-    "structure": [
-      {
-        "item": "viz_header_md",
-        "type": "block",
-        "position": { "x": 0, "y": 0, "w": 1200, "h": 200 }
-      },
-      {
-        "item": "viz_kpi_events",
-        "type": "block",
-        "position": { "x": 0, "y": 200, "w": 300, "h": 120 }
-      },
-      {
-        "item": "viz_kpi_sourcetypes",
-        "type": "block",
-        "position": { "x": 300, "y": 200, "w": 300, "h": 120 }
-      },
-      {
-        "item": "viz_kpi_hosts",
-        "type": "block",
-        "position": { "x": 600, "y": 200, "w": 300, "h": 120 }
-      },
-      {
-        "item": "viz_kpi_users",
-        "type": "block",
-        "position": { "x": 900, "y": 200, "w": 300, "h": 120 }
-      },
-      {
-        "item": "viz_attack_flow_sankey",
-        "type": "block",
-        "position": { "x": 0, "y": 320, "w": 1200, "h": 380 }
-      },
-      {
-        "item": "viz_attack_linkgraph",
-        "type": "block",
-        "position": { "x": 0, "y": 700, "w": 1200, "h": 500 }
-      },
-      {
-        "item": "viz_attack_timeline",
-        "type": "block",
-        "position": { "x": 0, "y": 1200, "w": 1200, "h": 350 }
-      },
-      {
-        "item": "viz_phase1_header",
-        "type": "block",
-        "position": { "x": 0, "y": 1550, "w": 1200, "h": 120 }
-      },
-      {
-        "item": "viz_recon_ports",
-        "type": "block",
-        "position": { "x": 0, "y": 1670, "w": 600, "h": 350 }
-      },
-      {
-        "item": "viz_recon_timeline",
-        "type": "block",
-        "position": { "x": 600, "y": 1670, "w": 600, "h": 350 }
-      },
-      {
-        "item": "viz_phase2_header",
-        "type": "block",
-        "position": { "x": 0, "y": 2020, "w": 1200, "h": 120 }
-      },
-      {
-        "item": "viz_phishing_emails",
-        "type": "block",
-        "position": { "x": 0, "y": 2140, "w": 600, "h": 300 }
-      },
-      {
-        "item": "viz_initial_o365",
-        "type": "block",
-        "position": { "x": 600, "y": 2140, "w": 600, "h": 300 }
-      },
-      {
-        "item": "viz_phase3_header",
-        "type": "block",
-        "position": { "x": 0, "y": 2440, "w": 1200, "h": 120 }
-      },
-      {
-        "item": "viz_network_sankey",
-        "type": "block",
-        "position": { "x": 0, "y": 2560, "w": 600, "h": 380 }
-      },
-      {
-        "item": "viz_lateral_entraid",
-        "type": "block",
-        "position": { "x": 600, "y": 2560, "w": 600, "h": 380 }
-      },
-      {
-        "item": "viz_phase4_header",
-        "type": "block",
-        "position": { "x": 0, "y": 2940, "w": 1200, "h": 120 }
-      },
-      {
-        "item": "viz_persist_aws",
-        "type": "block",
-        "position": { "x": 0, "y": 3060, "w": 600, "h": 350 }
-      },
-      {
-        "item": "viz_persist_consent",
-        "type": "block",
-        "position": { "x": 600, "y": 3060, "w": 600, "h": 350 }
-      },
-      {
-        "item": "viz_phase5_header",
-        "type": "block",
-        "position": { "x": 0, "y": 3410, "w": 1200, "h": 120 }
-      },
-      {
-        "item": "viz_exfil_o365",
-        "type": "block",
-        "position": { "x": 0, "y": 3530, "w": 400, "h": 280 }
-      },
-      {
-        "item": "viz_exfil_aws",
-        "type": "block",
-        "position": { "x": 400, "y": 3530, "w": 400, "h": 280 }
-      },
-      {
-        "item": "viz_exfil_evidence",
-        "type": "block",
-        "position": { "x": 800, "y": 3530, "w": 400, "h": 280 }
-      },
-      {
-        "item": "viz_exfil_risk",
-        "type": "block",
-        "position": { "x": 0, "y": 3810, "w": 1200, "h": 280 }
-      },
-      {
-        "item": "viz_response_header",
-        "type": "block",
-        "position": { "x": 0, "y": 4090, "w": 1200, "h": 80 }
-      },
-      {
-        "item": "viz_response_servicenow",
-        "type": "block",
-        "position": { "x": 0, "y": 4170, "w": 600, "h": 300 }
-      },
-      {
-        "item": "viz_response_entraid",
-        "type": "block",
-        "position": { "x": 600, "y": 4170, "w": 600, "h": 300 }
-      },
-      {
-        "item": "viz_matrix_header",
-        "type": "block",
-        "position": { "x": 0, "y": 4470, "w": 1200, "h": 60 }
-      },
-      {
-        "item": "viz_cross_source_matrix",
-        "type": "block",
-        "position": { "x": 0, "y": 4530, "w": 1200, "h": 350 }
-      },
-      {
-        "item": "viz_gaps_md",
-        "type": "block",
-        "position": { "x": 0, "y": 4880, "w": 1200, "h": 300 }
-      },
-      {
-        "item": "viz_mitre_header",
-        "type": "block",
-        "position": { "x": 0, "y": 5180, "w": 1200, "h": 80 }
-      },
-      {
-        "item": "viz_mitre_table",
-        "type": "block",
-        "position": { "x": 0, "y": 5260, "w": 1200, "h": 420 }
+    "layoutDefinitions": {
+      "layout_main": {
+        "type": "absolute",
+        "options": {
+          "width": 1920,
+          "height": 7020,
+          "display": "auto-scale",
+          "backgroundColor": "#0B0C10"
+        },
+        "structure": [
+          {
+            "item": "viz_bg_header",
+            "type": "block",
+            "position": { "x": 0, "y": 0, "w": 1920, "h": 300 }
+          },
+          {
+            "item": "viz_bg_phase1",
+            "type": "block",
+            "position": { "x": 0, "y": 1600, "w": 1920, "h": 600 }
+          },
+          {
+            "item": "viz_bg_phase2",
+            "type": "block",
+            "position": { "x": 0, "y": 2200, "w": 1920, "h": 550 }
+          },
+          {
+            "item": "viz_bg_phase3",
+            "type": "block",
+            "position": { "x": 0, "y": 2750, "w": 1920, "h": 600 }
+          },
+          {
+            "item": "viz_bg_phase4",
+            "type": "block",
+            "position": { "x": 0, "y": 3350, "w": 1920, "h": 600 }
+          },
+          {
+            "item": "viz_bg_phase5",
+            "type": "block",
+            "position": { "x": 0, "y": 3950, "w": 1920, "h": 750 }
+          },
+          {
+            "item": "viz_bg_response",
+            "type": "block",
+            "position": { "x": 0, "y": 4700, "w": 1920, "h": 500 }
+          },
+          {
+            "item": "viz_header_md",
+            "type": "block",
+            "position": { "x": 20, "y": 20, "w": 1880, "h": 260 }
+          },
+          {
+            "item": "viz_kpi_events",
+            "type": "block",
+            "position": { "x": 20, "y": 300, "w": 460, "h": 130 }
+          },
+          {
+            "item": "viz_kpi_sourcetypes",
+            "type": "block",
+            "position": { "x": 490, "y": 300, "w": 460, "h": 130 }
+          },
+          {
+            "item": "viz_kpi_hosts",
+            "type": "block",
+            "position": { "x": 960, "y": 300, "w": 460, "h": 130 }
+          },
+          {
+            "item": "viz_kpi_users",
+            "type": "block",
+            "position": { "x": 1430, "y": 300, "w": 460, "h": 130 }
+          },
+          {
+            "item": "viz_attack_flow_sankey",
+            "type": "block",
+            "position": { "x": 20, "y": 460, "w": 1880, "h": 400 }
+          },
+          {
+            "item": "viz_attack_linkgraph",
+            "type": "block",
+            "position": { "x": 20, "y": 880, "w": 1880, "h": 900 }
+          },
+          {
+            "item": "viz_attack_timeline",
+            "type": "block",
+            "position": { "x": 20, "y": 1800, "w": 1880, "h": 380 }
+          },
+          {
+            "item": "viz_phase1_header",
+            "type": "block",
+            "position": { "x": 20, "y": 2040, "w": 1880, "h": 130 }
+          },
+          {
+            "item": "viz_recon_ports",
+            "type": "block",
+            "position": { "x": 20, "y": 2190, "w": 920, "h": 380 }
+          },
+          {
+            "item": "viz_recon_timeline",
+            "type": "block",
+            "position": { "x": 960, "y": 2190, "w": 920, "h": 380 }
+          },
+          {
+            "item": "viz_phase2_header",
+            "type": "block",
+            "position": { "x": 20, "y": 2640, "w": 1880, "h": 130 }
+          },
+          {
+            "item": "viz_phishing_emails",
+            "type": "block",
+            "position": { "x": 20, "y": 2790, "w": 920, "h": 340 }
+          },
+          {
+            "item": "viz_initial_o365",
+            "type": "block",
+            "position": { "x": 960, "y": 2790, "w": 920, "h": 340 }
+          },
+          {
+            "item": "viz_phase3_header",
+            "type": "block",
+            "position": { "x": 20, "y": 3190, "w": 1880, "h": 130 }
+          },
+          {
+            "item": "viz_network_sankey",
+            "type": "block",
+            "position": { "x": 20, "y": 3340, "w": 920, "h": 400 }
+          },
+          {
+            "item": "viz_lateral_entraid",
+            "type": "block",
+            "position": { "x": 960, "y": 3340, "w": 920, "h": 400 }
+          },
+          {
+            "item": "viz_phase4_header",
+            "type": "block",
+            "position": { "x": 20, "y": 3790, "w": 1880, "h": 130 }
+          },
+          {
+            "item": "viz_persist_aws",
+            "type": "block",
+            "position": { "x": 20, "y": 3940, "w": 920, "h": 380 }
+          },
+          {
+            "item": "viz_persist_consent",
+            "type": "block",
+            "position": { "x": 960, "y": 3940, "w": 920, "h": 380 }
+          },
+          {
+            "item": "viz_phase5_header",
+            "type": "block",
+            "position": { "x": 20, "y": 4390, "w": 1880, "h": 130 }
+          },
+          {
+            "item": "viz_exfil_o365",
+            "type": "block",
+            "position": { "x": 20, "y": 4540, "w": 613, "h": 300 }
+          },
+          {
+            "item": "viz_exfil_aws",
+            "type": "block",
+            "position": { "x": 653, "y": 4540, "w": 613, "h": 300 }
+          },
+          {
+            "item": "viz_exfil_evidence",
+            "type": "block",
+            "position": { "x": 1286, "y": 4540, "w": 614, "h": 300 }
+          },
+          {
+            "item": "viz_exfil_risk",
+            "type": "block",
+            "position": { "x": 20, "y": 4860, "w": 1880, "h": 260 }
+          },
+          {
+            "item": "viz_response_header",
+            "type": "block",
+            "position": { "x": 20, "y": 5140, "w": 1880, "h": 90 }
+          },
+          {
+            "item": "viz_response_servicenow",
+            "type": "block",
+            "position": { "x": 20, "y": 5250, "w": 920, "h": 320 }
+          },
+          {
+            "item": "viz_response_entraid",
+            "type": "block",
+            "position": { "x": 960, "y": 5250, "w": 920, "h": 320 }
+          },
+          {
+            "item": "viz_matrix_header",
+            "type": "block",
+            "position": { "x": 20, "y": 5620, "w": 1880, "h": 70 }
+          },
+          {
+            "item": "viz_cross_source_matrix",
+            "type": "block",
+            "position": { "x": 20, "y": 5710, "w": 1880, "h": 380 }
+          },
+          {
+            "item": "viz_gaps_md",
+            "type": "block",
+            "position": { "x": 20, "y": 6120, "w": 1880, "h": 300 }
+          },
+          {
+            "item": "viz_mitre_header",
+            "type": "block",
+            "position": { "x": 20, "y": 6440, "w": 1880, "h": 80 }
+          },
+          {
+            "item": "viz_mitre_table",
+            "type": "block",
+            "position": { "x": 20, "y": 6540, "w": 1880, "h": 450 }
+          }
+        ]
       }
-    ]
+    },
+    "options": {},
+    "tabs": {
+      "items": [
+        {
+          "label": "Attack Story",
+          "layoutId": "layout_main"
+        }
+      ]
+    }
   }
 }
   ]]></definition>

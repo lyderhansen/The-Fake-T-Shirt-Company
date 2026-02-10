@@ -238,7 +238,7 @@ Every visualization follows this structure:
 
 | Type | Description | Key Options |
 |------|-------------|-------------|
-| `splunk.markdown` | Markdown text block | `markdown`, `fontColor`, `fontSize` (`extraSmall`, `small`, `default`, `large`, `extraLarge`), `customFontSize`, `fontFamily`, `backgroundColor`, `rotation` |
+| `splunk.markdown` | Markdown text block (**NOTE:** does NOT support pipe-based markdown tables) | `markdown`, `fontColor`, `fontSize` (`extraSmall`, `small`, `default`, `large`, `extraLarge`), `customFontSize`, `fontFamily`, `backgroundColor`, `rotation` |
 | `splunk.image` | Image display | `src`, `preserveAspectRatio` |
 | `splunk.rectangle` | Rectangle shape | `fillColor`, `fillOpacity`, `strokeColor`, `strokeWidth`, `strokeDashStyle`, `strokeOpacity`, `cornerRadius` |
 | `splunk.ellipse` | Ellipse shape | `fillColor`, `fillOpacity`, `strokeColor`, `strokeWidth`, `strokeDashStyle`, `strokeOpacity` |
@@ -736,40 +736,46 @@ This applies time range tokens to ALL `ds.search` data sources globally, avoidin
 
 ### 6.1 Absolute Layout (pixel-perfect)
 
+> **CRITICAL:** Absolute layout REQUIRES the `layoutDefinitions` + `tabs` wrapper. You CANNOT use `"type": "absolute"` directly in the top-level `layout` object — it causes a "CData section not finished" XML parse error in Splunk. Even single-view dashboards need at least one tab.
+
 ```json
 "layout": {
-  "type": "absolute",
-  "options": {
-    "width": 1440,
-    "height": 960,
-    "display": "auto-scale",
-    "backgroundColor": "#0B0C10",
-    "backgroundImage": {
-      "src": "",
-      "sizeType": "cover",
-      "x": 0,
-      "y": 0
-    },
-    "showTitleAndDescription": true,
-    "submitButton": false
-  },
   "globalInputs": ["input_global_trp"],
-  "structure": [
-    {
-      "item": "viz_header",
-      "type": "block",
-      "position": {"x": 0, "y": 0, "w": 1440, "h": 60}
-    },
-    {
-      "item": "viz_singlevalue1",
-      "type": "block",
-      "position": {"x": 20, "y": 80, "w": 340, "h": 120}
+  "layoutDefinitions": {
+    "layout_main": {
+      "type": "absolute",
+      "options": {
+        "width": 1920,
+        "height": 5500,
+        "display": "auto-scale",
+        "backgroundColor": "#0B0C10"
+      },
+      "structure": [
+        {
+          "item": "viz_bg_header",
+          "type": "block",
+          "position": {"x": 0, "y": 0, "w": 1920, "h": 300}
+        },
+        {
+          "item": "viz_header",
+          "type": "block",
+          "position": {"x": 40, "y": 20, "w": 1840, "h": 260}
+        }
+      ]
     }
-  ]
+  },
+  "options": {},
+  "tabs": {
+    "items": [
+      {"label": "Main", "layoutId": "layout_main"}
+    ]
+  }
 }
 ```
 
-**display values:** `"auto-scale"` | `"actual-size"`
+**Absolute layout `options`:** `width` (default 1140), `height` (default 960), `display` (`"auto-scale"` | `"actual-size"` | `"fit-to-width"`), `backgroundColor` (hex), `backgroundImage` (`src`, `sizeType`: auto/contain/cover). These are ONLY available in absolute layout, not grid.
+
+**z-ordering:** Items earlier in the `structure` array render behind items later. Use `splunk.rectangle` for overlapping background panels (absolute layout only).
 
 ### 6.2 Grid Layout (responsive, auto-sized)
 
@@ -1122,6 +1128,9 @@ Layout grid positions for this pattern (width=1200):
 12. **Use `seriesColorsByField`** instead of `seriesColors` when you need stable per-field colors (e.g., `{"allowed": "#53A051", "blocked": "#DC4E41"}`).
 13. **Use `nullValueDisplay: "connect"`** for time series with gaps to avoid misleading gaps or zeroes.
 14. **Quote rules:** Strings and options need quotes. Booleans and numbers do NOT need quotes in JSON options.
+15. **`splunk.markdown` does NOT support markdown tables** — Pipe-based table syntax (`| col1 | col2 |`) does not render. Use `splunk.table` with `| makeresults` or static data for tabular content instead.
+16. **Absolute layout REQUIRES `layoutDefinitions` + `tabs`** -- Never put `"type": "absolute"` directly in the top-level `layout` object. Even single-view absolute dashboards must use the `layoutDefinitions` wrapper with at least one tab.
+17. **Avoid problematic Unicode in CDATA JSON** -- Splunk's XML parser can break CDATA sections with "CData section not finished" error on certain non-ASCII characters. **Emojis are OK** (e.g., ☠, 🔍, 🎣, ✅, ⚠, 🛡). Avoid em-dashes (U+2014), arrows (U+2192), middle dots (U+00B7), and similar typographic Unicode -- replace with ASCII: `--`, `->`, `|`.
 
 ---
 

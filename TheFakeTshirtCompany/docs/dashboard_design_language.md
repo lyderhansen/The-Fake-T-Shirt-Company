@@ -66,14 +66,19 @@ Use this ordered array whenever a chart displays multiple series without explici
 
 ## 2. Layout Rules
 
-- **Grid layout** for all dashboards (auto-sized, responsive).
-- **Absolute layout** only for floor plans (SVG choropleth positioning).
-- Grid layout definition has ONLY `type` and `structure` -- NO `options`, `width`, `height`, `backgroundColor`, or `display`.
+- **Grid layout** for most dashboards (auto-sized, responsive).
+- **Absolute layout** for floor plans, story-driven dashboards, or any dashboard needing overlapping elements / custom canvas size.
+- Grid layout definition has ONLY `type` and `structure` -- NO `options`, `width`, `height`, `backgroundColor`, or `display`. Width 1200 in position values. Y-values are cumulative (no gaps).
+- **Absolute layout REQUIRES `layoutDefinitions` + `tabs`** -- You CANNOT use `"type": "absolute"` directly in the top-level `layout` object. It causes a "CData section not finished" XML parse error in Splunk. Absolute layout MUST be wrapped inside `layoutDefinitions` with at least one tab, even for a single-view dashboard.
+- Absolute layout supports `splunk.rectangle` for overlapping background panels (z-order = array position in structure). Grid does NOT support overlapping.
+- Absolute layout `options`: `width` (default 1140), `height` (default 960), `display` (`auto-scale`/`actual-size`/`fit-to-width`), `backgroundColor` (hex), `backgroundImage` (`src`, `sizeType`: auto/contain/cover). These options are ONLY available in absolute layout.
 - Every `ds.search` MUST have a `name` property.
-- Every visualization MUST appear in `layout.structure`.
+- Every visualization MUST appear in `layout.structure` (grid) or `layoutDefinitions.*.structure` (absolute). Missing entries cause panels to silently not render.
 - Default time range: epoch `1767225600` to `1769904000` (Jan 1 -- Feb 1, 2026).
-- Missing entries in `layout.structure` cause panels to silently not render. Always verify every visualization ID is listed.
 - Tabs work with both layout types. Each `layoutDefinition` can use `"type": "grid"` or `"type": "absolute"` independently.
+- **Reference**: `boston_-_floor_plan.xml` (working absolute layout with tabs) and `scenario_exfil_absolute.xml` (single-tab absolute story dashboard).
+- **`splunk.markdown` does NOT support markdown tables** — Pipe-based table syntax (`| col1 | col2 |`) does not render in Dashboard Studio's `splunk.markdown` visualization. Use `splunk.table` with `| makeresults` or static data for tabular content instead.
+- **Avoid problematic Unicode in dashboard JSON** — Splunk's XML parser can break CDATA sections with "CData section not finished" errors on certain non-ASCII characters. **Emojis are OK** (e.g., ☠, 🔍, 🎣, ✅, ⚠, 🛡). Avoid em-dashes (`---` U+2014), arrows (U+2192), middle dots (U+00B7), and similar typographic Unicode -- replace with ASCII: `--`, `->`, `|`.
 
 ### Grid Layout Skeleton
 
@@ -93,18 +98,43 @@ Use this ordered array whenever a chart displays multiple series without explici
 }
 ```
 
-### Absolute Layout Skeleton (floor plans only)
+### Absolute Layout Skeleton
+
+Uses `layoutDefinitions` + `tabs` -- even for a single view. DO NOT put `"type": "absolute"` in the top-level `layout` object.
 
 ```json
 {
   "layout": {
-    "type": "absolute",
-    "options": {
-      "display": "auto-scale",
-      "width": 1440,
-      "height": 900
+    "globalInputs": ["input_global_trp"],
+    "layoutDefinitions": {
+      "layout_main": {
+        "type": "absolute",
+        "options": {
+          "width": 1920,
+          "height": 5500,
+          "display": "auto-scale",
+          "backgroundColor": "#0B0C10"
+        },
+        "structure": [
+          {
+            "item": "viz_bg_panel",
+            "type": "block",
+            "position": { "x": 0, "y": 0, "w": 1920, "h": 300 }
+          },
+          {
+            "item": "viz_content",
+            "type": "block",
+            "position": { "x": 40, "y": 20, "w": 1840, "h": 260 }
+          }
+        ]
+      }
     },
-    "structure": []
+    "options": {},
+    "tabs": {
+      "items": [
+        { "label": "Main", "layoutId": "layout_main" }
+      ]
+    }
   }
 }
 ```
@@ -596,5 +626,6 @@ Before submitting any new dashboard, verify the following:
 - [ ] Default time range uses epochs `1767225600` to `1769904000`.
 - [ ] Index is `fake_tshrt` in all searches.
 - [ ] Sourcetypes use the `FAKE:` prefix.
+- [ ] **No problematic Unicode** in dashboard JSON (emojis OK, but no em-dashes/arrows/middle dots -- use ASCII `--`, `->`, `|`).
 - [ ] Dashboard filename follows naming conventions from Section 3.
 - [ ] Dashboard title follows naming conventions from Section 3.

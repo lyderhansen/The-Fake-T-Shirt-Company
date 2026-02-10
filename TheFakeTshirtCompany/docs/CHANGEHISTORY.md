@@ -4,6 +4,291 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-11 ~10:00 UTC — Fix Sankey/LinkGraph _raw bug + redesign Attack Journey link graph
+
+### Bug Fix: `_raw` field in makeresults causes mvexpand failure
+
+Both `ds_attack_flow_sankey` and `ds_attack_linkgraph` used `_raw` as the field name in `| makeresults | eval _raw="..." | makemv | mvexpand` patterns. Splunk treats `_raw` as a special internal field, causing `mvexpand` to return 1 collapsed row instead of separate rows.
+
+**Root cause:** `_raw` is Splunk's raw event data field. Using it in `makeresults` → `makemv` → `mvexpand` does not properly expand into multiple rows.
+
+**Fix:** Replaced all `_raw` with `data` in both data sources across both dashboard files:
+- `eval _raw="..."` → `eval data="..."`
+- `makemv delim="|" _raw` → `makemv delim="|" data`
+- `mvexpand _raw` → `mvexpand data`
+- `rex field=_raw` → `rex field=data`
+
+**Files:** `scenario_exfil.xml`, `scenario_exfil_absolute.xml` (4 queries fixed total)
+
+### Link Graph Redesign: Full Attack Journey Narrative
+
+Redesigned the link graph (`ds_attack_linkgraph`) from a sourcetype-centric mapping to a full attack journey narrative. The graph now tells the complete 14-day APT story as a connected chain:
+
+- **32 connected steps** tracing the entire kill chain
+- **Nodes chain together:** Threat Actor → FW-EDGE-01 → SOC Visibility → INC → P1 Incident → response
+- **Key hubs:** `185.220.101.42 (Threat Actor)`, `jessica.brown (IT Admin)`, `alex.miller (Finance BOS)`, `P1 Security Incident`
+- **Includes:** Recon (port scans), phishing, credential harvest, email forwarding, lateral movement (ATL→BOS), cloud enumeration, persistence (IAM backdoor, app consent), exfil (SharePoint, rclone, curl, S3), cleanup, and full incident response chain
+
+**Files:** `scenario_exfil.xml`, `scenario_exfil_absolute.xml`
+
+---
+
+## 2026-02-11 ~07:00 UTC — Fix CDATA Unicode error + rebuild absolute exfil dashboard
+
+### CDATA Unicode Fix (scenario_exfil.xml)
+
+Fixed "CData section not finished" XML parse error caused by non-ASCII Unicode characters inside the `<![CDATA[ ... ]]>` block.
+
+**Root cause:** Splunk's XML parser for Dashboard Studio v2 cannot handle non-ASCII characters (emojis, em-dashes, arrows, middle dots) inside CDATA sections. The dashboard JSON contained Unicode characters from markdown narratives.
+
+**Characters replaced (all instances):**
+- `→` (U+2192) replaced with `->`
+- `—` (U+2014) replaced with `--`
+- `·` (U+00B7) replaced with `|`
+- Emojis (skull, magnifier, fish hook, lock, checkmark, chart, shield, warning) replaced with ASCII labels like `[RECON]`, `[PHISH]`, `[LATERAL]`, `[LOCK]`, `[OK]`, `[+]`, `[MITRE]`, `[!]`
+- `&` in `[ATT&CK]` replaced with `[MITRE]` (ampersand is XML-special)
+- `<` in `<->` replaced with `[LATERAL]` (angle bracket is XML-special)
+
+**Validation:** Python script confirmed zero non-ASCII characters remaining. JSON parsed successfully with 23 dataSources, 33 visualizations, all present in layout.structure.
+
+### Absolute Dashboard Rebuild (scenario_exfil_absolute.xml)
+
+Rebuilt the absolute layout variant from scratch with the same ASCII-safe content as the fixed grid version:
+
+- Canvas: 1920 x 6600px, `auto-scale`, dark background `#0B0C10`
+- Uses `layoutDefinitions` + `tabs` wrapper pattern (matching `boston_-_floor_plan.xml`)
+- 7 `splunk.rectangle` background panels with phase-specific tinted colors
+- 40 total visualizations (7 backgrounds + 33 content)
+- Same 23 data sources and SPL queries as grid version
+- Includes all 3 new viz types: 2 Sankey diagrams + 1 Link Graph
+- All ASCII, validated with zero non-ASCII characters
+
+### Knowledge Files Updated
+
+Added Unicode/CDATA rule to project knowledge:
+- `MEMORY.md` — Added rule under "Splunk Dashboard Studio Rules"
+- `~/.claude/skills/splunk-dashboard-studio/SKILL.md` (global) — Added best practice #17
+- `.claude/skills/splunk-dashboard-studio/SKILL.md` (project) — Added best practice #17
+- `docs/dashboard_design_language.md` — Added to Section 8 checklist and Section 2 layout rules
+
+**Affected files:**
+- `default/data/ui/views/scenario_exfil.xml` — All Unicode replaced with ASCII equivalents
+- `default/data/ui/views/scenario_exfil_absolute.xml` — Complete rebuild with ASCII-safe content
+
+---
+
+## 2026-02-11 ~05:00 UTC — Restyle Exfil dashboard ("hacker" look) + add Meraki CIM field extractions
+
+### Dashboard Restyle (scenario_exfil.xml)
+
+Redesigned the Scenario Exfil dashboard with a dark "hacker" aesthetic and replaced many tables with richer visualizations:
+
+**Visual changes:**
+- All markdown panels: dark surface background (`#13141A`) with colored font per phase (yellow/red/blue/purple/green)
+- KPI single values: dark tinted backgrounds (`#1A1015` red, `#1A1520` purple, `#101A1F` blue, `#1A1A10` yellow)
+- All charts: dark surface backgrounds instead of transparent
+- Header markdown: bullet-point format instead of broken pipe tables
+
+**New visualizations (replacing tables):**
+- `splunk.sankey` — **Attack Flow Sankey**: Static makeresults showing Threat Actor → Phishing → Lateral Movement → Exfil → Data Exfiltrated
+- `splunk.sankey` — **Network Cross-Source Sankey** (Phase 3): Live ASA firewall data with regex IP extraction, mapped to subnet labels (Boston/Atlanta/Austin/DMZ/External/Threat Actor)
+- `splunk.linkgraph` — **Attack Kill Chain**: 5-column link graph showing Tactic → Actor → Action → Target → Evidence Source across all 14 attack steps
+
+**Viz count:** 34 visualizations (was 30): 2 Sankey + 1 Link Graph + 5 charts + 10 tables + 10 markdown + 4 KPIs + 2 headers
+
+**Affected files:**
+- `default/data/ui/views/scenario_exfil.xml` — Complete restyle with hacker dark theme + 3 new viz types
+
+### Meraki CIM Field Extractions
+
+Added CIM-compatible field extractions to all 7 Meraki sourcetypes, modeled after the official `Splunk_TA_cisco_meraki` add-on:
+
+**props.conf changes (7 sourcetypes):**
+- Added `KV_MODE = JSON` to all Meraki stanzas (was missing)
+- Added `FIELDALIAS-meraki_event_type = type AS meraki_event_type` to all stanzas
+- `FAKE:meraki:securityappliances` — Full CIM extractions: action, app, dest, dest_ip, dest_port, dvc, protocol, severity, signature, signature_id, src, src_ip, src_mac, src_port, status, transport, url, user + 3 LOOKUP-transforms
+- `FAKE:meraki:accesspoints` — CIM: app, description, dest, dvc, severity, src, src_ip, src_mac, ssid, status, type, user + 3 LOOKUP-transforms
+- `FAKE:meraki:switches` — CIM: action, dest, dvc, object_attrs, object_category, object_id, result, src, src_mac, status + 3 LOOKUP-transforms
+- `FAKE:meraki:cameras` — CIM: action, change_type, dest, dvc, object, object_attrs, object_category, src, status + 1 LOOKUP-transform
+- `FAKE:meraki:sensors` — CIM: action, dest, dvc, object, object_attrs, object_category, src, status
+- `FAKE:meraki:accesspoints:health` — CIM: dvc, dest, src, status
+- `FAKE:meraki:switches:health` — CIM: dvc, dest, src, status
+
+**transforms.conf changes:**
+- Added 11 lookup definitions matching the official TA naming convention:
+  - `cisco_meraki_accesspoints_action_lookup`
+  - `cisco_meraki_accesspoints_change_type_object_object_category_result_lookup`
+  - `cisco_meraki_accesspoints_object_attrs_lookup`
+  - `cisco_meraki_cameras_lookup`
+  - `cisco_meraki_securityappliances_action_lookup`
+  - `cisco_meraki_securityappliances_change_type_result_lookup`
+  - `cisco_meraki_securityappliances_object_object_category_lookup`
+  - `cisco_meraki_switches_action_lookup`
+  - `cisco_meraki_switches_change_type_object_lookup`
+  - `cisco_meraki_switches_result_lookup`
+  - `cisco_meraki_organizationsecurity_lookup`
+
+All 11 CSV lookup files were already present in `lookups/` from a previous import.
+
+**Affected files:**
+- `default/props.conf` — Added CIM extractions to 7 Meraki sourcetype stanzas
+- `default/transforms.conf` — Added 11 Meraki lookup definitions
+
+---
+
+## 2026-02-11 ~01:00 UTC — Add absolute layout variant of Scenario Exfil dashboard
+
+Created `scenario_exfil_absolute.xml` as an absolute layout variant using Dashboard Studio v2 `layoutDefinitions` + tabs pattern (matching `boston_-_floor_plan.xml`). Fixed original `scenario_exfil.xml` to use grid layout (the only layout type that works without tabs).
+
+**Root cause of CDATA error:** Splunk Dashboard Studio v2 does not support `"type": "absolute"` directly in the top-level `layout` object. Absolute layout requires `layoutDefinitions` with `tabs`. The grid variant uses `"type": "grid"` (width 1200, no options block).
+
+**Absolute variant features (scenario_exfil_absolute.xml):**
+- Canvas: 1920 x 5500px, `auto-scale`, dark background `#0B0C10`
+- 7 `splunk.rectangle` background panels with phase-specific tinted colors
+- 37 total visualizations (30 content + 7 backgrounds)
+- Single tab "Attack Story" wrapping the absolute layout
+
+**Grid variant (scenario_exfil.xml):**
+- Standard grid layout (width 1200, no options block)
+- 30 visualizations (no rectangles - grid doesn't support overlapping)
+- Same 21 data sources and SPL queries
+
+**Affected files:**
+- `default/data/ui/views/scenario_exfil.xml` — Converted from broken absolute to working grid layout
+- `default/data/ui/views/scenario_exfil_absolute.xml` — NEW absolute layout variant
+
+---
+
+## 2026-02-10 ~22:30 UTC — Replace Scenario Exfil dashboard with comprehensive APT walkthrough
+
+Replaced the existing `scenario_exfil.xml` grid-layout dashboard with a comprehensive Dashboard Studio v2 dashboard (1920x5500px, vertical scroll).
+
+**Dashboard features:**
+- **21 data sources** with verified SPL queries using keyword search `demo_id exfil`
+- **37 visualizations** including markdown narratives, KPI cards, area/column charts, tables, and background rectangles
+- **5 attack phases** with MITRE ATT&CK technique mapping (15 techniques from T1595 through T1070)
+- **Incident Response section** showing ServiceNow INC/CHG records and Entra ID remediation actions
+- **Cross-source correlation matrix** (14 days × 12 source categories)
+- **Identified gaps section** documenting 6 logical improvements needed in generators
+- **MITRE ATT&CK summary table** with static makeresults mapping all 15 techniques
+
+**Phase structure:**
+1. Reconnaissance (Days 1-4): ASA port scan analysis with column chart and timeline
+2. Initial Access (Day 5): Phishing email evidence and O365 activity tables
+3. Lateral Movement (Days 6-8): Meraki IDS events and Entra ID risk detections
+4. Persistence (Days 9-11): AWS IAM backdoor and Entra ID app consent tables
+5. Exfiltration (Days 12-14): M365 downloads, AWS S3 ops, Sysmon/WinEventLog process evidence, risk detections
+
+**Data verified:** ~3,820 events across 28 sourcetypes, Jan 1-14 2026
+
+**Affected files:**
+- `default/data/ui/views/scenario_exfil.xml` — Complete rewrite (779 lines, absolute layout)
+
+**Key design decisions:**
+- Keyword search `demo_id exfil` instead of `demo_id=exfil` (field value syntax returned 0 results for some sourcetypes)
+- Phase-specific time ranges in queries (e.g., `earliest="01/01/2026:00:00:00" latest="01/05/2026:00:00:00"`) to scope data per section
+- Background rectangles with phase-specific accent colors for visual separation
+
+---
+
+## 2026-02-10 ~20:30 UTC — SAP Stock & Sales SPL queries
+
+Added 12 SPL queries to `docs/splunk_queries.md` across 3 new sections:
+
+- **SAP Stock & Inventory (7 queries):** Net stock flow per product, daily movement trend, top 10 outbound products, receipt vs issue balance, stockout risk (lowest net stock), movement type distribution per week, variance/shrinkage events
+- **SAP Sales & Revenue (4 queries):** Daily sales orders with revenue, order lifecycle pipeline (VA01→VL01N→VF01), top users by invoiced revenue, web orders vs SAP sales correlation
+- **Retail Orders (1 query):** Order status funnel (created→delivered, payment_declined, cancelled)
+
+All queries leverage the newly extracted SAP fields (`mvt_type`, `material_id`, `material_name`, `qty`, `amount`, `tcode`).
+
+**Affected files:**
+- `docs/splunk_queries.md` — Added 3 sections with 12 queries
+
+**Verification:** All queries tested against live Splunk data (40,760 SAP events, 319K retail order events) — **PASS**
+
+---
+
+## 2026-02-10 ~19:45 UTC — SAP details sub-field extraction + demo_id fix
+
+Added search-time extraction of 17 structured fields from the SAP `details` field, and fixed two issues with the Step 1 config.
+
+**Fixes to Step 1:**
+- Removed `demo_id` from `extract_sap_auditlog_fields` REPORT (was search-time, should only be index-time)
+- Added missing `TRANSFORMS-demo_id = extract_demo_id_indexed` to `[FAKE:sap:auditlog]` (every other sourcetype had this)
+
+**Bug fix:** Initial implementation used `SOURCE_KEY = details` which doesn't work — Splunk REPORT transforms can't chain off other REPORT-extracted fields. Removed all `SOURCE_KEY` lines so regex runs against `_raw` (default).
+
+**Affected files:**
+
+### `default/transforms.conf`
+- **Fixed `[extract_sap_auditlog_fields]`:** Removed `demo_id::$9` from FORMAT and `(?:\|demo_id=(\S+))?` from REGEX
+- **Added 9 detail extraction stanzas** (all search-time, regex against `_raw`):
+
+| Stanza | Fields extracted | Matches |
+|--------|-----------------|---------|
+| `extract_sap_inventory` | mvt_type, material_id, material_name, qty, storage_loc | MIGO events (~10K) |
+| `extract_sap_sales_order` | customer_id, item_count, order_total | VA01 events |
+| `extract_sap_amount` | amount | FB01, F-28, VF01, ME21N, MM02 |
+| `extract_sap_price_change` | old_price, new_price, material_id, material_name | MM02 events |
+| `extract_sap_purchase_order` | vendor_name, vendor_category | ME21N events |
+| `extract_sap_session` | sap_client | LOGIN/LOGOUT events |
+| `extract_sap_terminal` | terminal | LOGIN events |
+| `extract_sap_session_duration` | session_duration | LOGOUT events |
+| `extract_sap_login_failure` | login_failure_reason | Failed LOGIN events |
+
+### `default/props.conf`
+- **Added** `TRANSFORMS-demo_id = extract_demo_id_indexed` (index-time, was missing)
+- **Added** `REPORT-sap_details` with all 9 detail extraction stanzas (search-time)
+
+**Verification (inline rex against 40,760 events):**
+- Inventory: mvt_type=101/301/501/261, material_id, material_name, qty, storage_loc — **PASS**
+- Sales: customer_id=CUST-00001..00026, item_count, order_total — **PASS**
+- Amount: extracted across 6 tcodes (FB01, F-28, VF01, ME21N, MM02, VA01) — **PASS**
+- PO: vendor_name + vendor_category (5 vendors) — **PASS**
+- Session: sap_client=100, terminal=T*, session_duration, login_failure_reason — **PASS**
+
+---
+
+## 2026-02-10 ~19:00 UTC — Fix SAP audit log field extraction
+
+SAP pipe-delimited fields (`user`, `tcode`, `status`, `dialog_type`, `description`, `document_number`, `details`) were not extracted in Splunk. Only EVAL/FIELDALIAS fields worked (`app`, `vendor`, `src`).
+
+**Root cause:** `props.conf` used `DELIMS` and `FIELDS` directives which are not valid Splunk `props.conf` attributes — silently ignored.
+
+**Affected files:**
+
+### `default/transforms.conf`
+- **Added `[extract_sap_auditlog_fields]`:** REGEX-based extraction for 9 pipe-delimited fields + optional `demo_id`
+- Extracted field named `sap_host` (not `host`) to avoid collision with Splunk metadata `host`
+
+### `default/props.conf`
+- **Removed** invalid `DELIMS = "|"` and `FIELDS = ...` lines from `[FAKE:sap:auditlog]`
+- **Added** `REPORT-sap_fields = extract_sap_auditlog_fields`
+- Existing FIELDALIAS/EVAL lines unchanged (`host AS src` references metadata host)
+
+**Extracted fields:**
+
+| Field | Example |
+|-------|---------|
+| `sap_host` | SAP-PROD-01 |
+| `dialog_type` | DIA, BTC, RFC |
+| `user` | scott.morgan |
+| `tcode` | VA01, MIGO, LOGIN, LOGOUT |
+| `status` | S, E |
+| `description` | Create Sales Order, User Login |
+| `document_number` | SO-2026-04302 (or empty) |
+| `details` | Client 100, session duration 361 min |
+| `demo_id` | exfil (optional, scenario only) |
+
+**Verification (inline rex against 40,760 existing events):**
+- All 9 fields extract correctly — **PASS**
+- Empty `document_number` handled (LOGIN/LOGOUT events) — **PASS**
+- Special characters in `details` (commas, quotes) handled — **PASS**
+
+**Note:** Requires Splunk restart or app reload for props.conf/transforms.conf changes to take effect.
+
+---
+
 ## 2026-02-10 ~17:30 UTC — Windows Defender baseline events, LogName regex fix, timestamp parsing fixes
 
 Four related fixes improving WinEventLog realism, source routing accuracy, and timestamp parsing across 7 sourcetypes.

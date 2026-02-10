@@ -330,3 +330,135 @@ index=* demo_id=*
 | stats count by category, demo_id
 ```
 
+---
+
+## SAP Stock & Inventory
+
+### Net stock flow per product
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO mvt_type=*
+| eval direction=case(
+    mvt_type IN ("101","501"), "inbound",
+    mvt_type IN ("201","261","601"), "outbound",
+    mvt_type="301", "transfer")
+| eval signed_qty=if(direction="outbound", qty*-1, qty)
+| stats sum(signed_qty) as net_flow
+    sum(eval(if(direction="inbound",qty,0))) as total_in
+    sum(eval(if(direction="outbound",qty,0))) as total_out
+    dc(mvt_type) as mvt_types
+    by material_id material_name
+| eval total_out=abs(total_out)
+| sort -net_flow
+```
+
+### Daily inventory movement trend
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO mvt_type=*
+| eval direction=case(
+    mvt_type IN ("101","501"), "inbound",
+    mvt_type IN ("201","261","601"), "outbound",
+    mvt_type="301", "transfer")
+| timechart span=1d count by direction
+```
+
+### Top 10 products by outbound volume
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO mvt_type IN ("201","261","601")
+| stats sum(qty) as total_issued count as movements by material_id material_name
+| sort -total_issued
+| head 10
+```
+
+### Goods Receipt vs Goods Issue balance
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO mvt_type IN ("101","501","201","261","601")
+| eval flow=if(mvt_type IN ("101","501"), "receipts", "issues")
+| timechart span=1d sum(qty) as total_qty by flow
+```
+
+### Products with lowest net stock (stockout risk)
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO mvt_type=*
+| eval signed_qty=case(
+    mvt_type IN ("101","501"), qty,
+    mvt_type IN ("201","261","601"), qty*-1,
+    1=1, 0)
+| stats sum(signed_qty) as net_stock by material_id material_name
+| sort net_stock
+| head 10
+```
+
+### Movement type distribution per week
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO mvt_type=*
+| eval mvt_label=case(
+    mvt_type="101","101-GR for PO",
+    mvt_type="201","201-GI Cost Center",
+    mvt_type="261","261-GI Production",
+    mvt_type="301","301-Stock Transfer",
+    mvt_type="501","501-Receipt w/o PO",
+    mvt_type="601","601-GI Delivery")
+| timechart span=1w count by mvt_label
+```
+
+### Inventory variance events (shrinkage)
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=MIGO "VARIANCE DETECTED"
+| table _time user material_id material_name qty mvt_type
+```
+
+---
+
+## SAP Sales & Revenue
+
+### Daily sales orders with revenue
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=VA01 amount=*
+| timechart span=1d count as orders sum(amount) as revenue
+```
+
+### Sales order lifecycle pipeline
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode IN ("VA01","VL01N","VF01")
+| eval stage=case(
+    tcode="VA01","1-Order Created",
+    tcode="VL01N","2-Delivery Created",
+    tcode="VF01","3-Invoice Posted")
+| stats count by stage
+| sort stage
+```
+
+### Top 10 users by invoiced revenue
+```spl
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" tcode=VF01 amount=*
+| stats sum(amount) as total_invoiced count as invoices by user
+| sort -total_invoiced
+| head 10
+```
+
+### Web orders vs SAP sales orders correlation
+```spl
+index=fake_tshrt
+    (sourcetype="FAKE:sap:auditlog" tcode=VA01)
+    OR (sourcetype="FAKE:online:order" status="created")
+| eval source_type=if(sourcetype="FAKE:sap:auditlog","SAP Sales Orders","Web Orders")
+| timechart span=1d count by source_type
+```
+
+---
+
+## Retail Orders
+
+### Order status funnel
+```spl
+index=fake_tshrt sourcetype="FAKE:online:order"
+| stats count by status
+| eval sort_order=case(
+    status="created",1, status="payment_confirmed",2,
+    status="processing",3, status="shipped",4,
+    status="delivered",5, status="payment_declined",6,
+    status="cancelled",7, status="address_validation_failed",8)
+| sort sort_order
+| table status count
+```
+
