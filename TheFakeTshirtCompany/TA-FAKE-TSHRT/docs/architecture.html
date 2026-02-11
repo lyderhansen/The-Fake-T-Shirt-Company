@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The FAKE T-Shirt Company - Infrastructure Architecture</title>
+<style>
+  :root {
+    --bg: #0B0C10;
+    --bg-card: #1F2833;
+    --bg-card-hover: #2a3545;
+    --accent: #66FCF1;
+    --accent-dim: #45A29E;
+    --text: #C5C6C7;
+    --text-bright: #FFFFFF;
+    --border: #333;
+    --new-accent: #FF6B35;
+    --new-bg: #2d1f15;
+    --threat: #FF4444;
+    --cloud: #4A90D9;
+    --server-win: #0078D4;
+    --server-linux: #E95420;
+    --meraki: #78BE20;
+    --webex: #00BCF2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    line-height: 1.5;
+    padding: 20px;
+  }
+
+  h1 {
+    text-align: center;
+    color: var(--accent);
+    font-size: 28px;
+    margin-bottom: 5px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  /* Toggle controls */
+  .toggle-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 20px;
+    padding: 10px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--new-accent);
+    border-radius: 8px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    flex-wrap: wrap;
+  }
+  .toggle-bar-label {
+    color: var(--new-accent);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle-item input[type="checkbox"] {
+    appearance: none;
+    width: 36px;
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-item input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #666;
+    top: 2px;
+    left: 2px;
+    transition: all 0.2s;
+  }
+  .toggle-item input[type="checkbox"]:checked {
+    background: var(--new-accent);
+  }
+  .toggle-item input[type="checkbox"]:checked::after {
+    background: #fff;
+    left: 18px;
+  }
+  .toggle-item label {
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* Tab navigation */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .tab {
+    padding: 8px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .tab:hover { border-color: var(--accent-dim); }
+  .tab.active {
+    background: var(--accent-dim);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Network diagram */
+  .diagram {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Cards */
+  .section {
+    margin-bottom: 30px;
+  }
+  .section-title {
+    font-size: 18px;
+    color: var(--accent);
+    border-bottom: 1px solid var(--accent-dim);
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 15px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 15px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent-dim); }
+  .card.new-infra {
+    border-color: var(--new-accent);
+    background: var(--new-bg);
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .badge-new { background: var(--new-accent); color: #fff; }
+  .badge-existing { background: var(--accent-dim); color: var(--bg); }
+  .badge-cloud { background: var(--cloud); color: #fff; }
+  .badge-threat { background: var(--threat); color: #fff; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  th {
+    text-align: left;
+    color: var(--accent-dim);
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+  td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #222;
+    color: var(--text);
+  }
+  tr:hover td { background: rgba(102, 252, 241, 0.05); }
+
+  .os-win { color: var(--server-win); }
+  .os-linux { color: var(--server-linux); }
+
+  /* SVG styles */
+  svg text { font-family: 'Segoe UI', -apple-system, sans-serif; }
+
+  .stats-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text);
+    margin-top: 2px;
+  }
+  .stat.new .stat-value { color: var(--new-accent); }
+
+  .note {
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+    margin-top: 5px;
+  }
+
+  .flow-connector {
+    text-align: center;
+    color: var(--accent-dim);
+    font-size: 20px;
+    margin: 5px 0;
+  }
+
+  /* Hidden by toggle */
+  .cisco-new { transition: opacity 0.3s; }
+  .cisco-new.hidden { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<h1>The FAKE T-Shirt Company</h1>
+<p class="subtitle">Infrastructure Architecture | 175 Employees | 3 Locations | January 2026</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-dim)"></div> Existing Infrastructure</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--new-accent)"></div> Planned Expansion</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cloud)"></div> Cloud Services</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--server-win)"></div> Windows</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--server-linux)"></div> Linux</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--meraki)"></div> Meraki</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--webex)"></div> Webex</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--threat)"></div> Threat Actor</div>
+</div>
+
+<!-- Toggle bar for new Cisco infra -->
+<div class="toggle-bar">
+  <span class="toggle-bar-label">Show Planned Cisco Expansion:</span>
+  <div class="toggle-item">
+    <input type="checkbox" id="tog-secure-access" checked onchange="toggleCisco('secure-access', this.checked)">
+    <label for="tog-secure-access">Secure Access</label>
+  </div>
+  <div class="toggle-item">
+    <input type="checkbox" id="tog-catalyst" checked onchange="toggleCisco('catalyst', this.checked)">
+    <label for="tog-catalyst">Catalyst</label>
+  </div>
+  <div class="toggle-item">
+    <input type="checkbox" id="tog-aci" checked onchange="toggleCisco('aci', this.checked)">
+    <label for="tog-aci">ACI</label>
+  </div>
+  <div class="toggle-item">
+    <input type="checkbox" id="tog-catcenter" checked onchange="toggleCisco('catcenter', this.checked)">
+    <label for="tog-catcenter">Catalyst Center</label>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat"><div class="stat-value">175</div><div class="stat-label">Employees</div></div>
+  <div class="stat"><div class="stat-value">19</div><div class="stat-label">Servers</div></div>
+  <div class="stat"><div class="stat-value">79</div><div class="stat-label">Meraki Devices</div></div>
+  <div class="stat"><div class="stat-value">21</div><div class="stat-label">Webex Rooms</div></div>
+  <div class="stat"><div class="stat-value">20</div><div class="stat-label">Log Generators</div></div>
+  <div class="stat new cisco-new" data-cisco="all"><div class="stat-value">+4</div><div class="stat-label">New Generators</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">Network Overview</div>
+  <div class="tab" onclick="showTab('connections')">Server Connections</div>
+  <div class="tab" onclick="showTab('boston')">Boston HQ</div>
+  <div class="tab" onclick="showTab('atlanta')">Atlanta Hub</div>
+  <div class="tab" onclick="showTab('austin')">Austin Office</div>
+  <div class="tab" onclick="showTab('cloud')">Cloud & SaaS</div>
+  <div class="tab" onclick="showTab('scenarios')">Scenarios</div>
+</div>
+
+<!-- ==================== OVERVIEW TAB ==================== -->
+<div id="tab-overview" class="tab-content active">
+<div class="diagram">
+<svg viewBox="0 0 1200 920" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:1200px;display:block;margin:0 auto">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#45A29E"/></marker>
+    <marker id="arrow-new" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#FF6B35"/></marker>
+    <marker id="arrow-threat" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#FF4444"/></marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="920" fill="#0B0C10" rx="8"/>
+
+  <!-- INTERNET -->
+  <rect x="460" y="10" width="280" height="40" rx="20" fill="none" stroke="#666" stroke-width="1.5"/>
+  <text x="600" y="35" text-anchor="middle" fill="#C5C6C7" font-size="14" font-weight="600">INTERNET</text>
+
+  <!-- Threat Actor -->
+  <rect x="820" y="5" width="200" height="50" rx="6" fill="#331111" stroke="#FF4444" stroke-width="1.5"/>
+  <text x="920" y="22" text-anchor="middle" fill="#FF4444" font-size="10" font-weight="600">THREAT ACTOR</text>
+  <text x="920" y="36" text-anchor="middle" fill="#FF8888" font-size="10">185.220.101.42</text>
+  <text x="920" y="48" text-anchor="middle" fill="#FF8888" font-size="9">Frankfurt, DE (AS205100)</text>
+  <line x1="820" y1="30" x2="740" y2="30" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-threat)"/>
+
+  <!-- ===== CLOUD LAYER ===== -->
+  <rect x="50" y="70" width="1100" height="90" rx="8" fill="#111828" stroke="#4A90D9" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="80" y="90" fill="#4A90D9" font-size="11" font-weight="600">CLOUD SERVICES</text>
+
+  <!-- Cisco Secure Access (NEW) -->
+  <g class="cisco-new" data-cisco="secure-access">
+    <rect x="70" y="98" width="170" height="50" rx="6" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="155" y="116" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Cisco Secure Access</text>
+    <text x="155" y="130" text-anchor="middle" fill="#CC8866" font-size="9">DNS | SWG | ZTNA | RAVPN</text>
+    <text x="155" y="142" text-anchor="middle" fill="#FF6B35" font-size="8" font-weight="600">NEW</text>
+  </g>
+
+  <!-- AWS -->
+  <rect x="260" y="98" width="140" height="50" rx="6" fill="#1a1a2e" stroke="#FF9900" stroke-width="1"/>
+  <text x="330" y="116" text-anchor="middle" fill="#FF9900" font-size="10" font-weight="600">AWS</text>
+  <text x="330" y="130" text-anchor="middle" fill="#CC8844" font-size="9">us-east-1</text>
+  <text x="330" y="142" text-anchor="middle" fill="#CC8844" font-size="8">S3, CloudTrail</text>
+
+  <!-- GCP -->
+  <rect x="420" y="98" width="140" height="50" rx="6" fill="#1a2e1a" stroke="#4285F4" stroke-width="1"/>
+  <text x="490" y="116" text-anchor="middle" fill="#4285F4" font-size="10" font-weight="600">GCP</text>
+  <text x="490" y="130" text-anchor="middle" fill="#6699CC" font-size="9">us-central1</text>
+  <text x="490" y="142" text-anchor="middle" fill="#6699CC" font-size="8">Audit, Storage</text>
+
+  <!-- Entra ID -->
+  <rect x="580" y="98" width="140" height="50" rx="6" fill="#1a1a2e" stroke="#0078D4" stroke-width="1"/>
+  <text x="650" y="116" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Entra ID / M365</text>
+  <text x="650" y="130" text-anchor="middle" fill="#6699CC" font-size="9">17 Apps, 19 Groups</text>
+  <text x="650" y="142" text-anchor="middle" fill="#6699CC" font-size="8">175 Users</text>
+
+  <!-- Webex Cloud -->
+  <rect x="740" y="98" width="140" height="50" rx="6" fill="#112233" stroke="#00BCF2" stroke-width="1"/>
+  <text x="810" y="116" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">Cisco Webex</text>
+  <text x="810" y="130" text-anchor="middle" fill="#66CCEE" font-size="9">21 Meeting Rooms</text>
+  <text x="810" y="142" text-anchor="middle" fill="#66CCEE" font-size="8">Meetings, Messaging</text>
+
+  <!-- Meraki Dashboard -->
+  <rect x="900" y="98" width="140" height="50" rx="6" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="970" y="116" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Dashboard</text>
+  <text x="970" y="130" text-anchor="middle" fill="#66AA22" font-size="9">79 Devices</text>
+  <text x="970" y="142" text-anchor="middle" fill="#66AA22" font-size="8">MX/MR/MS/MV/MT</text>
+
+  <!-- Connection: Internet -> Cloud -->
+  <line x1="600" y1="50" x2="600" y2="70" stroke="#45A29E" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== PERIMETER FIREWALL ===== -->
+  <rect x="470" y="185" width="260" height="50" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="2"/>
+  <text x="600" y="205" text-anchor="middle" fill="#66FCF1" font-size="12" font-weight="700">FW-EDGE-01</text>
+  <text x="600" y="220" text-anchor="middle" fill="#C5C6C7" font-size="10">Cisco ASA 5525-X | 203.0.113.1</text>
+  <text x="600" y="230" text-anchor="middle" fill="#888" font-size="9">ALL external traffic</text>
+
+  <!-- Cloud -> ASA -->
+  <line x1="600" y1="160" x2="600" y2="185" stroke="#45A29E" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== DMZ ===== -->
+  <rect x="130" y="185" width="200" height="50" rx="6" fill="#1a2222" stroke="#45A29E" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="230" y="203" text-anchor="middle" fill="#45A29E" font-size="10" font-weight="600">DMZ (172.16.1.0/24)</text>
+  <text x="230" y="218" text-anchor="middle" fill="#C5C6C7" font-size="9">WEB-01 (.10) | WEB-02 (.11)</text>
+  <text x="230" y="228" text-anchor="middle" fill="#888" font-size="8">Apache, e-Commerce</text>
+  <line x1="470" y1="210" x2="330" y2="210" stroke="#45A29E" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ===== Catalyst Center (NEW) ===== -->
+  <g class="cisco-new" data-cisco="catcenter">
+    <rect x="830" y="185" width="200" height="50" rx="6" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="930" y="203" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst Center (NEW)</text>
+    <text x="930" y="218" text-anchor="middle" fill="#CC8866" font-size="9">CATCENTER-BOS-01 | 10.10.10.40</text>
+    <text x="930" y="228" text-anchor="middle" fill="#CC8866" font-size="8">Network Assurance & Health</text>
+  </g>
+
+  <!-- ===== THREE SITE BOXES ===== -->
+
+  <!-- BOSTON HQ -->
+  <rect x="50" y="270" width="370" height="440" rx="8" fill="#111820" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="235" y="295" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">BOSTON HQ</text>
+  <text x="235" y="310" text-anchor="middle" fill="#888" font-size="10">10.10.x.x | 93 Employees | 3 Floors</text>
+
+  <!-- Boston - Catalyst Switches (NEW) -->
+  <g class="cisco-new" data-cisco="catalyst">
+    <rect x="65" y="320" width="160" height="55" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="145" y="337" text-anchor="middle" fill="#FF6B35" font-size="9" font-weight="600">Catalyst 9300 (NEW)</text>
+    <text x="145" y="350" text-anchor="middle" fill="#CC8866" font-size="8">CAT-BOS-DIST-01 (.30)</text>
+    <text x="145" y="362" text-anchor="middle" fill="#CC8866" font-size="8">CAT-BOS-DIST-02 (.31)</text>
+    <text x="145" y="372" text-anchor="middle" fill="#CC8866" font-size="7">Distribution Layer</text>
+  </g>
+
+  <!-- Boston - ACI Fabric (NEW) -->
+  <g class="cisco-new" data-cisco="aci">
+    <rect x="240" y="320" width="165" height="55" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="322" y="337" text-anchor="middle" fill="#FF6B35" font-size="9" font-weight="600">ACI Fabric (NEW)</text>
+    <text x="322" y="350" text-anchor="middle" fill="#CC8866" font-size="8">2 Spine + 4 Leaf</text>
+    <text x="322" y="362" text-anchor="middle" fill="#CC8866" font-size="8">APIC-BOS-01 (.20)</text>
+    <text x="322" y="372" text-anchor="middle" fill="#CC8866" font-size="7">5 EPGs | Pod 1</text>
+  </g>
+
+  <!-- Boston - Meraki SD-WAN -->
+  <rect x="65" y="385" width="160" height="45" rx="5" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="145" y="400" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">Meraki SD-WAN (HA)</text>
+  <text x="145" y="413" text-anchor="middle" fill="#66AA22" font-size="8">MX-BOS-01/02 (MX450)</text>
+  <text x="145" y="423" text-anchor="middle" fill="#66AA22" font-size="7">AutoVPN Hub | Comcast+AT&T</text>
+
+  <!-- Boston - Meraki Wireless/Switching -->
+  <rect x="240" y="385" width="165" height="45" rx="5" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="322" y="400" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">Meraki Access</text>
+  <text x="322" y="413" text-anchor="middle" fill="#66AA22" font-size="8">16 APs | 5 Switches</text>
+  <text x="322" y="423" text-anchor="middle" fill="#66AA22" font-size="7">8 Cameras | 5 Sensors</text>
+
+  <!-- Boston Servers -->
+  <rect x="65" y="440" width="340" height="120" rx="5" fill="#152025" stroke="#333" stroke-width="1"/>
+  <text x="235" y="457" text-anchor="middle" fill="#C5C6C7" font-size="10" font-weight="600">14 Servers (10.10.20.x)</text>
+  <text x="105" y="473" fill="#0078D4" font-size="8">DC-BOS-01/02</text><text x="225" y="473" fill="#888" font-size="8">Domain Controllers</text>
+  <text x="105" y="485" fill="#0078D4" font-size="8">SQL-PROD-01</text><text x="225" y="485" fill="#888" font-size="8">SQL Database</text>
+  <text x="105" y="497" fill="#0078D4" font-size="8">APP-BOS-01</text><text x="225" y="497" fill="#888" font-size="8">IIS/.NET App Server</text>
+  <text x="105" y="509" fill="#0078D4" font-size="8">FILE-BOS-01</text><text x="225" y="509" fill="#888" font-size="8">File Server</text>
+  <text x="105" y="521" fill="#E95420" font-size="8">SAP-PROD-01/DB-01</text><text x="225" y="521" fill="#888" font-size="8">SAP S/4HANA + HANA DB</text>
+  <text x="105" y="533" fill="#888" font-size="8">+ WSUS, RADIUS, PRINT, PROXY, BASTION</text>
+
+  <!-- Boston Webex -->
+  <rect x="65" y="570" width="340" height="55" rx="5" fill="#112233" stroke="#00BCF2" stroke-width="1"/>
+  <text x="235" y="587" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">10 Webex Meeting Rooms</text>
+  <text x="235" y="600" text-anchor="middle" fill="#66CCEE" font-size="8">Link (Boardroom, 20p) | Zelda (12p) | Mario (10p) | Samus (8p)</text>
+  <text x="235" y="612" text-anchor="middle" fill="#66CCEE" font-size="8">Luigi (8p) | Sonic (Lab, 8p) | Yoshi (6p) | Peach (6p) | Kirby (4p) | Toad (4p)</text>
+  <text x="235" y="622" text-anchor="middle" fill="#FF8888" font-size="7">Kirby = Problem room (WiFi congestion)</text>
+
+  <!-- Boston Key Users -->
+  <rect x="65" y="635" width="340" height="60" rx="5" fill="#1a1a22" stroke="#666" stroke-width="1"/>
+  <text x="235" y="652" text-anchor="middle" fill="#C5C6C7" font-size="10" font-weight="600">Key Users</text>
+  <text x="105" y="666" fill="#66FCF1" font-size="8">john.smith (CEO)</text><text x="250" y="666" fill="#66FCF1" font-size="8">sarah.wilson (CFO)</text>
+  <text x="105" y="678" fill="#66FCF1" font-size="8">mike.johnson (CTO)</text><text x="250" y="678" fill="#FF8888" font-size="8">alex.miller (TARGET)</text>
+  <text x="105" y="690" fill="#888" font-size="8">10.10.30.55</text><text x="250" y="690" fill="#888" font-size="8">Finance, Floor 2</text>
+
+  <!-- ATLANTA HUB -->
+  <rect x="440" y="270" width="310" height="440" rx="8" fill="#111820" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="595" y="295" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">ATLANTA HUB</text>
+  <text x="595" y="310" text-anchor="middle" fill="#888" font-size="10">10.20.x.x | 43 Employees | 2 Floors</text>
+
+  <!-- Atlanta - Catalyst Switch (NEW) -->
+  <g class="cisco-new" data-cisco="catalyst">
+    <rect x="455" y="320" width="140" height="45" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="525" y="337" text-anchor="middle" fill="#FF6B35" font-size="9" font-weight="600">Catalyst 9300 (NEW)</text>
+    <text x="525" y="350" text-anchor="middle" fill="#CC8866" font-size="8">CAT-ATL-DIST-01 (.30)</text>
+    <text x="525" y="360" text-anchor="middle" fill="#CC8866" font-size="7">Distribution Layer</text>
+  </g>
+
+  <!-- Atlanta - ACI Mini-Pod (NEW) -->
+  <g class="cisco-new" data-cisco="aci">
+    <rect x="605" y="320" width="130" height="45" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="670" y="337" text-anchor="middle" fill="#FF6B35" font-size="9" font-weight="600">ACI Mini-Pod (NEW)</text>
+    <text x="670" y="350" text-anchor="middle" fill="#CC8866" font-size="8">1 Spine + 2 Leaf</text>
+    <text x="670" y="360" text-anchor="middle" fill="#CC8866" font-size="7">3 EPGs | Pod 2</text>
+  </g>
+
+  <!-- Atlanta - Meraki SD-WAN -->
+  <rect x="455" y="375" width="140" height="40" rx="5" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="525" y="390" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">MX-ATL-01 (MX250)</text>
+  <text x="525" y="403" text-anchor="middle" fill="#66AA22" font-size="7">AutoVPN Spoke | AT&T+Spectrum</text>
+
+  <!-- Atlanta - Meraki Access -->
+  <rect x="605" y="375" width="130" height="40" rx="5" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="670" y="390" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">Meraki Access</text>
+  <text x="670" y="403" text-anchor="middle" fill="#66AA22" font-size="7">12 APs | 4 SW | 7 Cam | 8 Sen</text>
+
+  <!-- Atlanta Servers -->
+  <rect x="455" y="425" width="280" height="85" rx="5" fill="#152025" stroke="#333" stroke-width="1"/>
+  <text x="595" y="442" text-anchor="middle" fill="#C5C6C7" font-size="10" font-weight="600">5 Servers (10.20.20.x)</text>
+  <text x="480" y="458" fill="#0078D4" font-size="8">DC-ATL-01</text><text x="590" y="458" fill="#888" font-size="8">Domain Controller</text>
+  <text x="480" y="470" fill="#0078D4" font-size="8">BACKUP-ATL-01</text><text x="590" y="470" fill="#888" font-size="8">Backup Server</text>
+  <text x="480" y="482" fill="#E95420" font-size="8">MON-ATL-01</text><text x="590" y="482" fill="#888" font-size="8">Monitoring</text>
+  <text x="480" y="494" fill="#E95420" font-size="8">DEV-ATL-01/02</text><text x="590" y="494" fill="#888" font-size="8">Dev/Test</text>
+
+  <!-- Atlanta Webex -->
+  <rect x="455" y="520" width="280" height="50" rx="5" fill="#112233" stroke="#00BCF2" stroke-width="1"/>
+  <text x="595" y="537" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">7 Webex Meeting Rooms</text>
+  <text x="595" y="550" text-anchor="middle" fill="#66CCEE" font-size="8">Cortana (16p) | Chief (10p) | Kratos (8p) | Lara (8p)</text>
+  <text x="595" y="562" text-anchor="middle" fill="#FF8888" font-size="7">Cortana = Problem room (echo/bandwidth)</text>
+
+  <!-- Atlanta Key User -->
+  <rect x="455" y="580" width="280" height="40" rx="5" fill="#1a1a22" stroke="#666" stroke-width="1"/>
+  <text x="595" y="597" text-anchor="middle" fill="#C5C6C7" font-size="10" font-weight="600">Key Users</text>
+  <text x="595" y="611" text-anchor="middle" fill="#FF8888" font-size="8">jessica.brown (IT Admin) - INITIAL COMPROMISE | 10.20.30.15</text>
+
+  <!-- AUSTIN OFFICE -->
+  <rect x="770" y="270" width="280" height="440" rx="8" fill="#111820" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="910" y="295" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">AUSTIN OFFICE</text>
+  <text x="910" y="310" text-anchor="middle" fill="#888" font-size="10">10.30.x.x | 39 Employees | 1 Floor</text>
+
+  <!-- Austin - Meraki Only -->
+  <rect x="785" y="325" width="250" height="40" rx="5" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="910" y="342" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">MX-AUS-01 (MX85)</text>
+  <text x="910" y="355" text-anchor="middle" fill="#66AA22" font-size="7">AutoVPN Spoke | Verizon | All-Meraki Site</text>
+
+  <!-- Austin - Meraki Access -->
+  <rect x="785" y="375" width="250" height="35" rx="5" fill="#1a2e1a" stroke="#78BE20" stroke-width="1"/>
+  <text x="910" y="392" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">8 APs | 2 Switches | 4 Cameras | 2 Sensors</text>
+
+  <!-- Austin - No Servers -->
+  <rect x="785" y="420" width="250" height="30" rx="5" fill="#152025" stroke="#333" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="910" y="440" text-anchor="middle" fill="#888" font-size="9" font-style="italic">No local servers (cloud-only)</text>
+
+  <!-- Austin Webex -->
+  <rect x="785" y="460" width="250" height="45" rx="5" fill="#112233" stroke="#00BCF2" stroke-width="1"/>
+  <text x="910" y="477" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">4 Webex Meeting Rooms</text>
+  <text x="910" y="492" text-anchor="middle" fill="#66CCEE" font-size="8">Doom (12p) | Crash (8p) | Jett (Demo, 8p) | Fox (6p)</text>
+
+  <!-- Austin Key User -->
+  <rect x="785" y="515" width="250" height="40" rx="5" fill="#1a1a22" stroke="#666" stroke-width="1"/>
+  <text x="910" y="532" text-anchor="middle" fill="#C5C6C7" font-size="10" font-weight="600">Key Users</text>
+  <text x="910" y="546" text-anchor="middle" fill="#FF8888" font-size="8">brooklyn.white (Sales) - RANSOMWARE TARGET</text>
+
+  <!-- Austin note about no Catalyst/ACI -->
+  <g class="cisco-new" data-cisco="catalyst">
+    <rect x="785" y="565" width="250" height="30" rx="5" fill="none" stroke="#FF6B35" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="910" y="584" text-anchor="middle" fill="#FF6B35" font-size="8" font-style="italic">No Catalyst/ACI (branch office, all-Meraki)</text>
+  </g>
+
+  <!-- ===== CONNECTIONS ===== -->
+
+  <!-- ASA -> Sites -->
+  <line x1="540" y1="235" x2="235" y2="270" stroke="#45A29E" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="600" y1="235" x2="595" y2="270" stroke="#45A29E" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="660" y1="235" x2="910" y2="270" stroke="#45A29E" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- Catalyst Center -> Catalyst Switches (NEW) -->
+  <g class="cisco-new" data-cisco="catcenter">
+    <line x1="880" y1="235" x2="225" y2="320" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-new)"/>
+    <line x1="930" y1="235" x2="525" y2="320" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-new)"/>
+  </g>
+
+  <!-- AutoVPN mesh (between MX devices) -->
+  <line x1="225" y1="407" x2="455" y2="395" stroke="#78BE20" stroke-width="1" stroke-dasharray="6,3"/>
+  <line x1="595" y1="395" x2="785" y2="345" stroke="#78BE20" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="340" y="410" fill="#78BE20" font-size="8">AutoVPN</text>
+  <text x="690" y="375" fill="#78BE20" font-size="8">AutoVPN</text>
+
+  <!-- ===== LOG SOURCES LEGEND ===== -->
+  <rect x="50" y="730" width="1100" height="180" rx="8" fill="#111820" stroke="#333" stroke-width="1"/>
+  <text x="600" y="755" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">LOG GENERATORS (20 Existing + 4 New)</text>
+
+  <!-- Existing -->
+  <text x="80" y="780" fill="#45A29E" font-size="10" font-weight="600">EXISTING (20)</text>
+  <text x="80" y="796" fill="#888" font-size="9">Network: Cisco ASA, Meraki (MX/MR/MS/MV/MT)</text>
+  <text x="80" y="810" fill="#888" font-size="9">Cloud: AWS CloudTrail, GCP Audit, Entra ID (signin+audit), M365 Audit</text>
+  <text x="80" y="824" fill="#888" font-size="9">Collab: Webex Events, Webex TA, Webex API, Exchange</text>
+  <text x="80" y="838" fill="#888" font-size="9">Windows: WinEventLog, Sysmon, Perfmon, MSSQL</text>
+  <text x="80" y="852" fill="#888" font-size="9">Linux: vmstat/df/iostat/auth | Web: Apache Access</text>
+  <text x="80" y="866" fill="#888" font-size="9">Retail: Orders, ServiceBus | ERP: SAP S/4HANA | ITSM: ServiceNow</text>
+
+  <!-- New -->
+  <g class="cisco-new" data-cisco="all">
+    <text x="700" y="780" fill="#FF6B35" font-size="10" font-weight="600">PLANNED (+4)</text>
+    <rect x="690" y="788" width="440" height="80" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="710" y="804" fill="#FF6B35" font-size="9" font-weight="600">1. Cisco Secure Access</text><text x="880" y="804" fill="#CC8866" font-size="8">DNS, Proxy, Firewall, Audit (CSV)</text>
+    <text x="710" y="820" fill="#FF6B35" font-size="9" font-weight="600">2. Cisco Catalyst</text><text x="880" y="820" fill="#CC8866" font-size="8">IOS-XE Syslog (802.1X, STP, PoE)</text>
+    <text x="710" y="836" fill="#FF6B35" font-size="9" font-weight="600">3. Cisco ACI</text><text x="880" y="836" fill="#CC8866" font-size="8">Faults, Events, Audit (APIC JSON)</text>
+    <text x="710" y="852" fill="#FF6B35" font-size="9" font-weight="600">4. Catalyst Center</text><text x="880" y="852" fill="#CC8866" font-size="8">Device/Network/Client Health, Issues</text>
+    <text x="700" y="886" fill="#CC8866" font-size="8">Est. +140K-175K events/day (mostly DNS)</text>
+  </g>
+</svg>
+</div>
+</div>
+
+<!-- ==================== SERVER CONNECTIONS TAB ==================== -->
+<div id="tab-connections" class="tab-content">
+<div class="diagram">
+<svg viewBox="0 0 1200 1050" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:1200px;display:block;margin:0 auto">
+  <defs>
+    <marker id="c-arrow" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#45A29E"/></marker>
+    <marker id="c-arrow-bi" markerWidth="7" markerHeight="5" refX="0" refY="2.5" orient="auto"><path d="M7,0 L0,2.5 L7,5" fill="#45A29E"/></marker>
+    <marker id="c-arrow-win" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#0078D4"/></marker>
+    <marker id="c-arrow-linux" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#E95420"/></marker>
+    <marker id="c-arrow-data" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#FFD700"/></marker>
+    <marker id="c-arrow-new" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#FF6B35"/></marker>
+  </defs>
+
+  <rect width="1200" height="1050" fill="#0B0C10" rx="8"/>
+
+  <text x="600" y="30" text-anchor="middle" fill="#66FCF1" font-size="16" font-weight="700">Server &amp; Service Connections</text>
+  <text x="600" y="48" text-anchor="middle" fill="#888" font-size="11">How infrastructure components depend on and communicate with each other</text>
+
+  <!-- Connection Legend -->
+  <rect x="50" y="60" width="1100" height="35" rx="6" fill="#111820" stroke="#333" stroke-width="1"/>
+  <circle cx="90" cy="78" r="5" fill="#0078D4"/><text x="100" y="82" fill="#C5C6C7" font-size="10">AD/Auth</text>
+  <circle cx="190" cy="78" r="5" fill="#FFD700"/><text x="200" y="82" fill="#C5C6C7" font-size="10">Data Flow</text>
+  <circle cx="290" cy="78" r="5" fill="#E95420"/><text x="300" y="82" fill="#C5C6C7" font-size="10">Linux Service</text>
+  <circle cx="400" cy="78" r="5" fill="#45A29E"/><text x="410" y="82" fill="#C5C6C7" font-size="10">Network</text>
+  <circle cx="500" cy="78" r="5" fill="#78BE20"/><text x="510" y="82" fill="#C5C6C7" font-size="10">SD-WAN/VPN</text>
+  <circle cx="620" cy="78" r="5" fill="#FF6B35"/><text x="630" y="82" fill="#C5C6C7" font-size="10">New Cisco (planned)</text>
+  <line x1="750" y1="78" x2="790" y2="78" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/><text x="800" y="82" fill="#C5C6C7" font-size="10">Management/Monitor</text>
+  <line x1="920" y1="78" x2="960" y2="78" stroke="#888" stroke-width="1.5"/><text x="970" y="82" fill="#C5C6C7" font-size="10">Direct dependency</text>
+
+  <!-- ============================== -->
+  <!-- INTERNET + PERIMETER           -->
+  <!-- ============================== -->
+  <rect x="490" y="105" width="220" height="40" rx="20" fill="none" stroke="#666" stroke-width="1.5"/>
+  <text x="600" y="130" text-anchor="middle" fill="#C5C6C7" font-size="13" font-weight="600">INTERNET</text>
+
+  <!-- Secure Access (NEW) -->
+  <g class="cisco-new" data-cisco="secure-access">
+    <rect x="170" y="108" width="180" height="34" rx="6" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="260" y="130" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Cisco Secure Access (NEW)</text>
+    <line x1="350" y1="125" x2="490" y2="125" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#c-arrow-new)"/>
+    <text x="420" y="120" fill="#FF6B35" font-size="7">DNS/SWG/ZTNA</text>
+  </g>
+
+  <!-- ASA Perimeter -->
+  <rect x="475" y="160" width="250" height="45" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="2"/>
+  <text x="600" y="180" text-anchor="middle" fill="#66FCF1" font-size="12" font-weight="700">FW-EDGE-01 (ASA 5525-X)</text>
+  <text x="600" y="195" text-anchor="middle" fill="#888" font-size="9">203.0.113.1 | ALL external traffic</text>
+  <line x1="600" y1="145" x2="600" y2="160" stroke="#45A29E" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+
+  <!-- ============================== -->
+  <!-- DMZ ZONE                       -->
+  <!-- ============================== -->
+  <rect x="60" y="225" width="310" height="85" rx="8" fill="#1a2222" stroke="#45A29E" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="215" y="245" text-anchor="middle" fill="#45A29E" font-size="11" font-weight="600">DMZ (172.16.1.0/24)</text>
+
+  <rect x="80" y="255" width="120" height="42" rx="5" fill="#152025" stroke="#E95420" stroke-width="1"/>
+  <text x="140" y="273" text-anchor="middle" fill="#E95420" font-size="10" font-weight="600">WEB-01</text>
+  <text x="140" y="288" text-anchor="middle" fill="#888" font-size="8">172.16.1.10 | Apache</text>
+
+  <rect x="230" y="255" width="120" height="42" rx="5" fill="#152025" stroke="#E95420" stroke-width="1"/>
+  <text x="290" y="273" text-anchor="middle" fill="#E95420" font-size="10" font-weight="600">WEB-02</text>
+  <text x="290" y="288" text-anchor="middle" fill="#888" font-size="8">172.16.1.11 | Apache</text>
+
+  <!-- ASA -> DMZ -->
+  <line x1="475" y1="195" x2="370" y2="260" stroke="#45A29E" stroke-width="1.2" marker-end="url(#c-arrow)"/>
+  <text x="410" y="220" fill="#45A29E" font-size="7">HTTP/HTTPS</text>
+
+  <!-- ============================== -->
+  <!-- BOSTON CORE (10.10.x.x)        -->
+  <!-- ============================== -->
+  <rect x="400" y="225" width="770" height="290" rx="8" fill="#111820" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="785" y="245" text-anchor="middle" fill="#66FCF1" font-size="13" font-weight="700">BOSTON HQ - Internal Network (10.10.x.x)</text>
+
+  <!-- Domain Controllers -->
+  <rect x="420" y="260" width="130" height="55" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="485" y="278" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="700">DC-BOS-01</text>
+  <text x="485" y="293" text-anchor="middle" fill="#888" font-size="8">10.10.20.10</text>
+  <text x="485" y="306" text-anchor="middle" fill="#6699CC" font-size="7">Active Directory, DNS, DHCP</text>
+
+  <rect x="420" y="322" width="130" height="42" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="485" y="340" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">DC-BOS-02</text>
+  <text x="485" y="355" text-anchor="middle" fill="#888" font-size="8">10.10.20.11 (Standby)</text>
+
+  <!-- DC-01 <-> DC-02 replication -->
+  <line x1="485" y1="315" x2="485" y2="322" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="508" y="320" fill="#0078D4" font-size="6">AD Replication</text>
+
+  <!-- SQL Server -->
+  <rect x="580" y="260" width="130" height="55" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="645" y="278" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="700">SQL-PROD-01</text>
+  <text x="645" y="293" text-anchor="middle" fill="#888" font-size="8">10.10.20.30</text>
+  <text x="645" y="306" text-anchor="middle" fill="#6699CC" font-size="7">MSSQL Database</text>
+
+  <!-- App Server -->
+  <rect x="740" y="260" width="130" height="55" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="805" y="278" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="700">APP-BOS-01</text>
+  <text x="805" y="293" text-anchor="middle" fill="#888" font-size="8">10.10.20.40</text>
+  <text x="805" y="306" text-anchor="middle" fill="#6699CC" font-size="7">IIS / .NET</text>
+
+  <!-- File Server -->
+  <rect x="900" y="260" width="130" height="55" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="965" y="278" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="700">FILE-BOS-01</text>
+  <text x="965" y="293" text-anchor="middle" fill="#888" font-size="8">10.10.20.20</text>
+  <text x="965" y="306" text-anchor="middle" fill="#6699CC" font-size="7">SMB File Shares</text>
+
+  <!-- SAP Cluster -->
+  <rect x="580" y="335" width="130" height="50" rx="5" fill="#152025" stroke="#E95420" stroke-width="1.5"/>
+  <text x="645" y="353" text-anchor="middle" fill="#E95420" font-size="10" font-weight="700">SAP-PROD-01</text>
+  <text x="645" y="368" text-anchor="middle" fill="#888" font-size="8">10.10.20.60</text>
+  <text x="645" y="380" text-anchor="middle" fill="#CC7744" font-size="7">S/4HANA App Server</text>
+
+  <rect x="740" y="335" width="130" height="50" rx="5" fill="#152025" stroke="#E95420" stroke-width="1.5"/>
+  <text x="805" y="353" text-anchor="middle" fill="#E95420" font-size="10" font-weight="700">SAP-DB-01</text>
+  <text x="805" y="368" text-anchor="middle" fill="#888" font-size="8">10.10.20.61</text>
+  <text x="805" y="380" text-anchor="middle" fill="#CC7744" font-size="7">HANA Database</text>
+
+  <!-- SAP-PROD -> SAP-DB -->
+  <line x1="710" y1="360" x2="740" y2="360" stroke="#FFD700" stroke-width="1.5" marker-end="url(#c-arrow-data)"/>
+  <text x="725" y="354" fill="#FFD700" font-size="6">SQL</text>
+
+  <!-- Support Servers row -->
+  <rect x="420" y="395" width="96" height="40" rx="4" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="468" y="412" text-anchor="middle" fill="#0078D4" font-size="9" font-weight="600">WSUS</text>
+  <text x="468" y="425" text-anchor="middle" fill="#888" font-size="7">10.10.20.50</text>
+
+  <rect x="526" y="395" width="96" height="40" rx="4" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="574" y="412" text-anchor="middle" fill="#0078D4" font-size="9" font-weight="600">RADIUS</text>
+  <text x="574" y="425" text-anchor="middle" fill="#888" font-size="7">10.10.20.51</text>
+
+  <rect x="632" y="395" width="96" height="40" rx="4" fill="#152025" stroke="#E95420" stroke-width="1"/>
+  <text x="680" y="412" text-anchor="middle" fill="#E95420" font-size="9" font-weight="600">PROXY</text>
+  <text x="680" y="425" text-anchor="middle" fill="#888" font-size="7">10.10.20.52</text>
+
+  <rect x="738" y="395" width="96" height="40" rx="4" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="786" y="412" text-anchor="middle" fill="#0078D4" font-size="9" font-weight="600">PRINT</text>
+  <text x="786" y="425" text-anchor="middle" fill="#888" font-size="7">10.10.20.53</text>
+
+  <rect x="844" y="395" width="96" height="40" rx="4" fill="#152025" stroke="#E95420" stroke-width="1"/>
+  <text x="892" y="412" text-anchor="middle" fill="#E95420" font-size="9" font-weight="600">BASTION</text>
+  <text x="892" y="425" text-anchor="middle" fill="#888" font-size="7">10.10.10.10</text>
+
+  <rect x="950" y="395" width="96" height="40" rx="4" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="998" y="412" text-anchor="middle" fill="#0078D4" font-size="9" font-weight="600">BACKUP-ATL</text>
+  <text x="998" y="425" text-anchor="middle" fill="#888" font-size="7">10.20.20.20</text>
+
+  <!-- ===== DATA FLOW CONNECTIONS ===== -->
+
+  <!-- WEB -> APP (HTTP API) -->
+  <line x1="290" y1="255" x2="740" y2="280" stroke="#FFD700" stroke-width="1.5" marker-end="url(#c-arrow-data)"/>
+  <text x="500" y="258" fill="#FFD700" font-size="7">HTTP API calls</text>
+
+  <!-- APP -> SQL (DB queries) -->
+  <line x1="740" y1="287" x2="710" y2="287" stroke="#FFD700" stroke-width="1.5" marker-end="url(#c-arrow-data)"/>
+  <text x="725" y="282" fill="#FFD700" font-size="6">SQL</text>
+
+  <!-- APP -> FILE (SMB) -->
+  <line x1="870" y1="287" x2="900" y2="287" stroke="#FFD700" stroke-width="1" marker-end="url(#c-arrow-data)"/>
+  <text x="885" y="282" fill="#FFD700" font-size="6">SMB</text>
+
+  <!-- DC auth to all Win servers (fan-out from DC) -->
+  <line x1="550" y1="280" x2="580" y2="280" stroke="#0078D4" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#c-arrow-win)"/>
+  <line x1="550" y1="290" x2="580" y2="345" stroke="#0078D4" stroke-width="0.8" stroke-dasharray="3,2"/>
+  <line x1="550" y1="285" x2="740" y2="285" stroke="#0078D4" stroke-width="0.8" stroke-dasharray="3,2"/>
+  <line x1="550" y1="290" x2="900" y2="290" stroke="#0078D4" stroke-width="0.8" stroke-dasharray="3,2"/>
+  <text x="553" y="272" fill="#0078D4" font-size="6">Kerberos/LDAP</text>
+
+  <!-- RADIUS -> MR/MS (802.1X) -->
+  <text x="574" y="393" fill="#0078D4" font-size="6">802.1X</text>
+
+  <!-- WSUS patches all Windows -->
+  <text x="468" y="393" fill="#0078D4" font-size="6">Patches</text>
+
+  <!-- PROXY -> Internet (via ASA) -->
+  <line x1="680" y1="395" x2="600" y2="205" stroke="#E95420" stroke-width="0.8" stroke-dasharray="3,2"/>
+  <text x="635" y="320" fill="#E95420" font-size="6" transform="rotate(-60 635 320)">Web Proxy</text>
+
+  <!-- ============================== -->
+  <!-- ATLANTA (10.20.x.x)           -->
+  <!-- ============================== -->
+  <rect x="60" y="540" width="470" height="155" rx="8" fill="#111820" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="295" y="560" text-anchor="middle" fill="#66FCF1" font-size="13" font-weight="700">ATLANTA HUB (10.20.x.x)</text>
+
+  <rect x="80" y="575" width="110" height="42" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="135" y="593" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">DC-ATL-01</text>
+  <text x="135" y="608" text-anchor="middle" fill="#888" font-size="8">10.20.20.10</text>
+
+  <rect x="200" y="575" width="110" height="42" rx="5" fill="#152025" stroke="#E95420" stroke-width="1"/>
+  <text x="255" y="593" text-anchor="middle" fill="#E95420" font-size="10" font-weight="600">MON-ATL-01</text>
+  <text x="255" y="608" text-anchor="middle" fill="#888" font-size="8">10.20.20.30</text>
+
+  <rect x="320" y="575" width="90" height="42" rx="5" fill="#152025" stroke="#E95420" stroke-width="1"/>
+  <text x="365" y="593" text-anchor="middle" fill="#E95420" font-size="10" font-weight="600">DEV-01/02</text>
+  <text x="365" y="608" text-anchor="middle" fill="#888" font-size="8">10.20.20.40-41</text>
+
+  <rect x="420" y="575" width="90" height="42" rx="5" fill="#152025" stroke="#0078D4" stroke-width="1"/>
+  <text x="465" y="593" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">BACKUP</text>
+  <text x="465" y="608" text-anchor="middle" fill="#888" font-size="8">10.20.20.20</text>
+
+  <!-- DC-ATL <-> DC-BOS (cross-site AD replication) -->
+  <line x1="135" y1="575" x2="485" y2="364" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#c-arrow-win)"/>
+  <text x="270" y="470" fill="#0078D4" font-size="8" transform="rotate(-40 270 470)">AD Replication (cross-site)</text>
+
+  <!-- MON-ATL monitors all servers -->
+  <line x1="255" y1="575" x2="255" y2="525" stroke="#E95420" stroke-width="0.8" stroke-dasharray="3,2"/>
+  <text x="258" y="538" fill="#E95420" font-size="7">SNMP/Syslog</text>
+
+  <!-- BACKUP-ATL <- SQL-PROD-01 backups -->
+  <line x1="465" y1="575" x2="645" y2="315" stroke="#FFD700" stroke-width="0.8" stroke-dasharray="4,3" marker-end="url(#c-arrow-data)"/>
+  <text x="540" y="455" fill="#FFD700" font-size="7" transform="rotate(-50 540 455)">DB Backups</text>
+
+  <!-- ATL key user -->
+  <rect x="80" y="630" width="430" height="30" rx="5" fill="#1a1a22" stroke="#666" stroke-width="1"/>
+  <text x="295" y="650" text-anchor="middle" fill="#FF8888" font-size="9">jessica.brown (IT Admin, 10.20.30.15) - INITIAL COMPROMISE (exfil scenario)</text>
+
+  <!-- Atlanta new infra -->
+  <g class="cisco-new" data-cisco="aci">
+    <rect x="80" y="670" width="200" height="30" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="180" y="690" text-anchor="middle" fill="#FF6B35" font-size="9">ACI Mini-Pod: 1 Spine + 2 Leaf (NEW)</text>
+  </g>
+  <g class="cisco-new" data-cisco="catalyst">
+    <rect x="290" y="670" width="220" height="30" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="400" y="690" text-anchor="middle" fill="#FF6B35" font-size="9">CAT-ATL-DIST-01 C9300 (NEW)</text>
+  </g>
+
+  <!-- ============================== -->
+  <!-- SD-WAN MESH                    -->
+  <!-- ============================== -->
+  <rect x="560" y="540" width="270" height="155" rx="8" fill="#1a2e1a" stroke="#78BE20" stroke-width="1.5"/>
+  <text x="695" y="560" text-anchor="middle" fill="#78BE20" font-size="13" font-weight="700">SD-WAN / AutoVPN Mesh</text>
+
+  <rect x="580" y="575" width="100" height="42" rx="5" fill="#152025" stroke="#78BE20" stroke-width="1.5"/>
+  <text x="630" y="590" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="700">MX-BOS</text>
+  <text x="630" y="604" text-anchor="middle" fill="#66AA22" font-size="7">01/02 (HA)</text>
+
+  <rect x="700" y="575" width="100" height="42" rx="5" fill="#152025" stroke="#78BE20" stroke-width="1"/>
+  <text x="750" y="590" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">MX-ATL</text>
+  <text x="750" y="604" text-anchor="middle" fill="#66AA22" font-size="7">MX250</text>
+
+  <rect x="580" y="630" width="100" height="42" rx="5" fill="#152025" stroke="#78BE20" stroke-width="1"/>
+  <text x="630" y="645" text-anchor="middle" fill="#78BE20" font-size="9" font-weight="600">MX-AUS</text>
+  <text x="630" y="659" text-anchor="middle" fill="#66AA22" font-size="7">MX85</text>
+
+  <!-- AutoVPN lines -->
+  <line x1="680" y1="596" x2="700" y2="596" stroke="#78BE20" stroke-width="1.5" stroke-dasharray="5,2"/>
+  <line x1="630" y1="617" x2="630" y2="630" stroke="#78BE20" stroke-width="1.5" stroke-dasharray="5,2"/>
+  <line x1="680" y1="651" x2="700" y2="617" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,2"/>
+  <text x="720" y="640" fill="#78BE20" font-size="7">Full mesh</text>
+
+  <!-- MX-BOS -> ASA (uplink) -->
+  <line x1="630" y1="575" x2="600" y2="205" stroke="#45A29E" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="608" y="490" fill="#45A29E" font-size="7" transform="rotate(-80 608 490)">WAN Uplink</text>
+
+  <!-- ============================== -->
+  <!-- AUSTIN (10.30.x.x)            -->
+  <!-- ============================== -->
+  <rect x="860" y="540" width="310" height="155" rx="8" fill="#111820" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="1015" y="560" text-anchor="middle" fill="#66FCF1" font-size="13" font-weight="700">AUSTIN OFFICE (10.30.x.x)</text>
+
+  <text x="1015" y="583" text-anchor="middle" fill="#888" font-size="10">39 Employees | All-Meraki | No servers</text>
+  <text x="1015" y="600" text-anchor="middle" fill="#78BE20" font-size="9">8 APs | 2 Switches | 4 Cameras | 2 Sensors</text>
+  <text x="1015" y="620" text-anchor="middle" fill="#888" font-size="9">All services via SD-WAN to Boston / Cloud</text>
+
+  <rect x="880" y="640" width="270" height="30" rx="5" fill="#1a1a22" stroke="#666" stroke-width="1"/>
+  <text x="1015" y="660" text-anchor="middle" fill="#FF8888" font-size="9">brooklyn.white (Sales, 10.30.30.20) - RANSOMWARE TARGET</text>
+
+  <!-- MX-AUS -> Austin site -->
+  <line x1="680" y1="651" x2="860" y2="600" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,2"/>
+
+  <!-- ============================== -->
+  <!-- NEW CISCO INFRASTRUCTURE       -->
+  <!-- ============================== -->
+  <g class="cisco-new" data-cisco="all">
+    <rect x="60" y="720" width="1110" height="155" rx="8" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="600" y="745" text-anchor="middle" fill="#FF6B35" font-size="14" font-weight="700">Planned Cisco Expansion - Connection Map</text>
+
+    <g class="cisco-new" data-cisco="secure-access">
+      <rect x="80" y="760" width="240" height="55" rx="5" fill="#1F2833" stroke="#FF6B35" stroke-width="1"/>
+      <text x="200" y="778" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Cisco Secure Access</text>
+      <text x="200" y="792" text-anchor="middle" fill="#CC8866" font-size="8">All 175 users -> DNS, SWG, ZTNA</text>
+      <text x="200" y="805" text-anchor="middle" fill="#CC8866" font-size="7">Sits between users and Internet (cloud proxy)</text>
+    </g>
+
+    <g class="cisco-new" data-cisco="catalyst">
+      <rect x="340" y="760" width="200" height="55" rx="5" fill="#1F2833" stroke="#FF6B35" stroke-width="1"/>
+      <text x="440" y="778" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst 9300 Switches</text>
+      <text x="440" y="792" text-anchor="middle" fill="#CC8866" font-size="8">BOS: 2 dist | ATL: 1 dist</text>
+      <text x="440" y="805" text-anchor="middle" fill="#CC8866" font-size="7">Uplink to ACI border leafs (10G)</text>
+    </g>
+
+    <g class="cisco-new" data-cisco="aci">
+      <rect x="560" y="760" width="230" height="55" rx="5" fill="#1F2833" stroke="#FF6B35" stroke-width="1"/>
+      <text x="675" y="778" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">ACI Fabric</text>
+      <text x="675" y="792" text-anchor="middle" fill="#CC8866" font-size="8">BOS: 2S+4L+APIC | ATL: 1S+2L</text>
+      <text x="675" y="805" text-anchor="middle" fill="#CC8866" font-size="7">All servers sit on ACI leaf ports</text>
+    </g>
+
+    <g class="cisco-new" data-cisco="catcenter">
+      <rect x="810" y="760" width="240" height="55" rx="5" fill="#1F2833" stroke="#FF6B35" stroke-width="1"/>
+      <text x="930" y="778" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst Center</text>
+      <text x="930" y="792" text-anchor="middle" fill="#CC8866" font-size="8">CATCENTER-BOS-01 (10.10.10.40)</text>
+      <text x="930" y="805" text-anchor="middle" fill="#CC8866" font-size="7">Manages 3 Catalyst switches (BOS + ATL)</text>
+    </g>
+
+    <!-- Connection arrows between new components -->
+    <line x1="540" y1="787" x2="560" y2="787" stroke="#FF6B35" stroke-width="1" marker-end="url(#c-arrow-new)"/>
+    <text x="550" y="783" fill="#FF6B35" font-size="6">10G</text>
+
+    <line x1="810" y1="787" x2="790" y2="787" stroke="#FF6B35" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="800" y="783" fill="#FF6B35" font-size="6">HTTPS API</text>
+
+    <!-- Flow description -->
+    <text x="200" y="840" fill="#CC8866" font-size="9">Users -> Secure Access (cloud) -> Internet</text>
+    <text x="200" y="855" fill="#CC8866" font-size="8">DNS queries routed through Umbrella</text>
+
+    <text x="500" y="840" fill="#CC8866" font-size="9">Catalyst -> ACI border leaf (uplink)</text>
+    <text x="500" y="855" fill="#CC8866" font-size="8">ACI leaf ports -> all servers</text>
+
+    <text x="830" y="840" fill="#CC8866" font-size="9">Catalyst Center -> manages Catalyst switches</text>
+    <text x="830" y="855" fill="#CC8866" font-size="8">Health scores, issues, compliance</text>
+  </g>
+
+  <!-- ============================== -->
+  <!-- CLOUD CONNECTIONS              -->
+  <!-- ============================== -->
+  <rect x="60" y="895" width="1110" height="140" rx="8" fill="#111828" stroke="#4A90D9" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="600" y="918" text-anchor="middle" fill="#4A90D9" font-size="13" font-weight="700">Cloud Service Dependencies</text>
+
+  <!-- Entra ID -->
+  <rect x="80" y="930" width="160" height="42" rx="5" fill="#1a1a2e" stroke="#0078D4" stroke-width="1"/>
+  <text x="160" y="948" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Entra ID / M365</text>
+  <text x="160" y="963" text-anchor="middle" fill="#6699CC" font-size="8">SSO, MFA, Audit Logs</text>
+
+  <!-- AWS -->
+  <rect x="260" y="930" width="140" height="42" rx="5" fill="#1a1a2e" stroke="#FF9900" stroke-width="1"/>
+  <text x="330" y="948" text-anchor="middle" fill="#FF9900" font-size="10" font-weight="600">AWS</text>
+  <text x="330" y="963" text-anchor="middle" fill="#CC8844" font-size="8">S3, CloudTrail</text>
+
+  <!-- GCP -->
+  <rect x="420" y="930" width="140" height="42" rx="5" fill="#1a2e1a" stroke="#4285F4" stroke-width="1"/>
+  <text x="490" y="948" text-anchor="middle" fill="#4285F4" font-size="10" font-weight="600">GCP</text>
+  <text x="490" y="963" text-anchor="middle" fill="#6699CC" font-size="8">Storage, Audit</text>
+
+  <!-- Exchange -->
+  <rect x="580" y="930" width="140" height="42" rx="5" fill="#1a1a2e" stroke="#0078D4" stroke-width="1"/>
+  <text x="650" y="948" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Exchange Online</text>
+  <text x="650" y="963" text-anchor="middle" fill="#6699CC" font-size="8">Email, Message Trace</text>
+
+  <!-- ServiceNow -->
+  <rect x="740" y="930" width="140" height="42" rx="5" fill="#1a1a2e" stroke="#81B5A1" stroke-width="1"/>
+  <text x="810" y="948" text-anchor="middle" fill="#81B5A1" font-size="10" font-weight="600">ServiceNow</text>
+  <text x="810" y="963" text-anchor="middle" fill="#81B5A1" font-size="8">ITSM, Incidents</text>
+
+  <!-- Webex -->
+  <rect x="900" y="930" width="140" height="42" rx="5" fill="#112233" stroke="#00BCF2" stroke-width="1"/>
+  <text x="970" y="948" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">Webex</text>
+  <text x="970" y="963" text-anchor="middle" fill="#66CCEE" font-size="8">21 Rooms, Meetings</text>
+
+  <!-- Cloud dependencies text -->
+  <text x="160" y="1000" fill="#888" font-size="8">DC-BOS -> Entra ID Connect (AAD Sync)</text>
+  <text x="400" y="1000" fill="#888" font-size="8">SQL backups -> AWS S3</text>
+  <text x="580" y="1000" fill="#888" font-size="8">Exfil data -> GCP bucket</text>
+  <text x="800" y="1000" fill="#888" font-size="8">Incidents auto-created by monitoring</text>
+  <text x="400" y="1020" fill="#888" font-size="8">All users -> Entra ID SSO -> all SaaS apps</text>
+  <text x="800" y="1020" fill="#888" font-size="8">21 Webex devices -> Webex Cloud -> meetings</text>
+</svg>
+</div>
+</div>
+
+<!-- ==================== BOSTON TAB ==================== -->
+<div id="tab-boston" class="tab-content">
+<div class="section">
+  <h2 class="section-title">Boston HQ - 125 One Financial Center, Boston, MA</h2>
+  <p style="color:#888;font-size:12px;margin-bottom:15px">10.10.x.x | 93 Employees | 3 Floors | Primary Data Center</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-title">Servers (14) <span class="badge badge-existing">EXISTING</span></div>
+      <table>
+        <tr><th>Hostname</th><th>IP</th><th>Role</th><th>OS</th></tr>
+        <tr><td>DC-BOS-01</td><td>10.10.20.10</td><td>Domain Controller</td><td class="os-win">Win</td></tr>
+        <tr><td>DC-BOS-02</td><td>10.10.20.11</td><td>Domain Controller</td><td class="os-win">Win</td></tr>
+        <tr><td>FILE-BOS-01</td><td>10.10.20.20</td><td>File Server</td><td class="os-win">Win</td></tr>
+        <tr><td>SQL-PROD-01</td><td>10.10.20.30</td><td>SQL Database</td><td class="os-win">Win</td></tr>
+        <tr><td>APP-BOS-01</td><td>10.10.20.40</td><td>Application Server</td><td class="os-win">Win</td></tr>
+        <tr><td>WSUS-BOS-01</td><td>10.10.20.50</td><td>WSUS Patch Server</td><td class="os-win">Win</td></tr>
+        <tr><td>RADIUS-BOS-01</td><td>10.10.20.51</td><td>RADIUS NPS</td><td class="os-win">Win</td></tr>
+        <tr><td>PROXY-BOS-01</td><td>10.10.20.52</td><td>Web Proxy</td><td class="os-linux">Linux</td></tr>
+        <tr><td>PRINT-BOS-01</td><td>10.10.20.53</td><td>Print Server</td><td class="os-win">Win</td></tr>
+        <tr><td>SAP-PROD-01</td><td>10.10.20.60</td><td>SAP Application</td><td class="os-linux">Linux</td></tr>
+        <tr><td>SAP-DB-01</td><td>10.10.20.61</td><td>SAP HANA DB</td><td class="os-linux">Linux</td></tr>
+        <tr><td>BASTION-BOS-01</td><td>10.10.10.10</td><td>Bastion Host</td><td class="os-linux">Linux</td></tr>
+        <tr><td>WEB-01</td><td>172.16.1.10</td><td>Web Server (DMZ)</td><td class="os-linux">Linux</td></tr>
+        <tr><td>WEB-02</td><td>172.16.1.11</td><td>Web Server (DMZ)</td><td class="os-linux">Linux</td></tr>
+      </table>
+    </div>
+
+    <div class="card new-infra cisco-new" data-cisco="aci">
+      <div class="card-title">ACI Fabric <span class="badge badge-new">NEW</span></div>
+      <table>
+        <tr><th>Device</th><th>IP</th><th>Model</th><th>Role</th></tr>
+        <tr><td>APIC-BOS-01</td><td>10.10.10.20</td><td>APIC-L3</td><td>Controller</td></tr>
+        <tr><td>SPINE-BOS-01</td><td>10.10.10.21</td><td>N9K-C9336C-FX2</td><td>Spine</td></tr>
+        <tr><td>SPINE-BOS-02</td><td>10.10.10.22</td><td>N9K-C9336C-FX2</td><td>Spine</td></tr>
+        <tr><td>LEAF-BOS-01</td><td>10.10.10.23</td><td>N9K-C93180YC-FX</td><td>Server Leaf</td></tr>
+        <tr><td>LEAF-BOS-02</td><td>10.10.10.24</td><td>N9K-C93180YC-FX</td><td>Server Leaf</td></tr>
+        <tr><td>LEAF-BOS-03</td><td>10.10.10.25</td><td>N9K-C93180YC-FX</td><td>Border Leaf</td></tr>
+        <tr><td>LEAF-BOS-04</td><td>10.10.10.26</td><td>N9K-C93180YC-FX</td><td>Border Leaf</td></tr>
+      </table>
+      <p class="note">EPGs: WebServers, AppServers, DBServers, Management, Backup</p>
+    </div>
+
+    <div class="card new-infra cisco-new" data-cisco="catalyst">
+      <div class="card-title">Catalyst Switches <span class="badge badge-new">NEW</span></div>
+      <table>
+        <tr><th>Device</th><th>IP</th><th>Model</th><th>Role</th></tr>
+        <tr><td>CAT-BOS-DIST-01</td><td>10.10.10.30</td><td>C9300-48UXM</td><td>Distribution (Floor 3)</td></tr>
+        <tr><td>CAT-BOS-DIST-02</td><td>10.10.10.31</td><td>C9300-48UXM</td><td>Distribution (Floor 1)</td></tr>
+      </table>
+      <p class="note">IOS-XE 17.12.4 | Uplinks to ACI border leafs</p>
+    </div>
+
+    <div class="card new-infra cisco-new" data-cisco="catcenter">
+      <div class="card-title">Catalyst Center <span class="badge badge-new">NEW</span></div>
+      <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Hostname</td><td>CATCENTER-BOS-01</td></tr>
+        <tr><td>IP</td><td>10.10.10.40</td></tr>
+        <tr><td>Version</td><td>2.3.7.9</td></tr>
+        <tr><td>Managed</td><td>3 Catalyst switches</td></tr>
+        <tr><td>Sites</td><td>Boston-HQ, Atlanta-Hub</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Meraki Devices <span class="badge badge-existing">EXISTING</span></div>
+      <table>
+        <tr><th>Type</th><th>Count</th><th>Models</th></tr>
+        <tr><td>MX (SD-WAN)</td><td>2 (HA)</td><td>MX450</td></tr>
+        <tr><td>MR (APs)</td><td>16</td><td>MR46</td></tr>
+        <tr><td>MS (Switches)</td><td>5</td><td>MS425-32, MS225-48</td></tr>
+        <tr><td>MV (Cameras)</td><td>8</td><td>MV12, MV32, MV72</td></tr>
+        <tr><td>MT (Sensors)</td><td>5</td><td>MT10, MT11, MT20</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Webex Rooms (10) <span class="badge" style="background:#00BCF2;color:#fff">WEBEX</span></div>
+      <table>
+        <tr><th>Room</th><th>Floor</th><th>Capacity</th><th>Model</th></tr>
+        <tr><td>Link (Boardroom)</td><td>3</td><td>20</td><td>Room Kit Pro + Board 85 Pro</td></tr>
+        <tr><td>Zelda</td><td>2</td><td>12</td><td>Room Kit + Board 55</td></tr>
+        <tr><td>Mario</td><td>2</td><td>10</td><td>Room Kit</td></tr>
+        <tr><td>Samus</td><td>2</td><td>8</td><td>Room Kit</td></tr>
+        <tr><td>Luigi</td><td>3</td><td>8</td><td>Room Kit</td></tr>
+        <tr><td>Sonic (Lab)</td><td>3</td><td>8</td><td>Board 55</td></tr>
+        <tr><td>Yoshi</td><td>3</td><td>6</td><td>Room Kit Mini</td></tr>
+        <tr><td>Peach (Visitor)</td><td>1</td><td>6</td><td>Desk Pro</td></tr>
+        <tr><td style="color:#FF8888">Kirby</td><td>3</td><td>4</td><td>Desk Pro</td></tr>
+        <tr><td>Toad (Visitor)</td><td>1</td><td>4</td><td>Room Kit Mini</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== ATLANTA TAB ==================== -->
+<div id="tab-atlanta" class="tab-content">
+<div class="section">
+  <h2 class="section-title">Atlanta Hub - 400 Peachtree Center, Atlanta, GA</h2>
+  <p style="color:#888;font-size:12px;margin-bottom:15px">10.20.x.x | 43 Employees | 2 Floors | Secondary Data Center</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-title">Servers (5) <span class="badge badge-existing">EXISTING</span></div>
+      <table>
+        <tr><th>Hostname</th><th>IP</th><th>Role</th><th>OS</th></tr>
+        <tr><td>DC-ATL-01</td><td>10.20.20.10</td><td>Domain Controller</td><td class="os-win">Win</td></tr>
+        <tr><td>BACKUP-ATL-01</td><td>10.20.20.20</td><td>Backup Server</td><td class="os-win">Win</td></tr>
+        <tr><td>MON-ATL-01</td><td>10.20.20.30</td><td>Monitoring</td><td class="os-linux">Linux</td></tr>
+        <tr><td>DEV-ATL-01</td><td>10.20.20.40</td><td>Dev/Test</td><td class="os-linux">Linux</td></tr>
+        <tr><td>DEV-ATL-02</td><td>10.20.20.41</td><td>Dev/Test</td><td class="os-linux">Linux</td></tr>
+      </table>
+    </div>
+
+    <div class="card new-infra cisco-new" data-cisco="aci">
+      <div class="card-title">ACI Mini-Pod <span class="badge badge-new">NEW</span></div>
+      <table>
+        <tr><th>Device</th><th>IP</th><th>Model</th><th>Role</th></tr>
+        <tr><td>SPINE-ATL-01</td><td>10.20.10.21</td><td>N9K-C9332C</td><td>Spine</td></tr>
+        <tr><td>LEAF-ATL-01</td><td>10.20.10.22</td><td>N9K-C93180YC-FX</td><td>Server Leaf</td></tr>
+        <tr><td>LEAF-ATL-02</td><td>10.20.10.23</td><td>N9K-C93180YC-FX</td><td>Border Leaf</td></tr>
+      </table>
+      <p class="note">Managed by BOS APIC (multi-site) | EPGs: DevServers, BackupServers, Monitoring</p>
+    </div>
+
+    <div class="card new-infra cisco-new" data-cisco="catalyst">
+      <div class="card-title">Catalyst Switch <span class="badge badge-new">NEW</span></div>
+      <table>
+        <tr><th>Device</th><th>IP</th><th>Model</th><th>Role</th></tr>
+        <tr><td>CAT-ATL-DIST-01</td><td>10.20.10.30</td><td>C9300-24UXM</td><td>Distribution</td></tr>
+      </table>
+      <p class="note">IOS-XE 17.12.4 | Managed by Catalyst Center at BOS</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Meraki Devices <span class="badge badge-existing">EXISTING</span></div>
+      <table>
+        <tr><th>Type</th><th>Count</th><th>Models</th></tr>
+        <tr><td>MX (SD-WAN)</td><td>1</td><td>MX250</td></tr>
+        <tr><td>MR (APs)</td><td>12</td><td>MR46</td></tr>
+        <tr><td>MS (Switches)</td><td>4</td><td>MS425-32, MS225-48</td></tr>
+        <tr><td>MV (Cameras)</td><td>7</td><td>MV12, MV32, MV72</td></tr>
+        <tr><td>MT (Sensors)</td><td>8</td><td>MT10, MT11, MT20</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Webex Rooms (7) <span class="badge" style="background:#00BCF2;color:#fff">WEBEX</span></div>
+      <table>
+        <tr><th>Room</th><th>Floor</th><th>Cap</th><th>Model</th></tr>
+        <tr><td style="color:#FF8888">Cortana (Training)</td><td>2</td><td>16</td><td>Room Kit Pro</td></tr>
+        <tr><td>Chief</td><td>2</td><td>10</td><td>Room Kit + Board 55</td></tr>
+        <tr><td>Kratos</td><td>1</td><td>8</td><td>Room Kit</td></tr>
+        <tr><td>Lara (Lab)</td><td>2</td><td>8</td><td>Board 55</td></tr>
+        <tr><td>Ryu (Ops)</td><td>1</td><td>6</td><td>Room Kit</td></tr>
+        <tr><td>Pikachu</td><td>2</td><td>4</td><td>Desk Pro</td></tr>
+        <tr><td>Megaman</td><td>2</td><td>4</td><td>Desk Pro</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== AUSTIN TAB ==================== -->
+<div id="tab-austin" class="tab-content">
+<div class="section">
+  <h2 class="section-title">Austin Office - 200 Congress Ave, Austin, TX</h2>
+  <p style="color:#888;font-size:12px;margin-bottom:15px">10.30.x.x | 39 Employees | 1 Floor | Branch Office (All-Meraki)</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-title">No Local Servers</div>
+      <p style="color:#888;font-size:12px;padding:10px 0">Austin is a branch office with no local server infrastructure. All services accessed via SD-WAN to Boston HQ or cloud.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Meraki Devices <span class="badge badge-existing">EXISTING</span></div>
+      <table>
+        <tr><th>Type</th><th>Count</th><th>Models</th></tr>
+        <tr><td>MX (SD-WAN)</td><td>1</td><td>MX85</td></tr>
+        <tr><td>MR (APs)</td><td>8</td><td>MR46</td></tr>
+        <tr><td>MS (Switches)</td><td>2</td><td>MS250-48, MS225-24</td></tr>
+        <tr><td>MV (Cameras)</td><td>4</td><td>MV12, MV72</td></tr>
+        <tr><td>MT (Sensors)</td><td>2</td><td>MT10, MT20</td></tr>
+      </table>
+    </div>
+
+    <div class="card cisco-new" data-cisco="catalyst" style="border-color:#FF6B35;border-style:dashed">
+      <div class="card-title">No Catalyst / ACI</div>
+      <p style="color:#CC8866;font-size:12px;padding:10px 0">As a small branch office, Austin stays all-Meraki. No Catalyst switches, no ACI fabric, no Catalyst Center. Network managed entirely via Meraki Dashboard cloud.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Webex Rooms (4) <span class="badge" style="background:#00BCF2;color:#fff">WEBEX</span></div>
+      <table>
+        <tr><th>Room</th><th>Cap</th><th>Model</th><th>Notes</th></tr>
+        <tr><td>Doom</td><td>12</td><td>Room Kit + Board 55</td><td style="color:#FF8888">SW sun +5C</td></tr>
+        <tr><td>Crash</td><td>8</td><td>Room Kit</td><td>Sales/Eng</td></tr>
+        <tr><td>Jett (Demo)</td><td>8</td><td>Room Kit</td><td>Customer demos</td></tr>
+        <tr><td>Fox</td><td>6</td><td>Room Kit Mini</td><td>Sales huddle</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== CLOUD TAB ==================== -->
+<div id="tab-cloud" class="tab-content">
+<div class="section">
+  <h2 class="section-title">Cloud & SaaS Services</h2>
+
+  <div class="card-grid">
+    <div class="card new-infra cisco-new" data-cisco="secure-access">
+      <div class="card-title">Cisco Secure Access <span class="badge badge-new">NEW</span></div>
+      <table>
+        <tr><th>Service</th><th>Details</th></tr>
+        <tr><td>DNS Security</td><td>All 175 employees | ~100K-120K queries/day</td></tr>
+        <tr><td>Secure Web Gateway</td><td>Proxy for web traffic | ~25K-40K events/day</td></tr>
+        <tr><td>Cloud Firewall</td><td>Outbound TCP/UDP | ~8K events/day</td></tr>
+        <tr><td>ZTNA / RAVPN</td><td>~73 VPN users across 3 sites</td></tr>
+        <tr><td>DLP</td><td>Finance DLP Policy for sensitive data</td></tr>
+      </table>
+      <p class="note">Splunk sourcetypes: FAKE:cisco:umbrella:dns, proxy, firewall, audit</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Microsoft Entra ID / M365 <span class="badge badge-cloud">CLOUD</span></div>
+      <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Tenant</td><td>theFakeTshirtCompany.com</td></tr>
+        <tr><td>Users</td><td>175 + service accounts</td></tr>
+        <tr><td>Apps</td><td>17 enterprise apps</td></tr>
+        <tr><td>Security Groups</td><td>19 groups</td></tr>
+        <tr><td>Licensing</td><td>M365 E3</td></tr>
+        <tr><td>MFA</td><td>Enabled (Microsoft Authenticator)</td></tr>
+      </table>
+      <p class="note">Sourcetypes: FAKE:azure:aad:signin, FAKE:azure:aad:audit, FAKE:o365:management:activity</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">AWS <span class="badge badge-cloud">CLOUD</span></div>
+      <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Account ID</td><td>123456789012</td></tr>
+        <tr><td>Primary Region</td><td>us-east-1</td></tr>
+        <tr><td>Secondary</td><td>us-west-2</td></tr>
+        <tr><td>Key Buckets</td><td>finance-data, backups-prod</td></tr>
+      </table>
+      <p class="note">Sourcetype: FAKE:aws:cloudtrail</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">GCP <span class="badge badge-cloud">CLOUD</span></div>
+      <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Project</td><td>faketshirtcompany-prod-01</td></tr>
+        <tr><td>Region</td><td>us-central1</td></tr>
+        <tr><td>Key Bucket</td><td>confidential-docs</td></tr>
+      </table>
+      <p class="note">Sourcetype: FAKE:google:gcp:pubsub:message</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Cisco Webex <span class="badge" style="background:#00BCF2;color:#fff">WEBEX</span></div>
+      <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Meeting Rooms</td><td>21 rooms across 3 sites</td></tr>
+        <tr><td>Capacity</td><td>4-20 people per room</td></tr>
+        <tr><td>Problem Rooms</td><td>Kirby (BOS), Cortana (ATL)</td></tr>
+        <tr><td>Room Names</td><td>Video game characters</td></tr>
+      </table>
+      <p class="note">Sourcetypes: FAKE:cisco:webex:events, meetings:history, and 5 API types</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Meraki Dashboard <span class="badge" style="background:#78BE20;color:#fff">MERAKI</span></div>
+      <table>
+        <tr><th>Device Type</th><th>BOS</th><th>ATL</th><th>AUS</th><th>Total</th></tr>
+        <tr><td>MX (Firewall/SD-WAN)</td><td>2</td><td>1</td><td>1</td><td>4</td></tr>
+        <tr><td>MR (Access Points)</td><td>16</td><td>12</td><td>8</td><td>36</td></tr>
+        <tr><td>MS (Switches)</td><td>5</td><td>4</td><td>2</td><td>11</td></tr>
+        <tr><td>MV (Cameras)</td><td>8</td><td>7</td><td>4</td><td>19</td></tr>
+        <tr><td>MT (Sensors)</td><td>5</td><td>8</td><td>2</td><td>*</td></tr>
+      </table>
+      <p class="note">*Plus 21 door sensors + 18 temp sensors in meeting rooms</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== SCENARIOS TAB ==================== -->
+<div id="tab-scenarios" class="tab-content">
+<div class="section">
+  <h2 class="section-title">Security & Operational Scenarios (10 total, 31 days)</h2>
+
+  <div class="card-grid">
+    <div class="card" style="border-color:#FF4444">
+      <div class="card-title"><span class="badge badge-threat">ATTACK</span> exfil (Days 1-14)</div>
+      <p style="font-size:12px;color:#FF8888;margin-bottom:5px">APT-style data exfiltration - 14 day kill chain</p>
+      <table>
+        <tr><th>Phase</th><th>Days</th><th>Activity</th></tr>
+        <tr><td>Recon</td><td>1-4</td><td>Port scanning, phishing sent</td></tr>
+        <tr><td>Initial Access</td><td>5</td><td>jessica.brown clicks phishing (ATL)</td></tr>
+        <tr><td>Lateral Movement</td><td>6-8</td><td>ATL -> BOS credential pivot</td></tr>
+        <tr><td>Persistence</td><td>9-11</td><td>Backdoor, data staging</td></tr>
+        <tr><td>Exfiltration</td><td>12-14</td><td>Cloud storage theft (alex.miller)</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="border-color:#FF4444">
+      <div class="card-title"><span class="badge badge-threat">ATTACK</span> ransomware_attempt (Days 8-9)</div>
+      <p style="font-size:12px;color:#C5C6C7">brooklyn.white (Austin) receives phishing, ransomware blocked by EDR in 10 min</p>
+    </div>
+
+    <div class="card" style="border-color:#FF4444">
+      <div class="card-title"><span class="badge badge-threat">ATTACK</span> phishing_test (Days 21-23)</div>
+      <p style="font-size:12px;color:#C5C6C7">Post-incident awareness campaign: 175 test emails, 55 clickers (31%), 18 credential submitters (10%)</p>
+    </div>
+
+    <div class="card" style="border-color:#FF9900">
+      <div class="card-title"><span class="badge" style="background:#FF9900;color:#fff">NETWORK</span> ddos_attack (Days 18-19)</div>
+      <p style="font-size:12px;color:#C5C6C7">Volumetric HTTP flood targeting WEB-01/02. Peak 50K req/s, mitigated in 6 hours.</p>
+    </div>
+
+    <div class="card" style="border-color:#FF9900">
+      <div class="card-title"><span class="badge" style="background:#FF9900;color:#fff">NETWORK</span> firewall_misconfig (Day 7)</div>
+      <p style="font-size:12px;color:#C5C6C7">ACL misconfiguration on FW-EDGE-01 causes 2-hour outage (10:15-12:05)</p>
+    </div>
+
+    <div class="card" style="border-color:#FF9900">
+      <div class="card-title"><span class="badge" style="background:#FF9900;color:#fff">NETWORK</span> certificate_expiry (Day 12)</div>
+      <p style="font-size:12px;color:#C5C6C7">SSL cert expires on FW-EDGE-01, 7-hour outage (00:00-07:00)</p>
+    </div>
+
+    <div class="card" style="border-color:#4A90D9">
+      <div class="card-title"><span class="badge" style="background:#4A90D9;color:#fff">OPS</span> disk_filling (Days 1-5)</div>
+      <p style="font-size:12px;color:#C5C6C7">MON-ATL-01 disk: 45% -> 98% over 5 days</p>
+    </div>
+
+    <div class="card" style="border-color:#4A90D9">
+      <div class="card-title"><span class="badge" style="background:#4A90D9;color:#fff">OPS</span> memory_leak (Days 6-9)</div>
+      <p style="font-size:12px;color:#C5C6C7">WEB-01 memory leak -> OOM crash Day 9 at 14:00, manual restart</p>
+    </div>
+
+    <div class="card" style="border-color:#4A90D9">
+      <div class="card-title"><span class="badge" style="background:#4A90D9;color:#fff">OPS</span> cpu_runaway (Days 11-12)</div>
+      <p style="font-size:12px;color:#C5C6C7">SQL-PROD-01 backup job stuck at 100% CPU -> DB failures -> web errors</p>
+    </div>
+
+    <div class="card" style="border-color:#4A90D9">
+      <div class="card-title"><span class="badge" style="background:#4A90D9;color:#fff">OPS</span> dead_letter_pricing (Day 16)</div>
+      <p style="font-size:12px;color:#C5C6C7">ServiceBus dead-letter queue causes wrong product prices (4-6h)</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('tab-' + name).classList.add('active');
+  // Find the tab button that matches
+  var tabs = document.querySelectorAll('.tab');
+  for (var i = 0; i < tabs.length; i++) {
+    if (tabs[i].getAttribute('onclick').indexOf("'" + name + "'") !== -1) {
+      tabs[i].classList.add('active');
+    }
+  }
+}
+
+function toggleCisco(category, show) {
+  var elements = document.querySelectorAll('.cisco-new[data-cisco="' + category + '"]');
+  for (var i = 0; i < elements.length; i++) {
+    if (show) {
+      elements[i].classList.remove('hidden');
+    } else {
+      elements[i].classList.add('hidden');
+    }
+  }
+  // Also toggle "all" items when any individual toggle changes
+  updateAllToggle();
+}
+
+function updateAllToggle() {
+  var anyOn = document.getElementById('tog-secure-access').checked ||
+              document.getElementById('tog-catalyst').checked ||
+              document.getElementById('tog-aci').checked ||
+              document.getElementById('tog-catcenter').checked;
+  var allElements = document.querySelectorAll('.cisco-new[data-cisco="all"]');
+  for (var i = 0; i < allElements.length; i++) {
+    if (anyOn) {
+      allElements[i].classList.remove('hidden');
+    } else {
+      allElements[i].classList.add('hidden');
+    }
+  }
+}
+</script>
+
+</body>
+</html>

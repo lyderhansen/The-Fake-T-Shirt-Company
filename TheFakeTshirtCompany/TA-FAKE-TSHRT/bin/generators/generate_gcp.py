@@ -377,7 +377,7 @@ def generate_gcp_logs(
     if output_file:
         output_path = Path(output_file)
     else:
-        output_path = get_output_path("cloud", "gcp_audit.json")
+        output_path = get_output_path("cloud", "gcp/gcp_audit.json")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

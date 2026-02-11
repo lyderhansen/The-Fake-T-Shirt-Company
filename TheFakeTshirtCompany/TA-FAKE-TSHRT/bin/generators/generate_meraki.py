@@ -2803,7 +2803,7 @@ def generate_meraki_logs(
         output_dir = Path(output_file).parent
     else:
         # get_output_path returns full path, so use dummy filename and get parent
-        output_dir = get_output_path("network", "dummy.log").parent
+        output_dir = get_output_path("network", "meraki/dummy.log").parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_files = {

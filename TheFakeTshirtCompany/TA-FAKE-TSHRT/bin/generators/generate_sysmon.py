@@ -108,9 +108,6 @@ SYSMON_SERVERS = {
     "SQL-PROD-01": {"ip": "10.10.20.30", "location": "BOS", "role": "sql"},
     "APP-BOS-01": {"ip": "10.10.20.40", "location": "BOS", "role": "app"},
     "BACKUP-ATL-01": {"ip": "10.20.20.20", "location": "ATL", "role": "backup"},
-    "WSUS-BOS-01": {"ip": "10.10.20.50", "location": "BOS", "role": "wsus"},
-    "RADIUS-BOS-01": {"ip": "10.10.20.51", "location": "BOS", "role": "radius"},
-    "PRINT-BOS-01": {"ip": "10.10.20.53", "location": "BOS", "role": "print"},
 }
 
 # Server-specific baseline processes
@@ -138,18 +135,6 @@ SERVER_PROCESSES = {
     ],
     "backup": [
         {"image": "C:\\Windows\\System32\\wbengine.exe", "name": "wbengine.exe", "system": True},
-        {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
-    ],
-    "wsus": [
-        {"image": "C:\\Program Files\\Update Services\\Tools\\wsusutil.exe", "name": "wsusutil.exe", "system": True},
-        {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
-    ],
-    "radius": [
-        {"image": "C:\\Windows\\System32\\ias.exe", "name": "ias.exe", "system": True},
-        {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
-    ],
-    "print": [
-        {"image": "C:\\Windows\\System32\\spoolsv.exe", "name": "spoolsv.exe", "system": True},
         {"image": "C:\\Windows\\System32\\svchost.exe", "name": "svchost.exe", "system": True},
     ],
 }

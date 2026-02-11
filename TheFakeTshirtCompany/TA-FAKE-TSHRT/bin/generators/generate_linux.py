@@ -269,18 +269,6 @@ CRON_JOBS = {
         (30, "root", "/usr/local/bin/disk_cleanup.sh"),
         (45, "root", "/usr/local/bin/health_report.sh"),
     ],
-    "DEV-ATL-01": [
-        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
-        (15, "jenkins", "/usr/local/bin/prune_builds.sh"),
-    ],
-    "DEV-ATL-02": [
-        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
-    ],
-    "PROXY-BOS-01": [
-        (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
-        (10, "root", "/usr/local/bin/update_blocklists.sh"),
-        (30, "root", "/usr/local/bin/squid_cache_purge.sh"),
-    ],
     "BASTION-BOS-01": [
         (0, "root", "/usr/sbin/logrotate /etc/logrotate.conf"),
         (15, "root", "/usr/local/bin/session_audit.sh"),
@@ -301,9 +289,6 @@ SYSTEMD_SERVICES = {
     "WEB-01": ["nginx", "php-fpm", "redis-server", "fail2ban"],
     "WEB-02": ["nginx", "php-fpm", "redis-server", "fail2ban"],
     "MON-ATL-01": ["nagios", "snmpd", "rsyslog", "prometheus-node-exporter"],
-    "DEV-ATL-01": ["jenkins", "docker", "containerd"],
-    "DEV-ATL-02": ["docker", "containerd"],
-    "PROXY-BOS-01": ["squid", "fail2ban", "rsyslog"],
     "BASTION-BOS-01": ["sshd", "fail2ban", "auditd"],
     "SAP-PROD-01": ["sapstartsrv", "sapinit"],
     "SAP-DB-01": ["sapstartsrv", "sapinit", "hdbdaemon"],

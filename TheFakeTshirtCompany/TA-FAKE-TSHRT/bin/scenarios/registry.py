@@ -46,7 +46,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Attack scenarios
     "exfil": ScenarioDefinition(
         name="exfil",
-        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow", "mssql", "sysmon"],
+        sources=["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow", "mssql", "sysmon", "secure_access", "catalyst", "aci"],
         category="attack",
         description="APT-style data exfiltration over 14 days (phishing -> privilege abuse -> exfil)",
         demo_id="exfil",
@@ -54,7 +54,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "phishing_test": ScenarioDefinition(
         name="phishing_test",
-        sources=["exchange", "entraid", "wineventlog", "office_audit", "servicenow"],
+        sources=["exchange", "entraid", "wineventlog", "office_audit", "servicenow", "secure_access"],
         category="attack",
         description="IT-run phishing awareness campaign after exfil incident (Day 21-23)",
         demo_id="phishing_test",
@@ -77,7 +77,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "memory_leak": ScenarioDefinition(
         name="memory_leak",
-        sources=["linux", "asa", "access", "servicenow"],
+        sources=["linux", "asa", "access", "servicenow", "catalyst_center"],
         category="ops",
         description="Application memory leak causing OOM crash Day 9, restart (WEB-01)",
         demo_id="memory_leak",
@@ -88,7 +88,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "cpu_runaway": ScenarioDefinition(
         name="cpu_runaway",
-        sources=["perfmon", "wineventlog", "asa", "access", "servicenow", "mssql"],
+        sources=["perfmon", "wineventlog", "asa", "access", "servicenow", "mssql", "aci", "catalyst_center"],
         category="ops",
         description="SQL-PROD-01 backup job stuck causing cascading DB failures (Day 11-12)",
         demo_id="cpu_runaway",
@@ -114,7 +114,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Network scenarios
     "ddos_attack": ScenarioDefinition(
         name="ddos_attack",
-        sources=["asa", "meraki", "access", "perfmon", "linux", "servicenow"],
+        sources=["asa", "meraki", "access", "perfmon", "linux", "servicenow", "catalyst", "aci", "catalyst_center"],
         category="network",
         description="Volumetric HTTP flood targeting web servers (Day 18-19)",
         demo_id="ddos_attack",
@@ -125,7 +125,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "firewall_misconfig": ScenarioDefinition(
         name="firewall_misconfig",
-        sources=["asa", "access", "servicenow"],
+        sources=["asa", "access", "servicenow", "catalyst"],
         category="network",
         description="Firewall rule misconfiguration causing outage (Day 7)",
         demo_id="firewall_misconfig",
@@ -147,7 +147,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Ransomware attempt - detected and stopped
     "ransomware_attempt": ScenarioDefinition(
         name="ransomware_attempt",
-        sources=["asa", "exchange", "wineventlog", "meraki", "servicenow", "office_audit", "sysmon"],
+        sources=["asa", "exchange", "wineventlog", "meraki", "servicenow", "office_audit", "sysmon", "secure_access"],
         category="attack",
         description="Ransomware attempt via phishing - detected and stopped by EDR (Day 8-9)",
         demo_id="ransomware_attempt",

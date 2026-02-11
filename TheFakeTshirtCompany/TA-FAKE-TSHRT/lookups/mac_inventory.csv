@@ -83,15 +83,12 @@ mac_address,ip_address,hostname,username,display_name,location,department,device
 3C:D9:2B:FB:5D:17,10.10.31.12,BOS-WS-CTORRES01,claire.torres,Claire Torres,BOS,HR,workstation
 3C:D9:2B:FE:BC:86,10.10.30.154,BOS-WS-JHOWARD01,justin.howard,Justin Howard,BOS,Engineering,workstation
 48:51:B7:00:52:AE,10.20.20.10,DC-ATL-01,,Domain Controller,ATL,IT,server
-48:51:B7:2C:DE:D6,10.10.20.51,RADIUS-BOS-01,,RADIUS NPS Server,BOS,IT,server
 48:51:B7:32:21:58,172.16.1.10,WEB-01,,Web Server,BOS,IT,server
 48:51:B7:E3:9E:96,10.10.20.20,FILE-BOS-01,,File Server,BOS,IT,server
 48:51:B7:FB:BC:69,10.10.20.61,SAP-DB-01,,SAP HANA Database,BOS,IT,server
 48:51:B7:FC:53:2E,10.10.20.11,DC-BOS-02,,Domain Controller,BOS,IT,server
-80:86:F2:33:2C:8D,10.10.20.40,APP-BOS-01,,Application Server,BOS,IT,server
+80:86:F2:33:2C:8D,10.10.20.40,APP-BOS-01,,e-Commerce API Server,BOS,IT,server
 80:86:F2:79:9D:84,172.16.1.11,WEB-02,,Web Server,BOS,IT,server
-80:86:F2:9C:5B:B8,10.10.20.53,PRINT-BOS-01,,Print Server,BOS,IT,server
-80:86:F2:DD:71:DC,10.20.20.41,DEV-ATL-02,,Dev/Test Server,ATL,IT,server
 94:57:A5:02:9A:C7,10.30.30.64,AUS-WS-SPEREZ01,sophia.perez,Sophia Perez,AUS,Marketing,workstation
 94:57:A5:0A:80:D9,10.20.30.27,ATL-WS-TRUSSELL01,tonya.russell,Tonya Russell,ATL,IT,workstation
 94:57:A5:2F:08:5E,10.20.30.53,ATL-WS-WMORRIS01,whitney.morris,Whitney Morris,ATL,Engineering,workstation
@@ -128,8 +125,6 @@ mac_address,ip_address,hostname,username,display_name,location,department,device
 98:FA:9B:F9:20:D1,10.30.30.14,AUS-WS-DSMITH01,dallas.smith,Dallas Smith,AUS,Sales,workstation
 98:FA:9B:F9:2E:72,10.10.30.183,BOS-WS-SBARNES01,stephanie.barnes,Stephanie Barnes,BOS,IT,workstation
 98:FA:9B:FA:FF:8E,10.30.30.23,AUS-WS-RGARCIA01,river.garcia,River Garcia,AUS,Sales,workstation
-A4:34:D9:10:21:73,10.10.20.52,PROXY-BOS-01,,Web Proxy,BOS,IT,server
-A4:34:D9:68:66:CF,10.20.20.40,DEV-ATL-01,,Dev/Test Server,ATL,IT,server
 A4:34:D9:C7:94:14,10.20.20.20,BACKUP-ATL-01,,Backup Server,ATL,IT,server
 B8:AC:6F:0B:31:03,10.10.30.152,BOS-WS-NHALL01,nathan.hall,Nathan Hall,BOS,Engineering,workstation
 B8:AC:6F:18:B6:C3,10.10.30.64,BOS-WS-OTHOMAS01,olivia.thomas,Olivia Thomas,BOS,Finance,workstation
@@ -156,7 +151,6 @@ B8:AC:6F:FA:09:C1,10.10.30.11,BOS-WS-SWILSON01,sarah.wilson,Sarah Wilson,BOS,Exe
 DC:71:96:2C:30:F3,10.10.20.60,SAP-PROD-01,,SAP Application Server,BOS,IT,server
 DC:71:96:56:A8:B6,10.20.20.30,MON-ATL-01,,Monitoring Server,ATL,IT,server
 DC:71:96:5F:D3:1B,10.10.20.30,SQL-PROD-01,,Database Server,BOS,IT,server
-DC:71:96:74:4A:E0,10.10.20.50,WSUS-BOS-01,,WSUS Patch Server,BOS,IT,server
 DC:71:96:A5:D5:71,10.10.20.10,DC-BOS-01,,Domain Controller,BOS,IT,server
 DC:71:96:BC:7B:15,10.10.10.10,BASTION-BOS-01,,Bastion Host,BOS,IT,server
 E8:6A:64:08:E1:87,10.10.30.207,BOS-WS-MGRANT01,melissa.grant,Melissa Grant,BOS,Sales,workstation

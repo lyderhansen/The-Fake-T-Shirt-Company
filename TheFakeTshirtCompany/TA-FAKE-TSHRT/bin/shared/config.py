@@ -45,30 +45,56 @@ OUTPUT_DIRS = {
     "erp": OUTPUT_BASE / "erp",
 }
 
-# Output filenames
-FILE_CISCO_ASA = "cisco_asa.log"
-FILE_AWS_CLOUDTRAIL = "aws_cloudtrail.json"
-FILE_GCP_AUDIT = "gcp_audit.json"
-FILE_ENTRAID_SIGNIN = "entraid_signin.json"
-FILE_ENTRAID_AUDIT = "entraid_audit.json"
-FILE_EXCHANGE = "exchange_message_trace.json"
+# Output filenames (with subdirectory paths for organized structure)
+# Network
+FILE_CISCO_ASA = "cisco_asa/cisco_asa.log"
+FILE_MERAKI = "meraki/meraki.log"  # Deprecated - use individual files below
+FILE_MERAKI_MX = "meraki/meraki_mx_appliance.json"
+FILE_MERAKI_MR = "meraki/meraki_mr_wireless.json"
+FILE_MERAKI_MS = "meraki/meraki_ms_switch.json"
+FILE_MERAKI_MV = "meraki/meraki_mv_camera.json"
+FILE_MERAKI_MT = "meraki/meraki_mt_sensor.json"
+
+# Cloud
+FILE_AWS_CLOUDTRAIL = "aws/aws_cloudtrail.json"
+FILE_GCP_AUDIT = "gcp/gcp_audit.json"
+FILE_ENTRAID_SIGNIN = "entraid/entraid_signin.json"
+FILE_ENTRAID_AUDIT = "entraid/entraid_audit.json"
+FILE_EXCHANGE = "microsoft/exchange_message_trace.json"
+
+# Webex
+FILE_WEBEX = "webex/webex_events.json"
+FILE_WEBEX_TA_MEETINGUSAGE = "webex/webex_ta_meetingusage.json"
+FILE_WEBEX_TA_ATTENDEE = "webex/webex_ta_attendee.json"
+FILE_WEBEX_API_MEETINGS = "webex/webex_api_meetings.json"
+FILE_WEBEX_API_ADMIN_AUDIT = "webex/webex_api_admin_audit.json"
+FILE_WEBEX_API_SECURITY_AUDIT = "webex/webex_api_security_audit.json"
+FILE_WEBEX_API_QUALITIES = "webex/webex_api_meeting_qualities.json"
+FILE_WEBEX_API_CALL_HISTORY = "webex/webex_api_call_history.json"
+
+# Cisco Catalyst (IOS-XE)
+FILE_CATALYST_SYSLOG = "cisco_catalyst/cisco_catalyst_syslog.log"
+
+# Cisco ACI
+FILE_ACI_FAULT = "cisco_aci/cisco_aci_fault.json"
+FILE_ACI_EVENT = "cisco_aci/cisco_aci_event.json"
+FILE_ACI_AUDIT = "cisco_aci/cisco_aci_audit.json"
+
+# Cisco Catalyst Center
+FILE_CATALYST_CENTER_DEVICE = "catalyst_center/catalyst_center_devicehealth.json"
+FILE_CATALYST_CENTER_NETWORK = "catalyst_center/catalyst_center_networkhealth.json"
+FILE_CATALYST_CENTER_CLIENT = "catalyst_center/catalyst_center_clienthealth.json"
+FILE_CATALYST_CENTER_ISSUES = "catalyst_center/catalyst_center_issues.json"
+
+# Cisco Secure Access (Umbrella)
+FILE_SECURE_ACCESS_DNS = "cisco_secure_access/cisco_secure_access_dns.csv"
+FILE_SECURE_ACCESS_PROXY = "cisco_secure_access/cisco_secure_access_proxy.csv"
+FILE_SECURE_ACCESS_FIREWALL = "cisco_secure_access/cisco_secure_access_firewall.csv"
+FILE_SECURE_ACCESS_AUDIT = "cisco_secure_access/cisco_secure_access_audit.csv"
+
+# Retail / Web
 FILE_ACCESS_LOG = "access_combined.log"
 FILE_ORDERS = "orders.json"
-FILE_MERAKI = "meraki.log"  # Deprecated - use individual files below
-FILE_MERAKI_MX = "meraki_mx_appliance.json"  # Dashboard API JSON format
-FILE_MERAKI_MR = "meraki_mr_wireless.json"   # Dashboard API JSON format
-FILE_MERAKI_MS = "meraki_ms_switch.json"     # Dashboard API JSON format
-FILE_MERAKI_MV = "meraki_mv_camera.json"     # Dashboard API JSON format
-FILE_MERAKI_MT = "meraki_mt_sensor.json"     # Dashboard API JSON format
-FILE_WEBEX = "webex_events.json"
-FILE_WEBEX_TA_MEETINGUSAGE = "webex_meetingusage.json"  # TA format: cisco:webex:meetings:history:meetingusagehistory
-FILE_WEBEX_TA_ATTENDEE = "webex_attendee.json"         # TA format: cisco:webex:meetings:history:meetingattendeehistory
-# Webex REST API format (ta_cisco_webex_add_on_for_splunk)
-FILE_WEBEX_API_MEETINGS = "webex_meetings.json"              # cisco:webex:meetings
-FILE_WEBEX_API_ADMIN_AUDIT = "webex_admin_audit.json"        # cisco:webex:admin:audit:events
-FILE_WEBEX_API_SECURITY_AUDIT = "webex_security_audit.json"  # cisco:webex:security:audit:events
-FILE_WEBEX_API_QUALITIES = "webex_meeting_qualities.json"    # cisco:webex:meeting:qualities
-FILE_WEBEX_API_CALL_HISTORY = "webex_call_history.json"      # cisco:webex:call:detailed_history
 
 # =============================================================================
 # GENERATOR OUTPUT FILES MAPPING
@@ -77,32 +103,59 @@ FILE_WEBEX_API_CALL_HISTORY = "webex_call_history.json"      # cisco:webex:call:
 # Generator name → list of output files (relative to output/)
 # Used by main_generate.py --show-files to display actual file paths
 GENERATOR_OUTPUT_FILES = {
-    "asa": ["network/cisco_asa.log"],
-    "aws": ["cloud/aws_cloudtrail.json"],
-    "gcp": ["cloud/gcp_audit.json"],
-    "entraid": ["cloud/entraid_signin.json", "cloud/entraid_audit.json", "cloud/entraid_risk_detection.json"],
-    "exchange": ["cloud/exchange_message_trace.json"],
-    "access": ["web/access_combined.log"],
-    "orders": ["retail/orders.json"],
-    "servicebus": ["servicebus/servicebus_events.json"],
+    # Network
+    "asa": ["network/cisco_asa/cisco_asa.log"],
+    "catalyst": ["network/cisco_catalyst/cisco_catalyst_syslog.log"],
+    "aci": [
+        "network/cisco_aci/cisco_aci_fault.json",
+        "network/cisco_aci/cisco_aci_event.json",
+        "network/cisco_aci/cisco_aci_audit.json",
+    ],
     "meraki": [
-        "network/meraki_mx_appliance.json",
-        "network/meraki_mr_wireless.json",
-        "network/meraki_mr_health.json",
-        "network/meraki_ms_switch.json",
-        "network/meraki_ms_health.json",
-        "network/meraki_mv_camera.json",
-        "network/meraki_mt_sensor.json",
+        "network/meraki/meraki_mx_appliance.json",
+        "network/meraki/meraki_mr_wireless.json",
+        "network/meraki/meraki_mr_health.json",
+        "network/meraki/meraki_ms_switch.json",
+        "network/meraki/meraki_ms_health.json",
+        "network/meraki/meraki_mv_camera.json",
+        "network/meraki/meraki_mt_sensor.json",
     ],
-    "webex": ["cloud/webex_events.json"],
-    "webex_ta": ["cloud/webex_ta_meetingusage.json", "cloud/webex_ta_attendee.json"],
+    # Cloud
+    "aws": ["cloud/aws/aws_cloudtrail.json"],
+    "gcp": ["cloud/gcp/gcp_audit.json"],
+    "entraid": [
+        "cloud/entraid/entraid_signin.json",
+        "cloud/entraid/entraid_audit.json",
+        "cloud/entraid/entraid_risk_detection.json",
+    ],
+    "exchange": ["cloud/microsoft/exchange_message_trace.json"],
+    "office_audit": ["cloud/microsoft/office_audit.json"],
+    "secure_access": [
+        "cloud/cisco_secure_access/cisco_secure_access_dns.csv",
+        "cloud/cisco_secure_access/cisco_secure_access_proxy.csv",
+        "cloud/cisco_secure_access/cisco_secure_access_firewall.csv",
+        "cloud/cisco_secure_access/cisco_secure_access_audit.csv",
+    ],
+    "catalyst_center": [
+        "cloud/catalyst_center/catalyst_center_devicehealth.json",
+        "cloud/catalyst_center/catalyst_center_networkhealth.json",
+        "cloud/catalyst_center/catalyst_center_clienthealth.json",
+        "cloud/catalyst_center/catalyst_center_issues.json",
+    ],
+    # Webex (3 generators, same subfolder)
+    "webex": ["cloud/webex/webex_events.json"],
+    "webex_ta": [
+        "cloud/webex/webex_ta_meetingusage.json",
+        "cloud/webex/webex_ta_attendee.json",
+    ],
     "webex_api": [
-        "cloud/webex_api_meetings.json",
-        "cloud/webex_api_admin_audit.json",
-        "cloud/webex_api_security_audit.json",
-        "cloud/webex_api_meeting_qualities.json",
-        "cloud/webex_api_call_history.json",
+        "cloud/webex/webex_api_meetings.json",
+        "cloud/webex/webex_api_admin_audit.json",
+        "cloud/webex/webex_api_security_audit.json",
+        "cloud/webex/webex_api_meeting_qualities.json",
+        "cloud/webex/webex_api_call_history.json",
     ],
+    # Windows
     "perfmon": [
         "windows/perfmon_processor.log",
         "windows/perfmon_memory.log",
@@ -114,6 +167,9 @@ GENERATOR_OUTPUT_FILES = {
         "windows/wineventlog_system.log",
         "windows/wineventlog_application.log",
     ],
+    "mssql": ["windows/mssql_errorlog.log"],
+    "sysmon": ["windows/sysmon_operational.log"],
+    # Linux
     "linux": [
         "linux/cpu.log",
         "linux/vmstat.log",
@@ -122,14 +178,17 @@ GENERATOR_OUTPUT_FILES = {
         "linux/interfaces.log",
         "linux/auth.log",
     ],
-    "mssql": ["windows/mssql_errorlog.log"],
-    "sysmon": ["windows/sysmon_operational.log"],
+    # Web / Retail
+    "access": ["web/access_combined.log"],
+    "orders": ["retail/orders.json"],
+    "servicebus": ["servicebus/servicebus_events.json"],
+    # ITSM
     "servicenow": [
         "itsm/servicenow_incidents.log",
         "itsm/servicenow_cmdb.log",
         "itsm/servicenow_change.log",
     ],
-    "office_audit": ["cloud/office_audit.json"],
+    # ERP
     "sap": ["erp/sap_audit.log"],
 }
 
@@ -217,9 +276,17 @@ def ensure_output_dirs():
 
 
 def get_output_path(category: str, filename: str) -> Path:
-    """Get the full output path for a given category and filename."""
+    """Get the full output path for a given category and filename.
+
+    Supports nested subdirectories in filename, e.g.:
+        get_output_path("cloud", "webex/webex_events.json")
+        -> output/cloud/webex/webex_events.json
+    """
     ensure_output_dirs()
-    return OUTPUT_DIRS.get(category, OUTPUT_BASE) / filename
+    full_path = OUTPUT_DIRS.get(category, OUTPUT_BASE) / filename
+    # Create subdirectory if filename contains nested path
+    full_path.parent.mkdir(parents=True, exist_ok=True)
+    return full_path
 
 
 def set_output_base(base_path: Path):

@@ -481,7 +481,7 @@ def generate_webex_ta_logs(
     if output_file:
         output_dir = Path(output_file).parent
     else:
-        output_dir = get_output_path("cloud", "dummy.json").parent
+        output_dir = get_output_path("cloud", "webex/dummy.json").parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
     meetingusage_file = output_dir / "webex_ta_meetingusage.json"

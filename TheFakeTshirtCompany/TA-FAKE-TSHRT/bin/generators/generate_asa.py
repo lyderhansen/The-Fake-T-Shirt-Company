@@ -30,7 +30,7 @@ Includes:
 - Background scan noise (external port scans DENIED)
 - Internal ACL deny events (misconfigured workstations, rogue traffic)
 - DC-specific traffic (Kerberos 88, LDAP 389/636, DNS 53, SMB 445)
-- New server traffic (WSUS, PROXY, SAP, BASTION)
+- New server traffic (SAP, BASTION)
 - ICMP baseline (monitoring health checks)
 - Hub-spoke site-to-site (BOS=70% hub, ATL/AUS spokes)
 - Operational events (maintenance, capacity, interface flapping, cert warnings)
@@ -392,14 +392,12 @@ def asa_deny_internal(base_date: str, day: int, hour: int, minute: int, second: 
 
 
 # =============================================================================
-# NEW SERVER TRAFFIC (WSUS, PROXY, SAP, BASTION)
+# SERVER TRAFFIC (SAP, BASTION)
 # =============================================================================
 
 # Server-specific traffic patterns
 NEW_SERVER_TRAFFIC = [
     # (server_hostname, service_ports, description)
-    ("WSUS-BOS-01", [(8530, "TCP"), (8531, "TCP")], "Windows Update"),
-    ("PROXY-BOS-01", [(3128, "TCP"), (8080, "TCP")], "Web Proxy"),
     ("SAP-PROD-01", [(3200, "TCP"), (3300, "TCP"), (8000, "TCP"), (50013, "TCP")], "SAP Application"),
     ("SAP-DB-01", [(30015, "TCP"), (30013, "TCP")], "SAP HANA DB"),
     ("BASTION-BOS-01", [(22, "TCP")], "SSH Jumpbox"),
@@ -809,7 +807,7 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     - 9% Site-to-site traffic (hub-spoke: BOS=70%)
     - 7% NAT translations
     - 5% VPN sessions
-    - 4% New server traffic (WSUS, PROXY, SAP, BASTION)
+    - 4% New server traffic (SAP, BASTION)
     - 3% SSL handshakes
     - 3% ICMP health checks (monitoring)
     - 3% HTTP inspection events
@@ -848,7 +846,7 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
             # VPN sessions
             events.append(asa_vpn(base_date, day, hour, minute, second))
         elif event_type <= 88:
-            # New server traffic (WSUS, PROXY, SAP, BASTION)
+            # New server traffic (SAP, BASTION)
             events.extend(asa_new_server_traffic(base_date, day, hour, minute, second))
         elif event_type <= 91:
             # SSL handshakes
@@ -933,7 +931,7 @@ def generate_asa_logs(
     if output_file:
         output_path = Path(output_file)
     else:
-        output_path = get_output_path("network", "cisco_asa.log")
+        output_path = get_output_path("network", "cisco_asa/cisco_asa.log")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

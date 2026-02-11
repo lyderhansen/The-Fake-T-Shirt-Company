@@ -4,6 +4,124 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-12 ~05:00 UTC -- Add 4 new Cisco generators (Secure Access, Catalyst, ACI, Catalyst Center)
+
+### Summary
+
+Added 4 new Cisco data source generators, expanding from 20 to 24 generators and adding 12 new output files across 12 new Splunk sourcetypes. Total new events: ~140K-175K/day (mostly Secure Access DNS).
+
+1. **Cisco Secure Access** (`generate_secure_access.py`): SSE/SASE platform generating 4 CSV files:
+   - DNS logs (v10, 16 columns, ~100K-120K/day) -- `FAKE:cisco:umbrella:dns`
+   - Proxy/SWG logs (v5, 26 columns, ~25K-40K/day) -- `FAKE:cisco:umbrella:proxy`
+   - Cloud Firewall logs (14 columns, ~8K/day) -- `FAKE:cisco:umbrella:firewall`
+   - Audit logs (9 columns, ~15/day) -- `FAKE:cisco:umbrella:audit`
+   - Scenarios: exfil (DNS C2, proxy uploads), ransomware_attempt (DNS+proxy blocks), phishing_test (DNS queries)
+
+2. **Cisco Catalyst IOS-XE** (`generate_catalyst.py`): 3 Catalyst 9300 switches generating 1 syslog file:
+   - IOS-XE syslog with PRI values (~3K/day) -- `FAKE:cisco:ios`
+   - 3 switches: CAT-BOS-DIST-01/02 (Boston), CAT-ATL-DIST-01 (Atlanta)
+   - Event types: Interface, 802.1X/Auth, System, STP, Switch/Platform
+   - Scenarios: exfil (MAC flap, 802.1X), ddos_attack (interface util), firewall_misconfig (STP)
+
+3. **Cisco ACI** (`generate_aci.py`): APIC REST API format generating 3 JSON files:
+   - Faults (faultInst, ~500-1000/day) -- `FAKE:cisco:aci:fault`
+   - Events (eventRecord, ~2000-3500/day) -- `FAKE:cisco:aci:event`
+   - Audit (aaaModLR, ~30-50/day) -- `FAKE:cisco:aci:audit`
+   - BOS fabric: 2 spines, 4 leafs, 1 APIC; ATL fabric: 1 spine, 2 leafs
+   - Scenarios: exfil (contract denies, EP anomalies), ddos_attack (border leaf), cpu_runaway (EPG congestion)
+
+4. **Cisco Catalyst Center** (`generate_catalyst_center.py`): Assurance API generating 4 JSON files:
+   - Device Health (5-min polls, ~864/day) -- `FAKE:cisco:catalyst:devicehealth`
+   - Network Health (5-min polls, ~576/day) -- `FAKE:cisco:catalyst:networkhealth`
+   - Client Health (~100/day) -- `FAKE:cisco:catalyst:clienthealth`
+   - Issues (~10-30/day) -- `FAKE:cisco:catalyst:issue`
+   - Scenarios: ddos_attack (health drops, issues), cpu_runaway (CPU issues), memory_leak (client health)
+
+### Verification
+
+- `--all --days=3 --scenarios=all --test`: 930,984 events, 24 generators, 0 failures, PASS
+- All 4 new generators tested standalone + through orchestrator
+- Scenario integration verified: demo_id tagging present on all scenario events
+- All baseline events have `demo_id: ""` for consistent field extraction
+
+### New Files
+
+| File | Description |
+|------|------------|
+| `bin/generators/generate_secure_access.py` | Cisco Secure Access (Umbrella) -- 4 CSV output files |
+| `bin/generators/generate_catalyst.py` | Cisco Catalyst IOS-XE -- 1 syslog output file |
+| `bin/generators/generate_aci.py` | Cisco ACI (APIC) -- 3 JSON output files |
+| `bin/generators/generate_catalyst_center.py` | Cisco Catalyst Center -- 4 JSON output files |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `bin/shared/config.py` | Added 11 FILE_* constants, 4 GENERATOR_OUTPUT_FILES entries, 4 FILE_CATALYST_CENTER_* constants |
+| `bin/main_generate.py` | Imported 4 generators, added to GENERATORS dict, updated SOURCE_GROUPS (cisco, network, campus, datacenter) |
+| `bin/scenarios/registry.py` | Added new generators to scenario source lists (exfil, ddos_attack, cpu_runaway, memory_leak, ransomware_attempt, phishing_test, firewall_misconfig) |
+| `default/inputs.conf` | Added 12 new [monitor:] stanzas for all new sourcetypes |
+| `default/props.conf` | Added 12 new sourcetype stanzas (4 Umbrella CSV, 3 ACI JSON, 4 Catalyst Center JSON, 1 IOS-XE syslog) |
+| `default/transforms.conf` | Added `catalyst_host_extraction` transform for IOS-XE syslog host routing |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
+## 2026-02-12 ~02:00 UTC -- Infrastructure cleanup (19->13 servers) + output directory restructuring + props.conf bugfix
+
+### Summary
+
+Three pre-requisite changes before adding new Cisco generators:
+
+1. **Infrastructure cleanup (19->13 servers)**: Removed 6 servers that were unused, redundant, or unrealistic for a 175-person company in 2026:
+   - **WSUS-BOS-01** -- Intune/Autopatch in 2026, baseline-only events
+   - **RADIUS-BOS-01** -- Zero generators referenced it
+   - **PROXY-BOS-01** -- Replaced by upcoming Cisco Secure Access (SWG)
+   - **PRINT-BOS-01** -- Universal Print in 2026, not referenced
+   - **DEV-ATL-01** -- Only generated cron-noise + 1 EntraID CI/CD login
+   - **DEV-ATL-02** -- Only generated logrotate cron
+
+   APP-BOS-01 role clarified as "e-Commerce API Server" in 3-tier architecture (WEB->APP->SQL).
+
+2. **Output directory restructuring**: Organized flat output directories into logical subdirectories:
+   - `cloud/` split into: `cloud/aws/`, `cloud/entraid/`, `cloud/gcp/`, `cloud/microsoft/`, `cloud/webex/`
+   - `network/` split into: `network/cisco_asa/`, `network/meraki/`
+   - Updated `get_output_path()` to auto-create nested subdirectories
+   - All 20 generators, config.py, and inputs.conf updated
+
+3. **props.conf bugfix**: `[FAKE:online:order]` TIME_PREFIX changed from `"updatedAt"` to `"timestamp"` (the orders generator uses `"timestamp"`, not `"updatedAt"`).
+
+### Verification
+
+- `--all --days=1 --scenarios=none --test`: 267,492 events, all 44 output files in new directory structure, PASS
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `bin/shared/company.py` | Removed 6 servers from `_SERVER_DATA`, renamed APP-BOS-01 role |
+| `bin/shared/config.py` | Updated FILE_* constants and GENERATOR_OUTPUT_FILES with subdirectory paths, enhanced `get_output_path()` |
+| `bin/generators/generate_linux.py` | Removed DEV-ATL-01/02, PROXY-BOS-01 from cron jobs and systemd services |
+| `bin/generators/generate_sysmon.py` | Removed WSUS/RADIUS/PRINT from SYSMON_SERVERS and SERVER_PROCESSES |
+| `bin/generators/generate_perfmon.py` | Removed WSUS/RADIUS/PRINT from SERVER_RAM_MB and SERVER_DISK_GB |
+| `bin/generators/generate_entraid.py` | Remapped CI/CD service principal IP from DEV-ATL-01 to MON-ATL-01 |
+| `bin/generators/generate_asa.py` | Removed WSUS/PROXY from server traffic, updated comments |
+| `bin/generators/generate_aws.py` | Updated output path to `cloud/aws/` subdirectory |
+| `bin/generators/generate_gcp.py` | Updated output path to `cloud/gcp/` subdirectory |
+| `bin/generators/generate_exchange.py` | Updated output path to `cloud/microsoft/` subdirectory |
+| `bin/generators/generate_office_audit.py` | Updated output path to `cloud/microsoft/` subdirectory |
+| `bin/generators/generate_webex.py` | Updated output path to `cloud/webex/` subdirectory |
+| `bin/generators/generate_webex_ta.py` | Updated output path to `cloud/webex/` subdirectory |
+| `bin/generators/generate_webex_api.py` | Updated output path to `cloud/webex/` subdirectory |
+| `bin/generators/generate_meraki.py` | Updated output path to `network/meraki/` subdirectory |
+| `lookups/asset_inventory.csv` | Removed 6 server rows |
+| `lookups/mac_inventory.csv` | Removed 6 server rows |
+| `default/inputs.conf` | Rewrote with new subdirectory paths + directory structure documentation |
+| `default/props.conf` | Fixed `[FAKE:online:order]` TIME_PREFIX from `"updatedAt"` to `"timestamp"` |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
 ## 2026-02-12 ~01:30 UTC -- Fix demo_id placement in ServiceBus + WinEventLog/Sysmon
 
 ### Summary

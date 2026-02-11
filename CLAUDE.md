@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office) and 19 servers, producing correlated events across 20 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT), cloud (AWS CloudTrail, GCP Audit, Entra ID), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Sysmon, Perfmon, MSSQL, Linux), ERP (SAP S/4HANA), ITSM (ServiceNow), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
+**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office) and 13 servers, producing correlated events across 24 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT, Cisco Catalyst, Cisco ACI), cloud/security (AWS CloudTrail, GCP Audit, Entra ID, Cisco Secure Access), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Sysmon, Perfmon, MSSQL, Linux, Catalyst Center), ERP (SAP S/4HANA), ITSM (ServiceNow), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
 
 ## Output Preferences
 
@@ -72,6 +72,15 @@
 
 **Key:** The ASA sees ALL external traffic (exfil, C2, attacks). Meraki MX handles internal/SD-WAN routing.
 
+### Additional Network Components
+
+| Component | Role | Coverage |
+|-----------|------|----------|
+| **Cisco Catalyst Switches** | Campus LAN switching (IOS-XE) | All 3 sites - core/distribution/access layers |
+| **Cisco ACI** | Data center fabric (Boston DC) | Spine/leaf topology for server connectivity |
+| **Cisco Secure Access** | Cloud-delivered security (DNS, Proxy, FW) | All users/locations - internet-bound traffic |
+| **Catalyst Center** | Network management and assurance | Device health, network health, client health, issues |
+
 ### Locations
 
 | Location | Code | Type | Floors | Employees | Network |
@@ -89,10 +98,19 @@ The-Fake-T-Shirt-Company/
     │   ├── bin/                  # Python code
     │   │   ├── main_generate.py  # CLI orchestrator (parallel execution)
     │   │   ├── tui_generate.py   # Interactive TUI (curses-based)
-    │   │   ├── generators/       # 20 data source generators
+    │   │   ├── generators/       # 24 data source generators
     │   │   ├── scenarios/        # Scenario implementations + registry
     │   │   ├── shared/           # Config, company data, time utils
     │   │   └── output/           # Generated log files (gitignored)
+    │   │       ├── cloud/        # aws/, entraid/, gcp/, microsoft/, webex/, secure_access/, catalyst_center/
+    │   │       ├── network/      # cisco_asa/, meraki/, catalyst/, aci/
+    │   │       ├── windows/      # perfmon, wineventlog, sysmon, mssql
+    │   │       ├── linux/        # cpu, vmstat, df, iostat, interfaces, auth
+    │   │       ├── web/          # access, order_registry
+    │   │       ├── retail/       # orders
+    │   │       ├── servicebus/   # azure servicebus
+    │   │       ├── itsm/         # servicenow
+    │   │       └── erp/          # sap
     │   ├── default/              # Splunk conf files (props, transforms, inputs, etc.)
     │   │   └── data/ui/views/    # Splunk dashboards (XML)
     │   ├── lookups/              # CSV lookup tables
@@ -119,7 +137,7 @@ The-Fake-T-Shirt-Company/
 
 ## Available Log Sources
 
-20 generators producing correlated log data:
+24 generators producing correlated log data:
 
 | Source | Generator | Output Format | Splunk Sourcetype |
 |--------|-----------|---------------|-------------------|
@@ -130,11 +148,23 @@ The-Fake-T-Shirt-Company/
 | Meraki MS (Switch) | generate_meraki.py | Syslog | meraki:ms |
 | Meraki MV (Camera) | generate_meraki.py | Syslog | meraki:mv |
 | Meraki MT (Sensor) | generate_meraki.py | Syslog | meraki:mt |
+| Cisco Catalyst | generate_catalyst.py | Syslog | cisco:ios |
+| Cisco ACI Fault | generate_aci.py | JSON | cisco:aci:fault |
+| Cisco ACI Event | generate_aci.py | JSON | cisco:aci:event |
+| Cisco ACI Audit | generate_aci.py | JSON | cisco:aci:audit |
 | **Cloud/Collaboration** |
 | AWS CloudTrail | generate_aws.py | JSON | aws:cloudtrail |
 | GCP Audit | generate_gcp.py | JSON | google:gcp:pubsub:message |
 | Entra ID Sign-in | generate_entraid.py | JSON | azure:aad:signin |
 | Entra ID Audit | generate_entraid.py | JSON | azure:aad:audit |
+| Cisco Secure Access DNS | generate_secure_access.py | CSV | cisco:umbrella:dns |
+| Cisco Secure Access Proxy | generate_secure_access.py | CSV | cisco:umbrella:proxy |
+| Cisco Secure Access FW | generate_secure_access.py | CSV | cisco:umbrella:firewall |
+| Cisco Secure Access Audit | generate_secure_access.py | CSV | cisco:umbrella:audit |
+| Catalyst Center Device Health | generate_catalyst_center.py | JSON | cisco:catalyst:devicehealth |
+| Catalyst Center Network Health | generate_catalyst_center.py | JSON | cisco:catalyst:networkhealth |
+| Catalyst Center Client Health | generate_catalyst_center.py | JSON | cisco:catalyst:clienthealth |
+| Catalyst Center Issues | generate_catalyst_center.py | JSON | cisco:catalyst:issue |
 | Exchange | generate_exchange.py | CSV | ms:o365:reporting:messagetrace |
 | M365 Audit | generate_office_audit.py | JSON | o365:management:activity |
 | Cisco Webex | generate_webex.py | JSON | cisco:webex:events |
@@ -197,8 +227,11 @@ The TUI also has a `[TEST]/[PROD]` toggle in the Configuration section.
 ### Source Groups
 
 - `all` - All sources
-- `cloud` - aws, gcp, entraid
-- `network` - asa, meraki
+- `cloud` - aws, gcp, entraid, secure_access
+- `network` - asa, meraki, catalyst, aci
+- `cisco` - asa, meraki, secure_access, catalyst, aci, catalyst_center
+- `campus` - catalyst, catalyst_center
+- `datacenter` - aci
 - `windows` - wineventlog, perfmon, mssql, sysmon
 - `linux` - linux
 - `web` - access
@@ -236,17 +269,20 @@ python3 bin/main_generate.py --all --days=31 --scenarios=all --orders-per-day=30
 
 ## Scenarios (bin/scenarios/)
 
-7 implemented scenarios injected into baseline traffic, tagged with `demo_id` field.
+10 implemented scenarios injected into baseline traffic, tagged with `demo_id` field.
 
 All scenarios add `demo_id=<scenario>` field for easy filtering in Splunk.
 
 | Scenario | Category | Days | Target |
 |----------|----------|------|--------|
-| exfil | security | 1-14 | Alex Miller (Finance, Boston) |
-| ransomware_attempt | security | 8-9 | Brooklyn White (Sales, Austin) |
+| exfil | attack | 1-14 | Alex Miller (Finance, Boston) |
+| ransomware_attempt | attack | 8-9 | Brooklyn White (Sales, Austin) |
+| phishing_test | attack | 21-23 | All employees (IT awareness campaign) |
 | memory_leak | ops | 6-9 | WEB-01 server |
 | cpu_runaway | ops | 11-12 | SQL-PROD-01 server |
 | disk_filling | ops | 1-5 | MON-ATL-01 server |
+| dead_letter_pricing | ops | 16 | WEB-01 (ServiceBus) |
+| ddos_attack | network | 18-19 | WEB-01 server |
 | firewall_misconfig | network | 7 | FW-EDGE-01 |
 | certificate_expiry | network | 12 | FW-EDGE-01 |
 
@@ -266,37 +302,52 @@ Attack path: Atlanta (initial compromise) → Boston (primary target)
 | Persistence | 8-10 | Backdoor creation, data staging | Boston (BOS) |
 | Exfiltration | 11-14 | Data theft via cloud storage | Boston → External |
 
-Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit
+Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit, secure_access, catalyst, aci
 
 **ransomware_attempt** - Ransomware detected and stopped (Days 8-9)
 - Target: Brooklyn White (Austin, Sales Engineer)
 - Outcome: Blocked by EDR in 10 minutes
-- Affected sources: asa, exchange, wineventlog, meraki, servicenow, office_audit
+- Affected sources: asa, exchange, wineventlog, meraki, servicenow, office_audit, sysmon, secure_access
+
+**phishing_test** - IT-run phishing awareness campaign (Days 21-23)
+- Target: All employees (post-exfil incident awareness training)
+- Outcome: Simulated phishing emails sent, click rates tracked
+- Affected sources: exchange, entraid, wineventlog, office_audit, servicenow, secure_access
 
 ### Ops Scenarios
 
 **memory_leak** - Application memory leak causing OOM (Days 6-9)
 - Target: WEB-01 (Linux)
 - Gradual memory consumption → OOM crash on Day 9 at 14:00, manual restart
-- Affected sources: perfmon, linux, asa, access
+- Affected sources: perfmon, linux, asa, access, catalyst_center
 
 **cpu_runaway** - SQL backup job stuck at 100% CPU (Days 11-12)
 - Target: SQL-PROD-01
 - 100% CPU → DB connection failures → web errors
 - Manual fix at Day 12 10:30
-- Affected sources: perfmon, wineventlog, asa, access
+- Affected sources: perfmon, wineventlog, asa, access, aci, catalyst_center
 
 **disk_filling** - Server disk gradually filling up (Days 1-5)
 - Target: MON-ATL-01 (Atlanta monitoring server)
-- Progression: 45% → 98% over 5 days
+- Progression: 45% -> 98% over 5 days
 - Affected sources: linux, access
 
+**dead_letter_pricing** - ServiceBus dead-letter queue causes wrong prices (Day 16)
+- Target: WEB-01 (ServiceBus price update pipeline)
+- Duration: 4-6 hours of incorrect product pricing on web store
+- Affected sources: servicebus, orders, access, servicenow
+
 ### Network Scenarios
+
+**ddos_attack** - Volumetric HTTP flood targeting web servers (Days 18-19)
+- Target: WEB-01 (DMZ web servers)
+- Botnet-driven HTTP flood causing service degradation
+- Affected sources: asa, meraki, access, perfmon, linux, servicenow, catalyst, aci, catalyst_center
 
 **firewall_misconfig** - ACL misconfiguration (Day 7)
 - Duration: 10:15-12:05 (2-hour outage)
 - Cause: Human error (network admin)
-- Affected sources: asa, servicenow
+- Affected sources: asa, servicenow, catalyst
 
 **certificate_expiry** - SSL certificate expiration (Day 12)
 - Duration: 00:00-07:00 (7 hours)
@@ -342,9 +393,9 @@ Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
 - Location: Frankfurt, Germany
 - ASN: AS205100 (F3 Netze e.V.)
 
-### Key Servers (19 total)
+### Key Servers (13 total)
 
-**Boston HQ (10.10.x.x) — 14 servers:**
+**Boston HQ (10.10.x.x) — 10 servers:**
 
 | Hostname | IP | Role | OS |
 |----------|-----|------|-----|
@@ -352,26 +403,20 @@ Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
 | DC-BOS-02 | 10.10.20.11 | Domain Controller | Windows |
 | FILE-BOS-01 | 10.10.20.20 | File Server | Windows |
 | SQL-PROD-01 | 10.10.20.30 | SQL Database | Windows |
-| APP-BOS-01 | 10.10.20.40 | Application Server (IIS/.NET) | Windows |
-| WSUS-BOS-01 | 10.10.20.50 | WSUS Patch Server | Windows |
-| RADIUS-BOS-01 | 10.10.20.51 | RADIUS NPS Server | Windows |
-| PROXY-BOS-01 | 10.10.20.52 | Web Proxy | Linux |
-| PRINT-BOS-01 | 10.10.20.53 | Print Server | Windows |
+| APP-BOS-01 | 10.10.20.40 | e-Commerce API Server (IIS/.NET) | Windows |
 | SAP-PROD-01 | 10.10.20.60 | SAP Application Server | Linux |
 | SAP-DB-01 | 10.10.20.61 | SAP HANA Database | Linux |
 | BASTION-BOS-01 | 10.10.10.10 | Bastion Host (management subnet) | Linux |
 | WEB-01 | 172.16.1.10 | Web Server (DMZ) | Linux |
 | WEB-02 | 172.16.1.11 | Web Server (DMZ) | Linux |
 
-**Atlanta Hub (10.20.x.x) — 5 servers:**
+**Atlanta Hub (10.20.x.x) — 3 servers:**
 
 | Hostname | IP | Role | OS |
 |----------|-----|------|-----|
 | DC-ATL-01 | 10.20.20.10 | Domain Controller | Windows |
 | BACKUP-ATL-01 | 10.20.20.20 | Backup Server | Windows |
 | MON-ATL-01 | 10.20.20.30 | Monitoring Server | Linux |
-| DEV-ATL-01 | 10.20.20.40 | Dev/Test Server | Linux |
-| DEV-ATL-02 | 10.20.20.41 | Dev/Test Server | Linux |
 
 **Austin (10.30.x.x) — 0 servers** (branch office, no local infrastructure)
 
@@ -893,7 +938,7 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
 - Default timeline: 14 days starting 2026-01-01
 - Splunk index: `fake_tshrt`
 - All scenario events queryable via `demo_id` field in Splunk
-- 19 servers across 2 locations (14 Boston, 5 Atlanta), 175 employees across 3 locations
+- 13 servers across 2 locations (10 Boston, 3 Atlanta), 175 employees across 3 locations
 - SAP generator correlates with orders via `order_registry.json` (NDJSON format, one JSON object per line)
 
 ## Future Enhancements

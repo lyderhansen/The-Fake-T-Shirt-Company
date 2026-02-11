@@ -1094,7 +1094,7 @@ def generate_webex_logs(
 
     # Output setup
     if output_file is None:
-        output_path = get_output_path("cloud", "webex_events.json")
+        output_path = get_output_path("cloud", "webex/webex_events.json")
     else:
         output_path = Path(output_file)
 

@@ -45,6 +45,10 @@ from generators.generate_sysmon import generate_sysmon_logs
 from generators.generate_servicenow import generate_servicenow_logs
 from generators.generate_office_audit import generate_office_audit_logs
 from generators.generate_sap import generate_sap_logs
+from generators.generate_secure_access import generate_secure_access_logs
+from generators.generate_catalyst import generate_catalyst_logs
+from generators.generate_aci import generate_aci_logs
+from generators.generate_catalyst_center import generate_catalyst_center_logs
 
 # =============================================================================
 # GENERATOR REGISTRY
@@ -71,13 +75,20 @@ GENERATORS: Dict[str, Callable] = {
     "servicenow": generate_servicenow_logs,
     "office_audit": generate_office_audit_logs,
     "sap": generate_sap_logs,
+    "secure_access": generate_secure_access_logs,
+    "catalyst": generate_catalyst_logs,
+    "aci": generate_aci_logs,
+    "catalyst_center": generate_catalyst_center_logs,
 }
 
 # Group sources for easy selection
 SOURCE_GROUPS = {
     "all": list(GENERATORS.keys()),
-    "cloud": ["aws", "gcp", "entraid"],
-    "network": ["asa", "meraki"],
+    "cloud": ["aws", "gcp", "entraid", "secure_access"],
+    "network": ["asa", "meraki", "catalyst", "aci"],
+    "cisco": ["asa", "meraki", "secure_access", "catalyst", "aci", "catalyst_center"],
+    "campus": ["catalyst", "catalyst_center"],
+    "datacenter": ["aci"],
     "windows": ["wineventlog", "perfmon", "mssql", "sysmon"],
     "linux": ["linux"],
     "web": ["access"],

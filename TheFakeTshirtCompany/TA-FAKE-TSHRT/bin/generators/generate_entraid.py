@@ -655,7 +655,7 @@ SERVICE_PRINCIPALS = [
         "appDisplayName": "GitHub Actions CI/CD",
         "appId": "sp-github-cicd-id",
         "servicePrincipalId": "sp-github-001",
-        "ipAddress": "10.20.20.40",       # DEV-ATL-01
+        "ipAddress": "10.20.20.30",       # MON-ATL-01
         "resourceDisplayName": "Azure DevOps",
         "resourceId": "499b84ac-1321-427f-aa17-267ca6975798",
     },
@@ -1738,9 +1738,9 @@ def generate_entraid_logs(
     - Risk detection logs (azure:aad:riskdetection) - operationName: "Risk detection"
     """
 
-    signin_path = Path(output_signin) if output_signin else get_output_path("cloud", "entraid_signin.json")
-    audit_path = Path(output_audit) if output_audit else get_output_path("cloud", "entraid_audit.json")
-    risk_path = Path(output_risk) if output_risk else get_output_path("cloud", "entraid_risk_detection.json")
+    signin_path = Path(output_signin) if output_signin else get_output_path("cloud", "entraid/entraid_signin.json")
+    audit_path = Path(output_audit) if output_audit else get_output_path("cloud", "entraid/entraid_audit.json")
+    risk_path = Path(output_risk) if output_risk else get_output_path("cloud", "entraid/entraid_risk_detection.json")
 
     signin_path.parent.mkdir(parents=True, exist_ok=True)
     audit_path.parent.mkdir(parents=True, exist_ok=True)

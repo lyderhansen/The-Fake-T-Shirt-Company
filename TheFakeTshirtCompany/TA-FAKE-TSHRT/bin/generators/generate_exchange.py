@@ -764,7 +764,7 @@ def generate_exchange_logs(
     if output_file:
         output_path = Path(output_file)
     else:
-        output_path = get_output_path("cloud", "exchange_message_trace.json")
+        output_path = get_output_path("cloud", "microsoft/exchange_message_trace.json")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

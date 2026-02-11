@@ -631,7 +631,7 @@ def generate_webex_api_logs(
     if output_file:
         output_dir = Path(output_file).parent
     else:
-        output_dir = get_output_path("cloud", "dummy.json").parent
+        output_dir = get_output_path("cloud", "webex/dummy.json").parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
     meetings_file = output_dir / "webex_api_meetings.json"

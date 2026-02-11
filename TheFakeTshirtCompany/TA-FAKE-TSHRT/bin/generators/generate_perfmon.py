@@ -249,9 +249,6 @@ SERVER_RAM_MB = {
     "FILE-BOS-01": 32768,
     "SQL-PROD-01": 65536,
     "APP-BOS-01": 32768,
-    "WSUS-BOS-01": 16384,
-    "RADIUS-BOS-01": 8192,
-    "PRINT-BOS-01": 8192,
     "DC-ATL-01": 16384,
     "BACKUP-ATL-01": 32768,
 }
@@ -262,9 +259,6 @@ SERVER_DISK_GB = {
     "FILE-BOS-01": 2048,
     "SQL-PROD-01": 1024,
     "APP-BOS-01": 512,
-    "WSUS-BOS-01": 1024,    # WSUS needs large disk for update packages
-    "RADIUS-BOS-01": 128,
-    "PRINT-BOS-01": 256,
     "DC-ATL-01": 256,
     "BACKUP-ATL-01": 4096,  # Backup server has large storage
 }
