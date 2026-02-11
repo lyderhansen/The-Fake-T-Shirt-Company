@@ -13,7 +13,7 @@ from dataclasses import dataclass
 # =============================================================================
 
 DEFAULT_START_DATE = "2026-01-01"
-DEFAULT_DAYS = 14
+DEFAULT_DAYS = 31
 DEFAULT_SCALE = 1.0
 
 # Meraki health metrics interval (minutes between samples)

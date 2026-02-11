@@ -29,7 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from main_generate import GENERATORS, SOURCE_GROUPS
-from scenarios.registry import IMPLEMENTED_SCENARIOS
+from scenarios.registry import IMPLEMENTED_SCENARIOS, SCENARIOS
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -148,15 +148,26 @@ class TUIApp:
         # Build individual SOURCES menu items (top-middle)
         self.source_items = [MenuItem(source, source, "") for source in GENERATORS.keys()]
 
-        # Build scenario menu items (top-right)
+        # Build scenario menu items (top-right) sorted by start_day with aligned day ranges
         self.scenarios = [
-            MenuItem("all", "all", f"All {len(IMPLEMENTED_SCENARIOS)}", selected=True),
-            MenuItem("none", "none", "Baseline", selected=False),
+            MenuItem("all", "all", f"All {len(IMPLEMENTED_SCENARIOS)} impl", selected=True),
+            MenuItem("none", "none", "Baseline only", selected=False),
         ]
-        self.scenarios.extend([
-            MenuItem(s, s, "", selected=False)
-            for s in IMPLEMENTED_SCENARIOS
-        ])
+        # Sort scenarios by start_day for chronological display
+        sorted_scenarios = sorted(SCENARIOS.items(), key=lambda x: (x[1].start_day, x[1].end_day))
+        for s_name, s_def in sorted_scenarios:
+            if s_def.start_day == s_def.end_day:
+                day_info = f"D{s_def.start_day + 1}"
+            else:
+                day_info = f"D{s_def.start_day + 1}-{s_def.end_day + 1}"
+            if s_def.implemented:
+                self.scenarios.append(
+                    MenuItem(s_name, s_name, day_info, selected=False)
+                )
+            else:
+                self.scenarios.append(
+                    MenuItem(s_name, s_name, f"{day_info} planned", selected=False)
+                )
 
         # Configuration values (bottom-left)
         self.config = [
@@ -493,21 +504,66 @@ class TUIApp:
             self.safe_addstr(row, col, vol_str, vol_attr)
 
     def _draw_section_content(self, start_row, col, width, height, title, items, section_id, show_checkbox=True):
-        """Draw a section with header and checkbox items."""
+        """Draw a section with header and checkbox items.
+
+        For SCENARIOS section: renders as two aligned columns (name | day range)
+        with day ranges right-aligned for readability.
+        """
         is_active = self.current_section == section_id
         icon_attr = curses.color_pair(3) | curses.A_BOLD if is_active else curses.A_BOLD
         self.safe_addstr(start_row, col, title, icon_attr)
+
+        # Get current days setting for scenario skip indicators
+        try:
+            current_days = int(self.config[2].description)
+        except (ValueError, IndexError):
+            current_days = 31
+
+        # For scenarios section, calculate alignment column for day ranges
+        is_scenario_section = (section_id == self.SECTION_SCENARIOS)
+        if is_scenario_section:
+            # Calculate day column based on longest scenario name (checkbox + name)
+            max_name_len = max((len(f"[x] {item.label}") for item in items
+                                if item.key not in ("all", "none")), default=16)
+            day_col = min(max_name_len + 1, width - 15)  # Leave room for day info
 
         for i, item in enumerate(items):
             item_row = start_row + 1 + i
             if item_row >= start_row + height:
                 break
 
+            # Check if this is an unimplemented scenario
+            is_planned = (is_scenario_section
+                          and item.key not in ("all", "none")
+                          and item.key in SCENARIOS
+                          and not SCENARIOS[item.key].implemented)
+
+            # Check if scenario would be skipped due to --days
+            is_skipped = (is_scenario_section
+                          and item.key not in ("all", "none")
+                          and item.key in SCENARIOS
+                          and SCENARIOS[item.key].start_day >= current_days)
+
             if show_checkbox:
-                checkbox = "[x]" if item.selected else "[ ]"
-                text = f"{checkbox} {item.label:<12}"
-                if item.description:
-                    text += f" {item.description}"
+                if is_planned:
+                    checkbox = "[-]"
+                else:
+                    checkbox = "[x]" if item.selected else "[ ]"
+
+                if is_scenario_section and item.key not in ("all", "none"):
+                    # Two-column layout: name left, day range right-aligned
+                    name_part = f"{checkbox} {item.label}"
+                    # Pad name to align day column
+                    name_part = name_part[:day_col - 1].ljust(day_col - 1)
+                    day_part = item.description
+                    if is_skipped and not is_planned:
+                        day_part += " skip"
+                    text = name_part + day_part
+                else:
+                    # Standard layout for "all" and "none" items
+                    text = f"{checkbox} {item.label}"
+                    if item.description:
+                        text += f"  {item.description}"
             else:
                 text = f"  {item.label}"
 
@@ -515,6 +571,10 @@ class TUIApp:
 
             if i == self.current_row and is_active:
                 self.safe_addstr(item_row, col, text, curses.color_pair(1))
+            elif is_planned:
+                self.safe_addstr(item_row, col, text, curses.A_DIM)
+            elif is_skipped:
+                self.safe_addstr(item_row, col, text, curses.color_pair(5) | curses.A_DIM)
             elif item.selected and show_checkbox:
                 self.safe_addstr(item_row, col, text, curses.color_pair(2))
             else:
@@ -682,13 +742,15 @@ class TUIApp:
         return ",".join(selected) if selected else "all"
 
     def _get_scenarios_str(self) -> str:
-        """Get comma-separated string of selected scenarios."""
+        """Get comma-separated string of selected scenarios (excludes unimplemented)."""
         selected = [s.key for s in self.scenarios if s.selected]
         if "all" in selected:
             return "all"
         if "none" in selected or not selected:
             return "none"
-        individual = [s for s in selected if s not in ("all", "none")]
+        # Only include implemented scenarios
+        individual = [s for s in selected if s not in ("all", "none")
+                      and s in SCENARIOS and SCENARIOS[s].implemented]
         return ",".join(individual) if individual else "none"
 
     # ═══════════════════════════════════════════════════════════════════
@@ -842,7 +904,10 @@ class TUIApp:
                 if self.current_section in (self.SECTION_GROUPS, self.SECTION_SOURCES):
                     items[self.current_row].selected = not items[self.current_row].selected
                 elif self.current_section == self.SECTION_SCENARIOS:
-                    items[self.current_row].selected = not items[self.current_row].selected
+                    item = items[self.current_row]
+                    # Allow toggling "all", "none", and implemented scenarios only
+                    if item.key in ("all", "none") or (item.key in SCENARIOS and SCENARIOS[item.key].implemented):
+                        item.selected = not item.selected
                 elif self.current_section == self.SECTION_CONFIG:
                     if self.config[self.current_row].key in ("full_metrics", "show_files", "test_mode"):
                         self.config[self.current_row].selected = not self.config[self.current_row].selected

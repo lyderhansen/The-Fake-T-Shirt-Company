@@ -52,12 +52,14 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         demo_id="exfil",
         implemented=True
     ),
-    "phishing": ScenarioDefinition(
-        name="phishing",
-        sources=["entraid", "exchange"],
+    "phishing_test": ScenarioDefinition(
+        name="phishing_test",
+        sources=["exchange", "entraid", "wineventlog", "office_audit"],
         category="attack",
-        description="Credential phishing campaign targeting IT admin",
-        demo_id="phishing",
+        description="IT-run phishing awareness campaign after exfil incident (Day 21-23)",
+        demo_id="phishing_test",
+        start_day=20,
+        end_day=22,
         implemented=False
     ),
 
@@ -96,13 +98,29 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         implemented=True
     ),
 
+    # Ops scenarios (continued)
+    "dead_letter_pricing": ScenarioDefinition(
+        name="dead_letter_pricing",
+        sources=["servicebus", "orders", "access", "servicenow"],
+        category="ops",
+        description="ServiceBus dead-letter queue causes wrong product prices on web store (Day 16, 4-6h)",
+        demo_id="dead_letter_pricing",
+        start_day=15,
+        end_day=15,
+        server="WEB-01",
+        implemented=False
+    ),
+
     # Network scenarios
-    "ddos_attempt": ScenarioDefinition(
-        name="ddos_attempt",
-        sources=["asa", "perfmon", "linux"],
+    "ddos_attack": ScenarioDefinition(
+        name="ddos_attack",
+        sources=["asa", "meraki", "access", "perfmon", "linux", "servicenow"],
         category="network",
-        description="DDoS attack attempt on web servers",
-        demo_id="ddos_attempt",
+        description="Volumetric HTTP flood targeting web servers (Day 18-19)",
+        demo_id="ddos_attack",
+        start_day=17,
+        end_day=18,
+        server="WEB-01",
         implemented=False
     ),
     "firewall_misconfig": ScenarioDefinition(
@@ -142,9 +160,9 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
 ALL_SCENARIOS = list(SCENARIOS.keys())
 IMPLEMENTED_SCENARIOS = [name for name, s in SCENARIOS.items() if s.implemented]
 
-CATEGORY_ATTACK = ["exfil", "phishing", "ransomware_attempt"]
-CATEGORY_OPS = ["disk_filling", "memory_leak", "cpu_runaway"]
-CATEGORY_NETWORK = ["ddos_attempt", "firewall_misconfig", "certificate_expiry"]
+CATEGORY_ATTACK = ["exfil", "phishing_test", "ransomware_attempt"]
+CATEGORY_OPS = ["disk_filling", "memory_leak", "cpu_runaway", "dead_letter_pricing"]
+CATEGORY_NETWORK = ["ddos_attack", "firewall_misconfig", "certificate_expiry"]
 
 
 # =============================================================================
@@ -152,16 +170,16 @@ CATEGORY_NETWORK = ["ddos_attempt", "firewall_misconfig", "certificate_expiry"]
 # =============================================================================
 def get_phase(day: int) -> Optional[str]:
     """
-    Get the attack phase for a given day.
-    Returns None after scenario ends (day 14+).
+    Get the exfil attack phase for a given day.
+    Returns None after the exfil scenario ends (day 14+).
 
-    Phases:
+    Phases (exfil scenario only):
         recon (Days 0-3): Reconnaissance and scanning
         initial_access (Day 4): Initial foothold
         lateral (Days 5-7): Lateral movement
         persistence (Days 8-10): Persistence and staging
         exfil (Days 11-13): Data exfiltration
-        None (Day 14+): Scenario complete
+        None (Day 14+): Exfil scenario complete (other scenarios may still be active)
     """
     if day <= 3:
         return "recon"
@@ -280,6 +298,15 @@ def expand_scenarios(spec: str) -> List[str]:
             print(f"Warning: Scenario '{item}' is not yet implemented, skipping")
 
     return list(result)
+
+
+def filter_scenarios_by_days(scenarios: List[str], days: int) -> List[str]:
+    """Filter out scenarios whose start_day >= days (they won't generate any events).
+
+    When running with --days=14, scenarios that start on day 15+ are excluded.
+    This allows shorter generation runs to skip scenarios outside their window.
+    """
+    return [s for s in scenarios if SCENARIOS[s].start_day < days]
 
 
 def get_required_sources(scenarios: List[str]) -> Set[str]:

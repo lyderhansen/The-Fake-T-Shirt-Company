@@ -4,6 +4,62 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-12 ~09:00 UTC — Expand to 31 days + scenario registry + smart day filtering
+
+### Changes
+
+**DEFAULT_DAYS expanded from 14 to 31** to accommodate 3 new planned scenarios beyond the original 14-day window.
+
+**3 new scenario definitions added to registry** (definitions only, not yet implemented):
+
+| Scenario | Days | Category | Description |
+|----------|------|----------|-------------|
+| dead_letter_pricing | D16 | ops | ServiceBus dead-letter queue causes wrong product prices (4-6h) |
+| ddos_attack | D18-19 | network | Volumetric HTTP flood targeting web servers |
+| phishing_test | D21-23 | attack | IT-run phishing awareness campaign after exfil incident |
+
+Old stubs `phishing` and `ddos_attempt` replaced with the new definitions above.
+
+**Smart --days filtering:** When running with `--days=14`, scenarios that start on Day 15+ are automatically skipped. This allows shorter generation runs without errors. New `filter_scenarios_by_days()` helper in registry.py.
+
+**Default --scenarios changed from "exfil" to "all"** to match common usage.
+
+**TUI updated:**
+- Scenario list now shows day ranges: `exfil [D1-14]`, `cpu_runaway [D11-12]`
+- Planned (unimplemented) scenarios shown dimmed with `[-]` checkbox and `planned` label
+- Scenarios beyond current `--days` setting shown in red with `skip` indicator
+- Planned scenarios cannot be toggled (space bar disabled for them)
+
+### Files Changed
+
+- `bin/shared/config.py` - `DEFAULT_DAYS = 31` (was 14)
+- `bin/scenarios/registry.py` - 3 new ScenarioDefinitions, updated category lists, added `filter_scenarios_by_days()`
+- `bin/main_generate.py` - Smart scenario filtering by --days, default scenarios="all", updated help text
+- `bin/tui_generate.py` - Day range display, planned scenario rendering, skip indicators
+
+### 31-Day Scenario Timeline
+
+```
+D1-3:    Recon (exfil)
+D1-5:    Disk filling (disk_filling)
+D4:      Initial access (exfil)
+D5-7:    Lateral movement (exfil)
+D6-9:    Memory leak (memory_leak)
+D7:      Firewall misconfig (firewall_misconfig)
+D8-9:    Ransomware attempt (ransomware_attempt)
+D8-10:   Persistence (exfil)
+D11-12:  CPU runaway (cpu_runaway)
+D11-13:  Exfiltration (exfil)
+D12:     Certificate expiry (certificate_expiry)
+D14:     Incident response (exfil)
+D16:     Dead-letter pricing [PLANNED]
+D18-19:  DDoS volumetric [PLANNED]
+D21-23:  Internal phishing test [PLANNED]
+D24-31:  Baseline traffic only
+```
+
+---
+
 ## 2026-02-11 ~22:00 UTC — Fix exfil scenario plot hole: credential pivot jessica -> alex
 
 ### Problem

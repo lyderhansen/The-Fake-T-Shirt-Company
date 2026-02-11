@@ -180,17 +180,21 @@ Individual Sources:
   perfmon, mssql, sysmon, orders, servicebus, meraki, webex, webex_ta, webex_api, servicenow
 
 Scenarios:
-  all              - All implemented scenarios
+  all              - All implemented scenarios (default)
   none             - No scenarios (baseline only)
   attack           - All attack scenarios (exfil, ransomware_attempt)
   ops              - All operational scenarios (memory_leak, cpu_runaway, disk_filling)
   network          - All network scenarios (firewall_misconfig, certificate_expiry)
+
+  Note: Scenarios that start beyond --days are automatically skipped.
+  E.g., --days=14 skips scenarios starting on Day 15+.
 
   Attack scenarios (--scenarios=attack or individual names):
     exfil              - APT-style data exfiltration (Day 1-14, multi-site)
                          Sources: asa, meraki, entraid, aws, gcp, exchange, wineventlog, perfmon, servicenow, mssql
     ransomware_attempt - Ransomware stopped by EDR (Day 8-9)
                          Sources: asa, exchange, wineventlog, meraki, servicenow, office_audit
+    phishing_test      - Internal phishing awareness campaign (Day 21-23) [PLANNED]
 
   Ops scenarios (--scenarios=ops or individual names):
     memory_leak        - Application memory leak causing OOM (Day 6-9, Linux WEB-01)
@@ -199,12 +203,14 @@ Scenarios:
                          Sources: perfmon, wineventlog, asa, access, servicenow, mssql
     disk_filling       - Server disk gradually filling up (Day 1-5, MON-ATL-01)
                          Sources: linux, access, servicenow
+    dead_letter_pricing - ServiceBus dead-letter causes wrong prices (Day 16) [PLANNED]
 
   Network scenarios (--scenarios=network or individual names):
     firewall_misconfig - Firewall rule misconfiguration causing outage (Day 7)
                          Sources: asa, servicenow
     certificate_expiry - SSL certificate expires causing 7-hour outage (Day 12, 00:00-07:00)
                          Sources: asa, access, servicenow
+    ddos_attack        - Volumetric HTTP flood (Day 18-19) [PLANNED]
 
 Perfmon Options:
   --clients N          Number of client workstations (default: 5, min: 5, max: 175)
@@ -236,7 +242,7 @@ Output Directories:
     parser.add_argument("--start-date", default=DEFAULT_START_DATE, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help="Number of days")
     parser.add_argument("--scale", type=float, default=DEFAULT_SCALE, help="Volume scale factor")
-    parser.add_argument("--scenarios", default="exfil",
+    parser.add_argument("--scenarios", default="all",
                         help="Scenarios: none, all, attack, ops, network, or individual names (exfil, ransomware_attempt, memory_leak, cpu_runaway, disk_filling, firewall_misconfig, certificate_expiry)")
     parser.add_argument("--parallel", type=int, default=4, help="Number of parallel generators")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress progress output")
@@ -267,6 +273,22 @@ Output Directories:
                         help="Disable MS switch port health metrics (~127K events/day)")
 
     args = parser.parse_args()
+
+    # Smart scenario filtering: skip scenarios that start beyond --days
+    from scenarios.registry import expand_scenarios, filter_scenarios_by_days
+    requested_scenarios = expand_scenarios(args.scenarios)
+    active_scenarios = filter_scenarios_by_days(requested_scenarios, args.days)
+
+    skipped_scenarios = set(requested_scenarios) - set(active_scenarios)
+    if skipped_scenarios and not args.quiet:
+        print(f"  Note: Skipping {len(skipped_scenarios)} scenario(s) beyond --days={args.days}: "
+              f"{', '.join(sorted(skipped_scenarios))}")
+
+    # Update args.scenarios with the filtered list for downstream generators
+    if active_scenarios:
+        args.scenarios = ",".join(active_scenarios)
+    else:
+        args.scenarios = "none"
 
     # Always generate to output/tmp/ first (safe staging area)
     # Files are moved to output/ after successful generation (unless --test)
