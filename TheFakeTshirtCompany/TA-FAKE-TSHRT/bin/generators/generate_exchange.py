@@ -43,7 +43,7 @@ from shared.company import (
 from shared.meeting_schedule import (
     ScheduledMeeting, _meeting_schedule, get_meetings_for_room, get_all_rooms
 )
-from scenarios.security import ExfilScenario, RansomwareAttemptScenario
+from scenarios.security import ExfilScenario, RansomwareAttemptScenario, PhishingTestScenario
 from scenarios.registry import expand_scenarios
 
 # =============================================================================
@@ -772,6 +772,7 @@ def generate_exchange_logs(
     active_scenarios = expand_scenarios(scenarios)
     include_exfil = "exfil" in active_scenarios
     include_ransomware = "ransomware_attempt" in active_scenarios
+    include_phishing_test = "phishing_test" in active_scenarios
 
     # Initialize scenarios if needed
     config = Config(start_date=start_date, days=days, scale=scale, demo_id_enabled=True)
@@ -785,6 +786,10 @@ def generate_exchange_logs(
     ransomware_scenario = None
     if include_ransomware:
         ransomware_scenario = RansomwareAttemptScenario(demo_id_enabled=True)
+
+    phishing_test_scenario = None
+    if include_phishing_test:
+        phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True)
 
     # 8x increase from 50 to 400 for realistic email volume
     # ~175 employees sending/receiving 20-30 emails/day each
@@ -834,6 +839,12 @@ def generate_exchange_logs(
             if include_ransomware and ransomware_scenario:
                 ransomware_events = ransomware_scenario.exchange_hour(day, hour, time_utils)
                 for event in ransomware_events:
+                    scenario_events_json.append(json.dumps(event))
+
+            # Phishing test scenario - simulation emails and training emails
+            if include_phishing_test and phishing_test_scenario:
+                pt_events = phishing_test_scenario.exchange_hour(day, hour, time_utils)
+                for event in pt_events:
                     scenario_events_json.append(json.dumps(event))
 
         if not quiet:

@@ -54,13 +54,13 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     ),
     "phishing_test": ScenarioDefinition(
         name="phishing_test",
-        sources=["exchange", "entraid", "wineventlog", "office_audit"],
+        sources=["exchange", "entraid", "wineventlog", "office_audit", "servicenow"],
         category="attack",
         description="IT-run phishing awareness campaign after exfil incident (Day 21-23)",
         demo_id="phishing_test",
         start_day=20,
         end_day=22,
-        implemented=False
+        implemented=True
     ),
 
     # Ops scenarios
@@ -121,7 +121,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         start_day=17,
         end_day=18,
         server="WEB-01",
-        implemented=False
+        implemented=True
     ),
     "firewall_misconfig": ScenarioDefinition(
         name="firewall_misconfig",

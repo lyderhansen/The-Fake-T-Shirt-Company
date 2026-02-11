@@ -4,6 +4,112 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-12 ~00:30 UTC -- Implement phishing_test scenario (Days 21-23)
+
+### Summary
+
+New attack scenario: IT Security (ashley.griffin) runs a KnowBe4-style phishing awareness campaign following the real APT exfil incident discovered on Day 12. All 175 employees receive a simulated "Microsoft 365 password expires in 24 hours" email. Waves sent at 09:00 (BOS), 10:00 (ATL), 11:00 (AUS) on Day 21. Deterministic participant selection ensures consistent 53 clickers (31%) and 17 credential submitters (10%) across all generators. Day 23: training emails sent to clickers, results compiled.
+
+### Scenario Timeline
+
+| Day | Time | Event |
+|-----|------|-------|
+| 21 (idx 20) | 09:00-11:00 | Campaign emails sent in 3 waves (175 total) |
+| 21 (idx 20) | 12:00+ | First clicks begin (35 on Day 21) |
+| 22 (idx 21) | all day | Late clickers (18 more on Day 22) |
+| 23 (idx 22) | 10:00 | Admin reviews results |
+| 23 (idx 22) | 11:00 | Training emails sent to 53 clickers |
+
+### Expected Event Counts
+
+| Source | Events | Description |
+|--------|--------|-------------|
+| Exchange | ~230 | 175 sim emails + 53 training emails |
+| Entra ID | ~17 | Credential submitters sign-in from sim platform IP |
+| WinEventLog | ~53 | 4688 process creation (OUTLOOK.EXE -> browser with sim URL) |
+| Office 365 Audit | ~56 | SafeLinks clicks (53) + admin review (3) |
+| ServiceNow | ~15 | 2 incidents (deployment + results) + 1 change (pre-approval) |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `bin/scenarios/security/phishing_test.py` | **NEW** -- Scenario class with deterministic participant selection |
+| `bin/scenarios/security/__init__.py` | Added PhishingTestScenario export |
+| `bin/scenarios/registry.py` | Set `implemented=True`, added `servicenow` to sources |
+| `bin/generators/generate_exchange.py` | Import + init + hour loop injection for sim/training emails |
+| `bin/generators/generate_entraid.py` | Dynamic import + init + signin injection for credential submitters |
+| `bin/generators/generate_wineventlog.py` | Import + init + security_events injection for browser launches |
+| `bin/generators/generate_office_audit.py` | Inlined `_phishing_test_events_for_hour()` function (SafeLinks + admin) |
+| `bin/generators/generate_servicenow.py` | Added incidents, change, updated attack category filter |
+| `bin/main_generate.py` | Updated epilog (removed [PLANNED], added sources) |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
+## 2026-02-11 ~20:00 UTC -- Implement ddos_attack scenario (Days 18-19)
+
+### Summary
+
+New network scenario: Volumetric HTTP flood targeting DMZ web servers (WEB-01/WEB-02) on Days 18-19 (Jan 18-19). A botnet launches probing at 02:00, ramps to full attack by 08:00 (~200 ASA events/hour), triggering rate limiting and IDS alerts. NOC applies emergency ACLs at 10:00 (wave 1 blocked), but attacker adapts with new IPs at 12:00 (wave 2). ISP-level DDoS filtering activated at 14:00. Attack subsides by 18:00 with residual traffic overnight. Fully stopped by 06:00 Day 19.
+
+Revenue impact is automatic: 60% error_rate at peak causes ~60% of checkout attempts to return HTTP 503, naturally reducing orders generated.
+
+### Scenario Timeline
+
+```
+Day 18 (index 17):
+  02:00  Probing from wave 1 botnet IPs (intensity 0.05)
+  06:00  Volume ramps up (intensity 0.3)
+  08:00  Full-scale attack (intensity 1.0) -- ASA rate limiting
+  09:00  ServiceNow P1 auto-created
+  10:00  Emergency ACL blocks wave 1 subnets (intensity 0.5)
+  12:00  Wave 2 -- new botnet IPs (intensity 0.8)
+  14:00  ISP DDoS filtering activated (intensity 0.4)
+  18:00  Mostly over (intensity 0.1 residual)
+
+Day 19 (index 18):
+  00:00-05:00  Residual traffic (intensity 0.05)
+  06:00  Attack fully stopped
+  10:00  Change request: permanent DDoS mitigation
+```
+
+### Attack Design
+
+Two waves of 10 botnet IPs each from diverse global subnets. Single `_get_attack_intensity(day, hour)` function (0.0-1.0) drives all generators.
+
+### Files Created
+
+- `bin/scenarios/network/ddos_attack.py` -- New scenario class (~470 lines) with DdosAttackConfig dataclass and DdosAttackScenario class. Methods: `_get_attack_intensity()`, `_get_botnet_ips()`, `is_active()`, `generate_hour()` (ASA events), `access_should_error()`, `meraki_hour()` (IDS + SD-WAN), `linux_cpu_adjustment()`, `linux_network_multiplier()`, `perfmon_cpu_adjustment()`, `get_demo_id()`
+
+### Files Modified
+
+- `bin/scenarios/network/__init__.py` -- Added DdosAttackScenario + Config exports
+- `bin/scenarios/registry.py` -- Set `implemented=True` for ddos_attack
+- `bin/generators/generate_asa.py` -- Import, initialize, generate DDoS ASA events (deny, rate limit, threat detect, emergency ACL) in hour loop
+- `bin/generators/generate_meraki.py` -- Import, initialize, generate DDoS IDS alerts + SD-WAN health degradation for BOS location
+- `bin/generators/generate_access.py` -- Import, initialize, inject HTTP 503 errors (up to 60% rate, 10x response time) during DDoS
+- `bin/generators/generate_linux.py` -- Import, add ddos_scenario param, apply CPU boost (+5 to +40) and network multiplier (2x-10x) for WEB-01
+- `bin/generators/generate_perfmon.py` -- Import, add ddos_scenario param, apply downstream CPU effects on APP-BOS-01 (+5 to +15)
+- `bin/generators/generate_servicenow.py` -- Added 3 DDoS incident templates (P1 attack alert, P1 customer complaints, P3 post-incident review), 1 emergency change request (permanent mitigation), updated network category filters
+- `bin/main_generate.py` -- Removed [PLANNED] from ddos_attack epilog line, added sources, updated --scenarios help text
+
+### Verification (--days=19, --scenarios=ddos_attack, --test)
+
+| Source | Total Events | DDoS-tagged |
+|--------|-------------|-------------|
+| asa | 663,044 | 1,171 (deny, rate limit, threat detect, emergency ACL) |
+| meraki | 2,831,869 | 132 (IDS alerts + SD-WAN health) |
+| access | 377,983 | 19,371 (including 2,315 HTTP 503 errors) |
+| linux | 265,198 | 672 (336 CPU + 336 interfaces on WEB-01) |
+| perfmon | 947,568 | 432 (APP-BOS-01 downstream CPU effects) |
+| servicenow | 2,013 | 23 (16 incident lifecycle + 7 change lifecycle) |
+
+Backward compatibility: `--days=17` correctly skips ddos_attack (start_day=17 >= 17).
+Implemented scenarios: 9 (was 8).
+
+---
+
 ## 2026-02-11 ~17:00 UTC -- Implement dead_letter_pricing scenario (Day 16)
 
 ### Summary

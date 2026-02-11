@@ -609,6 +609,101 @@ def _ransomware_events_for_hour(start_date: str, day: int, hour: int) -> List[Di
     return events
 
 
+def _phishing_test_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[str, Any]]:
+    """Generate phishing_test scenario events for M365 Unified Audit Log.
+
+    Uses deterministic seed to select the SAME clickers as PhishingTestScenario.
+
+    Timeline:
+        Day 20-21 (0-indexed): SafeLinks URL click events (RecordType 146)
+            When employees click the phishing sim link, M365 Defender SafeLinks
+            logs the URL check event.
+        Day 22: Admin review events (ashley.griffin reviews campaign results)
+    """
+    events = []
+
+    # Only active days 20-22
+    if day < 20 or day > 22:
+        return events
+
+    # Import the helper to get deterministic clicker set + timing
+    try:
+        from scenarios.security.phishing_test import PhishingTestScenario, PhishingTestConfig
+    except ImportError:
+        return events
+
+    cfg = PhishingTestConfig()
+
+    # Day 20-21: SafeLinks click events for clickers
+    if day in (20, 21):
+        # Reconstruct clickers with same seed
+        scenario = PhishingTestScenario(demo_id_enabled=True)
+
+        for username, click_day, click_hour, click_minute in scenario.clickers:
+            if day != click_day or hour != click_hour:
+                continue
+
+            user = USERS.get(username)
+            if not user:
+                continue
+
+            second = random.randint(0, 59)
+            ts = ts_iso(start_date, day, click_hour, click_minute, second)
+
+            # SafeLinks URL click event (RecordType 146 = ThreatIntelligenceUrl)
+            event = {
+                "CreationTime": ts,
+                "Id": str(uuid.uuid4()),
+                "Operation": "SafeLinksUrlClicked",
+                "OrganizationId": ORG_ID,
+                "RecordType": 146,
+                "UserKey": _generate_user_key(username),
+                "UserType": 0,
+                "Workload": "ThreatIntelligence",
+                "UserId": user.email,
+                "SourceFileName": cfg.sim_subject,
+                "ObjectId": cfg.sim_url,
+                "ClientIP": user.ip_address,
+                "UserAgent": random.choice(USER_AGENTS[:3]),  # Browser UAs only
+                "ResultStatus": "Allowed",
+                "ResultStatusDetail": "PhishingSimulation",
+                "demo_id": "phishing_test",
+            }
+            events.append(event)
+
+    # Day 22: Admin review events (ashley.griffin reviews results in Admin portal)
+    elif day == 22 and 10 <= hour <= 11:
+        admin_user = USERS.get(cfg.operator_user)
+        if admin_user and hour == 10:
+            # 3 admin portal review events
+            admin_ops = [
+                ("SecurityComplianceSearch", "Phishing simulation results export"),
+                ("ViewReport", "Attack simulation training report"),
+                ("AdminActivity", "Phishing campaign results review"),
+            ]
+            for i, (op, obj_id) in enumerate(admin_ops):
+                minute = 15 + i * 8
+                ts = ts_iso(start_date, day, hour, minute, random.randint(0, 59))
+                event = {
+                    "CreationTime": ts,
+                    "Id": str(uuid.uuid4()),
+                    "Operation": op,
+                    "OrganizationId": ORG_ID,
+                    "RecordType": 18,  # SecurityComplianceCenterEOPCmdlet
+                    "UserKey": _generate_user_key(cfg.operator_user),
+                    "UserType": 2,  # Admin
+                    "Workload": "SecurityComplianceCenter",
+                    "UserId": admin_user.email,
+                    "ObjectId": obj_id,
+                    "ClientIP": cfg.operator_ip,
+                    "ResultStatus": "Succeeded",
+                    "demo_id": "phishing_test",
+                }
+                events.append(event)
+
+    return events
+
+
 # =============================================================================
 # MAIN GENERATOR
 # =============================================================================
@@ -638,6 +733,7 @@ def generate_office_audit_logs(
     active_scenarios = expand_scenarios(scenarios)
     include_exfil = "exfil" in active_scenarios
     include_ransomware = "ransomware_attempt" in active_scenarios
+    include_phishing_test = "phishing_test" in active_scenarios
 
     # Determine output path
     if output_file:
@@ -712,6 +808,11 @@ def generate_office_audit_logs(
                 ransom_events = _ransomware_events_for_hour(start_date, day, hour)
                 all_events.extend(ransom_events)
                 demo_id_count += len(ransom_events)
+
+            if include_phishing_test:
+                pt_events = _phishing_test_events_for_hour(start_date, day, hour)
+                all_events.extend(pt_events)
+                demo_id_count += len(pt_events)
 
     # Sort by CreationTime
     all_events.sort(key=lambda x: x.get("CreationTime", ""))

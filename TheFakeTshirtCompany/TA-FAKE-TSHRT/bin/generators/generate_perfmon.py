@@ -33,6 +33,7 @@ from shared.time_utils import ts_perfmon, date_add, get_hour_activity_level, is_
 from shared.company import WINDOWS_SERVERS, SERVERS, USERS, USER_KEYS, COMP_USER
 from scenarios.registry import expand_scenarios
 from scenarios.ops.cpu_runaway import CpuRunawayScenario
+from scenarios.network.ddos_attack import DdosAttackScenario
 
 # =============================================================================
 # PERFMON CONFIGURATION
@@ -183,7 +184,8 @@ def network_metric(ts: str, host: str, hour_mult: float, demo_id: str = None) ->
 def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
                            host: str, server: object, hour_mult: float,
                            ram_mb: int, disk_gb: int,
-                           cpu_runaway_scenario: CpuRunawayScenario = None) -> Dict[str, List[str]]:
+                           cpu_runaway_scenario: CpuRunawayScenario = None,
+                           ddos_scenario: Optional[DdosAttackScenario] = None) -> Dict[str, List[str]]:
     """Generate all metrics for one host at one interval."""
     ts = ts_perfmon(base_date, day, hour, minute, 0)
 
@@ -206,6 +208,16 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
         demo_id = cpu_runaway_scenario.get_demo_id(day, hour) or None
         # When scenario is active, don't apply hour_mult reduction
         scenario_override = demo_id is not None
+
+    # Apply DDoS attack downstream effects on APP-BOS-01
+    # APP-BOS-01 (IIS/.NET) retries failed connections to overwhelmed WEB-01
+    if ddos_scenario and host == "APP-BOS-01":
+        ddos_cpu_adj = ddos_scenario.perfmon_cpu_adjustment(host, day, hour)
+        if ddos_cpu_adj > 0:
+            cpu_min = min(95, cpu_min + ddos_cpu_adj)
+            cpu_max = min(100, cpu_max + ddos_cpu_adj)
+            demo_id = demo_id or "ddos_attack"
+            scenario_override = True
 
     proc_events = processor_metric(ts, host, cpu_min, cpu_max, hour_mult, demo_id, scenario_override)
     mem_events = memory_metric(ts, host, ram_min, ram_max, ram_mb, hour_mult, demo_id, scenario_override)
@@ -499,8 +511,11 @@ def generate_perfmon_logs(
     # Parse scenarios and initialize
     active_scenarios = expand_scenarios(scenarios)
     cpu_runaway_scenario = None
+    ddos_scenario = None
     if "cpu_runaway" in active_scenarios:
         cpu_runaway_scenario = CpuRunawayScenario(demo_id_enabled=True)
+    if "ddos_attack" in active_scenarios:
+        ddos_scenario = DdosAttackScenario(demo_id_enabled=True)
 
     if not quiet:
         print("=" * 70, file=sys.stderr)
@@ -543,7 +558,7 @@ def generate_perfmon_logs(
 
                     metrics = generate_host_interval(start_date, day, hour, minute,
                                                      host, server, hour_mult, ram_mb, disk_gb,
-                                                     cpu_runaway_scenario)
+                                                     cpu_runaway_scenario, ddos_scenario)
 
                     for metric_type, lines in metrics.items():
                         all_metrics[metric_type].extend(lines)

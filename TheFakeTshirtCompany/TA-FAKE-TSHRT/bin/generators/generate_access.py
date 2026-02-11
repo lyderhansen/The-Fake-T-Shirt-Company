@@ -36,6 +36,7 @@ from scenarios.ops.cpu_runaway import CpuRunawayScenario
 from scenarios.ops.memory_leak import MemoryLeakScenario
 from scenarios.ops.disk_filling import DiskFillingScenario
 from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
+from scenarios.network.ddos_attack import DdosAttackScenario
 
 # =============================================================================
 # PRODUCTS (imported from products.py)
@@ -663,6 +664,11 @@ def generate_access_logs(
     if "dead_letter_pricing" in active_scenarios:
         dead_letter_scenario = DeadLetterPricingScenario(demo_id_enabled=True)
 
+    # Initialize ddos_attack scenario
+    ddos_attack_scenario = None
+    if "ddos_attack" in active_scenarios:
+        ddos_attack_scenario = DdosAttackScenario(demo_id_enabled=True)
+
     if not quiet:
         print("=" * 70, file=sys.stderr)
         print(f"  Web Access Log Generator (Python)", file=sys.stderr)
@@ -731,6 +737,14 @@ def generate_access_logs(
                     error_rate = max(error_rate, rate)
                     response_mult = max(response_mult, int(mult * 100))
                     demo_id = demo_id or "dead_letter_pricing"
+
+            # DDoS Attack - volumetric HTTP flood overwhelms web servers
+            if ddos_attack_scenario:
+                should_error, rate, mult = ddos_attack_scenario.access_should_error(day, hour)
+                if should_error:
+                    error_rate = max(error_rate, rate)
+                    response_mult = max(response_mult, int(mult * 100))
+                    demo_id = demo_id or "ddos_attack"
 
             if is_ssl_outage:
                 # During outage: generate SSL error events instead of normal sessions

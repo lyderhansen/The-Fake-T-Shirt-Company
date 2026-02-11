@@ -51,6 +51,7 @@ from shared.meeting_schedule import (
 )
 from scenarios.registry import expand_scenarios
 from scenarios.security import RansomwareAttemptScenario
+from scenarios.network.ddos_attack import DdosAttackScenario
 from shared.time_utils import TimeUtils
 
 # =============================================================================
@@ -2819,12 +2820,17 @@ def generate_meraki_logs(
     active_scenarios = expand_scenarios(scenarios)
     include_exfil = "exfil" in active_scenarios
     include_ransomware = "ransomware_attempt" in active_scenarios
+    include_ddos_attack = "ddos_attack" in active_scenarios
 
     # Initialize scenarios
     time_utils = TimeUtils(start_date)
     ransomware_scenario = None
     if include_ransomware:
         ransomware_scenario = RansomwareAttemptScenario(demo_id_enabled=True)
+
+    ddos_scenario = None
+    if include_ddos_attack:
+        ddos_scenario = DdosAttackScenario(demo_id_enabled=True)
 
     # Base events per peak hour (scale affects volume)
     # Per location scaling
@@ -2923,6 +2929,11 @@ def generate_meraki_logs(
                     ransomware_events = ransomware_scenario.meraki_hour(day, hour, time_utils)
                     mx_events.extend(ransomware_events.get("mx", []))
                     mr_events.extend(ransomware_events.get("mr", []))
+
+                # DDoS scenario - IDS alerts and SD-WAN health degradation (Boston only)
+                if include_ddos_attack and ddos_scenario and location == "BOS":
+                    ddos_events = ddos_scenario.meraki_hour(day, hour, time_utils)
+                    mx_events.extend(ddos_events.get("mx", []))
 
         if not quiet:
             print(f"  [Meraki] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)

@@ -439,6 +439,65 @@ SCENARIO_INCIDENTS = {
             },
         ],
     },
+    "ddos_attack": {
+        "days": [17, 17, 18],  # Day 18 (P1 DDoS alert at 09:00, P1 customer complaints at 11:00), Day 19 (P3 review)
+        "hours": [9, 11, 10],  # Hour hints for each incident
+        "incidents": [
+            {
+                "short": "CRITICAL: DDoS attack detected - website under volumetric HTTP flood",
+                "category": "Network",
+                "subcategory": "Security",
+                "priority": 1,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Network Operations",
+                "description": "NOC alert: Volumetric HTTP flood targeting WEB-01/WEB-02 (172.16.1.10/11). Inbound traffic from 10+ source IPs exceeding 5Gbps. ASA rate limiting engaged. Website response times 10x normal.",
+                "close_notes": "Emergency ACL applied at 10:00 blocking wave 1 botnet IPs. Attacker adapted with new IPs at 12:00 (wave 2). ISP-level DDoS filtering activated at 14:00. Attack fully subsided by 18:00. Post-incident review scheduled.",
+            },
+            {
+                "short": "Customer complaints - website extremely slow and returning 503 errors",
+                "category": "Network",
+                "subcategory": "Web Server",
+                "priority": 1,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Service Desk",
+                "description": "Multiple customer reports of website being unreachable or extremely slow. 60% of requests returning HTTP 503. Revenue impact confirmed - orders dropping significantly.",
+                "close_notes": "Related to DDoS attack on web servers. Emergency mitigation restored partial service. Full recovery after ISP filtering activated. Estimated revenue loss during attack window.",
+            },
+            {
+                "short": "Post-incident review: DDoS attack mitigation and permanent defenses",
+                "category": "Network",
+                "subcategory": "Security",
+                "priority": 3,
+                "assignment_group": "Network Operations",
+                "description": "Post-incident review for DDoS attack on Jan 18. Need to evaluate response effectiveness and implement permanent DDoS mitigation.",
+                "close_notes": "Review completed. Recommendations: 1) Implement always-on CDN/DDoS protection (Cloudflare/AWS Shield), 2) Pre-configure emergency ACL templates, 3) Establish ISP DDoS scrubbing SLA, 4) Add rate-limiting at application layer. Change request submitted.",
+            },
+        ],
+    },
+    "phishing_test": {
+        "days": [20, 22],  # Day 21 (campaign deployed), Day 23 (results summary)
+        "hours": [9, 10],  # 09:00 campaign deployment, 10:00 results
+        "incidents": [
+            {
+                "short": "Phishing awareness campaign deployed - KnowBe4 simulation",
+                "category": "Security",
+                "subcategory": "Security Awareness",
+                "priority": 4,
+                "assignment_group": "Security Operations",
+                "description": "IT Security phishing awareness campaign launched. Simulated phishing emails sent to all 175 employees across BOS/ATL/AUS. Using KnowBe4 platform with Microsoft 365 password expiry lure. Campaign operator: Ashley Griffin.",
+                "close_notes": "Campaign deployed successfully. Wave 1 (BOS) at 09:00, Wave 2 (ATL) at 10:00, Wave 3 (AUS) at 11:00. All 175 emails delivered. Monitoring link clicks and credential submissions.",
+            },
+            {
+                "short": "Phishing test results: 31% click rate, 10% credential submission",
+                "category": "Security",
+                "subcategory": "Security Awareness",
+                "priority": 3,
+                "assignment_group": "Security Operations",
+                "description": "Phishing simulation results compiled. 55 of 175 employees (31%) clicked the link. 18 employees (10%) submitted credentials on the fake login page. 35 employees reported the email to IT (20%). Mandatory security awareness training assigned to all clickers.",
+                "close_notes": "Results shared with management. Training emails sent to 55 employees who clicked. Recommended quarterly phishing simulations and enhanced email security training for new hires.",
+            },
+        ],
+    },
     "disk_filling": {
         "days": [2, 3, 4],  # Day 3 (warning @ 75%), Day 4 (critical @ 88%), Day 5 (emergency @ 96%)
         "incidents": [
@@ -681,6 +740,49 @@ SCENARIO_CHANGES = {
                 "Endpoint isolated and reimaged. No lateral spread confirmed. "
                 "Malware variant: Trojan:Win32/Emotet.RPK!MTB. Entry vector: "
                 "phishing email with malicious Excel attachment."
+            ),
+        }],
+    },
+    "ddos_attack": {
+        "day": 18,  # Day 19 -- post-incident permanent mitigation
+        "changes": [{
+            "short": "Emergency: Deploy DDoS mitigation - ACL + ISP filtering for web servers",
+            "type": "emergency", "category": "Network", "risk": "High", "impact": 1,
+            "cmdb_ci": "WEB-01", "assignment_group": "Network Operations",
+            "description": (
+                "Emergency change in response to volumetric DDoS attack on Jan 18. "
+                "Actions: 1) Apply permanent rate-limiting ACLs on FW-EDGE-01, "
+                "2) Enable ISP DDoS scrubbing service, 3) Configure CDN-based "
+                "DDoS protection for public web endpoints 203.0.113.10."
+            ),
+            "close_notes": (
+                "Permanent DDoS mitigation deployed: Rate-limiting ACLs on FW-EDGE-01 "
+                "(max 1000 conn/sec per source IP). ISP DDoS scrubbing SLA activated "
+                "(auto-trigger at 2Gbps). Cloudflare CDN configured for web servers. "
+                "Emergency ACL templates documented in runbook. Recovery confirmed."
+            ),
+        }],
+    },
+    "phishing_test": {
+        "day": 19,  # Day 20 (0-indexed) -- pre-campaign approval
+        "changes": [{
+            "short": "Standard: Deploy phishing awareness simulation campaign",
+            "type": "standard", "category": "Security", "risk": "Low", "impact": 3,
+            "assignment_group": "Security Operations",
+            "description": (
+                "Deploy IT Security phishing awareness campaign using KnowBe4 platform. "
+                "Simulated Microsoft 365 password expiry emails to all 175 employees. "
+                "Scheduled for Jan 21 in 3 waves: BOS 09:00, ATL 10:00, AUS 11:00. "
+                "Approved by CISO following real phishing incident on Day 12."
+            ),
+            "planned_start": {"day": 20, "hour": 9, "minute": 0},
+            "planned_end": {"day": 22, "hour": 17, "minute": 0},
+            "close_code": "Successful",
+            "close_notes": (
+                "Campaign completed successfully. 175 emails sent, all delivered. "
+                "Results: 55 clicked (31%), 18 submitted credentials (10%), "
+                "35 reported to IT (20%), 67 ignored (39%). Mandatory training "
+                "assigned to 55 clickers. Quarterly campaign cadence recommended."
             ),
         }],
     },
@@ -1482,11 +1584,11 @@ def generate_scenario_changes(base_date: datetime, day: int, scenarios: str) -> 
             pass
         elif "all" in scenario_set:
             pass
-        elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt"]:
+        elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt", "phishing_test"]:
             pass
         elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling", "dead_letter_pricing"]:
             pass
-        elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry"]:
+        elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry", "ddos_attack"]:
             pass
         else:
             continue
@@ -1589,11 +1691,11 @@ def generate_scenario_incidents(base_date: datetime, day: int, scenarios: str) -
             pass  # Exact match - proceed
         elif "all" in scenario_set:
             pass  # All scenarios enabled
-        elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt"]:
+        elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt", "phishing_test"]:
             pass  # Attack category
         elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling", "dead_letter_pricing"]:
             pass  # Ops category
-        elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry"]:
+        elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry", "ddos_attack"]:
             pass  # Network category
         else:
             continue  # Skip this scenario

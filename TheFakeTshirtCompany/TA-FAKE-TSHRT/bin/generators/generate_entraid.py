@@ -1763,6 +1763,15 @@ def generate_entraid_logs(
         except ImportError:
             pass  # Scenario not available
 
+    # Initialize phishing test scenario if active
+    phishing_test_scenario = None
+    if "phishing_test" in active_scenarios:
+        try:
+            from scenarios.security.phishing_test import PhishingTestScenario
+            phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True)
+        except ImportError:
+            pass
+
     signin_base = int(35 * scale)
     audit_per_day = max(3, int(20 * scale))
 
@@ -1792,6 +1801,15 @@ def generate_entraid_logs(
             if exfil_scenario:
                 exfil_signin = exfil_scenario.entraid_signin_hour(day, hour)
                 for e in exfil_signin:
+                    if isinstance(e, str):
+                        signin_events.append(e)
+                    else:
+                        signin_events.append(json.dumps(e))
+
+            # Phishing test scenario signin events (credential submitters on sim platform)
+            if phishing_test_scenario:
+                pt_signin = phishing_test_scenario.entraid_signin_hour(day, hour)
+                for e in pt_signin:
                     if isinstance(e, str):
                         signin_events.append(e)
                     else:

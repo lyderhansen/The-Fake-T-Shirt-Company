@@ -23,6 +23,7 @@ from shared.company import Company, LINUX_SERVERS, SERVERS, USERS, USER_KEYS, ge
 from scenarios.security import ExfilScenario
 from scenarios.ops import MemoryLeakScenario
 from scenarios.ops.disk_filling import DiskFillingScenario
+from scenarios.network.ddos_attack import DdosAttackScenario
 from scenarios.registry import expand_scenarios
 
 # =============================================================================
@@ -146,7 +147,8 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
                            host: str, server: object, hour_mult: float,
                            exfil_scenario: Optional[ExfilScenario] = None,
                            memleak_scenario: Optional[MemoryLeakScenario] = None,
-                           diskfill_scenario: Optional[DiskFillingScenario] = None) -> Dict[str, List[str]]:
+                           diskfill_scenario: Optional[DiskFillingScenario] = None,
+                           ddos_scenario: Optional[DdosAttackScenario] = None) -> Dict[str, List[str]]:
     """Generate all metrics for one host at one interval."""
     ts = ts_linux(base_date, day, hour, minute, 0)
 
@@ -212,6 +214,18 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
         if io_wait_adj > 0:
             cpu_adjustment += int(io_wait_adj)
             cpu_demo_id = cpu_demo_id or "disk_filling"
+
+    # Apply DDoS attack scenario adjustments (WEB-01: high CPU + network)
+    if ddos_scenario:
+        ddos_cpu_adj = ddos_scenario.linux_cpu_adjustment(host, day, hour)
+        if ddos_cpu_adj > 0:
+            cpu_adjustment += ddos_cpu_adj
+            cpu_demo_id = cpu_demo_id or "ddos_attack"
+
+        ddos_net_mult = ddos_scenario.linux_network_multiplier(host, day, hour)
+        if ddos_net_mult != 100:
+            network_multiplier = max(network_multiplier, ddos_net_mult)
+            net_demo_id = net_demo_id or "ddos_attack"
 
     metrics = {
         "cpu": [cpu_metric(ts, host, server.cpu_baseline_min, server.cpu_baseline_max,
@@ -547,11 +561,13 @@ def generate_linux_logs(
     include_exfil = "exfil" in active_scenarios
     include_memory_leak = "memory_leak" in active_scenarios
     include_disk_filling = "disk_filling" in active_scenarios
+    include_ddos_attack = "ddos_attack" in active_scenarios
 
     # Initialize scenarios if needed
     exfil_scenario = None
     memleak_scenario = None
     diskfill_scenario = None
+    ddos_scenario = None
 
     if include_exfil:
         config = Config(start_date=start_date, days=days, scale=scale, demo_id_enabled=True)
@@ -564,6 +580,9 @@ def generate_linux_logs(
 
     if include_disk_filling:
         diskfill_scenario = DiskFillingScenario(demo_id_enabled=True)
+
+    if include_ddos_attack:
+        ddos_scenario = DdosAttackScenario(demo_id_enabled=True)
 
     if not quiet:
         print("=" * 70, file=sys.stderr)
@@ -604,7 +623,7 @@ def generate_linux_logs(
                     metrics = generate_host_interval(start_date, day, hour, minute,
                                                      host, server, hour_mult,
                                                      exfil_scenario, memleak_scenario,
-                                                     diskfill_scenario)
+                                                     diskfill_scenario, ddos_scenario)
 
                     for metric_type, lines in metrics.items():
                         all_metrics[metric_type].extend(lines)

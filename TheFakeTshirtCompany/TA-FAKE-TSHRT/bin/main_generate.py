@@ -182,7 +182,7 @@ Individual Sources:
 Scenarios:
   all              - All implemented scenarios (default)
   none             - No scenarios (baseline only)
-  attack           - All attack scenarios (exfil, ransomware_attempt)
+  attack           - All attack scenarios (exfil, ransomware_attempt, phishing_test)
   ops              - All operational scenarios (memory_leak, cpu_runaway, disk_filling)
   network          - All network scenarios (firewall_misconfig, certificate_expiry)
 
@@ -194,7 +194,8 @@ Scenarios:
                          Sources: asa, meraki, entraid, aws, gcp, exchange, wineventlog, perfmon, servicenow, mssql
     ransomware_attempt - Ransomware stopped by EDR (Day 8-9)
                          Sources: asa, exchange, wineventlog, meraki, servicenow, office_audit
-    phishing_test      - Internal phishing awareness campaign (Day 21-23) [PLANNED]
+    phishing_test      - IT phishing awareness campaign (Day 21-23)
+                         Sources: exchange, entraid, wineventlog, office_audit, servicenow
 
   Ops scenarios (--scenarios=ops or individual names):
     memory_leak        - Application memory leak causing OOM (Day 6-9, Linux WEB-01)
@@ -203,14 +204,16 @@ Scenarios:
                          Sources: perfmon, wineventlog, asa, access, servicenow, mssql
     disk_filling       - Server disk gradually filling up (Day 1-5, MON-ATL-01)
                          Sources: linux, access, servicenow
-    dead_letter_pricing - ServiceBus dead-letter causes wrong prices (Day 16) [PLANNED]
+    dead_letter_pricing - ServiceBus dead-letter causes wrong prices (Day 16)
+                         Sources: servicebus, orders, access, servicenow
 
   Network scenarios (--scenarios=network or individual names):
     firewall_misconfig - Firewall rule misconfiguration causing outage (Day 7)
                          Sources: asa, servicenow
     certificate_expiry - SSL certificate expires causing 7-hour outage (Day 12, 00:00-07:00)
                          Sources: asa, access, servicenow
-    ddos_attack        - Volumetric HTTP flood (Day 18-19) [PLANNED]
+    ddos_attack        - Volumetric HTTP flood targeting web servers (Day 18-19)
+                         Sources: asa, meraki, access, linux, perfmon, servicenow
 
 Perfmon Options:
   --clients N          Number of client workstations (default: 5, min: 5, max: 175)
@@ -243,7 +246,7 @@ Output Directories:
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help="Number of days")
     parser.add_argument("--scale", type=float, default=DEFAULT_SCALE, help="Volume scale factor")
     parser.add_argument("--scenarios", default="all",
-                        help="Scenarios: none, all, attack, ops, network, or individual names (exfil, ransomware_attempt, memory_leak, cpu_runaway, disk_filling, firewall_misconfig, certificate_expiry)")
+                        help="Scenarios: none, all, attack, ops, network, or individual names (exfil, ransomware_attempt, memory_leak, cpu_runaway, disk_filling, dead_letter_pricing, firewall_misconfig, certificate_expiry, ddos_attack)")
     parser.add_argument("--parallel", type=int, default=4, help="Number of parallel generators")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress progress output")
     parser.add_argument("--show-files", action="store_true",

@@ -26,6 +26,7 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import ts_winevent, date_add, calc_natural_events, TimeUtils
 from shared.company import USERS, USER_KEYS, WINDOWS_SERVERS, get_random_user, get_internal_ip, Company
 from scenarios.security import RansomwareAttemptScenario
+from scenarios.security.phishing_test import PhishingTestScenario
 from scenarios.registry import expand_scenarios
 
 # =============================================================================
@@ -1433,6 +1434,10 @@ def generate_wineventlog(
         except ImportError:
             pass
 
+    phishing_test_scenario = None
+    if "phishing_test" in active_scenarios:
+        phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True)
+
     base_logons_per_peak_hour = max(1, int(5 * scale))
     base_system_events_per_peak_hour = max(1, int(30 * scale))  # ~30 System events/peak hour
     base_kerberos_tgt_per_peak_hour = max(1, int(10 * scale))   # TGT requests (higher than logons)
@@ -1495,6 +1500,10 @@ def generate_wineventlog(
             # Ransomware scenario (Security events)
             if ransomware_scenario:
                 security_events.extend(ransomware_scenario.winevent_hour(day, hour, time_utils))
+
+            # Phishing test scenario (4688 browser launch events)
+            if phishing_test_scenario:
+                security_events.extend(phishing_test_scenario.winevent_hour(day, hour, time_utils))
 
             # Exfil scenario (Security events)
             if exfil_scenario:
