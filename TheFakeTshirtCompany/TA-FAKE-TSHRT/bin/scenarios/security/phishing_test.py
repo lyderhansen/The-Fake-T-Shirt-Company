@@ -407,6 +407,7 @@ SourceName=Microsoft-Windows-Security-Auditing
 EventCode=4688
 EventType=0
 Type=Information
+demo_id={self.cfg.demo_id}
 ComputerName={user.device_name}.theFakeTshirtCompany.com
 TaskCategory=Process Creation
 RecordNumber={rng.randint(50000, 99999)}
@@ -433,7 +434,6 @@ Process Information:
 \tCreator Process ID:\t0x{parent_pid:X}
 \tCreator Process Name:\tC:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE
 \tProcess Command Line:\t"{browser}" "{self.cfg.sim_url}"
-demo_id={self.cfg.demo_id}
 """
             events.append(event)
 

@@ -483,9 +483,10 @@ class DeadLetterPricingScenario:
                         "supplier_cost_change",
                         "dynamic_pricing_adjustment",
                     ]),
-                    "demo_id": self.cfg.demo_id,
                 }
             }
+            if self.demo_id_enabled:
+                event["demo_id"] = self.cfg.demo_id
             events.append(event)
 
         return events

@@ -275,6 +275,7 @@ SourceName=Microsoft-Windows-Security-Auditing
 EventCode=4688
 EventType=0
 Type=Information
+demo_id={self.cfg.demo_id}
 ComputerName={hostname}.theFakeTshirtCompany.com
 TaskCategory=Process Creation
 RecordNumber={random.randint(50000, 99999)}
@@ -301,7 +302,6 @@ Process Information:
 \tCreator Process ID:\t0x{parent_process_id:X}
 \tCreator Process Name:\tC:\\Windows\\explorer.exe
 \tProcess Command Line:\t"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "{self.cfg.phishing_attachment}"
-demo_id={self.cfg.demo_id}
 """
 
     def _winevent_4688_dropper(self, ts: datetime, hostname: str) -> str:
@@ -316,6 +316,7 @@ SourceName=Microsoft-Windows-Security-Auditing
 EventCode=4688
 EventType=0
 Type=Information
+demo_id={self.cfg.demo_id}
 ComputerName={hostname}.theFakeTshirtCompany.com
 TaskCategory=Process Creation
 RecordNumber={random.randint(50000, 99999)}
@@ -342,7 +343,6 @@ Process Information:
 \tCreator Process ID:\t0x{parent_process_id:X}
 \tCreator Process Name:\tC:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE
 \tProcess Command Line:\t"{self.cfg.malware_path}" -silent -connect
-demo_id={self.cfg.demo_id}
 """
 
     def _winevent_4697(self, ts: datetime, hostname: str) -> str:
@@ -355,6 +355,7 @@ SourceName=Microsoft-Windows-Security-Auditing
 EventCode=4697
 EventType=0
 Type=Information
+demo_id={self.cfg.demo_id}
 ComputerName={hostname}.theFakeTshirtCompany.com
 TaskCategory=Security System Extension
 RecordNumber={random.randint(50000, 99999)}
@@ -373,7 +374,6 @@ Service Information:
 \tService Type:\t\t0x10
 \tService Start Type:\t2
 \tService Account:\t\tLocalSystem
-demo_id={self.cfg.demo_id}
 """
 
     def _winevent_4625(self, ts: datetime, target_ip: str) -> str:
@@ -386,6 +386,7 @@ SourceName=Microsoft-Windows-Security-Auditing
 EventCode=4625
 EventType=0
 Type=Information
+demo_id={self.cfg.demo_id}
 ComputerName={self.cfg.target_hostname}.theFakeTshirtCompany.com
 TaskCategory=Logon
 RecordNumber={random.randint(50000, 99999)}
@@ -414,7 +415,6 @@ Network Information:
 \tWorkstation Name:\t{self.cfg.target_hostname}
 \tSource Network Address:\t{self.cfg.target_ip}
 \tSource Port:\t\t{random.randint(49152, 65535)}
-demo_id={self.cfg.demo_id}
 """
 
     def _winevent_1116(self, ts: datetime, hostname: str) -> str:
@@ -427,6 +427,7 @@ SourceName=Microsoft-Windows-Windows Defender
 EventCode=1116
 EventType=0
 Type=Warning
+demo_id={self.cfg.demo_id}
 ComputerName={hostname}.theFakeTshirtCompany.com
 TaskCategory=Malware Detection
 RecordNumber={random.randint(50000, 99999)}
@@ -445,7 +446,6 @@ Message=Microsoft Defender Antivirus has detected malware or other potentially u
 \tAction Status:\t\tSuccess
 \tAdditional Actions Required:\tNo additional actions required
 \tUser:\t\t\tFAKETSHIRTCO\\{self.cfg.target_user}
-demo_id={self.cfg.demo_id}
 """
 
     # =========================================================================

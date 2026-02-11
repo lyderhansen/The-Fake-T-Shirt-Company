@@ -242,7 +242,7 @@ def generate_order_created(order_id: str, tshirtcid: str, customer_id: str,
 
     # Only add demo_id when scenario actually affects this event
     if effect["has_effect"]:
-        event["body"]["demo_id"] = scenario
+        event["demo_id"] = scenario
 
     return _sb_maybe_inject_transient(event)
 
@@ -301,7 +301,7 @@ def generate_payment_processed(order_id: str, tshirtcid: str, customer_id: str,
 
     # Only add demo_id when scenario actually affects this event
     if effect["has_effect"]:
-        event["body"]["demo_id"] = scenario
+        event["demo_id"] = scenario
 
     return _sb_maybe_inject_transient(event)
 
@@ -357,7 +357,7 @@ def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
 
     # Only add demo_id when scenario actually affects this event
     if effect["has_effect"]:
-        event["body"]["demo_id"] = scenario
+        event["demo_id"] = scenario
 
     return _sb_maybe_inject_transient(event)
 
@@ -409,7 +409,7 @@ def generate_shipment_created(order_id: str, tshirtcid: str, customer_id: str,
 
     # Only add demo_id when scenario actually affects this event
     if effect["has_effect"]:
-        event["body"]["demo_id"] = scenario
+        event["demo_id"] = scenario
 
     return _sb_maybe_inject_transient(event)
 
@@ -457,7 +457,7 @@ def generate_shipment_dispatched(order_id: str, tshirtcid: str, customer_id: str
 
     # Only add demo_id when scenario actually affects this event
     if effect["has_effect"]:
-        event["body"]["demo_id"] = scenario
+        event["demo_id"] = scenario
 
     return _sb_maybe_inject_transient(event)
 

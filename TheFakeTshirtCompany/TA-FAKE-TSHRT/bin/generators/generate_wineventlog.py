@@ -43,6 +43,37 @@ def get_record_number() -> int:
     return RECORD_NUMBER
 
 
+def _insert_demo_id(event: str, demo_id: str) -> str:
+    """Insert demo_id field after the Type=<xyz> line in a WinEventLog event.
+
+    Moves demo_id from the bottom of the event to just after the Type= line,
+    making it easier to spot in Splunk and consistent with field ordering.
+
+    Before: ...Type=Information\\nComputerName=...\\n...demo_id=exfil\\n
+    After:  ...Type=Information\\ndemo_id=exfil\\nComputerName=...\\n...
+    """
+    if not demo_id:
+        return event
+
+    tag = f"demo_id={demo_id}\n"
+
+    # Find "Type=" line and insert demo_id after it
+    lines = event.split("\n")
+    result = []
+    inserted = False
+    for line in lines:
+        result.append(line)
+        if not inserted and line.startswith("Type="):
+            result.append(f"demo_id={demo_id}")
+            inserted = True
+
+    if not inserted:
+        # Fallback: append at end if no Type= line found
+        result.append(f"demo_id={demo_id}")
+
+    return "\n".join(result)
+
+
 def event_4624(base_date: str, day: int, hour: int, minute: int, second: int,
                computer: str, user: str, logon_type: int, source_ip: str) -> str:
     """Generate successful logon event (4624)."""
@@ -413,7 +444,7 @@ Process Information:
 \tProcess Command Line:\t{command_line}
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -452,7 +483,7 @@ Group:
 \tGroup Domain:\t\tFAKETSHIRTCO
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -494,7 +525,7 @@ Additional Information:
 \tFailure Code:\t\t0x0
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -533,7 +564,7 @@ Target Account:
 \tAccount Domain:\t\tFAKETSHIRTCO
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -593,7 +624,7 @@ Changed Attributes:
 \tLogon Hours:\t\t-
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -648,7 +679,7 @@ Additional Information:
 \tCaller Computer Name:\t{caller_computer}
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -701,7 +732,7 @@ Additional Information:
 \tPre-Authentication Type:\t15
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -738,7 +769,7 @@ Source Workstation:\t{workstation}
 Error Code:\t{error_code}
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -775,7 +806,7 @@ Task Information:
 \tTask Content:\t\t{task_content}
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -812,7 +843,7 @@ Keywords=Classic
 Message={message}
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -1281,7 +1312,7 @@ Keywords=Classic
 Message={message}
 """
     if demo_id:
-        event += f"demo_id={demo_id}\n"
+        event = _insert_demo_id(event, demo_id)
     return event
 
 
@@ -1582,12 +1613,12 @@ def format_scenario_event(base_date: str, day: int, hour: int, event_dict: dict,
                           event_dict.get("source_ip", "10.10.30.50"),
                           event_dict.get("reason", "Unknown user name or bad password."))
         if demo_id:
-            event += f"demo_id={demo_id}\n"
+            event = _insert_demo_id(event, demo_id)
         return event
     elif event_id == 4672:
         event = event_4672(base_date, day, hour, minute, second, computer, user)
         if demo_id:
-            event += f"demo_id={demo_id}\n"
+            event = _insert_demo_id(event, demo_id)
         return event
     elif event_id == 4688:
         return event_4688(base_date, day, hour, minute, second, computer, user,
@@ -1649,7 +1680,7 @@ Keywords=Audit Success
 Message={event_dict.get('message', 'Security event')}
 """
         if demo_id:
-            event += f"demo_id={demo_id}\n"
+            event = _insert_demo_id(event, demo_id)
         return event
 
 

@@ -424,8 +424,19 @@ def _wrap_kv_event(header: str, message_label: str,
     """
     body = "\n".join(f"{line}" for line in message_lines)
     event = f"{header}\nMessage={message_label}\n{body}"
+    # Insert demo_id after Type= line in the header
     if demo_id:
-        event += f"\ndemo_id={demo_id}"
+        lines = event.split("\n")
+        result = []
+        inserted = False
+        for line in lines:
+            result.append(line)
+            if not inserted and line.startswith("Type="):
+                result.append(f"demo_id={demo_id}")
+                inserted = True
+        if not inserted:
+            result.append(f"demo_id={demo_id}")
+        event = "\n".join(result)
     return event
 
 

@@ -4,6 +4,34 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-12 ~01:30 UTC -- Fix demo_id placement in ServiceBus + WinEventLog/Sysmon
+
+### Summary
+
+Two field placement fixes:
+
+1. **ServiceBus**: `demo_id` moved from inside `body` object to top-level JSON (was `body.demo_id`, now `demo_id`). Affects `generate_servicebus.py` -- 5 occurrences.
+
+2. **WinEventLog + Sysmon**: `demo_id` moved from bottom of multiline events to immediately after the `Type=<xyz>` line. This makes it visible early in the event header rather than buried at the end. Affects:
+   - `generate_wineventlog.py`: New `_insert_demo_id()` helper function, replaced 14 append patterns
+   - `generate_sysmon.py`: Updated `_wrap_kv_event()` to insert after `Type=` line
+   - `ransomware_attempt.py`: Moved `demo_id=` in 5 f-string templates
+   - `phishing_test.py`: Moved `demo_id=` in 1 f-string template
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_servicebus.py` | Changed `event["body"]["demo_id"]` to `event["demo_id"]` (5 occurrences) |
+| `bin/generators/generate_wineventlog.py` | Added `_insert_demo_id()` helper, replaced 14 append patterns |
+| `bin/generators/generate_sysmon.py` | Updated `_wrap_kv_event()` to insert demo_id after Type= line |
+| `bin/scenarios/security/ransomware_attempt.py` | Moved demo_id from end to after Type= in 5 templates |
+| `bin/scenarios/security/phishing_test.py` | Moved demo_id from end to after Type= in 1 template |
+| `bin/scenarios/ops/dead_letter_pricing.py` | Moved demo_id from body to top-level in DLQ events |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
 ## 2026-02-12 ~00:30 UTC -- Implement phishing_test scenario (Days 21-23)
 
 ### Summary
