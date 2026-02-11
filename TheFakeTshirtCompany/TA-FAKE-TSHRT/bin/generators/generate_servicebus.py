@@ -27,6 +27,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
 from shared.time_utils import date_add
+from scenarios.registry import expand_scenarios
+from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
 
 # =============================================================================
 # CONFIGURATION
@@ -126,6 +128,15 @@ def get_scenario_effect(scenario: str, day: int, hour: int) -> dict:
     elif scenario == "firewall_misconfig":
         if day == 6 and 10 <= hour < 12:
             failure_rate = 80
+            has_effect = True
+
+    elif scenario == "dead_letter_pricing":
+        # Handled by DeadLetterPricingScenario object (see _dead_letter_scenario)
+        # This branch is for orders that arrive via registry with scenario tag
+        if day == 15 and 8 <= hour < 13:
+            dlq_rates = {8: 15, 9: 40, 10: 40, 11: 30, 12: 10}
+            failure_rate = dlq_rates.get(hour, 0)
+            delay_mult = 200 if hour < 12 else 150
             has_effect = True
 
     return {"delay_mult": delay_mult, "failure_rate": failure_rate, "has_effect": has_effect}
@@ -479,10 +490,17 @@ def generate_servicebus_logs(
     # Order registry path (created by generate_access.py)
     registry_path = get_output_path("web", "order_registry.json")
 
+    # Initialize dead_letter_pricing scenario if active
+    active_scenarios = expand_scenarios(scenarios)
+    dead_letter_scenario = None
+    if "dead_letter_pricing" in active_scenarios:
+        dead_letter_scenario = DeadLetterPricingScenario(demo_id_enabled=True)
+
     if not quiet:
         print("=" * 70, file=sys.stderr)
         print(f"  ServiceBus Event Generator (Python)", file=sys.stderr)
         print(f"  Reading from: {registry_path}", file=sys.stderr)
+        print(f"  Scenarios: {', '.join(active_scenarios) if active_scenarios else 'none'}", file=sys.stderr)
         print(f"  Output: {output_path}", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
 
@@ -557,6 +575,20 @@ def generate_servicebus_logs(
             all_events.append(generate_dead_letter_event(
                 order_id, tshirtcid, customer_id, session_id, ts, dlq_event_type, seq_num))
             seq_num += 1
+
+    # Generate price update DLQ events for dead_letter_pricing scenario
+    if dead_letter_scenario:
+        for hour in range(8, 13):  # 08:00-12:59 on scenario day
+            base_ts = date_add(start_date, dead_letter_scenario.cfg.start_day)
+            base_ts_str = base_ts.strftime("%Y-%m-%dT%H:%M:%SZ")
+            dlq_events = dead_letter_scenario.generate_price_update_dlq_events(
+                dead_letter_scenario.cfg.start_day, hour, base_ts_str)
+            all_events.extend(dlq_events)
+            seq_num += len(dlq_events)
+        if not quiet:
+            dlq_scenario_count = sum(1 for e in all_events
+                                     if e.get("body", {}).get("eventType") == "PriceUpdateFailed")
+            print(f"  [ServiceBus] Dead letter pricing: {dlq_scenario_count} PriceUpdateFailed events", file=sys.stderr)
 
     # Sort by enqueuedTimeUtc
     all_events.sort(key=lambda x: x["enqueuedTimeUtc"])

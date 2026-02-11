@@ -35,6 +35,7 @@ from scenarios.registry import expand_scenarios
 from scenarios.ops.cpu_runaway import CpuRunawayScenario
 from scenarios.ops.memory_leak import MemoryLeakScenario
 from scenarios.ops.disk_filling import DiskFillingScenario
+from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
 
 # =============================================================================
 # PRODUCTS (imported from products.py)
@@ -657,6 +658,11 @@ def generate_access_logs(
     if "firewall_misconfig" in active_scenarios:
         firewall_misconfig_scenario = FirewallMisconfigScenario(demo_id_enabled=True)
 
+    # Initialize dead_letter_pricing scenario
+    dead_letter_scenario = None
+    if "dead_letter_pricing" in active_scenarios:
+        dead_letter_scenario = DeadLetterPricingScenario(demo_id_enabled=True)
+
     if not quiet:
         print("=" * 70, file=sys.stderr)
         print(f"  Web Access Log Generator (Python)", file=sys.stderr)
@@ -717,6 +723,14 @@ def generate_access_logs(
                     error_rate = max(error_rate, rate)
                     response_mult = max(response_mult, int(mult * 100))
                     demo_id = "firewall_misconfig"  # Primary cause, overrides ops scenarios
+
+            # Dead Letter Pricing - checkout errors from stale prices
+            if dead_letter_scenario:
+                should_error, rate, mult = dead_letter_scenario.access_should_error(day, hour)
+                if should_error:
+                    error_rate = max(error_rate, rate)
+                    response_mult = max(response_mult, int(mult * 100))
+                    demo_id = demo_id or "dead_letter_pricing"
 
             if is_ssl_outage:
                 # During outage: generate SSL error events instead of normal sessions

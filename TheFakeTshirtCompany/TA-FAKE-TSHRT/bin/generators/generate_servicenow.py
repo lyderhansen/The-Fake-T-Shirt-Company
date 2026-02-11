@@ -403,6 +403,42 @@ SCENARIO_INCIDENTS = {
             },
         ],
     },
+    "dead_letter_pricing": {
+        "days": [15, 15, 15],  # Day 16 (0-indexed): 3 incidents/updates throughout the day
+        "hours": [9, 11, 13],  # 09:00 auto-alert, 11:30 escalation, 13:30 post-incident
+        "incidents": [
+            {
+                "short": "ServiceBus dead-letter queue threshold exceeded",
+                "category": "Infrastructure",
+                "subcategory": "Middleware",
+                "priority": 3,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Application Support",
+                "description": "Automated alert: ServiceBus dead-letter queue 'prices-queue' exceeded 500 messages. Consumer service 'servicebus-price-consumer' is not running. Price update messages are accumulating.",
+                "close_notes": "Consumer crashed due to OutOfMemoryException at 08:00. Systemd auto-restart failed (start-limit-hit). Manually restarted at 12:00. DLQ drained by 12:30.",
+            },
+            {
+                "short": "Customer complaints - incorrect product pricing on web store",
+                "category": "Business",
+                "subcategory": "E-Commerce",
+                "priority": 2,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Application Support",
+                "description": "Multiple customer reports of pricing discrepancies on theFakeTshirtCompany.com. Some products showing lower prices than expected, others showing higher. Checkout errors increasing. Revenue impact confirmed.",
+                "close_notes": "Root cause: ServiceBus price update consumer crash caused web store to serve stale cached prices. 42 products affected. Revenue impact estimated at $500-800. Consumer restarted, prices corrected.",
+            },
+            {
+                "short": "Post-incident: ServiceBus consumer crash root cause analysis",
+                "category": "Infrastructure",
+                "subcategory": "Middleware",
+                "priority": 3,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Application Support",
+                "description": "Post-incident review for DLQ pricing incident. Need to identify root cause of consumer crash and implement preventive measures.",
+                "close_notes": "Root cause: memory leak in PriceUpdateConsumer.ProcessMessageAsync when processing bulk price updates. Fix: added message batching (max 50/batch), circuit breaker pattern, and DLQ count alerting at 100 messages. Deployed hotfix v2.4.1.",
+            },
+        ],
+    },
     "disk_filling": {
         "days": [2, 3, 4],  # Day 3 (warning @ 75%), Day 4 (critical @ 88%), Day 5 (emergency @ 96%)
         "incidents": [
@@ -649,7 +685,7 @@ SCENARIO_CHANGES = {
         }],
     },
     "disk_filling": {
-        "day": 3,  # Day 4 — proactive change
+        "day": 3,  # Day 4 -- proactive change
         "changes": [{
             "short": "Increase disk allocation on MON-ATL-01",
             "type": "standard", "category": "Infrastructure", "risk": "Low", "impact": 3,
@@ -660,7 +696,26 @@ SCENARIO_CHANGES = {
             ),
             "close_notes": (
                 "Disk expansion completed. /var extended from 200GB to 300GB. "
-                "Note: Usage continued to climb — separate investigation needed."
+                "Note: Usage continued to climb -- separate investigation needed."
+            ),
+        }],
+    },
+    "dead_letter_pricing": {
+        "day": 15,  # Day 16 -- consumer restart
+        "changes": [{
+            "short": "Emergency: Restart ServiceBus price update consumer on WEB-01",
+            "type": "emergency", "category": "Application", "risk": "Moderate", "impact": 2,
+            "cmdb_ci": "WEB-01", "assignment_group": "Application Support",
+            "description": (
+                "ServiceBus price update consumer crashed at 08:00 due to "
+                "OutOfMemoryException. Systemd auto-restart failed. Dead-letter "
+                "queue at 620 messages. Manual restart and DLQ replay required."
+            ),
+            "close_notes": (
+                "Consumer manually restarted at 12:00. DLQ replay completed by "
+                "12:30 (620 messages processed, 0 errors). All product prices "
+                "verified against catalog. 43 prices corrected. Hotfix v2.4.1 "
+                "deployed with message batching and circuit breaker."
             ),
         }],
     },
@@ -1429,7 +1484,7 @@ def generate_scenario_changes(base_date: datetime, day: int, scenarios: str) -> 
             pass
         elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt"]:
             pass
-        elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling"]:
+        elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling", "dead_letter_pricing"]:
             pass
         elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry"]:
             pass
@@ -1536,7 +1591,7 @@ def generate_scenario_incidents(base_date: datetime, day: int, scenarios: str) -
             pass  # All scenarios enabled
         elif "attack" in scenario_set and scenario_name in ["exfil", "ransomware_attempt"]:
             pass  # Attack category
-        elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling"]:
+        elif "ops" in scenario_set and scenario_name in ["cpu_runaway", "memory_leak", "disk_filling", "dead_letter_pricing"]:
             pass  # Ops category
         elif "network" in scenario_set and scenario_name in ["firewall_misconfig", "certificate_expiry"]:
             pass  # Network category

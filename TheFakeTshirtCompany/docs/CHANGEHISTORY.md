@@ -1,10 +1,65 @@
-# CHANGEHISTORY.md — Change History for TA-FAKE-TSHRT
+# CHANGEHISTORY.md -- Change History for TA-FAKE-TSHRT
 
 This file documents all project changes with date/time, affected files, and description.
 
 ---
 
-## 2026-02-12 ~09:00 UTC — Expand to 31 days + scenario registry + smart day filtering
+## 2026-02-11 ~17:00 UTC -- Implement dead_letter_pricing scenario (Day 16)
+
+### Summary
+
+New ops scenario: ServiceBus dead-letter queue causes wrong product prices on the web store for 4-6 hours on Day 16 (Jan 16). A price update consumer crashes at 08:00, messages pile up in the dead-letter queue, and the web store serves stale cached prices. IT discovers and fixes the issue by 13:00.
+
+### Scenario Timeline
+
+```
+08:00  Price update consumer crashes (OutOfMemoryException)
+08:15  First orders with wrong (stale/cached) prices
+08:30  Checkout error rate increases
+09:00  DLQ alert threshold hit -> ServiceNow P3 auto-created
+11:00  IT investigates, finds dead-letter queue full
+11:30  ServiceNow escalated to P2
+12:00  Consumer restarted, DLQ replay begins
+12:30  Prices corrected, DLQ drained
+13:00  Full recovery, normal operations
+```
+
+### Price Error Types
+
+42 of 72 products affected (~58%), with 4 error types:
+- Stale discount not removed (40%): price 15-30% too low
+- Stale price increase not applied (30%): price 10-20% too low
+- Currency rounding error (20%): price 5-15% too high
+- Double discount applied (10%): price 35-50% too low
+
+### Files Created
+
+- `bin/scenarios/ops/dead_letter_pricing.py` -- New scenario class with DeadLetterPricingConfig dataclass. Methods: `is_active()`, `get_demo_id()`, `get_wrong_price()`, `get_price_error_type()`, `get_revenue_impact()`, `get_dlq_rate()`, `access_should_error()`, `servicebus_should_deadletter()`, `generate_price_update_dlq_events()`, `get_resolution_events()`
+
+### Files Modified
+
+- `bin/scenarios/ops/__init__.py` -- Added DeadLetterPricingScenario + Config exports
+- `bin/scenarios/registry.py` -- Set `implemented=True` for dead_letter_pricing
+- `bin/generators/generate_servicebus.py` -- Added dead_letter_pricing to `get_scenario_effect()`, initialized scenario, generates PriceUpdateFailed DLQ events during scenario window
+- `bin/generators/generate_access.py` -- Added DeadLetterPricingScenario import/init, injects checkout errors (5-15% rate, 1.3-1.8x response time) during scenario hours
+- `bin/generators/generate_orders.py` -- Applies wrong prices to affected products during scenario, adds `originalPrice`, `priceErrorType`, `wrong_price`, `revenue_impact` fields
+- `bin/generators/generate_servicenow.py` -- Added 3 incident templates (DLQ threshold alert, customer complaints, post-incident RCA) and emergency change request (consumer restart)
+
+### Verification (--days=17, --scenarios=dead_letter_pricing, --test)
+
+| Source | Events | Scenario-specific |
+|--------|--------|-------------------|
+| access | 337,400 | 5,801 with demo_id, 102 HTTP 500 errors |
+| orders | 26,769 | 305 orders with wrong prices, $5,730 revenue impact |
+| servicebus | 27,967 | 49 PriceUpdateFailed DLQ events, 67 total DeadLettered |
+| servicenow | 1,764 | 1 incident (5 lifecycle events), 1 change request (7 lifecycle events) |
+
+Backward compatibility: `--days=14` correctly skips dead_letter_pricing (starts Day 16).
+Implemented scenarios: 8 (was 7).
+
+---
+
+## 2026-02-12 ~09:00 UTC -- Expand to 31 days + scenario registry + smart day filtering
 
 ### Changes
 
@@ -52,7 +107,7 @@ D11-12:  CPU runaway (cpu_runaway)
 D11-13:  Exfiltration (exfil)
 D12:     Certificate expiry (certificate_expiry)
 D14:     Incident response (exfil)
-D16:     Dead-letter pricing [PLANNED]
+D16:     Dead-letter pricing (dead_letter_pricing)
 D18-19:  DDoS volumetric [PLANNED]
 D21-23:  Internal phishing test [PLANNED]
 D24-31:  Baseline traffic only

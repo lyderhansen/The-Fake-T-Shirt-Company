@@ -33,6 +33,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
 from shared.time_utils import date_add
 from shared.products import PRODUCTS, get_random_product
+from scenarios.registry import expand_scenarios
+from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
 
 # =============================================================================
 # CONFIGURATION
@@ -264,13 +266,18 @@ def add_seconds(ts: datetime, seconds: int) -> datetime:
     return ts + timedelta(seconds=seconds)
 
 
-def generate_order_events(registry_entry: Dict) -> List[Dict]:
+def generate_order_events(registry_entry: Dict,
+                          dead_letter_scenario: Optional['DeadLetterPricingScenario'] = None) -> tuple:
     """Generate separate events for each order status change.
 
     Instead of one event with statusHistory, generates 5 separate events:
     - created, payment_confirmed, processing, shipped, delivered
 
-    Returns list of events to be sorted and written to output.
+    Args:
+        registry_entry: Order registry entry from order_registry.json
+        dead_letter_scenario: Optional scenario object for price error injection
+
+    Returns: (events, region, total) tuple
     """
     order_id = registry_entry["order_id"]
     customer_id = registry_entry["customer_id"]
@@ -293,32 +300,50 @@ def generate_order_events(registry_entry: Dict) -> List[Dict]:
     # Items from registry (use actual products from access logs)
     items = []
     subtotal = 0
+    total_revenue_impact = 0.0
+    has_wrong_prices = False
+
+    # Check if dead_letter_pricing scenario applies to this order
+    day = (dt - datetime(dt.year, dt.month, 1)).days
+    hour = dt.hour
+    is_dead_letter_order = (scenario == "dead_letter_pricing"
+                            and dead_letter_scenario is not None)
 
     if products:
         for p in products:
             # Get full product info from PRODUCTS list (Product dataclass objects)
             product_info = next((prod for prod in PRODUCTS if prod.slug == p["slug"]), None)
-            if product_info:
-                items.append({
-                    "sku": p["slug"],
-                    "name": product_info.name,
-                    "category": product_info.category,
-                    "unitPrice": p["price"],
-                    "quantity": p.get("qty", 1),
-                    "lineTotal": p["price"] * p.get("qty", 1)
-                })
-                subtotal += p["price"] * p.get("qty", 1)
-            else:
-                # Fallback if product not found
-                items.append({
-                    "sku": p["slug"],
-                    "name": p["slug"].replace("-", " ").title(),
-                    "category": "unknown",
-                    "unitPrice": p["price"],
-                    "quantity": p.get("qty", 1),
-                    "lineTotal": p["price"] * p.get("qty", 1)
-                })
-                subtotal += p["price"] * p.get("qty", 1)
+            qty = p.get("qty", 1)
+            unit_price = p["price"]
+
+            # Apply wrong price if dead_letter_pricing scenario is active
+            original_price = None
+            price_error_type = None
+            if is_dead_letter_order:
+                wrong_price = dead_letter_scenario.get_wrong_price(p["slug"], day, hour)
+                if wrong_price is not None:
+                    original_price = unit_price
+                    unit_price = wrong_price
+                    price_error_type = dead_letter_scenario.get_price_error_type(p["slug"])
+                    total_revenue_impact += dead_letter_scenario.get_revenue_impact(p["slug"], qty)
+                    has_wrong_prices = True
+
+            item_entry = {
+                "sku": p["slug"],
+                "name": product_info.name if product_info else p["slug"].replace("-", " ").title(),
+                "category": product_info.category if product_info else "unknown",
+                "unitPrice": unit_price,
+                "quantity": qty,
+                "lineTotal": unit_price * qty
+            }
+
+            # Add price error fields for affected items
+            if original_price is not None:
+                item_entry["originalPrice"] = original_price
+                item_entry["priceErrorType"] = price_error_type
+
+            items.append(item_entry)
+            subtotal += unit_price * qty
     else:
         # Fallback: use cart_total with generic item
         subtotal = cart_total
@@ -377,6 +402,11 @@ def generate_order_events(registry_entry: Dict) -> List[Dict]:
 
     if scenario and scenario != "none":
         base_event["demo_id"] = scenario
+
+    # Add price error tracking for dead_letter_pricing orders
+    if has_wrong_prices:
+        base_event["wrong_price"] = True
+        base_event["revenue_impact"] = round(total_revenue_impact, 2)
 
     # Check for order failure (only baseline orders, not scenario-tagged)
     failure_type = None
@@ -512,10 +542,17 @@ def generate_orders(
     # Order registry path (created by generate_access.py)
     registry_path = get_output_path("web", "order_registry.json")
 
+    # Initialize dead_letter_pricing scenario if active
+    active_scenarios = expand_scenarios(scenarios)
+    dead_letter_scenario_obj = None
+    if "dead_letter_pricing" in active_scenarios:
+        dead_letter_scenario_obj = DeadLetterPricingScenario(demo_id_enabled=True)
+
     if not quiet:
         print("=" * 70, file=sys.stderr)
         print(f"  Retail Orders Generator (Python)", file=sys.stderr)
         print(f"  Reading from: {registry_path}", file=sys.stderr)
+        print(f"  Scenarios: {', '.join(active_scenarios) if active_scenarios else 'none'}", file=sys.stderr)
         print(f"  Output: {output_path}", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
 
@@ -541,13 +578,15 @@ def generate_orders(
     region_revenue = {"US": 0, "UK": 0, "DE": 0, "FR": 0, "NL": 0, "NO": 0}
     total_revenue = 0
     order_count = 0
+    wrong_price_orders = 0
+    total_revenue_impact = 0.0
     failed_orders = {"payment_declined": 0, "fraud_detected": 0, "address_invalid": 0}
 
     for i, entry in enumerate(order_registry):
         if not quiet and (i + 1) % 100 == 0:
             print(f"  [Orders] Processing {i + 1}/{len(order_registry)}...", file=sys.stderr, end="\r")
 
-        events, region, total = generate_order_events(entry)
+        events, region, total = generate_order_events(entry, dead_letter_scenario_obj)
         all_events.extend(events)
         order_count += 1
 
@@ -557,6 +596,11 @@ def generate_orders(
             if ft and ft in failed_orders:
                 failed_orders[ft] += 1
                 break  # Only count once per order
+
+        # Track wrong-price orders
+        if events and events[0].get("wrong_price"):
+            wrong_price_orders += 1
+            total_revenue_impact += events[0].get("revenue_impact", 0)
 
         region_counts[region] += 1
         region_revenue[region] += total
@@ -583,6 +627,10 @@ def generate_orders(
             for ftype, fcount in failed_orders.items():
                 if fcount > 0:
                     print(f"    {ftype}: {fcount} ({fcount * 100 // order_count}%)", file=sys.stderr)
+        if wrong_price_orders > 0:
+            print(f"\n  Dead Letter Pricing:", file=sys.stderr)
+            print(f"    Wrong-price orders: {wrong_price_orders}", file=sys.stderr)
+            print(f"    Revenue impact: ${total_revenue_impact:,.2f} (positive = loss)", file=sys.stderr)
         print(f"\n  By Region:", file=sys.stderr)
         for region in ["US", "UK", "DE", "FR", "NL", "NO"]:
             count = region_counts[region]

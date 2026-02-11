@@ -108,7 +108,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         start_day=15,
         end_day=15,
         server="WEB-01",
-        implemented=False
+        implemented=True
     ),
 
     # Network scenarios
