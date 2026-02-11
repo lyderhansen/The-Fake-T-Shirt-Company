@@ -497,6 +497,105 @@ Additional Information:
     return event
 
 
+def event_4724(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, admin_user: str, target_user: str,
+               demo_id: str = None) -> str:
+    """Generate password reset attempt event (4724).
+
+    An attempt was made to reset an account's password.
+    Logged on domain controllers when an admin resets a user password.
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    event = f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4724
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=User Account Management
+RecordNumber={record}
+Keywords=Audit Success
+Message=An attempt was made to reset an account's password.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-500
+\tAccount Name:\t\t{admin_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Target Account:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{target_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
+def event_4738(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, admin_user: str, target_user: str,
+               changed_attributes: str = "PasswordLastSet",
+               demo_id: str = None) -> str:
+    """Generate user account changed event (4738).
+
+    A user account was changed. Logged when account properties are modified,
+    including password changes triggered by admin reset.
+    """
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    event = f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4738
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=User Account Management
+RecordNumber={record}
+Keywords=Audit Success
+Message=A user account was changed.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-500
+\tAccount Name:\t\t{admin_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Target Account:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{target_user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+
+Changed Attributes:
+\tSAM Account Name:\t-
+\tDisplay Name:\t\t-
+\tUser Principal Name:\t-
+\tHome Directory:\t\t-
+\tHome Drive:\t\t-
+\tScript Path:\t\t-
+\tProfile Path:\t\t-
+\tUser Workstations:\t-
+\tPassword Last Set:\t{ts}
+\tAccount Expires:\t\t-
+\tPrimary Group ID:\t-
+\tAllowed To Delegate To:\t-
+\tOld UAC Value:\t\t0x210
+\tNew UAC Value:\t\t0x210
+\tUser Account Control:\t-
+\tUser Parameters:\t-
+\tSID History:\t\t-
+\tLogon Hours:\t\t-
+"""
+    if demo_id:
+        event += f"demo_id={demo_id}\n"
+    return event
+
+
 # =============================================================================
 # NEW SECURITY EVENT TEMPLATES (Phase 3)
 # =============================================================================
@@ -1490,6 +1589,15 @@ def format_scenario_event(base_date: str, day: int, hour: int, event_dict: dict,
         return event_4728(base_date, day, hour, minute, second, computer,
                           event_dict.get("admin_user", "it.admin"),
                           user, event_dict.get("group_name", "Domain Admins"),
+                          demo_id)
+    elif event_id == 4724:
+        return event_4724(base_date, day, hour, minute, second, computer,
+                          event_dict.get("admin_user", "it.admin"),
+                          user, demo_id)
+    elif event_id == 4738:
+        return event_4738(base_date, day, hour, minute, second, computer,
+                          event_dict.get("admin_user", "it.admin"),
+                          user, event_dict.get("changed_attributes", "PasswordLastSet"),
                           demo_id)
     elif event_id == 4740:
         return event_4740(base_date, day, hour, minute, second, computer,

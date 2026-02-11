@@ -1242,6 +1242,36 @@ def audit_user_registered_security_info(base_date: str, day: int, hour: int, min
     return json.dumps(event)
 
 
+def audit_delete_authentication_method(base_date: str, day: int, hour: int, minute: int,
+                                       target_user: str,
+                                       method: str = "Authenticator App",
+                                       admin_key: str = "helpdesk",
+                                       demo_id: str = None) -> str:
+    """Generate Admin deleted authentication method for user (MFA reset).
+
+    Logged when an admin removes an authentication method (e.g., Authenticator App)
+    from a user account. This is a key step in MFA bypass attacks.
+    """
+    ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
+    target = {
+        "id": rand_uuid(),
+        "displayName": target_user,
+        "type": "User",
+        "userPrincipalName": f"{target_user}@{TENANT}",
+        "modifiedProperties": [
+            {"displayName": "StrongAuthenticationMethod", "oldValue": method, "newValue": ""},
+            {"displayName": "StrongAuthenticationPhoneAppDetail", "oldValue": "[Redacted]", "newValue": ""}
+        ]
+    }
+    event_str = audit_base(ts, "UserManagement", "Admin deleted authentication method for user",
+                           admin_key, target)
+    if demo_id:
+        event = json.loads(event_str)
+        event["demo_id"] = demo_id
+        return json.dumps(event)
+    return event_str
+
+
 def audit_confirm_user_compromised(base_date: str, day: int, hour: int, minute: int,
                                    target_user: str,
                                    admin_key: str = "sec.admin",

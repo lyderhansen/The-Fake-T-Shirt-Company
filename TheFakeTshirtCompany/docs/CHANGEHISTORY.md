@@ -4,6 +4,51 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-11 ~22:00 UTC — Fix exfil scenario plot hole: credential pivot jessica -> alex
+
+### Problem
+
+The exfil scenario had a plot hole: the attacker compromises jessica.brown (IT Admin, Atlanta) via phishing, then suddenly has access to alex.miller (Finance, Boston) with no log events explaining HOW the credential theft occurred.
+
+### Fix: Password Reset + MFA Reset via IT Admin Privileges
+
+Added 7 new events on Day 6 (Jan 7, 02:15-02:26 UTC) showing the attacker using jessica.brown's IT Admin privileges to pivot to alex.miller:
+
+| Time | Event | Source |
+|------|-------|--------|
+| 02:15 | jessica.brown queries `net group "Finance Department" /domain` | WinEventLog 4688 |
+| 02:16 | jessica.brown runs `Get-ADUser -Filter {Department -eq "Finance"}` | WinEventLog 4688 |
+| 02:22 | jessica.brown resets alex.miller's password | WinEventLog 4724 (NEW event type) |
+| 02:22 | alex.miller account changed (PasswordLastSet) | WinEventLog 4738 (NEW event type) |
+| 02:23 | jessica.brown deletes alex.miller's MFA method | EntraID Audit (NEW function) |
+| 02:25 | alex.miller sign-in from Frankfurt (185.220.101.42) -> SUCCESS | EntraID SignIn |
+| 02:26 | alex.miller registers new Authenticator App (attacker's device) | EntraID Audit |
+
+### New Code
+
+- `generate_wineventlog.py`: Added `event_4724()` (password reset) and `event_4738()` (user account changed) formatters + routing in `format_scenario_event()`
+- `generate_entraid.py`: Added `audit_delete_authentication_method()` function for MFA reset audit events
+- `exfil.py`: Added credential pivot events in `winevent_hour()` (lateral phase, day 6), `entraid_signin_hour()` (day 6, hour 2), and `entraid_audit_hour()` (day 6, hour 2)
+
+### Dashboard Updates
+
+- `scenario_exfil.xml`: Updated 6-column link graph from 24 to 27 rows, adding "AD query Finance Dept (4688)", "Password reset (4724)", "MFA reset + re-register", "Login from Frankfurt (02:25)" nodes in Lateral_Movement/Persistence columns
+- `scenario_exfil_absolute.xml`: Synced from old 3-column (Source/Action/Target) to new 6-column (Recon/Initial_Access/Lateral_Movement/Persistence/Exfiltration/Response) link graph design
+
+### MITRE ATT&CK Coverage Added
+
+- T1098 Account Manipulation (password reset)
+- T1556.006 MFA Modification (MFA reset)
+- T1078.002 Valid Accounts: Domain Accounts (using alex.miller's reset credentials)
+
+### Verification
+
+- Generated with `--sources=wineventlog,entraid --scenarios=exfil --days=14 --test`
+- All 7 events verified in output files with correct timestamps, usernames, and demo_id=exfil tagging
+- Total output: 15,638 events (WinEventLog + EntraID combined)
+
+---
+
 ## 2026-02-11 ~10:00 UTC — Fix Sankey/LinkGraph _raw bug + redesign Attack Journey link graph
 
 ### Bug Fix: `_raw` field in makeresults causes mvexpand failure

@@ -951,6 +951,15 @@ class ExfilScenario:
                     demo_id=demo_id
                 ))
 
+            # Day 6, 02:25: First successful login as alex.miller from threat IP
+            # After password reset + MFA reset, attacker logs in from Frankfurt
+            if day == 6 and hour == 2:
+                events.append(signin_from_threat_ip(
+                    self.time_utils.base_date, day, hour, 25,
+                    self.cfg.comp_user, self.cfg.threat_ip,
+                    success=True, demo_id=demo_id
+                ))
+
         # Persistence (Day 8-10): Off-hours signin activity
         if phase == "persistence":
             # Off-hours signins (late night/early morning)
@@ -998,8 +1007,27 @@ class ExfilScenario:
             audit_add_application, audit_add_service_principal_credentials,
             audit_add_member_to_role, audit_consent_to_application,
             audit_revoke_signin_sessions, audit_confirm_user_compromised,
-            audit_user_registered_security_info
+            audit_user_registered_security_info, audit_delete_authentication_method
         )
+
+        # Lateral Movement — Day 6, 02:23: MFA reset for alex.miller
+        # jessica.brown (compromised IT Admin) deletes alex's MFA, then attacker re-registers
+        if phase == "lateral" and day == 6 and hour == 2:
+            # 02:23 - jessica.brown (compromised) deletes alex's MFA authentication method
+            events.append(audit_delete_authentication_method(
+                self.time_utils.base_date, day, hour, 23,
+                target_user=self.cfg.comp_user,
+                method="Authenticator App",
+                admin_key="jessica.brown",
+                demo_id=demo_id
+            ))
+            # 02:26 - Attacker registers new MFA method on alex's account
+            events.append(audit_user_registered_security_info(
+                self.time_utils.base_date, day, hour, 26,
+                target_user=self.cfg.comp_user,
+                method="Authenticator App",
+                demo_id=demo_id
+            ))
 
         # Persistence phase: Create malicious app and credentials
         if phase == "persistence":
@@ -1329,6 +1357,50 @@ class ExfilScenario:
                         "minute": random.randint(0, 59),
                         "demo_id": demo_id,
                     })
+
+            # Day 6, 02:00-02:30: Credential pivot — jessica resets alex's password
+            # Attacker uses jessica's IT Admin privileges to target Finance users
+            if day == 6 and hour == 2:
+                # 02:15 - Query Finance department members
+                events.append({
+                    "event_id": 4688,
+                    "computer": self.cfg.jessica_ws_hostname,
+                    "user": self.cfg.lateral_user,
+                    "process_name": "C:\\Windows\\System32\\cmd.exe",
+                    "command_line": 'cmd.exe /c net group "Finance Department" /domain',
+                    "minute": 15,
+                    "demo_id": demo_id,
+                })
+                # 02:16 - PowerShell AD query for Finance users with titles
+                events.append({
+                    "event_id": 4688,
+                    "computer": self.cfg.jessica_ws_hostname,
+                    "user": self.cfg.lateral_user,
+                    "process_name": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                    "command_line": 'powershell.exe -c Get-ADUser -Filter {Department -eq "Finance"} -Properties Title,EmailAddress | Select Name,Title,EmailAddress',
+                    "minute": 16,
+                    "demo_id": demo_id,
+                })
+                # 02:22 - Password reset: jessica resets alex's password (Event 4724)
+                events.append({
+                    "event_id": 4724,
+                    "computer": "BOS-DC-01",
+                    "admin_user": self.cfg.lateral_user,
+                    "user": self.cfg.comp_user,
+                    "minute": 22,
+                    "demo_id": demo_id,
+                })
+                # 02:22 - User account changed (Event 4738) — password last set updated
+                events.append({
+                    "event_id": 4738,
+                    "computer": "BOS-DC-01",
+                    "admin_user": self.cfg.lateral_user,
+                    "user": self.cfg.comp_user,
+                    "changed_attributes": "PasswordLastSet",
+                    "minute": 22,
+                    "second": 1,
+                    "demo_id": demo_id,
+                })
 
         # Persistence (Day 8): Privilege escalation
         if phase == "persistence" and day == 8:
