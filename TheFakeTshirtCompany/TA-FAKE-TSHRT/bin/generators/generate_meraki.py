@@ -2930,6 +2930,11 @@ def generate_meraki_logs(
                     mx_events.extend(ransomware_events.get("mx", []))
                     mr_events.extend(ransomware_events.get("mr", []))
 
+                # Ransomware cross-site - BOS MX sees blocked VPN traffic from AUS
+                if include_ransomware and ransomware_scenario and location == "BOS":
+                    crosssite_events = ransomware_scenario.meraki_crosssite_hour(day, hour, time_utils)
+                    mx_events.extend(crosssite_events.get("mx", []))
+
                 # DDoS scenario - IDS alerts and SD-WAN health degradation (Boston only)
                 if include_ddos_attack and ddos_scenario and location == "BOS":
                     ddos_events = ddos_scenario.meraki_hour(day, hour, time_utils)

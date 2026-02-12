@@ -29,7 +29,7 @@ class MemoryLeakConfig:
     total_memory_gb: int = 64
 
     # Timeline (0-indexed days)
-    start_day: int = 6         # Day 7
+    start_day: int = 5         # Day 6 (subtle onset), ramps through Day 7+
     end_day: int = 9           # Day 10 (OOM + restart here)
     oom_day: int = 9           # Day 10 (0-indexed)
     oom_hour: int = 14         # 2 PM
@@ -434,21 +434,26 @@ class MemoryLeakScenario:
 
         Timeline for WEB-01:
         - Day 1-5: Normal (1.0x response time) - before scenario
-        - Day 6: Gradual increase (1.2x response time)
-        - Day 7: Concerning levels (1.5x response time), 3% errors
-        - Day 8: Critical (2.0x response time), 8% errors
-        - Day 9, 00:00-13:59: Pre-OOM (3.0x), 20% errors
-        - Day 9, 14:00-14:04: OOM crash → 80% error rate
-        - Day 9, 14:05+: Server recovering → back to normal
-        - Day 10+: Normal (1.0x response time)
+        - Day 6: Subtle onset (1.05x response time) - barely noticeable
+        - Day 7: Gradual increase (1.2x response time), 0% errors
+        - Day 8: Concerning levels (1.5x response time), 3% errors
+        - Day 9: Critical (2.0x response time), 8% errors
+        - Day 10, 00:00-13:59: Pre-OOM (3.0x), 20% errors
+        - Day 10, 14:00-14:04: OOM crash -> 80% error rate
+        - Day 10, 14:05+: Server recovering -> back to normal
+        - Day 11+: Normal (1.0x response time)
         """
         # Before scenario or after resolution
         if day < self.cfg.start_day or self.is_resolved(day, hour):
             return (False, 0, 1.0)
 
-        # Day 7 (index 6): Gradual increase
+        # Day 6 (index 5): Subtle onset - barely perceptible slowdown
+        if day == 5:
+            return (False, 0, 1.05)
+
+        # Day 7 (index 6): Gradual increase - noticeable slowdown
         if day == 6:
-            return (False, 0, 1.2)
+            return (True, 0, 1.2)
 
         # Day 8 (index 7): Concerning
         if day == 7:

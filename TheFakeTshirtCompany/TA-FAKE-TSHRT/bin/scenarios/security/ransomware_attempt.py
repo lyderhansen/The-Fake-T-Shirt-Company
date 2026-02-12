@@ -57,6 +57,13 @@ class RansomwareAttemptConfig:
         "10.30.30.40",  # amelia.collins (AUS-WS-ACOLLINS01)
     ])
 
+    # Cross-site lateral targets (Boston servers via SD-WAN)
+    crosssite_targets: List[str] = field(default_factory=lambda: [
+        "10.10.20.10",  # DC-BOS-01
+        "10.10.20.20",  # FILE-BOS-01
+        "10.10.20.30",  # SQL-PROD-01
+    ])
+
     # Malware indicators
     malware_name: str = "svchost_update.exe"
     malware_path: str = "C:\\Users\\bwhite\\AppData\\Local\\Temp\\svchost_update.exe"
@@ -149,6 +156,97 @@ class RansomwareAttemptScenario:
                 )
 
         return events
+
+    # =========================================================================
+    # ASA CROSS-SITE EVENTS - Blocked lateral movement to Boston
+    # =========================================================================
+
+    def asa_crosssite_hour(self, day: int, hour: int, time_utils) -> List[str]:
+        """Generate ASA deny events for cross-site lateral movement attempts.
+
+        The ransomware on Brooklyn's machine attempts to reach Boston servers
+        via the SD-WAN tunnel. ASA blocks these as cross-site traffic violations.
+        Only active during the 7-minute attack window (14:08-14:15).
+        """
+        if day != self.cfg.start_day or hour != 14:
+            return []
+
+        events = []
+        lateral_minute = self.cfg.lateral_start[1]   # 14:08
+        isolation_minute = self.cfg.isolation[1]       # 14:15
+
+        # 3 blocked connection attempts to Boston servers (one per target)
+        scan_ports = [445, 3389, 1433]  # SMB, RDP, MSSQL
+        for i, target_ip in enumerate(self.cfg.crosssite_targets):
+            attempt_minute = lateral_minute + random.randint(1, isolation_minute - lateral_minute - 1)
+            attempt_second = random.randint(0, 59)
+            ts = time_utils.ts_syslog(day, hour, attempt_minute, attempt_second)
+
+            conn_id = random.randint(100000, 999999)
+            src_port = random.randint(49152, 65535)
+            target_port = scan_ports[i % len(scan_ports)]
+
+            events.append(
+                f"{ts} FW-EDGE-01 %ASA-4-106023: Deny tcp src "
+                f"inside:{self.cfg.target_ip}/{src_port} dst "
+                f"inside:{target_ip}/{target_port} by access-group "
+                f"\"inside_access_in\" [0x0, 0x0]"
+                f"{self._demo_suffix_syslog()}"
+            )
+
+        return events
+
+    # =========================================================================
+    # MERAKI CROSS-SITE EVENTS - BOS MX sees blocked VPN traffic
+    # =========================================================================
+
+    def meraki_crosssite_hour(self, day: int, hour: int, time_utils) -> dict:
+        """Generate Meraki MX events at BOS for cross-site ransomware traffic.
+
+        MX-BOS-01 sees blocked AutoVPN traffic from Austin attempting to reach
+        Boston servers. These appear as IDS Alert entries on the BOS appliance.
+        Only during the 14:08-14:15 lateral movement window.
+
+        Returns:
+            dict with 'mx' key containing event list (matches meraki_hour format)
+        """
+        if day != self.cfg.start_day or hour != 14:
+            return {"mx": []}
+
+        mx_events = []
+        base_dt = datetime.strptime(time_utils.base_date, "%Y-%m-%d")
+        lateral_minute = self.cfg.lateral_start[1]   # 14:08
+        isolation_minute = self.cfg.isolation[1]       # 14:15
+
+        # MX-BOS-01 detects blocked AutoVPN traffic from Austin
+        for i, target_ip in enumerate(self.cfg.crosssite_targets[:2]):  # 2 alerts
+            attempt_minute = lateral_minute + random.randint(1, isolation_minute - lateral_minute - 1)
+            attempt_ts = datetime(
+                base_dt.year, base_dt.month, base_dt.day,
+                14, attempt_minute, random.randint(0, 30)
+            ) + timedelta(days=day)
+            attempt_iso = attempt_ts.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+            mx_events.append({
+                "ts": attempt_iso,
+                "eventType": "IDS Alert",
+                "deviceMac": "00:18:0A:A0:01:01",  # MX-BOS-01 MAC
+                "deviceName": "MX-BOS-01",
+                "deviceSerial": "MX-BOS-01",
+                "clientMac": self.target_mac,
+                "srcIp": f"{self.cfg.target_ip}:{random.randint(49152, 65535)}",
+                "destIp": f"{target_ip}:445",
+                "protocol": "tcp/ip",
+                "priority": "2",
+                "classification": "3",
+                "blocked": True,
+                "message": "SMB scanning from remote site via AutoVPN - blocked",
+                "signature": "1:2001570:8",
+                "ruleId": "meraki:intrusion/snort/GID/1/SID/2001570",
+                "demo_id": self.cfg.demo_id
+            })
+
+        return {"mx": mx_events}
 
     # =========================================================================
     # EXCHANGE EVENTS - Phishing email

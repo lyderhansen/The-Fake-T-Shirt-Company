@@ -465,6 +465,7 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
     events = []
     phase = get_phase(day)
     alex = USERS.get(COMP_USER)
+    jessica = USERS.get("jessica.brown")  # Initial compromise - lateral movement
 
     if not alex:
         return events
@@ -490,18 +491,20 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
                 events.append(event)
 
     elif phase == "lateral" and 5 <= day <= 7:
-        # Days 5-7: Access other department sites
-        if 10 <= hour <= 16:
+        # Days 5-7: jessica.brown (compromised IT admin) accesses other department sites
+        # Attacker uses jessica's credentials for lateral movement before pivoting to alex
+        if jessica and 10 <= hour <= 16:
             if random.random() < 0.3:  # ~30% chance per eligible hour
                 lateral_sites = [
                     ("HR Portal", "/sites/HRPortal", "HR"),
+                    ("Finance Team", "/sites/FinanceTeam", "Finance"),
                     ("Engineering", "/sites/Engineering", "Engineering"),
                     ("All Company", "/sites/AllCompany", "Executive"),
                 ]
                 site_name, site_slug, dept = random.choice(lateral_sites)
                 event = generate_sharepoint_event(
                     start_date, day, hour,
-                    user=alex, operation="FileDownloaded", demo_id="exfil"
+                    user=jessica, operation="FileDownloaded", demo_id="exfil"
                 )
                 event["ClientIP"] = THREAT_IP
                 event["SiteUrl"] = f"{SP_BASE_URL}{site_slug}"
@@ -530,10 +533,27 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
             event["TargetUserOrGroupType"] = "Guest"
             events.append(event)
 
+        # Data staging: alex.miller uploading Finance docs to personal OneDrive
+        if 13 <= hour <= 17 and random.random() < 0.25:
+            event = generate_onedrive_event(
+                start_date, day, hour,
+                user=alex, operation="FileUploaded", demo_id="exfil"
+            )
+            event["ClientIP"] = THREAT_IP
+            finance_files = _get_files_for_department("Finance")
+            fname, fext = random.choice(finance_files)
+            alex_od = f"{SP_BASE_URL}/personal/alex_miller_{ORG_NAME_LOWER}_com"
+            event["SiteUrl"] = alex_od
+            event["ObjectId"] = f"{alex_od}/Documents/staging/{fname}"
+            event["SourceRelativeUrl"] = "Documents/staging"
+            event["SourceFileName"] = fname
+            event["SourceFileExtension"] = fext
+            events.append(event)
+
     elif phase == "exfil" and 11 <= day <= 13:
         # Days 11-13: Bulk downloads during night (01:00-05:00)
         if 1 <= hour <= 5:
-            # 8-16 downloads per hour = 40-80 per night
+            # SharePoint bulk downloads: 8-16 per hour = 40-80 per night
             count = random.randint(8, 16)
             for _ in range(count):
                 event = generate_sharepoint_event(
@@ -545,6 +565,23 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
                 finance_files = _get_files_for_department("Finance")
                 fname, fext = random.choice(finance_files)
                 event["ObjectId"] = f"{SP_BASE_URL}/sites/FinanceTeam/Shared Documents/{fname}"
+                event["SourceFileName"] = fname
+                event["SourceFileExtension"] = fext
+                events.append(event)
+
+            # OneDrive sync: staged files being synced out (3-6 per hour)
+            od_count = random.randint(3, 6)
+            for _ in range(od_count):
+                event = generate_onedrive_event(
+                    start_date, day, hour,
+                    user=alex, operation="FileSyncDownloadedFull", demo_id="exfil"
+                )
+                event["ClientIP"] = THREAT_IP
+                finance_files = _get_files_for_department("Finance")
+                fname, fext = random.choice(finance_files)
+                alex_od = f"{SP_BASE_URL}/personal/alex_miller_{ORG_NAME_LOWER}_com"
+                event["SiteUrl"] = alex_od
+                event["ObjectId"] = f"{alex_od}/Documents/staging/{fname}"
                 event["SourceFileName"] = fname
                 event["SourceFileExtension"] = fext
                 events.append(event)

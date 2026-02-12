@@ -269,6 +269,7 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
         ts = _fmt_ts(base_date, day, hour, minute, second)
+        demo_id = None  # Set from order_registry scenario tag if applicable
 
         # Pick user and one of their t-codes
         username = _pick_sap_user()
@@ -298,6 +299,10 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
             total = order.get("cart_total", 0)
             cust_id = order.get("customer_id", "CUST-00000")
             details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}"
+            # Carry scenario tag from order_registry (e.g. dead_letter_pricing)
+            order_scenario = order.get("scenario")
+            if order_scenario:
+                demo_id = order_scenario
         elif tcode == "VA02":
             details = random.choice([
                 "Changed delivery date", "Updated quantity",
@@ -393,7 +398,7 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
                 "Number range exhausted",
             ])
 
-        events.append(_sap_event(ts, dialog_type, username, tcode, status, desc, doc_number, details))
+        events.append(_sap_event(ts, dialog_type, username, tcode, status, desc, doc_number, details, demo_id=demo_id))
 
     return events
 

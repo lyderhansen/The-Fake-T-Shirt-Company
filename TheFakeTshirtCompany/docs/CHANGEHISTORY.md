@@ -4,6 +4,75 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-12 ~19:00 UTC -- Phase 6: Quick wins + scenario fixes (5 fixes)
+
+### Fix 1: Memory leak gradual response time slowdown
+
+**Problem**: Day 7 (1.2x multiplier) was **silently ignored** because `generate_access.py` only applied the multiplier when `should_error=True`. Day 6 had no access log impact at all despite being within scenario range.
+
+| File | Change |
+|------|--------|
+| `bin/scenarios/ops/memory_leak.py` | Changed `start_day` from 6 to 5. Added Day 6 (index 5) case returning `(False, 0, 1.05)`. Changed Day 7 from `(False, 0, 1.2)` to `(True, 0, 1.2)` so access generator applies multiplier. |
+| `bin/generators/generate_access.py` | Changed condition from `if should_error:` to `if should_error or mult > 1.0:` so response multiplier is applied even without error injection. Only tags `demo_id` when `should_error=True`. |
+| `bin/scenarios/registry.py` | Updated memory_leak `start_day=6` to `start_day=5` |
+
+**Verified**: Day 6 = 1.02x (subtle), Day 7 = 1.19x (was 1.0x!), Day 8 = 1.49x, Day 9 = 2.01x
+
+### Fix 2: SAP scenario tagging from order_registry
+
+**Problem**: `generate_sap.py` accepted `scenarios` parameter but never used it. Orders with `scenario` field in `order_registry.json` were not tagged in SAP output.
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_sap.py` | Initialize `demo_id = None` per loop iteration. Extract `order.get("scenario")` in VA01 block. Pass `demo_id` to `_sap_event()` call. |
+
+**Verified**: 22 SAP VA01 events tagged with `demo_id=dead_letter_pricing` in 31-day run.
+
+### Fix 3: Certificate expiry pre-warning incidents
+
+**Problem**: Certificate expires Day 13 with zero prior warnings. ServiceNow only had Day 12 (0-indexed) outage incidents.
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_servicenow.py` | Added Day 5 and Day 9 to `SCENARIO_INCIDENTS["certificate_expiry"]` days list. Added P4 (7-day warning) and P3 (3-day reminder) incident templates. Updated existing outage close_notes to reference the ignored pre-warnings. |
+
+**Verified**: 3 certificate_expiry incidents across Day 6, Day 10, Day 13 (pre-warnings + outage).
+
+### Fix 4: Office Audit exfil -- jessica.brown in lateral phase + OneDrive staging
+
+**Problem**: Exfil scenario used alex.miller for ALL phases including lateral movement (Days 5-7). Per attack timeline, jessica.brown (compromised IT admin) should be the actor during lateral movement. Also missing OneDrive data staging and sync events.
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_office_audit.py` | Get `jessica.brown` reference. Lateral phase (Days 5-7) now uses `jessica` instead of `alex`. Added Finance to lateral sites. Added OneDrive FileUploaded events in persistence phase (Days 8-10, staging). Added FileSyncDownloadedFull events in exfil phase (Days 11-13, data extraction). |
+
+**Verified**: 284 exfil events. jessica.brown=11 (lateral), alex.miller=273 (persistence+exfil). New operations: FileUploaded (2), FileSyncDownloadedFull (72).
+
+### Fix 5: Ransomware cross-site effects (ASA deny + MX-BOS IDS)
+
+**Problem**: Ransomware scenario only generated Austin events. No cross-site visibility when compromised machine (10.30.30.20) attempted to reach Boston servers via SD-WAN.
+
+| File | Change |
+|------|--------|
+| `bin/scenarios/security/ransomware_attempt.py` | Added `crosssite_targets` to config (DC-BOS-01, FILE-BOS-01, SQL-PROD-01). Added `asa_crosssite_hour()` method (3 ASA Deny events to BOS servers on SMB/RDP/MSSQL). Added `meraki_crosssite_hour()` method (2 MX-BOS-01 IDS alerts for blocked AutoVPN traffic). Both only active during 14:08-14:15 lateral window. |
+| `bin/generators/generate_asa.py` | Added call to `asa_crosssite_hour()` alongside existing `asa_hour()`. |
+| `bin/generators/generate_meraki.py` | Added BOS location block for ransomware cross-site MX events. |
+
+**Verified**: ASA = 3 new Deny events (10.30.30.20 -> DC-BOS-01:445, FILE-BOS-01:3389, SQL-PROD-01:1433). Meraki = 2 new MX-BOS-01 IDS alerts. All within 14:08-14:15 window.
+
+### Verification summary
+
+| Fix | Generator | Events | Status |
+|-----|-----------|--------|--------|
+| 1. Memory leak | access | 270,522 | PASS |
+| 2. SAP tagging | access+orders+sap | 703,403 | PASS |
+| 3. Cert pre-warnings | servicenow | 1,554 | PASS |
+| 4. Office Audit exfil | office_audit | 19,059 | PASS |
+| 5. Ransomware cross-site | asa+meraki | 2,627,043 | PASS |
+| All syntax checks | 9 files | N/A | PASS |
+
+---
+
 ## 2026-02-13 ~08:30 UTC -- ServiceBus: Fix tshirtcid field placement
 
 ### Problem

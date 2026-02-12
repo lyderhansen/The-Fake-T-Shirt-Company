@@ -709,10 +709,11 @@ def generate_access_logs(
             # Memory Leak - web server issues
             if memory_leak_scenario:
                 should_error, rate, mult = memory_leak_scenario.access_should_error(day, hour)
-                if should_error:
+                if should_error or mult > 1.0:
                     error_rate = max(error_rate, rate)
                     response_mult = max(response_mult, int(mult * 100))
-                    demo_id = "memory_leak"
+                    if should_error:
+                        demo_id = "memory_leak"
 
             # Disk Filling - I/O contention
             if disk_filling_scenario:

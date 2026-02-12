@@ -369,9 +369,32 @@ SCENARIO_INCIDENTS = {
         ],
     },
     "certificate_expiry": {
-        "days": [12],  # Day 13 (0-indexed) - certificate expires at midnight
-        "hours": [6, 7],  # 06:00-07:00 when NOC notices and incident created
+        "days": [5, 9, 12],  # Day 6 (7-day warning), Day 10 (3-day warning), Day 13 (outage)
+        "hours": [9, 9, 6],  # Pre-warnings at 09:00, outage discovered at 06:00
         "incidents": [
+            # Pre-warning: 7 days before expiry (low priority, gets ignored)
+            {
+                "short": "SSL certificate expiring in 7 days - *.theFakeTshirtCompany.com",
+                "category": "Infrastructure",
+                "subcategory": "Certificate",
+                "priority": 4,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Network Operations",
+                "description": "Automated certificate monitoring alert: Wildcard SSL certificate for *.theFakeTshirtCompany.com expires on 2026-01-13 00:00 UTC. Certificate issuer: DigiCert. Renewal action required.",
+                "close_notes": "Acknowledged but no action taken. Team assumed renewal was handled by automated process.",
+            },
+            # Pre-warning: 3 days before expiry (moderate priority, still ignored)
+            {
+                "short": "REMINDER: SSL certificate expiring in 3 days - *.theFakeTshirtCompany.com",
+                "category": "Infrastructure",
+                "subcategory": "Certificate",
+                "priority": 3,
+                "cmdb_ci": "WEB-01",
+                "assignment_group": "Network Operations",
+                "description": "Follow-up alert: Wildcard SSL certificate for *.theFakeTshirtCompany.com expires in 3 days (2026-01-13 00:00 UTC). No renewal action has been taken since initial alert on Day 6. Immediate action recommended.",
+                "close_notes": "Ticket auto-resolved after 48 hours with no update. Certificate renewal was not completed.",
+            },
+            # Day 13: Outage - certificate expired
             {
                 "short": "CRITICAL: SSL certificate expired - website down",
                 "category": "Infrastructure",
@@ -380,7 +403,7 @@ SCENARIO_INCIDENTS = {
                 "cmdb_ci": "WEB-01",
                 "assignment_group": "Network Operations",
                 "description": "Wildcard SSL certificate for *.theFakeTshirtCompany.com expired at midnight. Customers unable to access website. All HTTPS connections failing with certificate errors.",
-                "close_notes": "Emergency certificate renewal completed. New wildcard certificate installed on WEB-01 and WEB-02. Services restored at 07:00. Root cause: certificate renewal reminder was missed. Implemented automated monitoring.",
+                "close_notes": "Emergency certificate renewal completed. New wildcard certificate installed on WEB-01 and WEB-02. Services restored at 07:00. Root cause: certificate renewal reminder was missed despite two automated alerts (Day 6 and Day 10). Implemented automated monitoring with escalation.",
             },
             {
                 "short": "Customer complaints - cannot access website",
@@ -393,13 +416,13 @@ SCENARIO_INCIDENTS = {
                 "close_notes": "Related to SSL certificate expiry (parent incident). Certificate renewed, website accessible.",
             },
             {
-                "short": "Implement SSL certificate expiry monitoring",
+                "short": "Implement SSL certificate expiry monitoring with escalation",
                 "category": "Infrastructure",
                 "subcategory": "Certificate",
                 "priority": 3,
                 "assignment_group": "Network Operations",
-                "description": "Post-incident task: Set up automated SSL certificate expiry monitoring with 30/14/7 day alerts to prevent future outages.",
-                "close_notes": "Implemented certificate monitoring using Nagios/PRTG. Alerts configured for 30, 14, 7, and 1 day before expiry. Added to runbook.",
+                "description": "Post-incident task: Two automated alerts (7-day and 3-day) were generated but ignored. Set up escalation chain to ensure certificate renewals are completed before expiry.",
+                "close_notes": "Implemented certificate monitoring with automatic escalation: 30/14/7-day alerts to team, 3/1-day alerts to manager, auto-page on-call if not renewed 12 hours before expiry. Added to runbook.",
             },
         ],
     },

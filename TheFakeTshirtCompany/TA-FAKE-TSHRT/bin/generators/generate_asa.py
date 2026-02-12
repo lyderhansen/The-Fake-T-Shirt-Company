@@ -1063,6 +1063,7 @@ def generate_asa_logs(
 
             if include_ransomware:
                 all_events.extend(_ransomware_scenario.asa_hour(day, hour, _time_utils))
+                all_events.extend(_ransomware_scenario.asa_crosssite_hour(day, hour, _time_utils))
 
             if include_cert_expiry:
                 all_events.extend(_cert_expiry_scenario.asa_hour(day, hour, _time_utils))
