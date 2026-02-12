@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1440 1060" width="1440" height="1060" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <rect x="0" y="0" width="1440" height="1060" fill="#0B0C10"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#45A29E"/></marker>
+    <marker id="arrow-threat" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FF4444"/></marker>
+    <marker id="arrow-mgmt" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FF6B35"/></marker>
+    <marker id="arrow-data" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FFD700"/></marker>
+  </defs>
+
+  <!-- ===== LAYER 1: INTERNET + THREAT (y=10-55) ===== -->
+  <g>
+    <rect x="560" y="10" width="320" height="42" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="1.5"/>
+    <text x="720" y="36" text-anchor="middle" fill="#C5C6C7" font-size="14" font-weight="600">INTERNET</text>
+  </g>
+  <g>
+    <rect x="960" y="10" width="220" height="42" rx="6" fill="#331111" stroke="#FF4444" stroke-width="1.5"/>
+    <text x="1070" y="30" text-anchor="middle" fill="#FF4444" font-size="11" font-weight="700">THREAT ACTOR</text>
+    <text x="1070" y="44" text-anchor="middle" fill="#FF8888" font-size="9">185.220.101.42 | Frankfurt DE</text>
+  </g>
+  <!-- Threat arrow -->
+  <path d="M 960,31 L 880,31" stroke="#FF4444" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-threat)" opacity="0.7"/>
+
+  <!-- ===== LAYER 2: CLOUD SERVICES (y=70-130) ===== -->
+  <rect x="40" y="68" width="1360" height="60" rx="8" fill="none" stroke="#4A90D9" stroke-width="1" stroke-dasharray="6,3" opacity="0.5"/>
+  <text x="60" y="82" fill="#4A90D9" font-size="10" font-weight="600" opacity="0.7">CLOUD SERVICES</text>
+
+  <g>
+    <rect x="60" y="88" width="170" height="32" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="145" y="108" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Cisco Secure Access</text>
+  </g>
+  <g>
+    <rect x="250" y="88" width="140" height="32" rx="5" fill="#1F2833" stroke="#FF9900" stroke-width="1"/>
+    <text x="320" y="108" text-anchor="middle" fill="#FF9900" font-size="10" font-weight="600">AWS</text>
+  </g>
+  <g>
+    <rect x="410" y="88" width="140" height="32" rx="5" fill="#1F2833" stroke="#4285F4" stroke-width="1"/>
+    <text x="480" y="108" text-anchor="middle" fill="#4285F4" font-size="10" font-weight="600">GCP</text>
+  </g>
+  <g>
+    <rect x="570" y="88" width="160" height="32" rx="5" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="650" y="108" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Entra ID / M365</text>
+  </g>
+  <g>
+    <rect x="750" y="88" width="140" height="32" rx="5" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="820" y="108" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Exchange Online</text>
+  </g>
+  <g>
+    <rect x="910" y="88" width="140" height="32" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="980" y="108" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">Cisco Webex</text>
+  </g>
+  <g>
+    <rect x="1070" y="88" width="160" height="32" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="1150" y="108" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Dashboard</text>
+  </g>
+  <g>
+    <rect x="1250" y="88" width="130" height="32" rx="5" fill="#1F2833" stroke="#81B5A1" stroke-width="1"/>
+    <text x="1315" y="108" text-anchor="middle" fill="#81B5A1" font-size="10" font-weight="600">ServiceNow</text>
+  </g>
+
+  <!-- Internet to ASA -->
+  <line x1="720" y1="52" x2="720" y2="148" stroke="#45A29E" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ===== LAYER 3: PERIMETER + DMZ (y=148-220) ===== -->
+  <g>
+    <rect x="590" y="148" width="260" height="46" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="2"/>
+    <text x="720" y="168" text-anchor="middle" fill="#66FCF1" font-size="12" font-weight="700">FW-EDGE-01</text>
+    <text x="720" y="184" text-anchor="middle" fill="#C5C6C7" font-size="9">ASA 5525-X | 203.0.113.1</text>
+  </g>
+
+  <!-- DMZ box -->
+  <g>
+    <rect x="180" y="148" width="280" height="46" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="210" y="164" fill="#45A29E" font-size="9" font-weight="600">DMZ 172.16.1.0/24</text>
+    <rect x="200" y="170" width="100" height="20" rx="3" fill="#2a1a10" stroke="#E95420" stroke-width="1"/>
+    <text x="250" y="184" text-anchor="middle" fill="#E95420" font-size="9">WEB-01</text>
+    <rect x="320" y="170" width="100" height="20" rx="3" fill="#2a1a10" stroke="#E95420" stroke-width="1"/>
+    <text x="370" y="184" text-anchor="middle" fill="#E95420" font-size="9">WEB-02</text>
+  </g>
+  <!-- ASA to DMZ -->
+  <path d="M 590,171 L 460,171" stroke="#45A29E" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Catalyst Center (management plane) -->
+  <g>
+    <rect x="1020" y="148" width="220" height="46" rx="6" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="1130" y="168" text-anchor="middle" fill="#FF6B35" font-size="11" font-weight="600">Catalyst Center</text>
+    <text x="1130" y="183" text-anchor="middle" fill="#C5C6C7" font-size="9">CATCENTER-BOS-01 | 10.10.10.40</text>
+  </g>
+
+  <!-- ===== LAYER 4: SD-WAN BACKBONE (y=218-248) ===== -->
+  <rect x="40" y="218" width="1360" height="30" rx="4" fill="#0d1a0d" stroke="#78BE20" stroke-width="1" stroke-dasharray="6,3" opacity="0.6"/>
+  <text x="60" y="237" fill="#78BE20" font-size="10" font-weight="600" opacity="0.7">SD-WAN BACKBONE (AutoVPN Mesh)</text>
+
+  <!-- ASA down to backbone -->
+  <line x1="720" y1="194" x2="720" y2="218" stroke="#45A29E" stroke-width="1.5"/>
+
+  <!-- Catalyst Center management lines - orthogonal through backbone -->
+  <path d="M 1130,194 L 1130,210" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+
+  <!-- ===== LAYER 5: THREE SITE COLUMNS (y=268-800) ===== -->
+
+  <!-- BOSTON HQ -->
+  <rect x="40" y="268" width="420" height="530" rx="8" fill="#111822" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="250" y="290" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">BOSTON HQ</text>
+  <text x="250" y="304" text-anchor="middle" fill="#888" font-size="10">10.10.x.x | 93 employees | 3 floors</text>
+
+  <!-- BOS: SD-WAN -->
+  <g>
+    <rect x="60" y="316" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="152" y="334" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-BOS-01/02 (HA)</text>
+    <text x="152" y="348" text-anchor="middle" fill="#888" font-size="8">MX450 | SD-WAN Hub</text>
+  </g>
+
+  <!-- BOS: Catalyst Switches -->
+  <g>
+    <rect x="260" y="316" width="185" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="352" y="334" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst 9300 x2</text>
+    <text x="352" y="348" text-anchor="middle" fill="#888" font-size="8">C9300-48UXM | Distribution</text>
+  </g>
+
+  <!-- BOS: ACI Fabric -->
+  <g>
+    <rect x="60" y="366" width="185" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="152" y="384" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">ACI Fabric</text>
+    <text x="152" y="398" text-anchor="middle" fill="#888" font-size="8">2 Spine + 4 Leaf | APIC</text>
+  </g>
+
+  <!-- BOS: Meraki Access -->
+  <g>
+    <rect x="260" y="366" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="352" y="384" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Access</text>
+    <text x="352" y="398" text-anchor="middle" fill="#888" font-size="8">16 AP | 5 SW | 8 CAM | 5 SNS</text>
+  </g>
+
+  <!-- BOS: Servers -->
+  <rect x="60" y="418" width="385" height="200" rx="5" fill="#0d1117" stroke="#333" stroke-width="1"/>
+  <text x="72" y="436" fill="#66FCF1" font-size="11" font-weight="600">Servers (10)</text>
+
+  <g>
+    <rect x="72" y="444" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="115" y="462" text-anchor="middle" fill="#0078D4" font-size="9">DC-BOS-01</text>
+  </g>
+  <g>
+    <rect x="166" y="444" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="209" y="462" text-anchor="middle" fill="#0078D4" font-size="9">DC-BOS-02</text>
+  </g>
+  <g>
+    <rect x="260" y="444" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="303" y="462" text-anchor="middle" fill="#0078D4" font-size="9">FILE-BOS-01</text>
+  </g>
+  <g>
+    <rect x="354" y="444" width="82" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1.5"/><text x="395" y="462" text-anchor="middle" fill="#0078D4" font-size="9">SQL-PROD-01</text>
+  </g>
+  <g>
+    <rect x="72" y="480" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="115" y="498" text-anchor="middle" fill="#0078D4" font-size="9">APP-BOS-01</text>
+  </g>
+  <g>
+    <rect x="166" y="480" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="209" y="498" text-anchor="middle" fill="#E95420" font-size="9">SAP-PROD-01</text>
+  </g>
+  <g>
+    <rect x="260" y="480" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="303" y="498" text-anchor="middle" fill="#E95420" font-size="9">SAP-DB-01</text>
+  </g>
+  <g>
+    <rect x="354" y="480" width="82" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="395" y="498" text-anchor="middle" fill="#E95420" font-size="8">BASTION-01</text>
+  </g>
+  <g>
+    <rect x="72" y="516" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/><text x="115" y="534" text-anchor="middle" fill="#E95420" font-size="9">WEB-01</text>
+  </g>
+  <g>
+    <rect x="166" y="516" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="209" y="534" text-anchor="middle" fill="#E95420" font-size="9">WEB-02</text>
+  </g>
+
+  <!-- BOS: Webex -->
+  <g>
+    <rect x="60" y="630" width="185" height="36" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="152" y="652" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">10 Webex Rooms</text>
+  </g>
+
+  <!-- BOS: Key Users -->
+  <g>
+    <rect x="260" y="630" width="185" height="36" rx="5" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="352" y="648" text-anchor="middle" fill="#C5C6C7" font-size="10">alex.miller</text>
+    <text x="352" y="660" text-anchor="middle" fill="#FF8888" font-size="8">Primary Target (exfil)</text>
+  </g>
+
+  <!-- BOS: Meraki sensor counts -->
+  <text x="72" y="560" fill="#888" font-size="9">Windows: 6 | Linux: 4</text>
+  <text x="72" y="574" fill="#888" font-size="9">DMZ: WEB-01/02 | Mgmt: BASTION-01</text>
+
+  <!-- ATLANTA HUB -->
+  <rect x="540" y="268" width="360" height="530" rx="8" fill="#111822" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="720" y="290" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">ATLANTA HUB</text>
+  <text x="720" y="304" text-anchor="middle" fill="#888" font-size="10">10.20.x.x | 43 employees | 2 floors</text>
+
+  <!-- ATL: SD-WAN -->
+  <g>
+    <rect x="560" y="316" width="160" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="640" y="334" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-ATL-01</text>
+    <text x="640" y="348" text-anchor="middle" fill="#888" font-size="8">MX250 | SD-WAN Spoke</text>
+  </g>
+
+  <!-- ATL: Catalyst -->
+  <g>
+    <rect x="735" y="316" width="150" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="810" y="334" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst 9300</text>
+    <text x="810" y="348" text-anchor="middle" fill="#888" font-size="8">C9300-48UXM | Distribution</text>
+  </g>
+
+  <!-- ATL: ACI Mini-Pod -->
+  <g>
+    <rect x="560" y="366" width="160" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="640" y="384" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">ACI Mini-Pod</text>
+    <text x="640" y="398" text-anchor="middle" fill="#888" font-size="8">1 Spine + 2 Leaf</text>
+  </g>
+
+  <!-- ATL: Meraki Access -->
+  <g>
+    <rect x="735" y="366" width="150" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="810" y="384" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Access</text>
+    <text x="810" y="398" text-anchor="middle" fill="#888" font-size="8">12 AP | 4 SW | 7 CAM | 7 SNS</text>
+  </g>
+
+  <!-- ATL: Servers -->
+  <rect x="560" y="418" width="325" height="110" rx="5" fill="#0d1117" stroke="#333" stroke-width="1"/>
+  <text x="572" y="436" fill="#66FCF1" font-size="11" font-weight="600">Servers (3)</text>
+
+  <g>
+    <rect x="572" y="444" width="93" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="618" y="462" text-anchor="middle" fill="#0078D4" font-size="9">DC-ATL-01</text>
+  </g>
+  <g>
+    <rect x="672" y="444" width="100" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="722" y="462" text-anchor="middle" fill="#0078D4" font-size="8">BACKUP-ATL-01</text>
+  </g>
+  <g>
+    <rect x="780" y="444" width="93" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/><text x="826" y="462" text-anchor="middle" fill="#E95420" font-size="9">MON-ATL-01</text>
+  </g>
+  <text x="572" y="496" fill="#888" font-size="9">Windows: 2 | Linux: 1</text>
+
+  <!-- ATL: Webex -->
+  <g>
+    <rect x="560" y="540" width="160" height="36" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="640" y="562" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">7 Webex Rooms</text>
+  </g>
+
+  <!-- ATL: Key User -->
+  <g>
+    <rect x="735" y="540" width="150" height="36" rx="5" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="810" y="558" text-anchor="middle" fill="#C5C6C7" font-size="10">jessica.brown</text>
+    <text x="810" y="570" text-anchor="middle" fill="#FF8888" font-size="8">Initial Compromise (exfil)</text>
+  </g>
+
+  <!-- AUSTIN OFFICE -->
+  <rect x="980" y="268" width="420" height="530" rx="8" fill="#111822" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="1190" y="290" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">AUSTIN OFFICE</text>
+  <text x="1190" y="304" text-anchor="middle" fill="#888" font-size="10">10.30.x.x | 39 employees | 1 floor</text>
+
+  <!-- AUS: SD-WAN -->
+  <g>
+    <rect x="1000" y="316" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="1092" y="334" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-AUS-01</text>
+    <text x="1092" y="348" text-anchor="middle" fill="#888" font-size="8">MX85 | SD-WAN Spoke</text>
+  </g>
+
+  <!-- AUS: Meraki Access -->
+  <g>
+    <rect x="1200" y="316" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="1292" y="334" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Access</text>
+    <text x="1292" y="398" text-anchor="middle" fill="#888" font-size="8">8 AP | 2 SW | 4 CAM | 2 SNS</text>
+  </g>
+
+  <!-- AUS: No servers -->
+  <rect x="1000" y="380" width="385" height="50" rx="5" fill="#0d1117" stroke="#333" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="1192" y="400" text-anchor="middle" fill="#888" font-size="11">No Local Servers</text>
+  <text x="1192" y="416" text-anchor="middle" fill="#666" font-size="9">All services via SD-WAN to Boston/Atlanta</text>
+
+  <!-- AUS: Webex -->
+  <g>
+    <rect x="1000" y="450" width="185" height="36" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="1092" y="472" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">4 Webex Rooms</text>
+  </g>
+
+  <!-- AUS: Key User -->
+  <g>
+    <rect x="1200" y="450" width="185" height="36" rx="5" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="1292" y="468" text-anchor="middle" fill="#C5C6C7" font-size="10">brooklyn.white</text>
+    <text x="1292" y="480" text-anchor="middle" fill="#FF8888" font-size="8">Ransomware Target</text>
+  </g>
+
+  <!-- AUS: No Catalyst/ACI note -->
+  <text x="1192" y="520" text-anchor="middle" fill="#666" font-size="9" font-style="italic">No Catalyst switches or ACI (branch office)</text>
+
+  <!-- ===== CONNECTIONS (Orthogonal routing via backbone) ===== -->
+
+  <!-- Backbone to Boston (vertical stub) -->
+  <path d="M 250,248 L 250,268" stroke="#45A29E" stroke-width="1.5"/>
+  <!-- Backbone to Atlanta (vertical stub) -->
+  <path d="M 720,248 L 720,268" stroke="#45A29E" stroke-width="1.5"/>
+  <!-- Backbone to Austin (vertical stub) -->
+  <path d="M 1190,248 L 1190,268" stroke="#45A29E" stroke-width="1.5"/>
+
+  <!-- AutoVPN mesh lines (dashed green, horizontal in backbone) -->
+  <line x1="250" y1="233" x2="720" y2="233" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+  <line x1="720" y1="233" x2="1190" y2="233" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+
+  <!-- Catalyst Center management to switches (orthogonal) -->
+  <path d="M 1130,194 L 1130,210 L 352,210 L 352,316" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" marker-end="url(#arrow-mgmt)"/>
+  <path d="M 1130,210 L 810,210 L 810,316" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" marker-end="url(#arrow-mgmt)"/>
+
+</svg>

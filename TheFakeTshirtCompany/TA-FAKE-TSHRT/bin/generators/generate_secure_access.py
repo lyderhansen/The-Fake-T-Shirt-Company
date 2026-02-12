@@ -433,9 +433,14 @@ def _generate_dns_event(start_date: str, day: int, hour: int,
 
     # Identity
     most_granular, identities, id_type = _get_user_identity(user)
-    internal_ip = user.ip_address
     tunnel = TUNNEL_DEVICES[user.location]
     external_ip = tunnel["wan_ip"]
+
+    # 15% of VPN-enabled users show VPN pool IP (remote workers)
+    if user.vpn_enabled and random.random() < 0.15:
+        internal_ip = user.vpn_ip
+    else:
+        internal_ip = user.ip_address
 
     # Domain selection
     if domain_override:
@@ -538,10 +543,15 @@ def _generate_proxy_event(start_date: str, day: int, hour: int,
     if user is None:
         user = USERS[random.choice(USER_KEYS)]
 
-    internal_ip = user.ip_address
     tunnel = TUNNEL_DEVICES[user.location]
     external_ip = tunnel["wan_ip"]
     tunnel_label = tunnel["label"]
+
+    # 15% of VPN-enabled users show VPN pool IP (remote workers)
+    if user.vpn_enabled and random.random() < 0.15:
+        internal_ip = user.vpn_ip
+    else:
+        internal_ip = user.ip_address
 
     # URL selection
     if url_override:

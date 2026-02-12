@@ -2,16 +2,16 @@
 """
 Certificate Expiry Scenario - SSL certificate expires causing service outage.
 
-Timeline (Day 12):
-    Day 12, 00:00: Wildcard SSL certificate for *.theFakeTshirtCompany.com expires
-    Day 12, 00:00-06:00: HTTPS connections fail, customers see SSL errors
-                         (6-hour gap: no cert monitoring in place — this is the scenario's
+Timeline (Day 13):
+    Day 13, 00:00: Wildcard SSL certificate for *.theFakeTshirtCompany.com expires
+    Day 13, 00:00-06:00: HTTPS connections fail, customers see SSL errors
+                         (6-hour gap: no cert monitoring in place -- this is the scenario's
                          lesson. NOC only alerted at shift change from customer complaints.)
-    Day 12, 06:15: NOC engineer notices alerts, investigates
-    Day 12, 06:30: Root cause identified - expired certificate
-    Day 12, 06:45: Emergency certificate renewal initiated
-    Day 12, 07:00: New certificate installed, services restored
-    Day 12, 07:00+: Traffic normalizes
+    Day 13, 06:15: NOC engineer notices alerts, investigates
+    Day 13, 06:30: Root cause identified - expired certificate
+    Day 13, 06:45: Emergency certificate renewal initiated
+    Day 13, 07:00: New certificate installed, services restored
+    Day 13, 07:00+: Traffic normalizes
 
 Affected services:
     - Main website (theFakeTshirtCompany.com)
@@ -36,7 +36,7 @@ class CertificateExpiryConfig:
     demo_id: str = "certificate_expiry"
 
     # Timeline (0-indexed days)
-    day: int = 11          # Day 12 (0-indexed)
+    day: int = 12          # Day 13 (0-indexed)
     expiry_hour: int = 0   # 00:00 - cert expires at midnight
     detection_hour: int = 6  # 06:15 - NOC notices
     fix_hour: int = 7      # 07:00 - cert replaced

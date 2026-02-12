@@ -208,7 +208,7 @@ SCENARIO_INCIDENTS = {
         ],
     },
     "memory_leak": {
-        "days": [5, 6, 7, 7, 8],  # Days 6-9 (0-indexed), escalating — scenario ends at day 8 (OOM+restart)
+        "days": [6, 7, 8, 8, 9],  # Days 7-10 (0-indexed), escalating -- scenario ends at day 9 (OOM+restart)
         "incidents": [
             {
                 "short": "Website slow to load",
@@ -273,7 +273,7 @@ SCENARIO_INCIDENTS = {
         ],
     },
     "firewall_misconfig": {
-        "days": [6],  # Day 7 (0-indexed)
+        "days": [5],  # Day 6 (0-indexed)
         "hours": [10, 11, 12],  # 10:00-12:59 — outage 10:20-12:05, resolution at 12:03
         "incidents": [
             {
@@ -369,7 +369,7 @@ SCENARIO_INCIDENTS = {
         ],
     },
     "certificate_expiry": {
-        "days": [11],  # Day 12 (0-indexed) - certificate expires at midnight
+        "days": [12],  # Day 13 (0-indexed) - certificate expires at midnight
         "hours": [6, 7],  # 06:00-07:00 when NOC notices and incident created
         "incidents": [
             {
@@ -1766,7 +1766,7 @@ def generate_servicenow_logs(
     start_date: str = DEFAULT_START_DATE,
     days: int = DEFAULT_DAYS,
     scale: float = DEFAULT_SCALE,
-    scenarios: str = "all",
+    scenarios: str = "none",
     output_file: str = None,
     quiet: bool = False,
 ) -> int:

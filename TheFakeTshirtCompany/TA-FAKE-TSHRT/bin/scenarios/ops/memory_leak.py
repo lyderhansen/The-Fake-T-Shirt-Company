@@ -2,12 +2,12 @@
 """
 Memory Leak Scenario - WEB-01 memory leak causing OOM.
 
-Timeline (Days 6-9, resolved):
-    Day 6:   Gradual increase (55-65% used)
-    Day 7:   Concerning levels (65-75% used), swap starts 2-4GB
-    Day 8:   Critical (80-90% used), swap 8-12GB
-    Day 9:   Pre-OOM climb to 96-99%, OOM crash at 14:00, restart at 14:05
-    Day 10+: Normal after restart (50-55% used)
+Timeline (Days 7-10, resolved):
+    Day 7:   Gradual increase (55-65% used)
+    Day 8:   Concerning levels (65-75% used), swap starts 2-4GB
+    Day 9:   Critical (80-90% used), swap 8-12GB
+    Day 10:  Pre-OOM climb to 96-99%, OOM crash at 14:00, restart at 14:05
+    Day 11+: Normal after restart (50-55% used)
 
 The scenario simulates a memory leak in the nginx/application layer
 that is fixed by restarting the service.
@@ -29,9 +29,9 @@ class MemoryLeakConfig:
     total_memory_gb: int = 64
 
     # Timeline (0-indexed days)
-    start_day: int = 5         # Day 6
-    end_day: int = 8           # Day 9 (OOM + restart here)
-    oom_day: int = 8           # Day 9 (0-indexed)
+    start_day: int = 6         # Day 7
+    end_day: int = 9           # Day 10 (OOM + restart here)
+    oom_day: int = 9           # Day 10 (0-indexed)
     oom_hour: int = 14         # 2 PM
     restart_hour: int = 14     # Service restart at 14:05 (same hour)
 
@@ -40,12 +40,12 @@ class MemoryLeakScenario:
     """
     Memory Leak Scenario with resolution.
 
-    Timeline (Days 6-9):
-        Day 6:   Gradual increase (55-65% used)
-        Day 7:   Concerning levels (65-75% used), swap starts
-        Day 8:   Critical (80-90% used), heavy swap
-        Day 9:   OOM crash at 14:00 → restart at 14:05 → resolved
-        Day 10+: Normal after restart (50-55% used)
+    Timeline (Days 7-10):
+        Day 7:   Gradual increase (55-65% used)
+        Day 8:   Concerning levels (65-75% used), swap starts
+        Day 9:   Critical (80-90% used), heavy swap
+        Day 10:  OOM crash at 14:00 -> restart at 14:05 -> resolved
+        Day 11+: Normal after restart (50-55% used)
     """
 
     def __init__(self, config: Optional[MemoryLeakConfig] = None, demo_id_enabled: bool = True):
@@ -67,12 +67,12 @@ class MemoryLeakScenario:
         # Customer IP prefixes
         self.customer_prefixes = ["174.63.88", "71.222.45", "108.28.163", "98.45.12", "73.189.44"]
 
-        # Memory progression per day (0-indexed, scenario starts at day 5)
+        # Memory progression per day (0-indexed, scenario starts at day 6)
         self._memory_progression = {
-            5: (55, 65),   # Day 6 - gradual increase
-            6: (65, 75),   # Day 7 - concerning
-            7: (80, 90),   # Day 8 - critical
-            8: (96, 99),   # Day 9 - pre-OOM (before crash)
+            6: (55, 65),   # Day 7 - gradual increase
+            7: (65, 75),   # Day 8 - concerning
+            8: (80, 90),   # Day 9 - critical
+            9: (96, 99),   # Day 10 - pre-OOM (before crash)
         }
 
         # Post-restart: normal memory usage
@@ -124,13 +124,13 @@ class MemoryLeakScenario:
         """Get memory variation range for a day."""
         if day < self.cfg.start_day:
             return 5
-        if day == 5:
-            return 10
         if day == 6:
             return 10
         if day == 7:
             return 10
         if day == 8:
+            return 10
+        if day == 9:
             return 3  # Tight range pre-OOM
         return 5
 
@@ -257,10 +257,10 @@ class MemoryLeakScenario:
         if self.is_resolved(day, hour):
             return 0
 
-        if day == 6:  # Day 7
+        if day == 7:  # Day 8
             return random.randint(3, 8)
 
-        if day == 7:  # Day 8
+        if day == 8:  # Day 9
             return random.randint(8, 15)
 
         if day == self.cfg.oom_day:
@@ -298,15 +298,15 @@ class MemoryLeakScenario:
         if day < self.cfg.start_day or self.is_resolved(day, hour):
             return 0
 
-        if day == 5:  # Day 6
+        if day == 6:  # Day 7
             # No swap yet
             return 0
 
-        if day == 6:  # Day 7
+        if day == 7:  # Day 8
             # Starting to swap (2-4 GB)
             return random.randint(2097152, 4194304)
 
-        if day == 7:  # Day 8
+        if day == 8:  # Day 9
             # Heavy swapping (8-12 GB)
             return random.randint(8388608, 12582912)
 
@@ -328,11 +328,11 @@ class MemoryLeakScenario:
         """Get number of timeout events for this day."""
         if day < self.cfg.start_day:
             return 0
-        if day == 5:  # Day 6
-            return 30
         if day == 6:  # Day 7
-            return 80
+            return 30
         if day == 7:  # Day 8
+            return 80
+        if day == 8:  # Day 9
             return 150
         if day == self.cfg.oom_day:  # Day 9
             return 250
@@ -446,19 +446,19 @@ class MemoryLeakScenario:
         if day < self.cfg.start_day or self.is_resolved(day, hour):
             return (False, 0, 1.0)
 
-        # Day 6 (index 5): Gradual increase
-        if day == 5:
+        # Day 7 (index 6): Gradual increase
+        if day == 6:
             return (False, 0, 1.2)
 
-        # Day 7 (index 6): Concerning
-        if day == 6:
+        # Day 8 (index 7): Concerning
+        if day == 7:
             return (True, 3, 1.5)
 
-        # Day 8 (index 7): Critical
-        if day == 7:
+        # Day 9 (index 8): Critical
+        if day == 8:
             return (True, 8, 2.0)
 
-        # Day 9 (index 8): OOM day
+        # Day 10 (index 9): OOM day
         if day == self.cfg.oom_day:
             if hour < self.cfg.oom_hour:
                 # Pre-OOM: climbing to crash
@@ -512,13 +512,13 @@ class MemoryLeakScenario:
             return "resolved"
         if day < self.cfg.start_day:
             return "normal"
-        if day == 5:
-            return "warning"
         if day == 6:
             return "warning"
         if day == 7:
-            return "critical"
+            return "warning"
         if day == 8:
+            return "critical"
+        if day == 9:
             return "emergency"
         return "normal"
 
@@ -533,7 +533,7 @@ class MemoryLeakScenario:
         print()
         print("Memory progression:")
 
-        for day in range(5, 11):  # Show day 6 through day 11
+        for day in range(6, 12):  # Show day 7 through day 12
             for hour in [0, 12, 14, 15, 23] if day == self.cfg.oom_day else [12]:
                 low, high = self.get_memory_base(day, hour)
                 swap_kb = self.get_swap_kb(self.cfg.host, day, hour)

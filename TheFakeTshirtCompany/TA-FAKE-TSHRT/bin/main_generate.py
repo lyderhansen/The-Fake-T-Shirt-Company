@@ -175,20 +175,26 @@ Output Modes:
   --test            Generate to output/tmp/ only — safe for testing, no move to output/
 
 Source Groups:
-  all           - All sources (19 generators)
-  cloud         - aws, gcp, entraid
-  network       - asa, meraki
+  all           - All sources (24 generators)
+  cloud         - aws, gcp, entraid, secure_access
+  network       - asa, meraki, catalyst, aci
+  cisco         - asa, meraki, secure_access, catalyst, aci, catalyst_center
+  campus        - catalyst, catalyst_center
+  datacenter    - aci
   windows       - wineventlog, perfmon, mssql, sysmon
   linux         - linux
   web           - access
+  office        - office_audit, exchange
   email         - exchange
   retail        - orders, servicebus
   collaboration - webex, webex_ta, webex_api
   itsm          - servicenow
+  erp           - sap
 
 Individual Sources:
-  asa, aws, gcp, entraid, exchange, access, wineventlog, linux,
-  perfmon, mssql, sysmon, orders, servicebus, meraki, webex, webex_ta, webex_api, servicenow
+  asa, aws, gcp, entraid, exchange, office_audit, access, wineventlog, linux,
+  perfmon, mssql, sysmon, orders, servicebus, meraki, webex, webex_ta, webex_api,
+  servicenow, sap, secure_access, catalyst, aci, catalyst_center
 
 Scenarios:
   all              - All implemented scenarios (default)
@@ -209,7 +215,7 @@ Scenarios:
                          Sources: exchange, entraid, wineventlog, office_audit, servicenow
 
   Ops scenarios (--scenarios=ops or individual names):
-    memory_leak        - Application memory leak causing OOM (Day 6-9, Linux WEB-01)
+    memory_leak        - Application memory leak causing OOM (Day 7-10, Linux WEB-01)
                          Sources: perfmon, linux, asa, access, servicenow
     cpu_runaway        - SQL backup job stuck causing DB failures (Day 11-12)
                          Sources: perfmon, wineventlog, asa, access, servicenow, mssql
@@ -219,9 +225,9 @@ Scenarios:
                          Sources: servicebus, orders, access, servicenow
 
   Network scenarios (--scenarios=network or individual names):
-    firewall_misconfig - Firewall rule misconfiguration causing outage (Day 7)
+    firewall_misconfig - Firewall rule misconfiguration causing outage (Day 6)
                          Sources: asa, servicenow
-    certificate_expiry - SSL certificate expires causing 7-hour outage (Day 12, 00:00-07:00)
+    certificate_expiry - SSL certificate expires causing 7-hour outage (Day 13, 00:00-07:00)
                          Sources: asa, access, servicenow
     ddos_attack        - Volumetric HTTP flood targeting web servers (Day 18-19)
                          Sources: asa, meraki, access, linux, perfmon, servicenow

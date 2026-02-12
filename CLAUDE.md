@@ -278,13 +278,13 @@ All scenarios add `demo_id=<scenario>` field for easy filtering in Splunk.
 | exfil | attack | 1-14 | Alex Miller (Finance, Boston) |
 | ransomware_attempt | attack | 8-9 | Brooklyn White (Sales, Austin) |
 | phishing_test | attack | 21-23 | All employees (IT awareness campaign) |
-| memory_leak | ops | 6-9 | WEB-01 server |
+| memory_leak | ops | 7-10 | WEB-01 server |
 | cpu_runaway | ops | 11-12 | SQL-PROD-01 server |
 | disk_filling | ops | 1-5 | MON-ATL-01 server |
 | dead_letter_pricing | ops | 16 | WEB-01 (ServiceBus) |
 | ddos_attack | network | 18-19 | WEB-01 server |
-| firewall_misconfig | network | 7 | FW-EDGE-01 |
-| certificate_expiry | network | 12 | FW-EDGE-01 |
+| firewall_misconfig | network | 6 | FW-EDGE-01 |
+| certificate_expiry | network | 13 | FW-EDGE-01 |
 
 Registry is in `bin/scenarios/registry.py`.
 
@@ -302,7 +302,7 @@ Attack path: Atlanta (initial compromise) → Boston (primary target)
 | Persistence | 8-10 | Backdoor creation, data staging | Boston (BOS) |
 | Exfiltration | 11-14 | Data theft via cloud storage | Boston → External |
 
-Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit, secure_access, catalyst, aci
+Affected sources: asa, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit, servicenow, mssql, sysmon, secure_access, catalyst, aci
 
 **ransomware_attempt** - Ransomware detected and stopped (Days 8-9)
 - Target: Brooklyn White (Austin, Sales Engineer)
@@ -316,7 +316,7 @@ Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
 
 ### Ops Scenarios
 
-**memory_leak** - Application memory leak causing OOM (Days 6-9)
+**memory_leak** - Application memory leak causing OOM (Days 7-10)
 - Target: WEB-01 (Linux)
 - Gradual memory consumption → OOM crash on Day 9 at 14:00, manual restart
 - Affected sources: perfmon, linux, asa, access, catalyst_center
@@ -344,12 +344,12 @@ Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
 - Botnet-driven HTTP flood causing service degradation
 - Affected sources: asa, meraki, access, perfmon, linux, servicenow, catalyst, aci, catalyst_center
 
-**firewall_misconfig** - ACL misconfiguration (Day 7)
+**firewall_misconfig** - ACL misconfiguration (Day 6)
 - Duration: 10:15-12:05 (2-hour outage)
 - Cause: Human error (network admin)
 - Affected sources: asa, servicenow, catalyst
 
-**certificate_expiry** - SSL certificate expiration (Day 12)
+**certificate_expiry** - SSL certificate expiration (Day 13)
 - Duration: 00:00-07:00 (7 hours)
 - Outcome: Preventable outage
 - Affected sources: asa, access, servicenow
@@ -371,6 +371,7 @@ Affected sources: asa, meraki, entraid, aws, gcp, perfmon, wineventlog, exchange
 | Austin (AUS) | 10.30.x.x | .30.0/24 | - | .60.0/24 | .70.0/24 |
 
 - DMZ (Boston): 172.16.1.0/24
+- VPN Pool: 10.250.0.0/24 (deterministic per-user via SHA256 hash, range .10-.209)
 - SD-WAN: AutoVPN mesh between all sites
 
 ### Cloud

@@ -4,6 +4,264 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~05:00 UTC -- Phase 4 #17: VPN IP-pool correlation + #18: User-location filtering
+
+### Problem
+
+**#17 - VPN IP-pool correlation:**
+ASA VPN pool IPs were generated randomly at runtime (`init_vpn_pool()` created 2-3 random IPs per user per run). These IPs existed only in ASA generator memory -- Secure Access had no way to know what VPN IP a user was assigned, making cross-generator VPN session correlation impossible.
+
+**#18 - User-location filtering:**
+`get_random_user()` in WinEventLog picked from all 175 users regardless of server location. This produced unrealistic events like Austin users (10.30.x.x) appearing in `DC-BOS-01` logon events, or Boston users in `DC-ATL-01` Kerberos tickets.
+
+### Changes
+
+**#17: Deterministic VPN IPs via company.py**
+
+| File | Change |
+|------|--------|
+| `bin/shared/company.py` | Added `vpn_ip` property to `User` class -- deterministic via SHA256 hash of username, producing stable IPs in `10.250.0.{10-209}` range. Only meaningful for users with `vpn_enabled=True`. |
+| `bin/generators/generate_asa.py` | Replaced random VPN pool with deterministic IPs. `init_vpn_pool()` now sets `user.vpn_ip` as assigned IP (kept random external "connecting from" IPs). VPN session events (722022/722023) now emit deterministic 10.250.0.x addresses. |
+| `bin/generators/generate_secure_access.py` | Added 15% VPN IP injection for both DNS and Proxy events. When a VPN-enabled user generates an event and `random.random() < 0.15`, `InternalIp` uses `user.vpn_ip` instead of desk IP. Simulates remote workers routing through VPN tunnel. |
+
+**#18: Location-based user filtering in WinEventLog**
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_wineventlog.py` | Added `_location_for_server()` helper (ATL servers -> "ATL", all others -> "BOS"). Updated 5 `get_random_user()` call sites to filter by server location: `generate_baseline_logons`, `generate_baseline_failed_logons`, `generate_baseline_kerberos`, `generate_baseline_ntlm_validation`, `generate_baseline_account_lockouts`. Pattern: pick DC/computer first, then `get_random_user(location=_location_for_server(computer))`. |
+
+### Verification
+
+```
+ASA VPN test (928 events):
+  - 122 unique VPN users, 91 unique IPs
+  - ALL IPs in 10.250.0.x subnet
+
+Secure Access DNS (42,642 events):
+  - 4,325 events with VPN IP (10.1%)
+  - 122 unique VPN users
+
+Secure Access Proxy (13,650 events):
+  - 1,457 events with VPN IP (10.7%)
+
+Cross-generator VPN correlation:
+  - 122 users in both ASA and Secure Access
+  - 122/122 matching IPs (100% correlation)
+
+WinEventLog location accuracy (112 DC auth events):
+  - DC-ATL-01: 38/38 correct (10.20.x.x) -- 100%
+  - DC-BOS-01/02: 74/74 correct (10.10.x.x) -- 100%
+
+All 4 modified files pass Python syntax check.
+```
+
+---
+
+## 2026-02-13 ~03:00 UTC -- Scenario timeline rescheduling + revenue impact improvement
+
+### Problem
+
+1. Multiple ops/network scenarios overlapped on the same days, making it hard to isolate individual scenarios in Splunk demos
+2. Web store revenue (orders) was not visibly affected by most scenarios -- only cpu_runaway and certificate_expiry showed clear impact
+
+### Timeline changes (0-indexed -> 1-indexed days)
+
+| Scenario | Old days | New days | Reason |
+|----------|----------|----------|--------|
+| memory_leak | 6-9 | **7-10** | Moved +1 day to avoid overlap with firewall_misconfig |
+| firewall_misconfig | 7 | **6** | Moved -1 day to fill gap after disk_filling |
+| certificate_expiry | 12 | **13** | Moved +1 day to avoid overlap with cpu_runaway |
+
+New non-overlapping timeline (ops/network only):
+- Day 1-5: disk_filling (MON-ATL-01)
+- Day 6: firewall_misconfig (FW-EDGE-01)
+- Day 7-10: memory_leak (WEB-01, OOM crash Day 10)
+- Day 11-12: cpu_runaway (SQL-PROD-01)
+- Day 13: certificate_expiry (FW-EDGE-01)
+- Day 16: dead_letter_pricing (WEB-01)
+- Day 18-19: ddos_attack (WEB-01)
+
+Attack scenarios (exfil d1-14, ransomware d8-9, phishing d21-23) may overlap with ops/network -- this is intentional.
+
+### Revenue impact improvement
+
+Added session volume reduction in `generate_access.py` during high-error periods. Previously only individual page requests got error codes, but session count stayed constant. Now:
+- error_rate >= 40%: sessions reduced to 30% (severe outage)
+- error_rate >= 20%: sessions reduced to 50% (major issues)
+- error_rate >= 8%: sessions reduced to 75% (moderate degradation)
+
+Combined with per-page error rates, this creates clearly visible revenue drops:
+- cpu_runaway Day 11: **48% fewer orders** (145 vs ~280 normal)
+- memory_leak OOM Day 10: **visible crash at 14:00** with near-zero orders hours 3-10
+- certificate_expiry Day 13: **zero orders 00:00-06:00** (SSL outage, already worked)
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `bin/scenarios/registry.py` | Updated start_day/end_day for memory_leak (6-9), firewall_misconfig (5), certificate_expiry (12) |
+| `bin/scenarios/ops/memory_leak.py` | Shifted all day references +1 (config, memory progression dict, conditionals, severity, print_timeline) |
+| `bin/scenarios/network/firewall_misconfig.py` | Changed day from 6 to 5, updated docstring |
+| `bin/scenarios/network/certificate_expiry.py` | Changed day from 11 to 12, updated docstring |
+| `bin/generators/generate_servicenow.py` | Updated SCENARIO_INCIDENTS day arrays for all 3 scenarios |
+| `bin/generators/generate_access.py` | Added session volume reduction logic during high-error scenarios |
+| `bin/main_generate.py` | Updated help text with new scenario days |
+| `CLAUDE.md` | Updated scenario table and descriptions with new days |
+
+### Verification
+
+- `python3 bin/main_generate.py --sources=access,orders --scenarios=all --days=14 --test` -> 267,798 events, PASS
+- Zero overlapping days between ops/network scenarios confirmed
+- All files pass Python syntax check
+- Revenue impact clearly visible in per-day order counts
+
+---
+
+## 2026-02-13 ~01:00 UTC -- Phase 4: Cross-generator MAC correlation for ACI and Catalyst
+
+### Problem
+
+ACI and Catalyst generators used fully random MAC addresses (`_random_mac()`), making it impossible to correlate network events with specific servers or users across generators. Meraki already used deterministic MACs via `get_mac_for_ip()` from company.py, but ACI and Catalyst did not.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_aci.py` | Added `get_mac_for_ip` import. Updated `_random_mac()` to accept optional `ip` parameter -- returns deterministic MAC for known IPs (lowercase, ACI format). Added `_dc_ip_or_random()` helper (70% known datacenter IPs, 30% random). Updated `_generate_fault_event()` and `_generate_event()` to use real server IPs and MACs. |
+| `bin/generators/generate_catalyst.py` | Added `get_mac_for_ip` import. Updated `_generate_auth_event()` -- 80% of 802.1X auth events now use real user MACs from matching location. Updated `_generate_switch_event()` -- 50% of port events use real user MACs. Both use `user.mac_address` from company.py for deterministic correlation with EntraID sign-in logs. |
+
+### Verification
+
+- `python3 bin/main_generate.py --sources=aci --days=1 --test --quiet` -- 1996 events, PASS
+- `python3 bin/main_generate.py --sources=catalyst --days=1 --test --quiet` -- 1001 events, PASS
+- ACI events contain deterministic server MACs: `dc:71:96:5f:d3:1b` (SQL-PROD-01), `48:51:b7:fb:bc:69` (SAP-DB-01), `80:86:f2:33:2c:8d` (APP-BOS-01), etc.
+- Catalyst 802.1X events contain deterministic user MACs matching EntraID sign-in logs
+- Both generators pass Python syntax check
+
+---
+
+## 2026-02-12 ~23:30 UTC -- Phase 2: Fix hostname mismatches across WinEventLog + exfil scenario
+
+### Problem
+
+WinEventLog generator and exfil scenario used non-canonical hostnames that didn't match `company.py` SERVERS dict. This broke cross-generator hostname correlation in Splunk (`demo_host` field wouldn't match across sourcetypes).
+
+### Hostname corrections
+
+| Wrong (before) | Correct (after) | Files affected |
+|----------------|-----------------|----------------|
+| `BOS-FILE-01` | `FILE-BOS-01` | generate_wineventlog.py, exfil.py |
+| `BOS-SQL-PROD-01` | `SQL-PROD-01` | generate_wineventlog.py |
+| `BOS-DC-01` | `DC-BOS-01` | generate_wineventlog.py, exfil.py |
+| `ATL-DC-01` | `DC-ATL-01` | exfil.py |
+| `ATL-FILE-01` | (removed -- no file server in Atlanta) | generate_wineventlog.py |
+| `DC-01` / `DC-02` | `DC-BOS-01` / `DC-BOS-02` | generate_wineventlog.py |
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_wineventlog.py` | Fixed 7 hostname references in WINDOWS_SERVICES dict, baseline generators, and format_scenario_event default |
+| `bin/scenarios/security/exfil.py` | Fixed all `BOS-FILE-01` -> `FILE-BOS-01`, `BOS-DC-01` -> `DC-BOS-01`, `ATL-DC-01` -> `DC-ATL-01` in computer fields, UNC paths, and Kerberos SPN strings |
+| `bin/generators/generate_perfmon.py` | Fixed docstring reference `BOS-SQL-PROD-01` -> `SQL-PROD-01` |
+
+### Verification
+
+- `python3 bin/main_generate.py --sources=wineventlog --days=1 --scenarios=exfil --test --quiet` -> 596 events, PASS
+- All ComputerName values match company.py: DC-BOS-01, DC-BOS-02, DC-ATL-01, FILE-BOS-01, SQL-PROD-01, APP-BOS-01, BACKUP-ATL-01, WEB-01, WEB-02
+- Zero instances of old hostname patterns remain in `bin/` directory
+
+---
+
+## 2026-02-12 ~23:00 UTC -- Phase 1: Quick fixes from project audit
+
+### Summary
+
+Six quick fixes from comprehensive project audit addressing inconsistencies and orphaned config.
+
+### Changes
+
+1. **ServiceNow default scenario** (`bin/generators/generate_servicenow.py` line 1769): Changed `scenarios: str = "all"` to `scenarios: str = "none"`. Was the only generator defaulting to "all", causing unexpected scenario events when running without `--scenarios` flag.
+
+2. **Epilog generator count** (`bin/main_generate.py`): Updated `"all - All sources (19 generators)"` to `"all - All sources (24 generators)"`. Added missing source groups (campus, datacenter, itsm, erp) and individual sources (secure_access, catalyst, aci, catalyst_center) to help text.
+
+3. **ALL_SOURCES list** (`bin/scenarios/registry.py` line 33): Expanded from 9 sources to all 24 generators to match actual codebase.
+
+4. **CLAUDE.md exfil sources** (`CLAUDE.md`): Fixed exfil affected sources list -- removed `meraki` (not in registry), added `servicenow`, `mssql`, `sysmon` to match registry.py.
+
+5. **.gitignore cleanup** (`.gitignore`): Removed legacy path `/TA-FAKE-TSHRT/TA-FAKE-TSHRT/bin/output` (wrong nesting level).
+
+6. **PerfmonMk orphan stanza** (`default/props.conf`): Removed `[FAKE:PerfmonMk:Processor]` stanza -- no corresponding input, transform, or generator exists.
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_servicenow.py` | Default scenarios "all" -> "none" |
+| `bin/main_generate.py` | Epilog: 19->24 generators, added missing groups/sources |
+| `bin/scenarios/registry.py` | ALL_SOURCES expanded to 24 entries |
+| `CLAUDE.md` | Exfil sources corrected |
+| `.gitignore` | Removed legacy path |
+| `default/props.conf` | Removed orphaned PerfmonMk stanza |
+
+---
+
+## 2026-02-12 ~22:00 UTC -- Fix scenario timeline overlap + Boston Core SVG layout
+
+### File: `TA-FAKE-TSHRT/docs/architecture.html`
+
+1. **Scenario Timeline**: Replaced overlapping full-height bars with 3-row swim-lane Gantt chart (Attack/Ops/Network rows). Each category has its own horizontal lane with fixed 24px bar height, eliminating all visual collisions.
+
+2. **Boston Core box**: Expanded BOSTON CORE rect from x=590 to x=400 so DC-BOS-01/02 are visually inside the box (they share the 10.10.20.x subnet).
+
+3. **Auth bus bar**: Extended width from 580 to 730 to cover FILE-BOS-01's auth stub at x=1105. Re-centered label text.
+
+4. **ASA to Bastion path**: Replaced generic "Internal" arrow with realistic VPN/SSH management flow: ASA right edge -> BASTION-BOS-01 (orthogonal L-path with "VPN / SSH" label). Added dashed SSH Management lines from Bastion to SAP-PROD-01 and SAP-DB-01, showing jump box access pattern.
+
+5. **SVG render order**: Moved BOSTON CORE background rect before DC-BOS-01/02 elements so DCs are not hidden behind the box (SVG painter's model).
+
+6. **DC positions**: Moved DC-BOS-01 from y=280 to y=310 and DC-BOS-02 from y=335 to y=365 so they don't overlap with BOSTON CORE label. Updated DC replication line endpoints accordingly.
+
+7. **SSH Management bus**: Replaced individual Bastion-to-server lines with a horizontal SSH Management bus bar (y=430) mirroring the AD Auth bus pattern. Bastion feeds the bus, stubs go up to SAP-PROD-01, SAP-DB-01, and DCs.
+
+8. **Section repositioning**: Shifted Atlanta (y=490->530), SD-WAN (y=490->530), Austin (y=490->530), Cloud Dependencies (y=650->690), and Connection Legend (y=790->830) down by 40px to accommodate taller Boston Core box (height 200->220). Updated AD Replication and SQL Backup path endpoints. ViewBox height 950->1000.
+
+---
+
+## 2026-02-12 ~16:00 UTC -- Complete redesign of architecture.html
+
+### Summary
+
+Rewrote `TA-FAKE-TSHRT/docs/architecture.html` (1535 lines, 92KB) with the following improvements:
+
+1. **Layout redesign**: Expanded SVG viewBox from 1200x920 to 1440x1060. Reorganized Overview SVG into 6 horizontal layers (Internet -> Cloud -> Perimeter -> SD-WAN Backbone -> 3 Site Columns -> Log Generators). Increased gaps between site columns from 20px to 80-120px for much better readability.
+
+2. **Orthogonal connections**: Replaced all diagonal SVG lines with Manhattan-routed `<path>` elements through a dedicated SD-WAN backbone band. AutoVPN mesh, Catalyst Center management, and ASA connections now route cleanly without crossing.
+
+3. **Hover tooltip system**: Added JS-driven tooltip that appears on mouseover for all SVG components. Each component wrapped in `<g class="hoverable">` with `data-tt-title`, `data-tt-body`, `data-tt-detail` attributes. Shows hostname, IP, role, scenarios, and generators. Pipe-delimited details render as multi-line.
+
+4. **Data corrections**:
+   - Stats row: 19 Servers -> 13, 20 Generators -> 24, removed "+4 New" box
+   - Boston tab: 14 servers -> 10 (removed phantom WSUS, RADIUS, PROXY, PRINT)
+   - Atlanta tab: 5 servers -> 3 (removed phantom DEV-ATL-01/02)
+   - Removed entire "Planned Expansion" toggle bar and all NEW/Planned badges
+   - Secure Access, Catalyst, ACI, Catalyst Center now shown as standard infrastructure
+
+5. **Server Connections SVG**: Replaced DC auth fan-out (diagonal lines to every server) with horizontal AD/Kerberos/LDAP bus-bar with vertical stubs. Orthogonal data flow arrows for HTTP API, SQL, SMB, HANA, backup paths.
+
+6. **Scenario timeline bar**: Added visual 31-day timeline in Scenarios tab showing colored bars for each scenario with day ranges and category colors (red=attack, blue=ops, orange=network).
+
+7. **Log generators legend**: Moved from inside SVG to HTML `<div>` below diagram with grid layout showing all 24 generators and their sourcetypes.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `TA-FAKE-TSHRT/docs/architecture.html` | Complete rewrite (1535 lines) |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
 ## 2026-02-12 ~05:00 UTC -- Add 4 new Cisco generators (Secure Access, Catalyst, ACI, Catalyst Center)
 
 ### Summary

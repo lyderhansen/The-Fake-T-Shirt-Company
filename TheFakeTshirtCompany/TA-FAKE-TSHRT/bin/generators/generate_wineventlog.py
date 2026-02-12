@@ -30,6 +30,22 @@ from scenarios.security.phishing_test import PhishingTestScenario
 from scenarios.registry import expand_scenarios
 
 # =============================================================================
+# LOCATION HELPER
+# =============================================================================
+
+def _location_for_server(server_name: str) -> str:
+    """Get location code for a server (for user filtering).
+
+    Maps server hostnames to their location so logon/auth events
+    pick users from the correct office. Austin has no servers,
+    so AUS users authenticate against BOS DCs.
+    """
+    if "ATL" in server_name:
+        return "ATL"
+    return "BOS"  # All other servers are in Boston
+
+
+# =============================================================================
 # WINDOWS EVENT TEMPLATES
 # =============================================================================
 
@@ -226,11 +242,11 @@ Message=The process C:\\Windows\\system32\\winlogon.exe (SYSTEM) has initiated t
 WINDOWS_SERVICES = {
     "DC-BOS-01": ["Active Directory Domain Services", "DNS Server", "DHCP Server", "Kerberos Key Distribution Center", "Windows Time", "Group Policy Client", "Netlogon"],
     "DC-BOS-02": ["Active Directory Domain Services", "DNS Server", "DHCP Server", "Kerberos Key Distribution Center", "Windows Time", "Group Policy Client", "Netlogon"],
-    "BOS-FILE-01": ["File Server Resource Manager", "DFS Replication", "Volume Shadow Copy", "Windows Search", "Server", "LanmanServer"],
-    "BOS-SQL-PROD-01": ["SQL Server (MSSQLSERVER)", "SQL Server Agent (MSSQLSERVER)", "SQL Server Browser", "SQL Server VSS Writer", "Volume Shadow Copy"],
+    "FILE-BOS-01": ["File Server Resource Manager", "DFS Replication", "Volume Shadow Copy", "Windows Search", "Server", "LanmanServer"],
+    "SQL-PROD-01": ["SQL Server (MSSQLSERVER)", "SQL Server Agent (MSSQLSERVER)", "SQL Server Browser", "SQL Server VSS Writer", "Volume Shadow Copy"],
     "APP-BOS-01": ["World Wide Web Publishing Service", "Windows Process Activation Service", ".NET Runtime Optimization Service", "ASP.NET State Service"],
     "DC-ATL-01": ["Active Directory Domain Services", "DNS Server", "Windows Time", "Group Policy Client", "Netlogon"],
-    "ATL-FILE-01": ["File Server Resource Manager", "DFS Replication", "Volume Shadow Copy", "Windows Search"],
+    # Note: No file server in Atlanta per company.py - BACKUP-ATL-01 handles file services
     "BACKUP-ATL-01": ["Veeam Backup Service", "Veeam Backup Catalog Service", "Volume Shadow Copy", "Windows Server Backup", "Microsoft Software Shadow Copy Provider"],
 }
 
@@ -876,8 +892,8 @@ def generate_baseline_logons(base_date: str, day: int, hour: int, count: int) ->
     for _ in range(count):
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
-        user = get_random_user()
         computer = random.choice(computers)
+        user = get_random_user(location=_location_for_server(computer))
         logon_type = random.choice(logon_types)
         source_ip = user.get_ip()
 
@@ -902,7 +918,7 @@ def generate_baseline_special_logons(base_date: str, day: int, hour: int) -> Lis
     second = random.randint(0, 59)
     admins = ["it.admin", "sec.admin"]
     admin = random.choice(admins)
-    computer = random.choice(["DC-01", "DC-02"])
+    computer = random.choice(["DC-BOS-01", "DC-BOS-02"])
 
     events.append(event_4672(base_date, day, hour, minute, second, computer, admin))
     return events
@@ -917,11 +933,12 @@ def generate_baseline_failed_logons(base_date: str, day: int, hour: int) -> List
 
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
-    user = get_random_user()
-    source_ip = get_internal_ip()
+    dc = random.choice(["DC-BOS-01", "DC-BOS-02", "DC-ATL-01"])
+    user = get_random_user(location=_location_for_server(dc))
+    source_ip = user.get_ip()
 
     events.append(event_4625(base_date, day, hour, minute, second,
-                             "DC-01", user.username, source_ip,
+                             dc, user.username, source_ip,
                              "Unknown user name or bad password."))
     return events
 
@@ -1091,7 +1108,7 @@ def generate_day0_boot_events(base_date: str) -> List[str]:
 def generate_baseline_sql_events(base_date: str, day: int, hour: int) -> List[str]:
     """Generate baseline SQL Server events."""
     events = []
-    computer = "BOS-SQL-PROD-01"
+    computer = "SQL-PROD-01"
 
     # SQL Server service start on day 0, hour 6
     if day == 0 and hour == 6:
@@ -1176,8 +1193,8 @@ def generate_baseline_kerberos_tgt(base_date: str, day: int, hour: int, count: i
     for _ in range(count):
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
-        user = get_random_user()
         computer = random.choice(dc_computers)
+        user = get_random_user(location=_location_for_server(computer))
         source_ip = user.get_ip()
 
         # 98% success, 2% failure (mistyped password, expired)
@@ -1205,8 +1222,8 @@ def generate_baseline_ntlm_validation(base_date: str, day: int, hour: int, count
     for _ in range(count):
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
-        user = get_random_user()
         computer = random.choice(dc_computers)
+        user = get_random_user(location=_location_for_server(computer))
         ws_name = f"{user.username.split('.')[0].upper()}-PC"
 
         # 97% success, 3% failure (stale cached creds, typos)
@@ -1239,8 +1256,8 @@ def generate_baseline_account_lockouts(base_date: str, day: int, hour: int) -> L
 
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
-    user = get_random_user()
     computer = random.choice(["DC-BOS-01", "DC-BOS-02", "DC-ATL-01"])
+    user = get_random_user(location=_location_for_server(computer))
     caller = f"{user.username.split('.')[0].upper()}-PC"
 
     events.append(event_4740(base_date, day, hour, minute, second,
@@ -1556,7 +1573,7 @@ def generate_wineventlog(
                     second = random.randint(0, 59)
                     application_events.append(event_sql_server(
                         start_date, day, hour, minute, second,
-                        "BOS-SQL-PROD-01",
+                        "SQL-PROD-01",
                         e.get("event_id", 17883),
                         e.get("level", "Warning"),
                         e.get("message", "SQL Server event"),
@@ -1598,7 +1615,7 @@ def format_scenario_event(base_date: str, day: int, hour: int, event_dict: dict,
     """Format a scenario event dictionary to a log string."""
     minute = event_dict.get("minute", random.randint(0, 59))
     second = event_dict.get("second", random.randint(0, 59))
-    computer = event_dict.get("computer", "BOS-DC-01")
+    computer = event_dict.get("computer", "DC-BOS-01")
     user = event_dict.get("user", "unknown")
     event_id = event_dict.get("event_id", 4624)
     demo_id = event_dict.get("demo_id")

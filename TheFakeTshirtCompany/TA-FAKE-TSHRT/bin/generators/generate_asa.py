@@ -96,12 +96,20 @@ from scenarios.registry import expand_scenarios, source_needed_for_scenarios
 VPN_POOL = {}
 
 def init_vpn_pool():
-    """Initialize VPN IP pool - assign 2-3 IPs per VPN user."""
+    """Initialize VPN IP pool using deterministic VPN IPs from company.py.
+
+    Each VPN-enabled user gets their deterministic vpn_ip (10.250.0.x) plus
+    a random "connecting from" external IP. The vpn_ip is shared across
+    generators for cross-correlation (e.g., ASA <-> Secure Access).
+    """
     global VPN_POOL
     VPN_POOL = {}
     for username in VPN_USERS:
-        num_ips = random.randint(2, 3)
-        VPN_POOL[username] = [get_us_ip() for _ in range(num_ips)]
+        user = USERS[username]
+        VPN_POOL[username] = {
+            "vpn_ip": user.vpn_ip,          # Deterministic assigned VPN IP
+            "home_ip": user.get_home_ip(),   # Random "connecting from" IP
+        }
 
 
 # =============================================================================
@@ -210,20 +218,25 @@ def asa_nat(base_date: str, day: int, hour: int, minute: int, second: int) -> st
 
 
 def asa_vpn(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
-    """Generate VPN session event."""
+    """Generate VPN session event.
+
+    Uses deterministic VPN IPs from company.py for cross-generator correlation.
+    The IP field in ASA VPN logs is the assigned VPN pool IP (10.250.0.x),
+    which matches InternalIp in Secure Access logs for remote users.
+    """
     ts = ts_syslog(base_date, day, hour, minute, second)
     username = random.choice(VPN_USERS)
-    ips = VPN_POOL.get(username, [get_us_ip()])
-    ip = random.choice(ips)
+    pool_entry = VPN_POOL.get(username, {"vpn_ip": f"10.250.0.{random.randint(10, 209)}", "home_ip": get_us_ip()})
+    vpn_ip = pool_entry["vpn_ip"]
 
     pri6 = asa_pri(6)  # info
     if random.random() > 0.33:
-        return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-722022: Group <Remote-Workers> User <{username}@{TENANT}> IP <{ip}> TCP connection established without compression"
+        return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-722022: Group <Remote-Workers> User <{username}@{TENANT}> IP <{vpn_ip}> TCP connection established without compression"
     else:
         dur = f"0:{random.randint(0, 59)}:{random.randint(0, 59)}"
         xmt = random.randint(1000000, 20000000)
         rcv = random.randint(1000000, 50000000)
-        return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-722023: Group <Remote-Workers> User <{username}@{TENANT}> IP <{ip}> Session disconnected. Session Type: SSL, Duration: {dur}, Bytes xmt: {xmt}, Bytes rcv: {rcv}"
+        return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-722023: Group <Remote-Workers> User <{username}@{TENANT}> IP <{vpn_ip}> Session disconnected. Session Type: SSL, Duration: {dur}, Bytes xmt: {xmt}, Bytes rcv: {rcv}"
 
 
 def asa_ssl(base_date: str, day: int, hour: int, minute: int, second: int) -> str:

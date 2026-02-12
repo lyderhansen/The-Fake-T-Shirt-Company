@@ -4,12 +4,12 @@ Firewall Misconfiguration Scenario - ASA events.
 Converted from scenarios/network/firewall_misconfig_asa.sh
 
 Storyline:
-    Day 7: SOC detects suspicious traffic
-    Day 7, 10:15: IT admin logs in to block the threat
-    Day 7, 10:18: Admin makes mistake - blocks traffic TO web server
-    Day 7, 10:20-12:00: Customers cannot reach theFakeTshirtCompany.com
-    Day 7, 12:00: Problem identified, config rolled back
-    Day 7, 12:05+: Traffic normalizes
+    Day 6: SOC detects suspicious traffic
+    Day 6, 10:15: IT admin logs in to block the threat
+    Day 6, 10:18: Admin makes mistake - blocks traffic TO web server
+    Day 6, 10:20-12:00: Customers cannot reach theFakeTshirtCompany.com
+    Day 6, 12:00: Problem identified, config rolled back
+    Day 6, 12:05+: Traffic normalizes
 """
 
 import random
@@ -23,7 +23,7 @@ class FirewallMisconfigConfig:
     demo_id: str = "firewall_misconfig"
 
     # Timeline
-    day: int = 6          # Day 7 (0-indexed)
+    day: int = 5          # Day 6 (0-indexed)
     start_hour: int = 10  # 10:15 - config change
     end_hour: int = 12    # 12:00 - rollback
 

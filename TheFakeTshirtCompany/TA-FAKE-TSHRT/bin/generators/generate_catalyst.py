@@ -43,6 +43,7 @@ from shared.company import (
     JESSICA_WS_IP,
     get_internal_ip,
     get_random_user,
+    get_mac_for_ip,
 )
 from scenarios.registry import expand_scenarios, is_scenario_active_day
 
@@ -298,11 +299,27 @@ def _generate_auth_event(start_date: str, day: int, hour: int,
                          mac_override: str = None,
                          port_override: str = None,
                          demo_id: str = "") -> str:
-    """Generate an 802.1X/MAB authentication syslog event."""
+    """Generate an 802.1X/MAB authentication syslog event.
+
+    Uses deterministic user MACs (80%) for cross-generator correlation
+    with EntraID sign-in, Meraki 802.1X, and Sysmon network events.
+    """
     event = _weighted_choice(AUTH_EVENTS)
     mnemonic, severity, pri, template, _ = event
 
-    mac = mac_override or _random_mac()
+    if mac_override:
+        mac = mac_override
+    elif random.random() < 0.80:
+        # Use a real user MAC from this switch's location
+        location = CATALYST_SWITCHES[switch_name]["location"]
+        location_users = [u for u in USERS.values() if u.location == location]
+        if location_users:
+            user = random.choice(location_users)
+            mac = user.mac_address.lower()  # Catalyst uses lowercase MACs
+        else:
+            mac = _random_mac()
+    else:
+        mac = _random_mac()  # IoT/guest devices
     port = port_override or _random_port(switch_name)
     session_id = _random_session_id()
 
@@ -349,7 +366,16 @@ def _generate_switch_event(start_date: str, day: int, hour: int,
     event = _weighted_choice(SWITCH_EVENTS)
     mnemonic, severity, pri, template, _ = event
 
-    mac = _random_mac()
+    # Use known user/server MACs 50% of the time for switch events
+    if random.random() < 0.50:
+        location = CATALYST_SWITCHES[switch_name]["location"]
+        location_users = [u for u in USERS.values() if u.location == location]
+        if location_users:
+            mac = random.choice(location_users).mac_address.lower()
+        else:
+            mac = _random_mac()
+    else:
+        mac = _random_mac()
     vlan = _random_vlan(switch_name)
     port1 = _random_port(switch_name)
     port2 = _random_port(switch_name)

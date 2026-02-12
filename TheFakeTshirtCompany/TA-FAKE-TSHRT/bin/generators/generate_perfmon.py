@@ -487,7 +487,7 @@ def generate_perfmon_logs(
         num_clients: Number of client workstations (default: 5, min: 5, max: 175)
         client_interval: Interval in minutes for non-scenario clients (default: 30, min: 5, max: 60)
         full_metrics: Include Disk/Network metrics for clients (default: CPU/Memory only)
-        scenarios: Scenario to apply (cpu_runaway affects BOS-SQL-PROD-01 on days 11-12)
+        scenarios: Scenario to apply (cpu_runaway affects SQL-PROD-01 on days 11-12)
     """
 
     if output_dir:

@@ -30,7 +30,12 @@ class ScenarioDefinition:
 # =============================================================================
 # AVAILABLE SOURCES
 # =============================================================================
-ALL_SOURCES = ["asa", "entraid", "aws", "gcp", "perfmon", "wineventlog", "linux", "access", "exchange"]
+ALL_SOURCES = [
+    "asa", "aws", "gcp", "entraid", "exchange", "office_audit", "access",
+    "wineventlog", "sysmon", "perfmon", "mssql", "linux", "orders",
+    "servicebus", "meraki", "webex", "webex_ta", "webex_api", "servicenow",
+    "sap", "secure_access", "catalyst", "aci", "catalyst_center",
+]
 
 SOURCES_NETWORK = ["asa"]
 SOURCES_CLOUD = ["entraid", "aws", "gcp", "exchange"]
@@ -79,10 +84,10 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         name="memory_leak",
         sources=["linux", "asa", "access", "servicenow", "catalyst_center"],
         category="ops",
-        description="Application memory leak causing OOM crash Day 9, restart (WEB-01)",
+        description="Application memory leak causing OOM crash Day 10, restart (WEB-01)",
         demo_id="memory_leak",
-        start_day=5,
-        end_day=8,
+        start_day=6,
+        end_day=9,
         server="WEB-01",
         implemented=True
     ),
@@ -127,20 +132,20 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         name="firewall_misconfig",
         sources=["asa", "access", "servicenow", "catalyst"],
         category="network",
-        description="Firewall rule misconfiguration causing outage (Day 7)",
+        description="Firewall rule misconfiguration causing outage (Day 6)",
         demo_id="firewall_misconfig",
-        start_day=6,
-        end_day=6,
+        start_day=5,
+        end_day=5,
         implemented=True
     ),
     "certificate_expiry": ScenarioDefinition(
         name="certificate_expiry",
         sources=["asa", "access", "servicenow"],
         category="network",
-        description="SSL certificate expires causing 7-hour outage (Day 12, 00:00-07:00)",
+        description="SSL certificate expires causing 7-hour outage (Day 13, 00:00-07:00)",
         demo_id="certificate_expiry",
-        start_day=11,
-        end_day=11,
+        start_day=12,
+        end_day=12,
         implemented=True
     ),
 

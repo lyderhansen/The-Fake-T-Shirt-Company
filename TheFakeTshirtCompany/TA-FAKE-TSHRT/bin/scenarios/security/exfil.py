@@ -156,8 +156,8 @@ class ExfilScenario:
             ("C:\\Windows\\System32\\cmd.exe", "cmd.exe /c net user /domain"),
             ("C:\\Windows\\System32\\cmd.exe", 'cmd.exe /c net group "Domain Admins" /domain'),
             ("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "powershell.exe -ep bypass -c Get-ADUser -Filter *"),
-            ("C:\\Windows\\System32\\cmd.exe", "cmd.exe /c dir \\\\BOS-FILE-01\\finance$ /s"),
-            ("C:\\Windows\\System32\\xcopy.exe", "xcopy \\\\BOS-FILE-01\\finance$\\* C:\\Users\\Public\\staging\\ /s /e /h"),
+            ("C:\\Windows\\System32\\cmd.exe", "cmd.exe /c dir \\\\FILE-BOS-01\\finance$ /s"),
+            ("C:\\Windows\\System32\\xcopy.exe", "xcopy \\\\FILE-BOS-01\\finance$\\* C:\\Users\\Public\\staging\\ /s /e /h"),
             ("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "powershell.exe Compress-Archive -Path C:\\Users\\Public\\staging -DestinationPath C:\\Users\\Public\\backup.zip"),
             ("C:\\Windows\\System32\\certutil.exe", "certutil.exe -encode C:\\Users\\Public\\backup.zip C:\\Users\\Public\\backup.txt"),
         ]
@@ -1139,7 +1139,7 @@ class ExfilScenario:
         jessica_host = "ATL-WS-JBROWN01"
 
         # Days 8-10: FILE-01 (Boston) has unusual disk I/O during staging
-        if host == "BOS-FILE-01":
+        if host == "FILE-BOS-01":
             if 8 <= day <= 10 and 14 <= hour <= 17:
                 return 1
 
@@ -1173,8 +1173,8 @@ class ExfilScenario:
             if 4 <= day <= 7 and 14 <= hour <= 17:
                 return 250  # 2.5x normal for cross-site lateral movement
 
-        # FILE-01 (Boston) elevated during staging
-        if host == "BOS-FILE-01":
+        # FILE-BOS-01 elevated during staging
+        if host == "FILE-BOS-01":
             if 8 <= day <= 10 and 14 <= hour <= 17:
                 return 180  # 1.8x normal
 
@@ -1293,7 +1293,7 @@ class ExfilScenario:
                 for target in random.sample(self.spray_targets, random.randint(2, 4)):
                     events.append({
                         "event_id": 4625,
-                        "computer": "BOS-DC-01",
+                        "computer": "DC-BOS-01",
                         "user": target,
                         "source_ip": self.cfg.threat_ip,
                         "reason": "Unknown user name or bad password.",
@@ -1307,7 +1307,7 @@ class ExfilScenario:
                 # Jessica's successful logon from her workstation
                 events.append({
                     "event_id": 4624,
-                    "computer": "ATL-DC-01",
+                    "computer": "DC-ATL-01",
                     "user": self.cfg.lateral_user,
                     "logon_type": 3,
                     "source_ip": self.cfg.jessica_ws_ip,
@@ -1317,7 +1317,7 @@ class ExfilScenario:
                 # Special privileges assigned
                 events.append({
                     "event_id": 4672,
-                    "computer": "ATL-DC-01",
+                    "computer": "DC-ATL-01",
                     "user": self.cfg.lateral_user,
                     "minute": 16,
                     "demo_id": demo_id,
@@ -1331,7 +1331,7 @@ class ExfilScenario:
                     ("cmd.exe", "cmd.exe /c whoami /all"),
                     ("cmd.exe", "cmd.exe /c net user /domain"),
                     ("cmd.exe", 'cmd.exe /c net group "Domain Admins" /domain'),
-                    ("cmd.exe", "cmd.exe /c net view \\\\BOS-FILE-01"),
+                    ("cmd.exe", "cmd.exe /c net view \\\\FILE-BOS-01"),
                     ("powershell.exe", "powershell.exe -c Get-ADUser -Filter *"),
                 ]
                 cmd = random.choice(recon_cmds)
@@ -1347,10 +1347,10 @@ class ExfilScenario:
 
                 # Kerberos ticket requests to Boston servers
                 if random.random() < 0.5:
-                    services = ["cifs/BOS-FILE-01", "cifs/BOS-DC-01", "ldap/BOS-DC-01"]
+                    services = ["cifs/FILE-BOS-01", "cifs/DC-BOS-01", "ldap/DC-BOS-01"]
                     events.append({
                         "event_id": 4769,
-                        "computer": "BOS-DC-01",
+                        "computer": "DC-BOS-01",
                         "user": self.cfg.lateral_user,
                         "service_name": random.choice(services),
                         "source_ip": self.cfg.jessica_ws_ip,
@@ -1384,7 +1384,7 @@ class ExfilScenario:
                 # 02:22 - Password reset: jessica resets alex's password (Event 4724)
                 events.append({
                     "event_id": 4724,
-                    "computer": "BOS-DC-01",
+                    "computer": "DC-BOS-01",
                     "admin_user": self.cfg.lateral_user,
                     "user": self.cfg.comp_user,
                     "minute": 22,
@@ -1393,7 +1393,7 @@ class ExfilScenario:
                 # 02:22 - User account changed (Event 4738) — password last set updated
                 events.append({
                     "event_id": 4738,
-                    "computer": "BOS-DC-01",
+                    "computer": "DC-BOS-01",
                     "admin_user": self.cfg.lateral_user,
                     "user": self.cfg.comp_user,
                     "changed_attributes": "PasswordLastSet",
@@ -1408,7 +1408,7 @@ class ExfilScenario:
                 # Add compromised user to privileged group
                 events.append({
                     "event_id": 4728,
-                    "computer": "BOS-DC-01",
+                    "computer": "DC-BOS-01",
                     "admin_user": self.cfg.lateral_user,
                     "user": self.cfg.comp_user,
                     "group_name": "Domain Admins",
@@ -1418,7 +1418,7 @@ class ExfilScenario:
                 # Alex gets special privileges
                 events.append({
                     "event_id": 4672,
-                    "computer": "BOS-DC-01",
+                    "computer": "DC-BOS-01",
                     "user": self.cfg.comp_user,
                     "minute": 31,
                     "demo_id": demo_id,
@@ -1428,10 +1428,10 @@ class ExfilScenario:
         if phase == "persistence" and 9 <= day <= 10:
             if 14 <= hour <= 17 and random.random() < 0.4:
                 staging_cmds = [
-                    ("cmd.exe", "cmd.exe /c dir \\\\BOS-FILE-01\\finance$ /s"),
-                    ("xcopy.exe", "xcopy \\\\BOS-FILE-01\\finance$\\* C:\\Users\\Public\\staging\\ /s /e /h"),
-                    ("powershell.exe", "powershell.exe -c Get-ChildItem -Recurse \\\\BOS-FILE-01\\confidential"),
-                    ("cmd.exe", "cmd.exe /c copy \\\\BOS-FILE-01\\hr\\*.xlsx C:\\Users\\Public\\staging\\"),
+                    ("cmd.exe", "cmd.exe /c dir \\\\FILE-BOS-01\\finance$ /s"),
+                    ("xcopy.exe", "xcopy \\\\FILE-BOS-01\\finance$\\* C:\\Users\\Public\\staging\\ /s /e /h"),
+                    ("powershell.exe", "powershell.exe -c Get-ChildItem -Recurse \\\\FILE-BOS-01\\confidential"),
+                    ("cmd.exe", "cmd.exe /c copy \\\\FILE-BOS-01\\hr\\*.xlsx C:\\Users\\Public\\staging\\"),
                 ]
                 cmd = random.choice(staging_cmds)
                 events.append({

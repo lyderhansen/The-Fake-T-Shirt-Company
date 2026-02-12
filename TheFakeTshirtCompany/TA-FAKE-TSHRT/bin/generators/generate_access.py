@@ -755,8 +755,23 @@ def generate_access_logs(
                     second = random.randint(0, 59)
                     all_events.append(generate_ssl_error_event(start_date, day, hour, minute, second))
             else:
+                # Reduce session volume during high-error scenarios
+                # Simulates customer abandonment: word spreads that site is down,
+                # fewer people attempt to visit. Combined with per-page error_rate,
+                # this creates a visible revenue drop in orders.
+                effective_sessions = sessions
+                if error_rate >= 40:
+                    # Severe outage (DDoS peak, OOM crash): 30% of normal traffic
+                    effective_sessions = max(1, sessions * 30 // 100)
+                elif error_rate >= 20:
+                    # Major issues (pre-OOM, DDoS ramping): 50% of normal traffic
+                    effective_sessions = max(1, sessions * 50 // 100)
+                elif error_rate >= 8:
+                    # Moderate degradation (cpu_runaway, memory critical): 75% traffic
+                    effective_sessions = max(1, sessions * 75 // 100)
+
                 # Normal operation (with potential error injection from ops scenarios)
-                for _ in range(sessions):
+                for _ in range(effective_sessions):
                     minute = random.randint(0, 59)
                     second = random.randint(0, 59)
                     all_events.extend(generate_session(

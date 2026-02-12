@@ -36,6 +36,7 @@ from shared.company import (
     USERS,
     SERVERS,
     TENANT,
+    get_mac_for_ip,
 )
 from scenarios.registry import expand_scenarios, is_scenario_active_day
 
@@ -95,6 +96,20 @@ for site in ACI_FABRIC.values():
 ALL_EPGS = []
 for site in ACI_FABRIC.values():
     ALL_EPGS.extend(site.get("epgs", []))
+
+# Known datacenter server IPs connected to ACI fabric (for deterministic MACs)
+# 70% chance of using a known IP for endpoint events (realistic fabric traffic)
+_BOS_DC_IPS = [s.ip for s in SERVERS.values() if s.location == "BOS" and s.ip.startswith("10.10.")]
+_ATL_DC_IPS = [s.ip for s in SERVERS.values() if s.location == "ATL"]
+_ALL_DC_IPS = _BOS_DC_IPS + _ATL_DC_IPS
+
+
+def _dc_ip_or_random() -> str:
+    """Return a known datacenter IP (70%) or a random IP (30%) for ACI events."""
+    if random.random() < 0.70 and _ALL_DC_IPS:
+        return random.choice(_ALL_DC_IPS)
+    return f"10.{random.randint(10, 20)}.{random.randint(20, 40)}.{random.randint(1, 254)}"
+
 
 # ACI admin users
 ACI_ADMINS = ["admin", "patrick.gonzalez", "jessica.brown", "david.robinson"]
@@ -215,8 +230,16 @@ def _sort_ts(start_date: str, day: int, hour: int,
     return dt.strftime("%Y%m%d%H%M%S")
 
 
-def _random_mac() -> str:
-    """Generate random MAC (lowercase, colon-sep, Cisco format)."""
+def _random_mac(ip: str = None) -> str:
+    """Generate MAC address. Deterministic for known server/user IPs, random otherwise.
+
+    Uses get_mac_for_ip() from company.py for cross-generator correlation:
+    same IP always produces the same MAC across ACI, Meraki, Catalyst, etc.
+    """
+    if ip:
+        known_mac = get_mac_for_ip(ip)
+        if known_mac:
+            return known_mac.lower()  # ACI uses lowercase MACs
     return ":".join(f"{random.randint(0, 255):02x}" for _ in range(6))
 
 
@@ -262,7 +285,8 @@ def _generate_fault(start_date: str, day: int, hour: int,
 
     node = node_override or random.choice(ALL_NODES)
     iface = _random_iface(node)
-    mac = _random_mac()
+    ep_ip = _dc_ip_or_random()
+    mac = _random_mac(ep_ip)
     reason = random.choice(FAULT_REASONS)
     usage = random.choice(FAULT_USAGES)
     pct = random.randint(75, 99)
@@ -333,13 +357,14 @@ def _generate_event(start_date: str, day: int, hour: int,
 
     node = node_override or random.choice(ALL_NODES)
     iface = _random_iface(node)
-    mac = _random_mac()
+    ep_ip = _dc_ip_or_random()
+    mac = _random_mac(ep_ip)
     state = random.choice(["ok", "down", "up", "active"])
     epg = random.choice(ALL_EPGS)
     action = random.choice(["permit", "deny"])
     proto = random.choice(["tcp", "udp", "icmp"])
-    src = f"10.{random.randint(10, 30)}.{random.randint(20, 40)}.{random.randint(1, 254)}"
-    dst = f"10.{random.randint(10, 30)}.{random.randint(20, 40)}.{random.randint(1, 254)}"
+    src = _dc_ip_or_random()
+    dst = _dc_ip_or_random()
     old_score = random.randint(70, 100)
     new_score = random.randint(50, old_score)
     fault_code = random.choice(["F0546", "F0532", "F0454", "F0467"])

@@ -640,13 +640,6 @@
 			"title": "Accesspoint - Health",
 			"type": "splunk.singlevalue"
 		},
-		"viz_uKwbU75Y": {
-			"options": {
-				"icon": "splunk-enterprise-kvstore://698496d7f013f2da1c0922a1",
-				"showValue": false
-			},
-			"type": "splunk.singlevalueicon"
-		},
 		"viz_uqqcgHK6": {
 			"containerOptions": {},
 			"context": {
@@ -823,6 +816,13 @@
 			"showProgressBar": true,
 			"title": "Signal Strength - RSSI",
 			"type": "splunk.singlevalue"
+		},
+		"viz_nvfwoX2L": {
+			"type": "splunk.singlevalueicon",
+			"options": {
+				"showValue": false,
+				"icon": "splunk-enterprise-kvstore://698db3de216049619205a670"
+			}
 		}
 	},
 	"dataSources": {
@@ -1201,8 +1201,8 @@
 						"position": {
 							"h": 1014,
 							"w": 2013,
-							"x": 0,
-							"y": 0
+							"x": -10,
+							"y": -10
 						},
 						"type": "block"
 					},
@@ -1233,16 +1233,6 @@
 							"w": 700,
 							"x": 30,
 							"y": 290
-						},
-						"type": "block"
-					},
-					{
-						"item": "viz_uKwbU75Y",
-						"position": {
-							"h": 250,
-							"w": 250,
-							"x": 1730,
-							"y": 710
 						},
 						"type": "block"
 					},
@@ -1375,6 +1365,16 @@
 							"y": 730
 						},
 						"type": "block"
+					},
+					{
+						"item": "viz_nvfwoX2L",
+						"type": "block",
+						"position": {
+							"x": 1620,
+							"y": 650,
+							"w": 350,
+							"h": 340
+						}
 					}
 				],
 				"type": "absolute"
