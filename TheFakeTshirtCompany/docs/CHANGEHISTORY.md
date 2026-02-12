@@ -4,6 +4,58 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~07:30 UTC -- Phase 10: Registry Alignment + Entra ID Documentation
+
+### Registry alignment (2 fixes)
+
+Added sources to the exfil scenario that already had working scenario code but were missing from `registry.py`:
+
+| Source | Evidence in generator |
+|--------|-----------------------|
+| `webex` | `EXFIL_USERS = {"jessica.brown", "alex.miller"}`, `should_tag_meeting_exfil()` tags meetings during Days 0-13 |
+| `linux` | Imports `ExfilScenario`, calls `linux_cpu_anomaly()`, `linux_memory_anomaly()`, `linux_network_anomaly()`, tags with `demo_id="exfil"` |
+
+Exfil scenario sources: 16 -> 18.
+
+**Note:** Three other candidates (`access` -> exfil, `catalyst_center` -> disk_filling/firewall_misconfig) were investigated and rejected -- no scenario code exists in those generators. Registry entries without backing code would be misleading.
+
+### Entra ID datasource documentation (entraid.md)
+
+Rewrote `entraid.md` from a thin placeholder to comprehensive documentation for the richest identity source (1,905-line generator, 35+ event types, 3 scenarios):
+
+- Sign-in events: interactive (35/peak hour), 5 MFA methods weighted, 10 client profiles, 7 error codes
+- Service principal sign-ins: 5 SPs (SAP, Veeam, Splunk, GitHub, Nagios), 10-20/hour constant
+- Audit events: user/group/app/role management, SSPR flows (5-10/day), CA policy updates
+- Risk detection: 7 types (unfamiliarFeatures, anonymizedIPAddress, impossibleTravel, etc.)
+- Password spray noise: ~6/day from 7 world IPs (Moscow, Beijing, Sao Paulo, etc.)
+- Scenario integration: exfil (Days 4-14), ransomware_attempt (Days 8-9), phishing_test (Days 21-23)
+- 10 SPL use case queries, 5 talking points, 6 admin accounts documented
+
+### README.md scenario matrix update
+
+- Renamed "Webex / TA" to "Webex" in scenario matrix
+- Added X marks for webex + linux under exfil column (aligning with Phase 8-10 changes)
+
+### Verification
+
+```
+Registry: 18 exfil sources (added webex, linux) -- confirmed sorted list matches
+Webex + exfil (14 days): 26,076 events, 255 exfil-tagged
+Linux + exfil (14 days): 131,820 events, 900 exfil-tagged (cpu: 252, interfaces: 252, iostat: 252, vmstat: 144)
+Python compile check: registry.py passes
+```
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `bin/scenarios/registry.py` | Added `webex`, `linux` to exfil sources (16 -> 18) |
+| `docs/datasource_docs/entraid.md` | Rewritten -- comprehensive doc with sign-ins, audit, risk, scenarios, SPL queries, talking points |
+| `docs/datasource_docs/README.md` | Updated scenario matrix for Phases 8-10 |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
 ## 2026-02-13 ~06:00 UTC -- Phase 9: GCP Audit Log Generator Expansion
 
 ### GCP generator expansion (generate_gcp.py)

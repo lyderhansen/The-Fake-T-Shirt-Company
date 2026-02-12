@@ -52,7 +52,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
     # Attack scenarios
     "exfil": ScenarioDefinition(
         name="exfil",
-        sources=["asa", "entraid", "aws", "aws_guardduty", "aws_billing", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow", "mssql", "sysmon", "secure_access", "catalyst", "aci"],
+        sources=["asa", "entraid", "aws", "aws_guardduty", "aws_billing", "gcp", "perfmon", "wineventlog", "exchange", "office_audit", "servicenow", "mssql", "sysmon", "secure_access", "catalyst", "aci", "webex", "linux"],
         category="attack",
         description="APT-style data exfiltration over 14 days (phishing -> privilege abuse -> exfil)",
         demo_id="exfil",
