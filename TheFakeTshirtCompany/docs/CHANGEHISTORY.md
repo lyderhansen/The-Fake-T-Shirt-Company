@@ -4,6 +4,119 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~06:00 UTC -- Phase 9: GCP Audit Log Generator Expansion
+
+### GCP generator expansion (generate_gcp.py)
+
+Added 6 new baseline event types (9 -> 15 event types), increased base rate from 12 to 15 events/peak hour:
+
+| New Event | Service | Purpose |
+|-----------|---------|---------|
+| `WriteLogEntries` | Cloud Logging | App log ingestion baseline |
+| `ListLogEntries` | Cloud Logging | Baseline + exfil Day 10 (attacker checks for detection) |
+| `storage.objects.delete` | Cloud Storage | Baseline cleanup + exfil Day 13 (cover tracks) |
+| `storage.buckets.get` | Cloud Storage | Bucket metadata queries |
+| `TableDataService.List` | BigQuery | Table data reads + exfil Day 12 (second exfil channel) |
+| `SetIamPolicy` | IAM | Baseline noise (makes exfil IAM changes harder to spot) |
+
+Added scenario-specific events:
+
+| Event | Scenario | Day | Description |
+|-------|----------|-----|-------------|
+| ListLogEntries (threat IP) | exfil | 10 | Attacker checks if SA creation was detected |
+| BigQuery tabledata.list (threat IP) | exfil | 12 | Second exfil channel -- customer_database export |
+| storage.objects.delete (threat IP) | exfil | 13 | Attacker deletes staging files to cover tracks (2-4 files) |
+| BigQuery RESOURCE_EXHAUSTED | cpu_runaway | 11-12 | Data pipeline failure when SQL-PROD-01 is down |
+
+### Registry update
+
+- Added `gcp` to `cpu_runaway` scenario sources
+
+### Verification
+
+```
+GCP baseline (7 days): 797 events, 15 unique methods
+GCP + exfil (14 days): 1,655 events, 340 exfil tagged, threat IP events on Days 7-13
+GCP + cpu_runaway (14 days): 1,639 events, 6 cpu_runaway tagged (BQ errors Days 11-12)
+GCP + all scenarios (14 days): 1,659 events, 19 unique methods, exfil: 333, cpu_runaway: 6
+```
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_gcp.py` | 6 new event functions, 4 scenario functions, rebalanced distribution, scenario hooks, improved summary output |
+| `bin/scenarios/registry.py` | Added `gcp` to cpu_runaway sources |
+| `docs/datasource_docs/gcp_audit.md` | Rewritten with 15 event types, 2 scenarios, 9 SPL queries, talking points |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
+## 2026-02-13 ~04:00 UTC -- Phase 8: AWS CloudTrail expansion + GuardDuty + Billing
+
+### New generators (2)
+
+| File | Sourcetype | Format | Volume | Purpose |
+|------|-----------|--------|--------|---------|
+| `generate_aws_guardduty.py` | `FAKE:aws:cloudwatch:guardduty` | NDJSON | ~5-8 baseline + 3-6 scenario/day | Threat detection findings for exfil + ransomware scenarios |
+| `generate_aws_billing.py` | `FAKE:aws:billing:cur` | CSV | 17 line items/day | Cost & Usage Report with DDoS/exfil cost spikes |
+
+### CloudTrail expansion (generate_aws.py)
+
+Added 7 new baseline event types (11 -> 18 event types), increased base rate from 15 to 20 events/peak hour:
+
+| New Event | Service | Purpose |
+|-----------|---------|---------|
+| `RunInstances` | EC2 | Baseline + DDoS auto-scaling (Days 18-19) |
+| `TerminateInstances` | EC2 | Instance lifecycle |
+| `PutLogEvents` | CloudWatch Logs | Lambda log correlation |
+| `GetSecretValue` | Secrets Manager | Baseline + exfil credential theft (Day 9) |
+| `DescribeAlarms` | CloudWatch | Baseline + ops scenario monitoring |
+| `StartConfigRulesEvaluation` | Config | Compliance check baseline |
+| `PutEvaluations` | Config | Compliance results |
+
+Added scenario-specific events:
+- `SetAlarmState` for DDoS (WebServer-HighCPU), memory_leak (Lambda-ErrorRate), cpu_runaway (Database-ConnectionCount)
+- `RunInstances` auto-scaling during DDoS (Days 18-19)
+- `GetSecretValue` exfil credential theft (Day 9)
+
+### Scenario integration updates (registry.py)
+
+| Scenario | Sources added | Reason |
+|----------|---------------|--------|
+| exfil | `aws_guardduty`, `aws_billing` | GuardDuty detects IAM persistence + S3 exfil; billing shows S3 cost anomaly |
+| ransomware_attempt | `aws_guardduty` | GuardDuty detects EC2 malicious IP |
+| ddos_attack | `aws`, `aws_billing` | CloudWatch alarms + RunInstances auto-scaling; billing shows EC2/WAF cost spike |
+| memory_leak | `aws` | CloudWatch Lambda-ErrorRate alarm |
+| cpu_runaway | `aws` | CloudWatch Database-ConnectionCount alarm |
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_aws.py` | +7 baseline event types, +3 scenario events, updated distribution, scenario hooks |
+| `bin/generators/generate_aws_guardduty.py` | **NEW** -- GuardDuty findings generator |
+| `bin/generators/generate_aws_billing.py` | **NEW** -- AWS billing CUR CSV generator |
+| `bin/main_generate.py` | Registered 2 new generators, updated cloud source group |
+| `bin/scenarios/registry.py` | Added aws/aws_guardduty/aws_billing to 5 scenario source lists |
+| `bin/shared/config.py` | Added GENERATOR_OUTPUT_FILES entries for guardduty + billing |
+| `default/inputs.conf` | Added 2 monitor stanzas for GuardDuty + Billing outputs |
+| `default/props.conf` | Added 2 sourcetype definitions (FAKE:aws:cloudwatch:guardduty, FAKE:aws:billing:cur) |
+
+### Verification
+
+```
+python3 bin/main_generate.py --sources=aws,aws_guardduty,aws_billing --scenarios=exfil,ddos_attack,ransomware_attempt --days=21 --test
+
+  aws:           3,313 events (21 event types)  PASS
+  aws_guardduty:   128 findings (baseline: 122, exfil: 5, ransomware: 1)  PASS
+  aws_billing:     357 line items ($1,885 total, DDoS: $83 spike, Exfil: $7 anomaly)  PASS
+
+Total: 3,798 events, 26 generators registered, 0 failures
+```
+
+---
+
 ## 2026-02-13 ~01:30 UTC -- Phase 7: Documentation completeness (HIGH priority items)
 
 ### Scenario documentation

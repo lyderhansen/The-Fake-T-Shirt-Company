@@ -122,6 +122,8 @@ GENERATOR_OUTPUT_FILES = {
     ],
     # Cloud
     "aws": ["cloud/aws/aws_cloudtrail.json"],
+    "aws_guardduty": ["cloud/aws/aws_guardduty.json"],
+    "aws_billing": ["cloud/aws/aws_billing_cur.csv"],
     "gcp": ["cloud/gcp/gcp_audit.json"],
     "entraid": [
         "cloud/entraid/entraid_signin.json",

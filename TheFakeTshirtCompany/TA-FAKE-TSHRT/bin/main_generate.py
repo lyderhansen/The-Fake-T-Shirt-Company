@@ -49,6 +49,8 @@ from generators.generate_secure_access import generate_secure_access_logs
 from generators.generate_catalyst import generate_catalyst_logs
 from generators.generate_aci import generate_aci_logs
 from generators.generate_catalyst_center import generate_catalyst_center_logs
+from generators.generate_aws_guardduty import generate_aws_guardduty_logs
+from generators.generate_aws_billing import generate_aws_billing_logs
 
 # =============================================================================
 # GENERATOR REGISTRY
@@ -79,12 +81,14 @@ GENERATORS: Dict[str, Callable] = {
     "catalyst": generate_catalyst_logs,
     "aci": generate_aci_logs,
     "catalyst_center": generate_catalyst_center_logs,
+    "aws_guardduty": generate_aws_guardduty_logs,
+    "aws_billing": generate_aws_billing_logs,
 }
 
 # Group sources for easy selection
 SOURCE_GROUPS = {
     "all": list(GENERATORS.keys()),
-    "cloud": ["aws", "gcp", "entraid", "secure_access"],
+    "cloud": ["aws", "aws_guardduty", "aws_billing", "gcp", "entraid", "secure_access"],
     "network": ["asa", "meraki", "catalyst", "aci"],
     "cisco": ["asa", "meraki", "secure_access", "catalyst", "aci", "catalyst_center"],
     "campus": ["catalyst", "catalyst_center"],
@@ -176,7 +180,7 @@ Output Modes:
 
 Source Groups:
   all           - All sources (24 generators)
-  cloud         - aws, gcp, entraid, secure_access
+  cloud         - aws, aws_guardduty, aws_billing, gcp, entraid, secure_access
   network       - asa, meraki, catalyst, aci
   cisco         - asa, meraki, secure_access, catalyst, aci, catalyst_center
   campus        - catalyst, catalyst_center
@@ -192,9 +196,10 @@ Source Groups:
   erp           - sap
 
 Individual Sources:
-  asa, aws, gcp, entraid, exchange, office_audit, access, wineventlog, linux,
-  perfmon, mssql, sysmon, orders, servicebus, meraki, webex, webex_ta, webex_api,
-  servicenow, sap, secure_access, catalyst, aci, catalyst_center
+  asa, aws, aws_guardduty, aws_billing, gcp, entraid, exchange, office_audit,
+  access, wineventlog, linux, perfmon, mssql, sysmon, orders, servicebus, meraki,
+  webex, webex_ta, webex_api, servicenow, sap, secure_access, catalyst, aci,
+  catalyst_center
 
 Scenarios:
   all              - All implemented scenarios (default)

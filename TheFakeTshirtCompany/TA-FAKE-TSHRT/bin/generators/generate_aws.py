@@ -68,6 +68,10 @@ AWS_HUMAN_USERS = [
 AWS_BUCKETS = [f"{ORG_NAME_LOWER}-prod-data", f"{ORG_NAME_LOWER}-backups", f"{ORG_NAME_LOWER}-logs"]
 AWS_LAMBDAS = ["process-orders", "send-notifications", "data-transform", "api-handler"]
 AWS_EC2_INSTANCES = ["i-0abc123def456", "i-0def789abc012", "i-0123456789abc"]
+AWS_CONFIG_RULES = ["iam-user-no-mfa", "s3-bucket-public-read-prohibited", "ec2-instance-no-public-ip", "iam-password-policy"]
+AWS_CLOUDWATCH_ALARMS = ["WebServer-HighCPU", "Lambda-ErrorRate", "Database-ConnectionCount", "S3-BucketSize", "EC2-StatusCheck"]
+AWS_SECRETS = ["prod/database/credentials", "prod/api/stripe-key", "prod/api/sendgrid-key"]
+AWS_LOG_GROUPS = ["/aws/lambda/process-orders", "/aws/lambda/send-notifications", "/aws/lambda/data-transform", "/ecs/web-service"]
 
 # Read-only event names (Get*, List*, Describe*, Head*)
 _READ_ONLY_PREFIXES = ("Get", "List", "Describe", "Head", "Lookup")
@@ -80,6 +84,9 @@ _AWS_BASELINE_ERRORS = [
     ("NoSuchBucket", "The specified bucket does not exist", ["GetObject", "PutObject"]),
     ("Throttling", "Rate exceeded", ["DescribeInstances", "ListUsers", "Invoke", "GetObject"]),
     ("UnauthorizedAccess", "User is not authorized to perform this operation", ["CreateAccessKey", "DeleteAccessKey", "AssumeRole"]),
+    ("ResourceNotFoundException", "Secrets Manager can\'t find the specified secret.", ["GetSecretValue"]),
+    ("LimitExceededException", "The request was rejected because it exceeded the allowed number of instances", ["RunInstances"]),
+    ("ResourceNotFoundException", "The specified alarm does not exist", ["DescribeAlarms"]),
 ]
 _BASELINE_ERROR_RATE = 0.04  # 4% of baseline events fail
 
@@ -455,50 +462,324 @@ def aws_iam_delete_access_key(base_date: str, day: int, hour: int) -> Dict[str, 
     return _maybe_inject_error(event, "DeleteAccessKey")
 
 
+# =============================================================================
+# NEW BASELINE EVENT GENERATORS
+# =============================================================================
+
+def aws_ec2_run_instances(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate EC2 RunInstances event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    instance_id = f"i-{uuid.uuid4().hex[:17]}"
+
+    # Mostly service-initiated (auto-scaling, deployment)
+    if random.random() < 0.3:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "RunInstances", "ec2.amazonaws.com", user)
+    else:
+        svc = AWS_SERVICE_ROLES["svc-deployment"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "RunInstances", "ec2.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {
+        "instanceType": random.choice(["t3.medium", "t3.large", "m5.large"]),
+        "minCount": 1,
+        "maxCount": 1,
+        "imageId": f"ami-{uuid.uuid4().hex[:17]}",
+    }
+    event["responseElements"] = {
+        "instancesSet": {"items": [{"instanceId": instance_id, "currentState": {"name": "pending"}}]}
+    }
+    event["resources"] = [
+        {"type": "AWS::EC2::Instance", "ARN": f"arn:aws:ec2:{AWS_REGION}:{AWS_ACCOUNT_ID}:instance/{instance_id}"},
+    ]
+    return event
+
+
+def aws_ec2_terminate_instances(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate EC2 TerminateInstances event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    instance_id = random.choice(AWS_EC2_INSTANCES)
+
+    if random.random() < 0.3:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "TerminateInstances", "ec2.amazonaws.com", user)
+    else:
+        svc = AWS_SERVICE_ROLES["svc-deployment"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "TerminateInstances", "ec2.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {"instancesSet": {"items": [{"instanceId": instance_id}]}}
+    event["responseElements"] = {
+        "instancesSet": {"items": [{"instanceId": instance_id, "currentState": {"name": "shutting-down"}}]}
+    }
+    event["resources"] = [
+        {"type": "AWS::EC2::Instance", "ARN": f"arn:aws:ec2:{AWS_REGION}:{AWS_ACCOUNT_ID}:instance/{instance_id}"},
+    ]
+    return event
+
+
+def aws_logs_put_log_events(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate CloudWatch Logs PutLogEvents event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    log_group = random.choice(AWS_LOG_GROUPS)
+
+    # Always service-initiated (Lambda runtime, ECS agent)
+    svc = AWS_SERVICE_ROLES["data-pipeline"]
+    event = aws_assumed_role_event(base_date, day, hour, minute, second, "PutLogEvents", "logs.amazonaws.com",
+                                   svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {
+        "logGroupName": log_group,
+        "logStreamName": f"{log_group.split('/')[-1]}/{uuid.uuid4().hex[:8]}",
+    }
+    event["responseElements"] = {"nextSequenceToken": uuid.uuid4().hex[:56]}
+    return event
+
+
+def aws_secretsmanager_get_secret(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
+    """Generate Secrets Manager GetSecretValue event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    secret_id = random.choice(AWS_SECRETS)
+
+    # Mostly service-initiated (Lambda fetching DB creds)
+    if random.random() < 0.2:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "GetSecretValue", "secretsmanager.amazonaws.com", user)
+    else:
+        svc = AWS_SERVICE_ROLES["data-pipeline"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "GetSecretValue", "secretsmanager.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {"secretId": secret_id, "versionStage": "AWSCURRENT"}
+    event["responseElements"] = None  # Secret value not logged
+    event["resources"] = [
+        {"type": "AWS::SecretsManager::Secret", "ARN": f"arn:aws:secretsmanager:{AWS_REGION}:{AWS_ACCOUNT_ID}:secret:{secret_id}"},
+    ]
+    return event
+
+
+def aws_cloudwatch_describe_alarms(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate CloudWatch DescribeAlarms event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+
+    # Mostly human (checking alarm status)
+    if random.random() < 0.7:
+        user = _pick_human_user()
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "DescribeAlarms", "monitoring.amazonaws.com", user)
+    else:
+        svc = AWS_SERVICE_ROLES["svc-deployment"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "DescribeAlarms", "monitoring.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {"alarmNames": [random.choice(AWS_CLOUDWATCH_ALARMS)]}
+    event["responseElements"] = None
+    return event
+
+
+def aws_config_start_evaluation(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate AWS Config StartConfigRulesEvaluation event."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    rule = random.choice(AWS_CONFIG_RULES)
+
+    # Always service-initiated (automated compliance checks)
+    svc = AWS_SERVICE_ROLES["svc-deployment"]
+    event = aws_assumed_role_event(base_date, day, hour, minute, second, "StartConfigRulesEvaluation", "config.amazonaws.com",
+                                   svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {"configRuleNames": [rule]}
+    event["responseElements"] = None
+    return event
+
+
+def aws_config_put_evaluations(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
+    """Generate AWS Config PutEvaluations event (compliance results)."""
+    minute, second = random.randint(0, 59), random.randint(0, 59)
+    rule = random.choice(AWS_CONFIG_RULES)
+
+    # Determine compliance status
+    compliance = "COMPLIANT"
+
+    # During exfil persistence phase, iam-user-no-mfa goes NON_COMPLIANT
+    if active_scenarios and "exfil" in active_scenarios and day >= 7 and rule == "iam-user-no-mfa":
+        compliance = "NON_COMPLIANT"
+
+    svc = AWS_SERVICE_ROLES["svc-deployment"]
+    event = aws_assumed_role_event(base_date, day, hour, minute, second, "PutEvaluations", "config.amazonaws.com",
+                                   svc["role_name"], svc["session_name"])
+
+    event["requestParameters"] = {
+        "evaluations": [{
+            "complianceResourceType": "AWS::IAM::User",
+            "complianceResourceId": "svc-datasync" if compliance == "NON_COMPLIANT" else random.choice(AWS_HUMAN_USERS),
+            "complianceType": compliance,
+            "orderingTimestamp": ts_iso(base_date, day, hour, minute, second),
+        }],
+        "resultToken": uuid.uuid4().hex,
+    }
+    event["responseElements"] = {"failedEvaluations": []}
+
+    if compliance == "NON_COMPLIANT" and active_scenarios and "exfil" in active_scenarios:
+        event["demo_id"] = "exfil"
+
+    return event
+
+
+# =============================================================================
+# SCENARIO-SPECIFIC EVENT GENERATORS
+# =============================================================================
+
+def aws_get_secret_exfil(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate exfil-specific GetSecretValue -- attacker fetching DB credentials."""
+    minute = random.randint(15, 45)
+    second = random.randint(0, 59)
+
+    event = {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAMALICIOUS001",
+            "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/svc-datasync",
+            "accountId": AWS_ACCOUNT_ID,
+            "accessKeyId": "AKIAMALICIOUS001",
+            "userName": "svc-datasync",
+        },
+        "eventTime": ts_iso(base_date, day, hour, minute, second),
+        "eventSource": "secretsmanager.amazonaws.com",
+        "eventName": "GetSecretValue",
+        "awsRegion": AWS_REGION,
+        "sourceIPAddress": "10.10.30.55",  # Compromised workstation
+        "userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
+        "requestID": str(uuid.uuid4()),
+        "eventID": str(uuid.uuid4()),
+        "eventType": "AwsApiCall",
+        "recipientAccountId": AWS_ACCOUNT_ID,
+        "readOnly": True,
+        "managementEvent": True,
+        "requestParameters": {"secretId": "prod/database/credentials", "versionStage": "AWSCURRENT"},
+        "responseElements": None,
+        "resources": [
+            {"type": "AWS::SecretsManager::Secret", "ARN": f"arn:aws:secretsmanager:{AWS_REGION}:{AWS_ACCOUNT_ID}:secret:prod/database/credentials"},
+        ],
+        "demo_id": "exfil",
+    }
+    return event
+
+
+def aws_run_instances_autoscale(base_date: str, day: int, hour: int) -> List[Dict[str, Any]]:
+    """Generate DDoS auto-scaling RunInstances events."""
+    events = []
+    count = random.randint(1, 2)
+    for _ in range(count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        instance_id = f"i-{uuid.uuid4().hex[:17]}"
+
+        svc = AWS_SERVICE_ROLES["svc-deployment"]
+        event = aws_assumed_role_event(base_date, day, hour, minute, second, "RunInstances", "ec2.amazonaws.com",
+                                       svc["role_name"], svc["session_name"])
+        event["requestParameters"] = {
+            "instanceType": "c5.xlarge",
+            "minCount": 1,
+            "maxCount": 1,
+            "imageId": f"ami-{uuid.uuid4().hex[:17]}",
+            "tagSpecificationSet": {"items": [{"tags": [{"key": "aws:autoscaling:groupName", "value": "web-asg"}]}]},
+        }
+        event["responseElements"] = {
+            "instancesSet": {"items": [{"instanceId": instance_id, "currentState": {"name": "pending"}}]}
+        }
+        event["resources"] = [
+            {"type": "AWS::EC2::Instance", "ARN": f"arn:aws:ec2:{AWS_REGION}:{AWS_ACCOUNT_ID}:instance/{instance_id}"},
+        ]
+        event["demo_id"] = "ddos_attack"
+        events.append(event)
+    return events
+
+
+def aws_cloudwatch_alarm_state_change(base_date: str, day: int, hour: int,
+                                       alarm_name: str, new_state: str,
+                                       demo_id: str) -> Dict[str, Any]:
+    """Generate CloudWatch SetAlarmState event for scenario correlation."""
+    minute = random.randint(0, 15)
+    second = random.randint(0, 59)
+
+    svc = AWS_SERVICE_ROLES["svc-deployment"]
+    event = aws_assumed_role_event(base_date, day, hour, minute, second, "SetAlarmState", "monitoring.amazonaws.com",
+                                   svc["role_name"], svc["session_name"])
+    event["requestParameters"] = {
+        "alarmName": alarm_name,
+        "stateValue": new_state,
+        "stateReason": f"Threshold crossed: alarm triggered at {ts_iso(base_date, day, hour, minute, second)}",
+    }
+    event["responseElements"] = None
+    event["demo_id"] = demo_id
+    return event
+
+
 def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
                           active_scenarios: list = None) -> List[Dict[str, Any]]:
     """Generate baseline events for one hour.
 
-    Event distribution (updated with new event types):
-    - 20% S3 GetObject
-    - 15% S3 PutObject
-    - 3%  S3 DeleteObject (cleanup, lifecycle)
-    - 12% EC2 DescribeInstances
-    - 18% Lambda Invoke
-    - 8%  IAM ListUsers
-    - 7%  STS GetCallerIdentity
-    - 8%  STS AssumeRole (service role assumptions)
-    - 5%  ConsoleLogin (human console sign-ins)
-    - 2%  IAM CreateAccessKey (key rotation)
-    - 2%  IAM DeleteAccessKey (key rotation)
+    Event distribution (18 event types):
+    - 16% S3 GetObject
+    - 12% S3 PutObject
+    - 3%  S3 DeleteObject
+    - 10% EC2 DescribeInstances
+    - 15% Lambda Invoke
+    - 6%  IAM ListUsers
+    - 6%  STS GetCallerIdentity
+    - 7%  STS AssumeRole
+    - 5%  ConsoleLogin
+    - 2%  IAM CreateAccessKey
+    - 2%  IAM DeleteAccessKey
+    - 3%  EC2 RunInstances (NEW)
+    - 2%  EC2 TerminateInstances (NEW)
+    - 4%  CloudWatch PutLogEvents (NEW)
+    - 3%  SecretsManager GetSecretValue (NEW)
+    - 2%  CloudWatch DescribeAlarms (NEW)
+    - 1%  Config StartConfigRulesEvaluation (NEW)
+    - 1%  Config PutEvaluations (NEW)
     """
     events = []
 
     for _ in range(event_count):
         event_type = random.randint(1, 100)
 
-        if event_type <= 20:
+        if event_type <= 16:
             events.append(aws_s3_get_object(base_date, day, hour, active_scenarios))
-        elif event_type <= 35:
+        elif event_type <= 28:
             events.append(aws_s3_put_object(base_date, day, hour, active_scenarios))
-        elif event_type <= 38:
+        elif event_type <= 31:
             events.append(aws_s3_delete_object(base_date, day, hour))
-        elif event_type <= 50:
+        elif event_type <= 41:
             events.append(aws_ec2_describe(base_date, day, hour))
-        elif event_type <= 68:
+        elif event_type <= 56:
             events.append(aws_lambda_invoke(base_date, day, hour))
-        elif event_type <= 76:
+        elif event_type <= 62:
             events.append(aws_iam_list_users(base_date, day, hour))
-        elif event_type <= 83:
+        elif event_type <= 68:
             events.append(aws_sts_get_caller_identity(base_date, day, hour))
-        elif event_type <= 91:
+        elif event_type <= 75:
             events.append(aws_sts_assume_role(base_date, day, hour))
-        elif event_type <= 96:
+        elif event_type <= 80:
             events.append(aws_console_login(base_date, day, hour))
-        elif event_type <= 98:
+        elif event_type <= 82:
             events.append(aws_iam_create_access_key(base_date, day, hour))
-        else:
+        elif event_type <= 84:
             events.append(aws_iam_delete_access_key(base_date, day, hour))
+        elif event_type <= 87:
+            events.append(aws_ec2_run_instances(base_date, day, hour))
+        elif event_type <= 89:
+            events.append(aws_ec2_terminate_instances(base_date, day, hour))
+        elif event_type <= 93:
+            events.append(aws_logs_put_log_events(base_date, day, hour))
+        elif event_type <= 96:
+            events.append(aws_secretsmanager_get_secret(base_date, day, hour))
+        elif event_type <= 98:
+            events.append(aws_cloudwatch_describe_alarms(base_date, day, hour))
+        elif event_type <= 99:
+            events.append(aws_config_start_evaluation(base_date, day, hour))
+        else:
+            events.append(aws_config_put_evaluations(base_date, day, hour))
 
     return events
 
@@ -546,7 +827,7 @@ def generate_aws_logs(
         except ImportError:
             pass  # Scenario not available
 
-    base_events_per_peak_hour = int(15 * scale)
+    base_events_per_peak_hour = int(20 * scale)
 
     if not quiet:
         print("=" * 70, file=sys.stderr)
@@ -567,7 +848,7 @@ def generate_aws_logs(
             hour_events = calc_natural_events(base_events_per_peak_hour, start_date, day, hour, "cloud")
             all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events, active_scenarios))
 
-            # Exfil scenario AWS events
+            # Exfil scenario AWS events (from ExfilScenario class)
             if exfil_scenario:
                 exfil_events = exfil_scenario.aws_hour(day, hour)
                 for e in exfil_events:
@@ -575,6 +856,29 @@ def generate_aws_logs(
                         all_events.append(json.loads(e))
                     else:
                         all_events.append(e)
+
+            # Exfil: attacker fetches DB credentials from Secrets Manager (Day 9, hour 10)
+            if "exfil" in active_scenarios and day == 8 and hour == 10:
+                all_events.append(aws_get_secret_exfil(start_date, day, hour))
+
+            # DDoS: auto-scaling RunInstances (Days 18-19, business hours)
+            if "ddos_attack" in active_scenarios and 17 <= day <= 18 and 8 <= hour <= 16:
+                all_events.extend(aws_run_instances_autoscale(start_date, day, hour))
+
+            # DDoS: CloudWatch alarm state changes (Days 18-19)
+            if "ddos_attack" in active_scenarios and 17 <= day <= 18 and hour in (9, 14):
+                all_events.append(aws_cloudwatch_alarm_state_change(
+                    start_date, day, hour, "WebServer-HighCPU", "ALARM", "ddos_attack"))
+
+            # Memory leak: Lambda-ErrorRate alarm (Days 8-9, peak hours)
+            if "memory_leak" in active_scenarios and 7 <= day <= 8 and hour == 11:
+                all_events.append(aws_cloudwatch_alarm_state_change(
+                    start_date, day, hour, "Lambda-ErrorRate", "ALARM", "memory_leak"))
+
+            # CPU runaway: Database-ConnectionCount alarm (Days 11-12)
+            if "cpu_runaway" in active_scenarios and 10 <= day <= 11 and hour == 10:
+                all_events.append(aws_cloudwatch_alarm_state_change(
+                    start_date, day, hour, "Database-ConnectionCount", "ALARM", "cpu_runaway"))
 
         if not quiet:
             print(f"  [AWS] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
@@ -588,14 +892,16 @@ def generate_aws_logs(
             f.write(json.dumps(event) + "\n")
 
     if not quiet:
-        # Count exfil events and errors
-        exfil_count = sum(1 for e in all_events if e.get("demo_id") == "exfil")
+        # Count scenario events and errors
+        from collections import Counter
+        scenario_counts = Counter(e.get("demo_id") for e in all_events if e.get("demo_id"))
         error_count = sum(1 for e in all_events if "errorCode" in e or
                           (e.get("responseElements", {}) or {}).get("ConsoleLogin") == "Failure")
-        print(f"  [AWS] Complete! {len(all_events):,} events written", file=sys.stderr)
+        event_type_count = len(set(e.get("eventName") for e in all_events))
+        print(f"  [AWS] Complete! {len(all_events):,} events written ({event_type_count} event types)", file=sys.stderr)
         print(f"        errors: {error_count:,} ({error_count * 100 // max(len(all_events), 1)}%)", file=sys.stderr)
-        if exfil_count:
-            print(f"        exfil events: {exfil_count}", file=sys.stderr)
+        for scenario_name, count in scenario_counts.most_common():
+            print(f"        {scenario_name}: {count}", file=sys.stderr)
 
     return len(all_events)
 
