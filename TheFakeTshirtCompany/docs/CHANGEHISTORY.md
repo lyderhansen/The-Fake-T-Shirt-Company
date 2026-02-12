@@ -4,6 +4,95 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~01:30 UTC -- Phase 7: Documentation completeness (HIGH priority items)
+
+### Scenario documentation
+
+Created 3 missing scenario walkthrough docs following existing pattern (timeline, SPL queries, talking points):
+
+| File | Scenario | Content |
+|------|----------|---------|
+| `docs/ddos_attack.md` | DDoS Attack (Days 18-19) | Two-wave botnet attack, SD-WAN failover sequence, 9 affected sources, botnet IP lists |
+| `docs/dead_letter_pricing.md` | Dead Letter Pricing (Day 16) | ServiceBus DLQ timeline, price error types, revenue impact, 4 affected sources |
+| `docs/phishing_test.md` | Phishing Test (Days 21-23) | Campaign waves, response rates by location, narrative connection to exfil incident |
+
+### Scenario overview update
+
+Updated `docs/scenario_overview.md`:
+- Extended timeline ASCII art from 14 days to 31 days (shows all 10 scenarios)
+- Added 3 missing scenarios to matrix: phishing_test, ddos_attack, dead_letter_pricing
+- Added certificate pre-warning markers (w) to timeline
+- Added Ashley Griffin (phishing operator) and MX-BOS-01 to key personnel/servers
+- Added botnet IPs and KnowBe4 platform to threat actors
+- Updated demo order (9 scenarios) and outcome summary (10 scenarios)
+- Added category-based SPL filters (attack, ops, network)
+
+### Datasource documentation
+
+Created 8 missing datasource docs following existing pattern (overview, key fields, examples, SPL queries, scenario integration, talking points):
+
+| File | Source | Key Details |
+|------|--------|-------------|
+| `docs/datasource_docs/sysmon.md` | Microsoft Sysmon | 9 Event IDs, 7 servers + 20 workstations, exfil + ransomware scenarios |
+| `docs/datasource_docs/mssql.md` | Microsoft SQL Server | ERRORLOG format, cpu_runaway + exfil scenarios, backup monitoring |
+| `docs/datasource_docs/sap.md` | SAP S/4HANA | Pipe-delimited audit, order correlation, dead_letter_pricing tagging |
+| `docs/datasource_docs/catalyst.md` | Cisco Catalyst | IOS-XE syslog, 3 switches, exfil/ddos/fw_misconfig scenarios |
+| `docs/datasource_docs/aci.md` | Cisco ACI | 3 JSON types (fault/event/audit), spine-leaf fabric, exfil/ddos/cpu scenarios |
+| `docs/datasource_docs/secure_access.md` | Cisco Secure Access | 4 CSV types (DNS/proxy/FW/audit), exfil/ransomware/phishing scenarios |
+| `docs/datasource_docs/catalyst_center.md` | Cisco Catalyst Center | 4 JSON types (device/network/client/issues), ddos/cpu/memory scenarios |
+| `docs/datasource_docs/webex_ta.md` | Webex Meetings TA | Meeting usage + attendee history, TA-compatible format |
+
+Updated `docs/datasource_docs/README.md`:
+- Added all 8 new docs to category tables (Network +2, Cloud +2, Collaboration +1, Windows +2, ERP +1)
+- Updated Volume Summary with all new sources
+- Expanded Scenario Integration matrix from 7 to 10 scenarios and 12 to 22 sources
+
+### Summary
+
+| Item | Count |
+|------|-------|
+| New scenario docs | 3 |
+| New datasource docs | 8 |
+| Updated docs | 2 (scenario_overview.md, datasource_docs/README.md) |
+| Total docs coverage | Scenarios: 10/10 (was 7/10), Datasources: 26/26 (was 18/26) |
+
+---
+
+## 2026-02-13 ~00:30 UTC -- Phase 6b: DDoS failover + nightly backup traffic (2 fixes)
+
+### Fix 6: DDoS SD-WAN failover events
+
+**Problem**: DDoS scenario generated IDS alerts and health degradation but no SD-WAN failover events. When a WAN link is saturated, Meraki MX triggers an automatic failover to the backup WAN -- this was missing from the attack narrative.
+
+| File | Change |
+|------|--------|
+| `bin/scenarios/network/ddos_attack.py` | Added failover logic to `meraki_hour()`: generates `sd_wan_failover` event (Comcast -> AT&T) when intensity crosses >= 0.8, and failback event (AT&T -> Comcast) when intensity drops below 0.5 after being >= 0.8. Uses previous-hour intensity comparison to fire only on transitions. |
+
+**Verified**: 3 failover events in 20-day run:
+- 08:02 -- Failover Comcast -> AT&T (full attack, intensity 1.0)
+- 12:05 -- Failover Comcast -> AT&T (wave 2, intensity 0.8)
+- 14:10 -- Failback AT&T -> Comcast (ISP filtering active, intensity drops to 0.4)
+
+### Fix 7: BACKUP-ATL-01 nightly backup traffic
+
+**Problem**: BACKUP-ATL-01 (10.20.20.20) exists as a server but generated zero ASA traffic. Nightly backup jobs from Atlanta to Boston (FILE-BOS-01) should produce SMB sessions on port 445 during the 22:00-04:00 backup window.
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_asa.py` | Added `asa_backup_traffic()` function generating Built/Teardown SMB pairs from 10.20.20.20 -> 10.10.20.20:445. Active hours 22-23 (start: 3-5 sessions) and 00-03 (peak: 6-10, tail: 2-3). Large byte values (50-500MB). Called unconditionally in main loop as baseline traffic. |
+
+**Verified**: 90 Built sessions over 3-day run (~30/night). Distribution: 22:00-23:00 = 3-5, 00:00-01:00 = 7-10, 02:00-03:00 = 2-3. All on port 445 with realistic large byte counts.
+
+### Verification summary
+
+| Fix | Generator | Events | Status |
+|-----|-----------|--------|--------|
+| 6. DDoS failover | meraki | 3,018,209 (3 failover) | PASS |
+| 7. Nightly backup | asa | 103,967 (90 backup Built) | PASS |
+| Syntax checks | 3 files | N/A | PASS |
+
+---
+
 ## 2026-02-12 ~19:00 UTC -- Phase 6: Quick wins + scenario fixes (5 fixes)
 
 ### Fix 1: Memory leak gradual response time slowdown

@@ -555,6 +555,60 @@ class DdosAttackScenario:
                 event.update(self._demo_json())
                 result["mx"].append(event)
 
+        # SD-WAN failover events when primary WAN is saturated
+        # Comcast (primary) fails over to AT&T (backup) at peak attack
+        prev_intensity = self._get_attack_intensity(day, hour - 1) if hour > 0 else (
+            self._get_attack_intensity(day - 1, 23) if day > self.cfg.start_day else 0.0
+        )
+
+        if intensity >= 0.8 and prev_intensity < 0.8:
+            # Failover: Comcast saturated, switch to AT&T
+            minute = random.randint(2, 8)
+            sec = random.randint(0, 59)
+            ts = time_utils.ts_iso(day, hour, minute, sec)
+            event = {
+                "occurredAt": ts,
+                "networkId": "N_FakeTShirtCo_BOS",
+                "type": "sd_wan_failover",
+                "description": "SD-WAN failover from Comcast to AT&T",
+                "category": "appliance",
+                "deviceSerial": "MX-BOS-01",
+                "deviceName": "MX-BOS-01",
+                "eventData": {
+                    "from_wan": "Comcast",
+                    "to_wan": "AT&T",
+                    "reason": "WAN link saturated - packet loss exceeds threshold"
+                }
+            }
+            event.update(self._demo_json())
+            result["mx"].append(event)
+
+        elif intensity < 0.3 and prev_intensity >= 0.3 and prev_intensity < 0.8:
+            # No failback needed -- wasn't in failover state
+            pass
+
+        elif intensity < 0.5 and prev_intensity >= 0.8:
+            # Failback: attack subsiding, restore primary WAN
+            minute = random.randint(10, 25)
+            sec = random.randint(0, 59)
+            ts = time_utils.ts_iso(day, hour, minute, sec)
+            event = {
+                "occurredAt": ts,
+                "networkId": "N_FakeTShirtCo_BOS",
+                "type": "sd_wan_failover",
+                "description": "SD-WAN failover from AT&T to Comcast",
+                "category": "appliance",
+                "deviceSerial": "MX-BOS-01",
+                "deviceName": "MX-BOS-01",
+                "eventData": {
+                    "from_wan": "AT&T",
+                    "to_wan": "Comcast",
+                    "reason": "Primary WAN recovered - restoring preferred path"
+                }
+            }
+            event.update(self._demo_json())
+            result["mx"].append(event)
+
         return result
 
     # =========================================================================

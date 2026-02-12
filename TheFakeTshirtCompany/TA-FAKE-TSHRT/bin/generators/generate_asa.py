@@ -847,6 +847,78 @@ def asa_failover(base_date: str, day: int) -> List[str]:
     return events
 
 
+# =============================================================================
+# NIGHTLY BACKUP TRAFFIC (BACKUP-ATL-01 -> FILE-BOS-01)
+# =============================================================================
+
+BACKUP_SRC = "10.20.20.20"   # BACKUP-ATL-01 (Atlanta)
+BACKUP_DST = "10.10.20.20"   # FILE-BOS-01 (Boston)
+
+
+def asa_backup_traffic(base_date: str, day: int, hour: int) -> List[str]:
+    """Generate nightly backup traffic from BACKUP-ATL-01 to FILE-BOS-01.
+
+    Scheduled window: 22:00-04:00 nightly (crosses midnight).
+    Traffic pattern: SMB (port 445) large file transfers.
+    - 22:00-23:00: Backup job starts, initial sync (3-5 sessions)
+    - 00:00-02:00: Peak transfer (6-10 sessions per hour)
+    - 03:00-04:00: Tail end, verification (2-3 sessions)
+    """
+    # Only active during backup window
+    if hour >= 4 and hour < 22:
+        return []
+
+    events = []
+    pri6 = asa_pri(6)
+
+    # Determine session count based on phase
+    if hour >= 22:
+        # Start phase: initial sync
+        session_count = random.randint(3, 5)
+    elif hour <= 1:
+        # Peak phase: bulk data transfer
+        session_count = random.randint(6, 10)
+    else:
+        # Tail phase: verification and cleanup
+        session_count = random.randint(2, 3)
+
+    for _ in range(session_count):
+        cid = random.randint(100000, 999999)
+        sp = random.randint(49152, 65535)
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+
+        # Backup transfers are large and long-lived
+        bytes_val = random.randint(50_000_000, 500_000_000)  # 50MB-500MB per session
+        duration_secs = random.randint(120, 900)  # 2-15 minutes
+
+        total_start_secs = minute * 60 + second
+        total_end_secs = total_start_secs + duration_secs
+        end_min = min(59, total_end_secs // 60)
+        end_sec = total_end_secs % 60 if end_min < 59 else 59
+
+        dur_mins = duration_secs // 60
+        dur_secs = duration_secs % 60
+        dur = f"0:{dur_mins}:{dur_secs}"
+
+        start_ts = ts_syslog(base_date, day, hour, minute, second)
+        teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
+
+        # ATL -> BOS cross-site SMB backup traffic
+        events.append(
+            f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP "
+            f"connection {cid} for atl:{BACKUP_SRC}/{sp} ({BACKUP_SRC}/{sp}) "
+            f"to bos:{BACKUP_DST}/445 ({BACKUP_DST}/445)"
+        )
+        events.append(
+            f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP "
+            f"connection {cid} for atl:{BACKUP_SRC}/{sp} to bos:{BACKUP_DST}/445 "
+            f"duration {dur} bytes {bytes_val} TCP FINs"
+        )
+
+    return events
+
+
 def generate_day_events(base_date: str, day: int) -> List[str]:
     """Generate operational events for a specific day."""
     events = []
@@ -1050,6 +1122,9 @@ def generate_asa_logs(
 
             # Generate baseline
             all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events))
+
+            # Nightly backup traffic (BACKUP-ATL-01 -> FILE-BOS-01, 22:00-04:00)
+            all_events.extend(asa_backup_traffic(start_date, day, hour))
 
             # Generate scenario events using new scenario classes
             if include_exfil:
