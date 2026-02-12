@@ -33,16 +33,19 @@ from scenarios.registry import expand_scenarios
 # LOCATION HELPER
 # =============================================================================
 
-def _location_for_server(server_name: str) -> str:
-    """Get location code for a server (for user filtering).
+def _location_for_server(server_name: str):
+    """Get location code(s) for a server (for user filtering).
 
     Maps server hostnames to their location so logon/auth events
-    pick users from the correct office. Austin has no servers,
-    so AUS users authenticate against BOS DCs.
+    pick users from the correct office.
+
+    BOS servers return ["BOS", "AUS"] because Austin has no local DC --
+    all Austin users authenticate against Boston DCs via SD-WAN.
+    ATL servers return "ATL" (only Atlanta users).
     """
     if "ATL" in server_name:
         return "ATL"
-    return "BOS"  # All other servers are in Boston
+    return ["BOS", "AUS"]  # Boston DCs serve both BOS and AUS users via SD-WAN
 
 
 # =============================================================================

@@ -4,6 +4,84 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~08:30 UTC -- ServiceBus: Fix tshirtcid field placement
+
+### Problem
+
+ServiceBus events had `tshirtcid` duplicated: once in the envelope (as `correlationId`) and once inside the `body` object. The field should only exist at the envelope level for Splunk field extraction.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_servicebus.py` | Renamed `correlationId` to `tshirtcid` in all 6 event function envelopes. Removed duplicate `tshirtcid` from all 6 body dicts. Affects: `generate_dead_letter_event`, `generate_order_created`, `generate_payment_processed`, `generate_inventory_reserved`, `generate_shipment_created`, `generate_shipment_dispatched`. |
+
+### Verification
+
+- Syntax check: PASS
+- Generated 1,321 ServiceBus events (1-day test run)
+- `tshirtcid` at envelope level: 1,321/1,321 (100%)
+- `tshirtcid` inside body: 0/1,321 (none)
+- `correlationId` anywhere: 0 occurrences
+- Correlation confirmed: all events for same order share same `tshirtcid` UUID
+
+---
+
+## 2026-02-13 ~07:00 UTC -- Phase 5: Architecture fixes (APP-BOS-01 traffic + Austin DC auth)
+
+### Problem
+
+Deep architecture analysis revealed two plot holes:
+
+1. **APP-BOS-01 invisible in traffic flow**: Defined as e-Commerce API Server (IIS/.NET) -- the middle tier between WEB-01/02 and SQL-PROD-01. MSSQL generator already shows `svc_finance@10.10.20.40` connecting to SQL, but zero ASA/ACI evidence of this traffic existed.
+
+2. **Austin users absent from DC auth events**: After Phase 4 #18 fix, `_location_for_server("DC-BOS-01")` returned "BOS" and `get_random_user(location="BOS")` returned only Boston's 93 users. Austin's 39 users (who auth against DC-BOS via SD-WAN) never appeared in any WinEventLog DC event.
+
+### Changes
+
+**Fix 1: APP-BOS-01 Internal Traffic**
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_asa.py` | Added APP-BOS-01 to `NEW_SERVER_TRAFFIC` list (ports 443, 8443). Added `asa_internal_app_traffic()` function generating correlated WEB->APP (dmz->inside) and APP->SQL (inside->inside:1433) connection pairs. Integrated at 2% of baseline traffic distribution. |
+| `bin/generators/generate_aci.py` | Added "Web-to-App" contract to both fault and audit contract lists (lines 297, 428) |
+
+**Fix 2: Austin Users in DC-BOS Auth Events**
+
+| File | Change |
+|------|--------|
+| `bin/shared/company.py` | Updated `get_random_user()` to accept `location` as str or list of str. Uses `in` operator instead of `==` for location filtering. Backward-compatible with all existing callers. |
+| `bin/generators/generate_wineventlog.py` | Updated `_location_for_server()` to return `["BOS", "AUS"]` for BOS servers (was "BOS"). Austin users now appear in DC-BOS auth events proportionally (~30%). |
+
+### Deferred findings (documented for future phase)
+
+| Finding | Priority |
+|---------|----------|
+| DDoS: no Meraki SD-WAN failover events | Medium |
+| certificate_expiry: no pre-expiry warnings | Low |
+| BACKUP-ATL-01: no cross-site ASA traffic | Low |
+| memory_leak: no gradual response time in access logs before Day 8 | Low |
+
+### Verification
+
+```
+ASA APP-BOS-01 traffic (36,152 total events):
+  - 1,982 events mentioning APP-BOS-01 (10.10.20.40)
+  - 760 WEB->APP events (dmz:172.16.1.x -> inside:10.10.20.40)
+  - 760 APP->SQL events (inside:10.10.20.40 -> inside:10.10.20.30:1433)
+
+ACI Web-to-App contract:
+  - 16 events with Web-to-App contract references
+
+WinEventLog DC-BOS user distribution (107 DC auth events):
+  - DC-BOS: 54 BOS users (71.1%) + 22 AUS users (28.9%)
+  - DC-ATL: 31/31 ATL users (100%, no leakage)
+
+All 4 modified files pass Python syntax check.
+```
+
+---
+
 ## 2026-02-13 ~05:00 UTC -- Phase 4 #17: VPN IP-pool correlation + #18: User-location filtering
 
 ### Problem

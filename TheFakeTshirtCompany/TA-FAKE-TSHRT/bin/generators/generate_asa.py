@@ -414,7 +414,12 @@ NEW_SERVER_TRAFFIC = [
     ("SAP-PROD-01", [(3200, "TCP"), (3300, "TCP"), (8000, "TCP"), (50013, "TCP")], "SAP Application"),
     ("SAP-DB-01", [(30015, "TCP"), (30013, "TCP")], "SAP HANA DB"),
     ("BASTION-BOS-01", [(22, "TCP")], "SSH Jumpbox"),
+    ("APP-BOS-01", [(443, "TCP"), (8443, "TCP")], "e-Commerce API"),
 ]
+
+# Internal tier traffic: WEB → APP → SQL (3-tier e-commerce flow)
+APP_SERVER_IP = "10.10.20.40"   # APP-BOS-01
+SQL_SERVER_IP = "10.10.20.30"   # SQL-PROD-01
 
 
 def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
@@ -462,6 +467,59 @@ def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, sec
     pri6 = asa_pri(6)
     events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for {src_zone}:{src}/{sp} ({src}/{sp}) to {dst_zone}:{dst}/{dp} ({dst}/{dp})")
     events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for {src_zone}:{src}/{sp} to {dst_zone}:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
+
+    return events
+
+
+def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
+    """Generate internal 3-tier e-commerce traffic: WEB -> APP-BOS-01 -> SQL-PROD-01.
+
+    Simulates the realistic data flow where web servers in the DMZ call the
+    internal API server, which then queries the database. Generates a correlated
+    pair of connections (WEB->APP + APP->SQL) to make the 3-tier architecture
+    visible in Splunk.
+    """
+    events = []
+    pri6 = asa_pri(6)
+
+    # --- Leg 1: WEB-01/02 (DMZ) -> APP-BOS-01 (inside) on 443/8443 ---
+    web_src = random.choice(WEB_SERVERS)  # 172.16.1.10 or .11
+    web_sp = random.randint(49152, 65535)
+    app_dp = random.choice([443, 8443])
+
+    cid1 = random.randint(100000, 999999)
+    bytes1 = random.randint(2000, 100000)  # API call (request + response)
+    duration1 = random.randint(1, 5)  # Fast internal call
+
+    total_start = minute * 60 + second
+    total_end1 = total_start + duration1
+    end_min1 = min(59, total_end1 // 60)
+    end_sec1 = total_end1 % 60 if end_min1 < 59 else 59
+
+    ts1_start = ts_syslog(base_date, day, hour, minute, second)
+    ts1_end = ts_syslog(base_date, day, hour, end_min1, end_sec1)
+
+    events.append(f"{pri6}{ts1_start} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid1} for dmz:{web_src}/{web_sp} ({web_src}/{web_sp}) to inside:{APP_SERVER_IP}/{app_dp} ({APP_SERVER_IP}/{app_dp})")
+    events.append(f"{pri6}{ts1_end} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid1} for dmz:{web_src}/{web_sp} to inside:{APP_SERVER_IP}/{app_dp} duration 0:0:{duration1} bytes {bytes1} TCP FINs")
+
+    # --- Leg 2: APP-BOS-01 (inside) -> SQL-PROD-01 (inside) on 1433 ---
+    app_sp = random.randint(49152, 65535)
+
+    cid2 = random.randint(100000, 999999)
+    bytes2 = random.randint(500, 50000)  # DB query (smaller)
+    duration2 = random.randint(1, 3)  # DB call is fast
+
+    # Starts slightly after leg 1 (staggered by 1 second)
+    second2 = min(59, second + 1)
+    total_end2 = minute * 60 + second2 + duration2
+    end_min2 = min(59, total_end2 // 60)
+    end_sec2 = total_end2 % 60 if end_min2 < 59 else 59
+
+    ts2_start = ts_syslog(base_date, day, hour, minute, second2)
+    ts2_end = ts_syslog(base_date, day, hour, end_min2, end_sec2)
+
+    events.append(f"{pri6}{ts2_start} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid2} for inside:{APP_SERVER_IP}/{app_sp} ({APP_SERVER_IP}/{app_sp}) to inside:{SQL_SERVER_IP}/1433 ({SQL_SERVER_IP}/1433)")
+    events.append(f"{pri6}{ts2_end} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid2} for inside:{APP_SERVER_IP}/{app_sp} to inside:{SQL_SERVER_IP}/1433 duration 0:0:{duration2} bytes {bytes2} TCP FINs")
 
     return events
 
@@ -820,11 +878,12 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     - 9% Site-to-site traffic (hub-spoke: BOS=70%)
     - 7% NAT translations
     - 5% VPN sessions
-    - 4% New server traffic (SAP, BASTION)
+    - 4% New server traffic (SAP, BASTION, APP-BOS-01)
+    - 2% Internal app tier traffic (WEB->APP->SQL 3-tier flow)
     - 3% SSL handshakes
     - 3% ICMP health checks (monitoring)
-    - 3% HTTP inspection events
-    - 2% Admin commands
+    - 2% HTTP inspection events
+    - 1% Admin commands
     - 1% Internal ACL denies
     """
     events = []
@@ -859,15 +918,18 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
             # VPN sessions
             events.append(asa_vpn(base_date, day, hour, minute, second))
         elif event_type <= 88:
-            # New server traffic (SAP, BASTION)
+            # New server traffic (SAP, BASTION, APP-BOS-01)
             events.extend(asa_new_server_traffic(base_date, day, hour, minute, second))
-        elif event_type <= 91:
+        elif event_type <= 90:
+            # Internal app tier traffic (WEB->APP->SQL 3-tier flow)
+            events.extend(asa_internal_app_traffic(base_date, day, hour, minute, second))
+        elif event_type <= 93:
             # SSL handshakes
             events.append(asa_ssl(base_date, day, hour, minute, second))
-        elif event_type <= 94:
+        elif event_type <= 96:
             # ICMP health checks (monitoring pings)
             events.append(asa_icmp_ping(base_date, day, hour, minute, second))
-        elif event_type <= 97:
+        elif event_type <= 98:
             # HTTP inspection
             events.append(asa_http_inspect(base_date, day, hour, minute, second))
         elif event_type <= 99:

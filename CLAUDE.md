@@ -70,7 +70,21 @@
 | **SD-WAN Hub** | MX-BOS-01/02 (HA) | Boston internal, AutoVPN concentrator |
 | **SD-WAN Spokes** | MX-ATL-01, MX-AUS-01 | Branch offices, internal segmentation |
 
-**Key:** The ASA sees ALL external traffic (exfil, C2, attacks). Meraki MX handles internal/SD-WAN routing.
+**Key:** The ASA sees ALL external traffic (exfil, C2, attacks) AND internal 3-tier app traffic (WEB->APP->SQL). Meraki MX handles internal/SD-WAN routing.
+
+### Internal Application Traffic (3-Tier E-Commerce)
+
+```
+External -> ASA -> WEB-01/02 (DMZ 172.16.1.x)
+                      |
+                      v  (ASA: dmz->inside, port 443/8443)
+                   APP-BOS-01 (10.10.20.40, IIS/.NET API)
+                      |
+                      v  (ASA: inside->inside, port 1433)
+                   SQL-PROD-01 (10.10.20.30, MSSQL)
+```
+
+This 3-tier flow generates correlated ASA Built/Teardown events (~2% of baseline traffic) plus ACI contract-match events ("Web-to-App", "App-to-DB").
 
 ### Additional Network Components
 
@@ -88,6 +102,8 @@
 | Boston, MA | BOS | Headquarters | 3 | ~93 | 10.10.x.x |
 | Atlanta, GA | ATL | IT/Regional Hub | 2 | ~43 | 10.20.x.x |
 | Austin, TX | AUS | Sales/Engineering | 1 | ~39 | 10.30.x.x |
+
+**Note:** Austin has no local servers or DC. Austin users authenticate against DC-BOS-01/02 via SD-WAN tunnel and appear in DC-BOS WinEventLog auth events with 10.30.x.x source IPs (~30% of DC-BOS auth events).
 
 ## Repository Structure
 

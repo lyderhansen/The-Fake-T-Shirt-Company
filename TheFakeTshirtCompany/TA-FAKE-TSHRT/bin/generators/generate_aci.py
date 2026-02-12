@@ -294,7 +294,7 @@ def _generate_fault(start_date: str, day: int, hour: int,
     port1 = f"eth1/{random.randint(1, 24)}"
     port2 = f"eth1/{random.randint(25, 48)}"
     leaf = node["name"]
-    contract = random.choice(["Web-to-DB", "App-to-DB", "Mgmt-Access", "Backup-Policy"])
+    contract = random.choice(["Web-to-DB", "App-to-DB", "Web-to-App", "Mgmt-Access", "Backup-Policy"])
     action = random.choice(["permit", "deny", "redirect"])
     score = random.randint(50, 90)
     entity = random.choice(ALL_EPGS)["name"]
@@ -425,7 +425,7 @@ def _generate_audit(start_date: str, day: int, hour: int,
     tenant = random.choice(TENANTS[:2])  # Mostly Prod and Dev
     bd = random.choice(["BD-Servers", "BD-Users", "BD-Web", "BD-Mgmt"])
     epg = random.choice(ALL_EPGS)["name"]
-    contract = random.choice(["Web-to-DB", "App-to-DB", "Mgmt-Access"])
+    contract = random.choice(["Web-to-DB", "App-to-DB", "Web-to-App", "Mgmt-Access"])
     node = random.choice(ALL_NODES)["name"]
     subnet = f"10.{random.randint(10, 30)}.{random.randint(20, 40)}.0/24"
     src_ip = random.choice(["10.10.10.20", "10.10.30.182", "10.10.30.183", "10.20.30.15"])
