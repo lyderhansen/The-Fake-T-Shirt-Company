@@ -378,26 +378,32 @@ class CpuRunawayScenario:
     # ACCESS LOG EVENTS
     # =========================================================================
 
-    def access_should_error(self, day: int, hour: int) -> Tuple[bool, int]:
-        """
-        Check if web access should return database errors.
-        Returns: (should_error, error_rate_percent)
+    def access_should_error(self, day: int, hour: int) -> Tuple[bool, int, float]:
+        """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
+
+        SQL-PROD-01 at 100% CPU means the database cannot serve queries.
+        The e-commerce API (APP-BOS-01) depends on SQL for every product lookup,
+        cart operation, and checkout. At critical severity, query timeouts
+        cascade into web 503/504 errors — a dramatic revenue drop.
+
+        Revenue impact (via generate_access.py session reduction):
+        - severity 1 (10%): 75% sessions, ~68% orders (noticeable dip)
+        - severity 2 (45%): 30% sessions, ~17% orders (dramatic cliff)
+        - severity 3 (3%):  100% sessions, ~97% orders (quick recovery)
         """
         if not self.is_active(day, hour):
-            return (False, 0)
+            return (False, 0, 1.0)
 
         severity = self.get_severity(day, hour)
 
-        # Error rates based on severity
-        error_rates = {
-            0: 0,
-            1: 5,    # Warning: 5% errors
-            2: 25,   # Critical: 25% errors
-            3: 2     # Recovery: 2% errors
-        }
-
-        rate = error_rates.get(severity, 0)
-        return (rate > 0, rate)
+        if severity == 1:    # Warning: DB slowing, queries timing out
+            return (True, 10, 1.5)
+        elif severity == 2:  # Critical: DB nearly unreachable
+            return (True, 45, 4.0)
+        elif severity == 3:  # Recovery: connections draining
+            return (True, 3, 1.2)
+        else:
+            return (False, 0, 1.0)
 
     def print_timeline(self):
         """Print scenario timeline for debugging."""

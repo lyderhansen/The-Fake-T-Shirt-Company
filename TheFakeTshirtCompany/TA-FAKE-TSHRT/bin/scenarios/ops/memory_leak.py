@@ -432,15 +432,26 @@ class MemoryLeakScenario:
     def access_should_error(self, day: int, hour: int) -> Tuple[bool, int, float]:
         """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
 
+        WEB-01 IS the web server. Memory exhaustion means nginx/the application
+        cannot fork workers, cannot allocate request buffers, and starts swapping
+        heavily. This creates a visible "descending staircase" revenue pattern.
+
+        Revenue impact (via generate_access.py session reduction):
+        - Day 7 (5%):    100% sessions, ~95% orders (subtle)
+        - Day 8 (15%):   75% sessions, ~64% orders (visible dip)
+        - Day 9 (30%):   50% sessions, ~35% orders (clear drop)
+        - Day 10 pre-OOM (35-55%): 30% sessions, ~14-20% orders (severe)
+        - Day 10 OOM (70%): 30% sessions, ~9% orders (near-total)
+
         Timeline for WEB-01:
         - Day 1-5: Normal (1.0x response time) - before scenario
-        - Day 6: Subtle onset (1.05x response time) - barely noticeable
-        - Day 7: Gradual increase (1.2x response time), 0% errors
-        - Day 8: Concerning levels (1.5x response time), 3% errors
-        - Day 9: Critical (2.0x response time), 8% errors
-        - Day 10, 00:00-13:59: Pre-OOM (3.0x), 20% errors
-        - Day 10, 14:00-14:04: OOM crash -> 80% error rate
-        - Day 10, 14:05+: Server recovering -> back to normal
+        - Day 6: Subtle onset (1.1x response time) - barely noticeable
+        - Day 7: Memory pressure building (1.5x), occasional 503s (5%)
+        - Day 8: Swap kicking in (2.5x), frequent timeouts (15%)
+        - Day 9: Heavy swapping (4.0x), major failures (30%)
+        - Day 10, 00:00-13:59: Pre-OOM (6.0x), server barely responding (35-55%)
+        - Day 10, 14:00: OOM crash (10.0x), near-total outage (70%)
+        - Day 10, 14:05+: Server restarted, back to normal
         - Day 11+: Normal (1.0x response time)
         """
         # Before scenario or after resolution
@@ -449,31 +460,30 @@ class MemoryLeakScenario:
 
         # Day 6 (index 5): Subtle onset - barely perceptible slowdown
         if day == 5:
-            return (False, 0, 1.05)
+            return (False, 0, 1.1)
 
-        # Day 7 (index 6): Gradual increase - noticeable slowdown
+        # Day 7 (index 6): Memory pressure building, occasional errors
         if day == 6:
-            return (True, 0, 1.2)
+            return (True, 5, 1.5)
 
-        # Day 8 (index 7): Concerning
+        # Day 8 (index 7): Swap kicking in, frequent timeouts
         if day == 7:
-            return (True, 3, 1.5)
+            return (True, 15, 2.5)
 
-        # Day 9 (index 8): Critical
+        # Day 9 (index 8): Heavy swapping, major failures
         if day == 8:
-            return (True, 8, 2.0)
+            return (True, 30, 4.0)
 
         # Day 10 (index 9): OOM day
         if day == self.cfg.oom_day:
             if hour < self.cfg.oom_hour:
-                # Pre-OOM: climbing to crash
-                error_rate = 15 + (hour // 2)
-                return (True, min(error_rate, 25), 3.0)
+                # Pre-OOM: server barely responding, climbing to crash
+                error_rate = 35 + (hour // 2)
+                return (True, min(error_rate, 55), 6.0)
 
             elif hour == self.cfg.oom_hour:
-                # OOM crash hour - massive failures in first few minutes,
-                # then recovery after restart
-                return (True, 50, 5.0)
+                # OOM crash hour - near-total outage, then restart
+                return (True, 70, 10.0)
 
             else:
                 # Post-restart - back to normal

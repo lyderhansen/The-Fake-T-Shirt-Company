@@ -275,24 +275,35 @@ class DeadLetterPricingScenario:
     def access_should_error(self, day: int, hour: int) -> Tuple[bool, int, float]:
         """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
 
+        The ServiceBus dead-letter queue causes the pricing cache to serve stale
+        data. The web tier also experiences intermittent errors from failed price
+        lookups, creating both a revenue quality issue (wrong prices) and a
+        revenue volume issue (fewer successful checkouts).
+
+        Revenue impact (via generate_access.py session reduction):
+        - Hour 8 (8%):   75% sessions, ~69% orders
+        - Hours 9-10 (20%): 50% sessions, ~40% orders (visible notch)
+        - Hour 11 (12%): 75% sessions, ~66% orders
+        - Hour 12 (5%):  100% sessions, ~95% orders (recovery)
+
         Timeline for WEB-01:
-            08:00-09:00: 5% error rate, 1.3x response time (building up)
-            09:00-11:00: 15% error rate, 1.8x response time (peak)
-            11:00-12:00: 10% error rate, 1.5x response time (investigation)
-            12:00-13:00: 3% error rate, 1.2x response time (recovery)
+            08:00-09:00: 8% error rate, 1.3x response time (building up)
+            09:00-11:00: 20% error rate, 1.8x response time (peak)
+            11:00-12:00: 12% error rate, 1.5x response time (investigation)
+            12:00-13:00: 5% error rate, 1.2x response time (recovery)
             13:00+:      0% error rate, 1.0x response time (normal)
         """
         if day != self.cfg.start_day:
             return (False, 0, 1.0)
 
         if hour == 8:
-            return (True, 5, 1.3)
+            return (True, 8, 1.3)
         elif 9 <= hour <= 10:
-            return (True, 15, 1.8)
+            return (True, 20, 1.8)
         elif hour == 11:
-            return (True, 10, 1.5)
+            return (True, 12, 1.5)
         elif hour == 12:
-            return (True, 3, 1.2)
+            return (True, 5, 1.2)
         else:
             return (False, 0, 1.0)
 

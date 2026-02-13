@@ -34,7 +34,7 @@ from scenarios.network.firewall_misconfig import FirewallMisconfigScenario
 from scenarios.registry import expand_scenarios
 from scenarios.ops.cpu_runaway import CpuRunawayScenario
 from scenarios.ops.memory_leak import MemoryLeakScenario
-from scenarios.ops.disk_filling import DiskFillingScenario
+# NOTE: DiskFillingScenario NOT imported — MON-ATL-01 does not affect web traffic
 from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
 from scenarios.network.ddos_attack import DdosAttackScenario
 
@@ -641,18 +641,16 @@ def generate_access_logs(
         cert_expiry_scenario = CertificateExpiryScenario(demo_id_enabled=True)
 
     # Initialize ops scenarios
+    # NOTE: disk_filling is NOT initialized here — MON-ATL-01 is a monitoring
+    # server in Atlanta, not web infrastructure. It does not affect web traffic.
     cpu_runaway_scenario = None
     memory_leak_scenario = None
-    disk_filling_scenario = None
 
     if "cpu_runaway" in active_scenarios:
         cpu_runaway_scenario = CpuRunawayScenario(demo_id_enabled=True)
 
     if "memory_leak" in active_scenarios:
         memory_leak_scenario = MemoryLeakScenario(demo_id_enabled=True)
-
-    if "disk_filling" in active_scenarios:
-        disk_filling_scenario = DiskFillingScenario(demo_id_enabled=True)
 
     # Initialize network scenarios
     firewall_misconfig_scenario = None
@@ -700,10 +698,10 @@ def generate_access_logs(
 
             # CPU Runaway - database issues cause web errors
             if cpu_runaway_scenario:
-                should_error, rate = cpu_runaway_scenario.access_should_error(day, hour)
+                should_error, rate, mult = cpu_runaway_scenario.access_should_error(day, hour)
                 if should_error:
                     error_rate = max(error_rate, rate)
-                    response_mult = max(response_mult, 200 if rate > 10 else 150)
+                    response_mult = max(response_mult, int(mult * 100))
                     demo_id = "cpu_runaway"
 
             # Memory Leak - web server issues
@@ -715,13 +713,9 @@ def generate_access_logs(
                     if should_error:
                         demo_id = "memory_leak"
 
-            # Disk Filling - I/O contention
-            if disk_filling_scenario:
-                should_error, rate, mult = disk_filling_scenario.access_should_error(day, hour)
-                if should_error:
-                    error_rate = max(error_rate, rate)
-                    response_mult = max(response_mult, int(mult * 100))
-                    demo_id = demo_id or "disk_filling"
+            # NOTE: disk_filling is NOT integrated here -- MON-ATL-01 is a
+            # monitoring server in Atlanta, not web infrastructure. It does not
+            # affect web traffic, orders, or revenue.
 
             # Firewall Misconfiguration - ACL blocks web traffic (overrides other scenarios)
             if firewall_misconfig_scenario:
@@ -739,13 +733,13 @@ def generate_access_logs(
                     response_mult = max(response_mult, int(mult * 100))
                     demo_id = demo_id or "dead_letter_pricing"
 
-            # DDoS Attack - volumetric HTTP flood overwhelms web servers
+            # DDoS Attack - volumetric HTTP flood overwhelms web servers (overrides ops scenarios)
             if ddos_attack_scenario:
                 should_error, rate, mult = ddos_attack_scenario.access_should_error(day, hour)
                 if should_error:
                     error_rate = max(error_rate, rate)
                     response_mult = max(response_mult, int(mult * 100))
-                    demo_id = demo_id or "ddos_attack"
+                    demo_id = "ddos_attack"
 
             if is_ssl_outage:
                 # During outage: generate SSL error events instead of normal sessions

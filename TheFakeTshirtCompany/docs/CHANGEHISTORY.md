@@ -4,6 +4,39 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~23:20 UTC -- Increase scenario revenue impact + remove disk_filling from access/orders
+
+### Changed
+
+- **`bin/scenarios/ops/cpu_runaway.py`** -- Increased `access_should_error()` error rates and converted return from 2-tuple `(bool, int)` to 3-tuple `(bool, int, float)` (adding response_time_multiplier). Severity 1: 5% -> 10%, 1.5x resp. Severity 2 (critical): 25% -> 45%, 4.0x resp. Severity 3 (recovery): 2% -> 3%, 1.2x resp.
+- **`bin/scenarios/ops/memory_leak.py`** -- Increased error rates across all days to create a visible "descending staircase" revenue pattern. Day 7: 0% -> 5%. Day 8: 3% -> 15%. Day 9: 8% -> 30%. Day 10 pre-OOM: 15-25% -> 35-55%. Day 10 OOM: 50% -> 70%. Response multipliers also increased.
+- **`bin/scenarios/ops/dead_letter_pricing.py`** -- Bumped peak error rates. Hour 8: 5% -> 8%. Hours 9-10: 15% -> 20%. Hour 11: 10% -> 12%. Hour 12: 3% -> 5%.
+- **`bin/scenarios/network/ddos_attack.py`** -- Increased `access_should_error()` error rates. Full attack: 60% -> 80%. Partial mitigation: 40% -> 50%. Ramping: 20% -> 30%. Probing: 5% -> 8%. DDoS is a direct HTTP flood against WEB-01/WEB-02 and should be one of the most impactful scenarios.
+
+### Removed
+
+- **`bin/generators/generate_access.py`** -- Removed `disk_filling` scenario integration from access log generator. MON-ATL-01 is a monitoring server in Atlanta, not web infrastructure -- it has no impact on web traffic, orders, or revenue. Removed import of `DiskFillingScenario`, initialization, and the error injection block. Orders no longer tagged with `demo_id=disk_filling`.
+
+### Fixed
+
+- **`bin/generators/generate_access.py`** -- Updated cpu_runaway integration from 2-tuple to 3-tuple unpacking. Changed ddos_attack from `demo_id or "ddos_attack"` to `demo_id = "ddos_attack"` (overrides other tags, same as firewall_misconfig -- both are direct web-tier impacts).
+
+### Context
+
+Splunk timechart of hourly revenue (`sum(total) by demo_id`) showed that only `certificate_expiry` created a visible revenue drop. Two issues: (1) cpu_runaway, memory_leak, and ddos_attack had error rates too low to trigger meaningful session reduction, and (2) disk_filling was incorrectly tagging orders despite MON-ATL-01 having no relationship to the web/order pipeline. Scenarios unchanged: certificate_expiry (already perfect), firewall_misconfig (already 50%), exfil/ransomware/phishing (no web impact by design), disk_filling (still affects linux/servicenow logs, just not access/orders).
+
+### Verification
+
+- 21-day test run (`--sources=access,orders --scenarios=all`): 5,698 orders total
+- disk_filling: Days 1-5 now show ONLY baseline orders (no more `demo_id=disk_filling`)
+- memory_leak: Day 7=308, Day 8=176 (44% drop), Day 9=95 (70% drop), Day 10 OOM=20 then recovery
+- cpu_runaway: Day 11=66 orders (78% drop), Day 12 recovery from hour 11
+- dead_letter_pricing: Day 16=219 (30% drop), hours 9-10 show ~50% fewer orders
+- ddos_attack: Day 18=167 (47% drop, was 230), full attack hours show 0-2 orders
+- certificate_expiry: Day 13 hours 0-6 = 0 orders (unchanged, perfect)
+
+---
+
 ## 2026-02-13 ~22:40 UTC -- Align --show-files counts and add ANSI color coding
 
 ### Changed

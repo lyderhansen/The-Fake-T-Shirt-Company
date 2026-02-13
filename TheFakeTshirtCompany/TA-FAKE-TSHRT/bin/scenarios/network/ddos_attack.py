@@ -442,22 +442,28 @@ class DdosAttackScenario:
     def access_should_error(self, day: int, hour: int) -> Tuple[bool, int, float]:
         """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
 
-        During the DDoS attack, web servers are overwhelmed causing 503 errors
-        and very long response times. Error rate scales with intensity.
+        Volumetric HTTP flood directly targeting WEB-01/WEB-02 in the DMZ.
+        At full intensity the web servers are completely overwhelmed — nearly
+        all requests fail with 503. This is one of the most impactful scenarios
+        for revenue since the attack literally drowns the web tier.
 
-        Revenue impact: Orders only created on HTTP 200 for /checkout/complete,
-        so high error rates automatically reduce order volume.
+        Revenue impact (via generate_access.py session reduction):
+        - Full attack (80%): 30% sessions, ~6% orders (near-total loss)
+        - Wave 2 (70%):      30% sessions, ~9% orders
+        - Partial mitig (50%): 30% sessions, ~15% orders
+        - Ramping (30%):     50% sessions, ~35% orders
+        - Probing (8%):      75% sessions, ~69% orders
         """
         intensity = self._get_attack_intensity(day, hour)
 
         if intensity >= 0.8:
-            return (True, 60, 10.0)   # Peak attack / wave 2
+            return (True, 80, 15.0)   # Full attack / wave 2 — servers drowning
         elif intensity >= 0.5:
-            return (True, 40, 5.0)    # Partial mitigation
+            return (True, 50, 8.0)    # Partial mitigation — still severe
         elif intensity >= 0.3:
-            return (True, 20, 3.0)    # Ramping / ISP filtering
+            return (True, 30, 4.0)    # Ramping / ISP filtering
         elif intensity >= 0.05:
-            return (True, 5, 2.0)     # Probing / residual
+            return (True, 8, 2.0)     # Probing / residual
         else:
             return (False, 0, 1.0)
 
