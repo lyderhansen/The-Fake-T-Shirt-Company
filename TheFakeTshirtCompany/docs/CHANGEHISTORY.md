@@ -4,6 +4,42 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~05:00 UTC -- P3/P4 Quality Checklist: Scenario Dashboards, CIM Fields, Documentation
+
+Completed remaining P3 and P4 items from QUALITY_CHECKLIST.md.
+
+### Created
+
+- **`default/data/ui/views/scenario_phishing_test.xml`** -- Dashboard Studio v2 dashboard for phishing test scenario (Days 21-23). 8 data sources, 10 visualizations: markdown header, 4 KPIs (events, sources, hosts, 31% click rate), email timeline, cross-source correlation, events donut, evidence table.
+- **`default/data/ui/views/scenario_ddos_attack.xml`** -- Dashboard Studio v2 dashboard for DDoS attack scenario (Days 18-19). 10 data sources, 13 visualizations including ASA event breakdown and HTTP error rate.
+- **`default/data/ui/views/scenario_dead_letter_pricing.xml`** -- Dashboard Studio v2 dashboard for dead-letter pricing scenario (Day 16). 9 data sources, 12 visualizations including ServiceBus event timeline and HTTP error rate.
+
+### Updated
+
+- **`default/data/ui/nav/default.xml`** -- Added 3 new scenario dashboards to navigation: phishing_test (Security), dead_letter_pricing (Operations), ddos_attack (Network).
+
+- **`default/props.conf`** -- Added CIM field aliases:
+  - Secure Access DNS: REPORT transform + query, query_type, reply_code, dest fields
+  - Secure Access Proxy: REPORT transform + dest, http_method, status, bytes_in, bytes_out, http_content_type, http_user_agent
+  - Secure Access Firewall: REPORT transform + dest_port, src_port, transport, direction
+  - Catalyst Center devicehealth: dest, cpu_load_percent, mem_used_percent, status
+  - Catalyst Center issue: signature, severity, description
+  - Webex events: action, dest
+  - Webex admin audit: user, action (from nested data{})
+  - Webex attendee history: user
+
+- **`default/transforms.conf`** -- Added 3 REPORT transforms for Secure Access headerless CSV field extraction (umbrella_dns_fields, umbrella_proxy_fields, umbrella_firewall_fields). Added comment documenting unreferenced cisco_asa_messageid.csv lookup.
+
+- **`CLAUDE.md`** -- Updated "Affected sources" for 6 scenarios (exfil, memory_leak, cpu_runaway, disk_filling, dead_letter_pricing, ddos_attack) to match actual Splunk data. Added "Known Scenario Source Gaps" section documenting 4 code bugs. Added "Known Data Gaps" section for CMDB, SAP timestamps, and GCP sourcetype split.
+
+### Verification
+
+- VPN correlation: Confirmed -- ASA events with 10.250.x.x sources correlate with user identities
+- Weekend patterns: Confirmed -- Sunday ~601K events vs weekday ~830K (30% reduction)
+- Scenario dashboards: All 3 created with consistent pattern matching existing dashboards
+
+---
+
 ## 2026-02-14 ~03:00 UTC -- README Update Pass: All 6 README Files + Root README
 
 Comprehensive update of all README.md files to match current project state. Added AI disclaimer to all files.

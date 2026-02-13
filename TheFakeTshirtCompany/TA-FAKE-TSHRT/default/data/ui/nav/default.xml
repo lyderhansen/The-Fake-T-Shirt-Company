@@ -13,15 +13,18 @@
     <collection label="Security">
       <view name="scenario_exfil" />
       <view name="scenario_ransomware_attempt" />
+      <view name="scenario_phishing_test" />
     </collection>
     <collection label="Operations">
       <view name="scenario_memory_leak" />
       <view name="scenario_cpu_runaway" />
       <view name="scenario_disk_filling" />
+      <view name="scenario_dead_letter_pricing" />
     </collection>
     <collection label="Network">
       <view name="scenario_firewall_misconfig" />
       <view name="scenario_certificate_expiry" />
+      <view name="scenario_ddos_attack" />
     </collection>
   </collection>
   <collection label="Sources">

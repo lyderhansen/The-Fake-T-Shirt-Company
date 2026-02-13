@@ -447,19 +447,19 @@ These are intentional simplifications but should be verified they don't break TA
 - [x] **Fix Perfmon:SQLServer:locks orphan lines** — Removed 5 duplicate lines from wrong stanza
 - [ ] **Regenerate SAP data** — DEFERRED (web_order_id field added in code but data predates fix)
 
-### Priority 3: Documentation and Polish
+### Priority 3: Documentation and Polish (DONE -- 2026-02-14)
 
-- [ ] **Update CLAUDE.md scenario table** — Several scenarios affect more sourcetypes than documented
-- [ ] **Create 3 missing scenario dashboards** — phishing_test, ddos_attack, dead_letter_pricing
-- [ ] **Clean up unreferenced lookup** — cisco_asa_messageid.csv
-- [ ] **Verify all VERIFY items** in sections 3-6 above
+- [x] **Update CLAUDE.md scenario table** — Updated "Affected sources" for 6 scenarios + added "Known Scenario Source Gaps" section
+- [x] **Create 3 missing scenario dashboards** — Created scenario_phishing_test.xml, scenario_ddos_attack.xml, scenario_dead_letter_pricing.xml (Dashboard Studio v2, grid layout)
+- [x] **Clean up unreferenced lookup** — Documented cisco_asa_messageid.csv as reference data in transforms.conf comment
+- [x] **Verify VERIFY items** — VPN correlation confirmed (10.250.x.x with user associations), weekend patterns confirmed (Sunday ~30% reduction)
 
-### Priority 4: Stretch Goals
+### Priority 4: Stretch Goals (DONE -- 2026-02-14)
 
-- [ ] Add CIM field aliases for Secure Access (DNS, Proxy, FW) sourcetypes
-- [ ] Add CIM field aliases for Catalyst Center sourcetypes
-- [ ] Verify Webex field extractions and CIM compliance
-- [ ] Add servicenow:cmdb data generation (stanza exists but no data)
+- [x] Add CIM field aliases for Secure Access (DNS, Proxy, FW) sourcetypes — Added REPORT transforms for headerless CSV extraction + CIM fields (query, dest, http_method, status, etc.)
+- [x] Add CIM field aliases for Catalyst Center sourcetypes — Added dest, cpu_load_percent, mem_used_percent, status, signature, severity
+- [x] Verify Webex field extractions and CIM compliance — Added user/action aliases to webex:events, admin:audit, attendee history
+- [ ] Add servicenow:cmdb data generation — DEFERRED (stanza exists, generator code exists, but 0 events — needs code investigation and data regeneration)
 
 ---
 

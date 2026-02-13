@@ -324,47 +324,47 @@ Attack path: Atlanta (initial compromise) → Boston (primary target)
 | Persistence | 8-10 | Backdoor creation, data staging | Boston (BOS) |
 | Exfiltration | 11-14 | Data theft via cloud storage | Boston → External |
 
-Affected sources: asa, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit, servicenow, mssql, sysmon, secure_access, catalyst, aci
+Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, secure_access, wineventlog, mssql, entraid, exchange, sysmon, servicenow, aws_billing, guardduty, aci, catalyst
 
 **ransomware_attempt** - Ransomware detected and stopped (Days 8-9)
 - Target: Brooklyn White (Austin, Sales Engineer)
 - Outcome: Blocked by EDR in 10 minutes
-- Affected sources: asa, exchange, wineventlog, meraki, servicenow, office_audit, sysmon, secure_access
+- Affected sources: asa, exchange, wineventlog, meraki, servicenow, office_audit, sysmon, secure_access, entraid
 
 **phishing_test** - IT-run phishing awareness campaign (Days 21-23)
 - Target: All employees (post-exfil incident awareness training)
 - Outcome: Simulated phishing emails sent, click rates tracked
-- Affected sources: exchange, entraid, wineventlog, office_audit, servicenow, secure_access
+- Affected sources: exchange, secure_access, office_audit, wineventlog, servicenow, entraid
 
 ### Ops Scenarios
 
 **memory_leak** - Application memory leak causing OOM (Days 7-10)
 - Target: WEB-01 (Linux)
 - Gradual memory consumption → OOM crash on Day 9 at 14:00, manual restart
-- Affected sources: perfmon, linux, asa, access, catalyst_center
+- Affected sources: access, orders, servicebus, linux, asa, sap, catalyst_center, servicenow, aws
 
 **cpu_runaway** - SQL backup job stuck at 100% CPU (Days 11-12)
 - Target: SQL-PROD-01
 - 100% CPU → DB connection failures → web errors
 - Manual fix at Day 12 10:30
-- Affected sources: perfmon, wineventlog, asa, access, aci, catalyst_center
+- Affected sources: access, orders, perfmon, catalyst_center, sap, mssql, wineventlog, servicenow, aci, gcp, aws
 
 **disk_filling** - Server disk gradually filling up (Days 1-5)
 - Target: MON-ATL-01 (Atlanta monitoring server)
 - Progression: 45% -> 98% over 5 days
-- Affected sources: linux, access
+- Affected sources: access, orders, linux, servicenow, sap
 
 **dead_letter_pricing** - ServiceBus dead-letter queue causes wrong prices (Day 16)
 - Target: WEB-01 (ServiceBus price update pipeline)
 - Duration: 4-6 hours of incorrect product pricing on web store
-- Affected sources: servicebus, orders, access, servicenow
+- Affected sources: access, orders, servicebus, sap, servicenow
 
 ### Network Scenarios
 
 **ddos_attack** - Volumetric HTTP flood targeting web servers (Days 18-19)
 - Target: WEB-01 (DMZ web servers)
 - Botnet-driven HTTP flood causing service degradation
-- Affected sources: asa, meraki, access, perfmon, linux, servicenow, catalyst, aci, catalyst_center
+- Affected sources: access, orders, asa, catalyst_center, perfmon, linux, meraki, aws, aws_billing, catalyst, aci, servicenow, sap
 
 **firewall_misconfig** - ACL misconfiguration (Day 6)
 - Duration: 10:15-12:05 (2-hour outage)
@@ -375,6 +375,19 @@ Affected sources: asa, entraid, aws, gcp, perfmon, wineventlog, exchange, office
 - Duration: 00:00-07:00 (7 hours)
 - Outcome: Preventable outage
 - Affected sources: asa, access, servicenow
+
+### Known Scenario Source Gaps
+
+These are code bugs where a scenario SHOULD generate events for a source but currently does not:
+
+| Scenario | Missing Source | Expected Events |
+|----------|--------------|----------------|
+| ransomware_attempt | ASA | Firewall events for C2 traffic and endpoint isolation |
+| phishing_test | Secure Access Proxy | Proxy logs for users clicking phishing URLs |
+| firewall_misconfig | Catalyst Switch | IOS-XE events for impacted routing/switching |
+| certificate_expiry | Apache Access | HTTP 502/503 errors from expired cert |
+
+These gaps require generator code fixes (not data regeneration). Tracked for future fix.
 
 ## Company Data (company.py)
 
@@ -952,6 +965,14 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
 - **Scenario injection**: Events tagged with `demo_id` field; multiple scenarios run concurrently
 - **Cross-generator correlation**: TCP sessions, VPN assignments, order-to-access linking, shared meeting schedules
 - **Deterministic noise**: Seeded randomness via date hashing for reproducible patterns
+
+## Known Data Gaps
+
+| Gap | Description | Fix Required |
+|-----|-------------|-------------|
+| ServiceNow CMDB | Generator code exists, Splunk stanza exists, but 0 events in index. CMDB records are generated but may not be getting written to output. | Data regeneration after code investigation |
+| SAP timestamps | SAP events use `%Y-%m-%d %H:%M:%S` but some events may have timezone inconsistencies | Data regeneration |
+| GCP sourcetype split | GCP events split across `admin_activity:demo` and `data_access:demo` variants | Data regeneration |
 
 ## Development Notes
 
