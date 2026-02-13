@@ -50,25 +50,30 @@ TheFakeTshirtCompany/
 
 ```bash
 # 1. Install the app
+#    Copy the TA-FAKE-TSHRT folder into $SPLUNK_HOME/etc/apps/
 cp -r TA-FAKE-TSHRT $SPLUNK_HOME/etc/apps/
 
-# 2. Create the index
-splunk add index fake_tshrt
-
-# 3. Generate logs (all sources, all scenarios, 31 days)
-cd $SPLUNK_HOME/etc/apps/TA-FAKE-TSHRT/bin
-python3 main_generate.py --all --scenarios=all --days=31 --no-test
-
-# 4. Restart Splunk
+# 2. Restart Splunk
+#    The index "fake_tshrt" is created automatically via local/indexes.conf.
 splunk restart
 
-# 5. Search
-# index=fake_tshrt | stats count by sourcetype
-```
+# 3. Verify the index exists (if not, create it manually)
+splunk list index fake_tshrt
+#    If missing: splunk add index fake_tshrt
 
-Or use the interactive TUI:
-```bash
-python3 tui_generate.py
+# 4. Generate logs
+#    Use the interactive TUI to select sources, scenarios, and settings.
+#    With default settings this generates ~10 million events (~3.8 GB).
+#    When generating to the production folder, data is automatically
+#    ingested by Splunk. This may take some time depending on your hardware.
+cd $SPLUNK_HOME/etc/apps/TA-FAKE-TSHRT/bin
+python3 main_generate.py --tui
+
+# 5. Restart Splunk to trigger ingestion of new data
+splunk restart
+
+# 6. Search
+| tstats count where index=fake_tshrt earliest=0 latest=now by sourcetype
 ```
 
 ---

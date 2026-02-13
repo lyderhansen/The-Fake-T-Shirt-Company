@@ -4,6 +4,14 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~08:00 UTC -- Quick Start Rewrite in Both READMEs
+
+### Updated
+
+- **`README.md` (git root)** + **`TheFakeTshirtCompany/README.md`** -- Rewrote Quick Start section. Now uses TUI as primary method (`python3 main_generate.py --tui`), explains expected output volume (~10M events, ~3.8GB), documents auto-index creation via `local/indexes.conf`, and adds verification step.
+
+---
+
 ## 2026-02-14 ~07:00 UTC -- Fix ServiceNow CMDB Timestamp
 
 ### Root Cause
