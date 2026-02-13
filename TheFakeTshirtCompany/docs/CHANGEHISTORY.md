@@ -4,6 +4,121 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~01:00 UTC -- P2-P4 Quality Checklist: CIM Eventtypes, vendor_product, Lookups, Ransomware Rename
+
+Quality audit follow-up implementing P2-P4 items from `docs/QUALITY_CHECKLIST.md`. All changes are search-time config -- no data regeneration required.
+
+### Batch 1: CIM Eventtypes + Tags
+
+**eventtypes.conf** -- Added 4 new CIM-aligned eventtypes:
+- `demo_performance` -- Perfmon:* + Linux metrics (cpu, vmstat, df, iostat, interfaces)
+- `demo_endpoint` -- WinEventLog + WinEventLog:Sysmon
+- `demo_intrusion_detection` -- GuardDuty + Umbrella blocked + ASA deny
+- `demo_database` -- mssql:errorlog
+
+**tags.conf** -- Added 4 matching CIM tag stanzas (performance, endpoint, ids+attack, database)
+
+### Batch 2: vendor_product + Orphan Fix
+
+**props.conf** -- Added `EVAL-vendor_product` to 13 sourcetypes:
+- 6 Linux: FAKE:cpu, FAKE:vmstat, FAKE:df, FAKE:iostat, FAKE:interfaces, FAKE:linux:auth (value: "Linux")
+- 7 Perfmon: Processor, Memory, LogicalDisk, Network_Interface, SQLServer:sql_statistics, SQLServer:buffer_manager, SQLServer:locks (value: "Microsoft Windows")
+
+**props.conf** -- Removed 5 orphan lines in `[FAKE:Perfmon:SQLServer:locks]` that were duplicates from the Processor stanza (wrong host transform, wrong report, wrong metric_name "cpu" instead of "sqlserver")
+
+### Batch 3: Inventory Lookups
+
+**props.conf** -- Wired up 3 inventory lookups (LOOKUP- stanzas):
+- `asset_inventory` on FAKE:cisco:asa (src + dest), FAKE:azure:aad:signin (src)
+- `identity_inventory` on FAKE:azure:aad:signin, FAKE:WinEventLog, FAKE:linux:auth (user)
+- `mac_inventory` on FAKE:meraki:accesspoints (clientMac)
+
+### Batch 4: Ransomware Naming Alignment
+
+Renamed `ransomware` to `ransomware_attempt` to match scenario registry (`demo_id=ransomware_attempt`):
+- Renamed `scenario_ransomware.xml` to `scenario_ransomware_attempt.xml`
+- Updated `default.xml` navigation reference
+- Renamed `docs/scenarios/ransomware.md` to `docs/scenarios/ransomware_attempt.md`
+- Updated `docs/scenarios/README.md` link
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `default/eventtypes.conf` | +4 CIM eventtypes |
+| `default/tags.conf` | +4 CIM tag stanzas |
+| `default/props.conf` | +13 vendor_product EVALs, -5 orphan lines, +7 LOOKUP stanzas |
+| `default/data/ui/views/scenario_ransomware_attempt.xml` | Renamed from scenario_ransomware.xml |
+| `default/data/ui/nav/default.xml` | Updated view reference |
+| `docs/scenarios/ransomware_attempt.md` | Renamed from ransomware.md |
+| `docs/scenarios/README.md` | Updated link |
+| `docs/QUALITY_CHECKLIST.md` | Marked completed P1-P4 items |
+
+---
+
+## 2026-02-13 ~22:00 UTC -- Fix 4 Priority 1 Critical Bugs (Quality Audit)
+
+Quality audit (`docs/QUALITY_CHECKLIST.md`) found 4 critical bugs in Splunk search-time config that broke event classification, user correlation, and CIM data model compliance across ~25.8M events. All fixes are search-time config -- no re-indexing required (except GCP, see below).
+
+### Bug 1: eventtypes.conf -- Wrong index and sourcetype names
+
+**Problem:** All 17 eventtypes used `index=splunk_demo` (wrong index) and `:demo` suffix sourcetypes (wrong naming convention). Every eventtype matched zero events.
+
+**Fix:** Complete rewrite of `eventtypes.conf`:
+- Changed `index=splunk_demo` to `index=fake_tshrt` in all stanzas
+- Changed `:demo` suffix sourcetypes to `FAKE:` prefix (e.g., `cisco:asa:demo` to `FAKE:cisco:asa`)
+- Added 5 missing scenario eventtypes: `ransomware_attempt`, `phishing_test`, `ddos_attack`, `dead_letter_pricing`, `certificate_expiry`
+- Added 3 new source group eventtypes: `demo_erp`, `demo_campus`, `demo_datacenter`
+- Added 2 new CIM eventtypes: `demo_email`, `demo_dns`
+- Expanded existing groups: added `linux:auth` to demo_linux, `WinEventLog:Sysmon`/`mssql:errorlog` to demo_windows, `cisco:umbrella:*` to demo_network_security
+
+Total: 22 stanzas (was 17). Also rewrote `tags.conf` to match -- added 5 scenario tags, 2 CIM tags, 3 source group tags.
+
+### Bug 2: Entra ID signin/audit -- `user` field is null
+
+**Problem:** EVAL statements in `props.conf` referenced bare field names (`userPrincipalName`, `appDisplayName`) but these are nested under `properties.*` in the JSON. EVALs override FIELDALIASes in Splunk, so `user` = null for all ~19,600 Entra ID events.
+
+**Fix for `[FAKE:azure:aad:signin]`:** Changed 6 EVALs to use `properties.*` paths:
+- `EVAL-user = lower('properties.userPrincipalName')`
+- `EVAL-action = if('properties.status.errorCode'==0,"success","failure")`
+- `EVAL-app = lower(replace('properties.appDisplayName', " ", ":"))`
+- `EVAL-dest = if('properties.resourceDisplayName' == "null",...)`
+- `EVAL-duration = 'properties.processingTimeInMilliseconds'/1000`
+- Removed duplicate dead `EVAL-app = "azure:aad"` (overridden by later EVAL)
+
+**Fix for `[FAKE:azure:aad:audit]`:** Rewrote with audit-appropriate EVALs (was copy-pasted from signin):
+- `EVAL-action = coalesce('properties.operationType', operationName)`
+- `EVAL-result = 'properties.result'`
+- Removed EVAL-dest, EVAL-duration, EVAL-user, EVAL-user_id (let existing FIELDALIAS `identity AS user` work)
+
+### Bug 3: GCP sourcetype `:demo` suffix mismatch
+
+**Problem:** `transforms.conf` routed GCP events to `FAKE:...:demo` suffix sourcetypes, but `props.conf` stanzas had no `:demo` suffix. Result: 3,593 GCP events got zero CIM field extractions.
+
+**Fix:** Removed `:demo` suffix from 2 FORMAT lines in `transforms.conf`:
+- `FAKE:google:gcp:pubsub:audit:admin_activity:demo` -> `FAKE:google:gcp:pubsub:audit:admin_activity`
+- `FAKE:google:gcp:pubsub:audit:data_access:demo` -> `FAKE:google:gcp:pubsub:audit:data_access`
+
+**Note:** Existing GCP events in Splunk still have the `:demo` sourcetype. Must regenerate GCP data and re-ingest to fix.
+
+### Bug 4: Orphaned lookup stanza in transforms.conf
+
+**Problem:** `[sqlserver_host_dbserver_lookup]` stanza referenced `sqlserver_host_dbserver_lookup.csv` which does not exist.
+
+**Fix:** Removed the orphaned stanza from `transforms.conf`.
+
+**Files changed:**
+- `default/eventtypes.conf` (complete rewrite -- 22 stanzas)
+- `default/tags.conf` (complete rewrite -- 22 tag stanzas)
+- `default/props.conf` (Entra ID signin + audit EVAL fixes)
+- `default/transforms.conf` (removed orphaned lookup + removed `:demo` from 2 GCP FORMAT lines)
+
+**User action needed:**
+1. Restart Splunk or reload the TA to apply config changes
+2. Regenerate GCP data and re-ingest to fix the `:demo` sourcetype suffix on existing events
+
+---
+
 ## 2026-02-13 ~18:00 UTC -- Fix SAP-to-Access Order Correlation
 
 SAP VA01 (Create Sales Order) events now include the web order ID (`ref ORD-2026-XXXXX`) in the details field, enabling direct correlation between SAP sales orders and web orders from access logs.

@@ -417,20 +417,23 @@ These are intentional simplifications but should be verified they don't break TA
 
 ## 9. ACTION ITEMS — Prioritized
 
-### Priority 1: Critical Fixes
+### Priority 1: Critical Fixes (DONE -- 2026-02-13)
 
-- [ ] **Fix eventtypes.conf** — Update all searches to use `index=fake_tshrt` and `FAKE:` sourcetype prefix
-- [ ] **Fix tags.conf** — Ensure tags still map correctly after eventtype fix
-- [ ] **Fix Entra ID user field** — Update EVAL-user in props.conf for FAKE:azure:aad:signin and FAKE:azure:aad:audit to use `'properties.userPrincipalName'` instead of `userPrincipalName`
-- [ ] **Fix or remove sqlserver_host_dbserver_lookup** — Either create the CSV or remove the transforms.conf stanza
+- [x] **Fix eventtypes.conf** — Rewrote all 22 stanzas with correct `index=fake_tshrt` and `FAKE:` prefix
+- [x] **Fix tags.conf** — Rewrote all tag stanzas to match new eventtypes
+- [x] **Fix Entra ID user field** — Fixed signin EVALs to use `properties.*` paths, rewrote audit EVALs
+- [x] **Fix or remove sqlserver_host_dbserver_lookup** — Removed orphaned stanza from transforms.conf
+- [x] **Fix GCP :demo suffix** — Removed `:demo` from transforms.conf FORMAT lines (data needs re-indexing)
 
-### Priority 2: High-Value Improvements
+### Priority 2: High-Value Improvements (DONE -- 2026-02-14)
 
-- [ ] **Verify GCP :demo suffix** — Check if props.conf field extractions actually apply to sourcetypes with `:demo` suffix
-- [ ] **Add missing scenario eventtypes** — ransomware_attempt, phishing_test, ddos_attack, dead_letter_pricing, certificate_expiry
-- [ ] **Add missing CIM eventtypes** — Email, DNS, Intrusion Detection, Endpoint, Performance, Ticket Management
-- [ ] **Regenerate SAP data** — web_order_id field was added in code but Splunk data predates the fix
-- [ ] **Fix ransomware naming** — Rename dashboard and doc from `ransomware` to `ransomware_attempt`
+- [x] **Add missing scenario eventtypes** — All 10 scenarios now have eventtypes (added in P1 fix)
+- [x] **Add missing CIM eventtypes** — Added Email, DNS (P1), Performance, Endpoint, Intrusion Detection, Database (P2)
+- [x] **Fix ransomware naming** — Renamed dashboard + doc from `ransomware` to `ransomware_attempt`, updated nav + README
+- [x] **Add vendor_product to Linux/Perfmon** — Added EVAL-vendor_product to 6 Linux + 7 Perfmon sourcetypes
+- [x] **Wire up inventory lookups** — asset_inventory on ASA + EntraID, identity_inventory on EntraID + WinEventLog + linux:auth, mac_inventory on Meraki AP
+- [x] **Fix Perfmon:SQLServer:locks orphan lines** — Removed 5 duplicate lines from wrong stanza
+- [ ] **Regenerate SAP data** — DEFERRED (web_order_id field added in code but data predates fix)
 
 ### Priority 3: Documentation and Polish
 
@@ -438,11 +441,9 @@ These are intentional simplifications but should be verified they don't break TA
 - [ ] **Create 3 missing scenario dashboards** — phishing_test, ddos_attack, dead_letter_pricing
 - [ ] **Clean up unreferenced lookup** — cisco_asa_messageid.csv
 - [ ] **Verify all VERIFY items** in sections 3-6 above
-- [ ] **Verify identity/asset/mac inventory lookups** — Check if they're referenced and populated correctly
 
 ### Priority 4: Stretch Goals
 
-- [ ] Add `vendor_product` EVAL to all sourcetypes that lack it (cisco:ios, aci, sap, servicenow)
 - [ ] Add CIM field aliases for Secure Access (DNS, Proxy, FW) sourcetypes
 - [ ] Add CIM field aliases for Catalyst Center sourcetypes
 - [ ] Verify Webex field extractions and CIM compliance

@@ -12,7 +12,7 @@
   <collection label="Scenarios">
     <collection label="Security">
       <view name="scenario_exfil" />
-      <view name="scenario_ransomware" />
+      <view name="scenario_ransomware_attempt" />
     </collection>
     <collection label="Operations">
       <view name="scenario_memory_leak" />

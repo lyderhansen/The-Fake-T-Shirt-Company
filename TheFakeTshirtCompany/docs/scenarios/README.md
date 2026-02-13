@@ -9,7 +9,7 @@ Quick reference table for all demo scenarios.
 | Scenario | Category | Duration | Days | Peak Time | Primary Logs |
 |----------|----------|----------|------|-----------|--------------|
 | [exfil](exfil.md) | Attack | 14 days | 1-14 | Night (exfil) | ASA, CloudTrail, GuardDuty, Billing, EntraID, GCP Audit |
-| [ransomware](ransomware.md) | Attack | 20 min | 8 | 14:00-14:15 | WinEventLog, ASA, Meraki |
+| [ransomware_attempt](ransomware_attempt.md) | Attack | 20 min | 8 | 14:00-14:15 | WinEventLog, ASA, Meraki |
 | [phishing_test](phishing_test.md) | Attack | 3 days | 21-23 | Day 21 09:00 | Exchange, EntraID, WinEventLog |
 | [memory_leak](memory_leak.md) | Ops | 10 days | 1-10 | Day 10 14:00 | Linux vmstat |
 | [cpu_runaway](cpu_runaway.md) | Ops | 2 days | 11-12 | Day 11 15:00 | Perfmon, WinEventLog, GCP Audit |
