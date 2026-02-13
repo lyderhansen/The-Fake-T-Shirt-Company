@@ -143,102 +143,114 @@ The following source groups exist in the data but have no eventtypes:
 
 ### 3.1 Network Sources
 
-| Sourcetype | Events | host | src | dest | user | action | vendor_product | CIM Fields | Status |
-|-----------|--------|------|-----|------|------|--------|----------------|------------|--------|
-| FAKE:cisco:asa | 1,136K | OK (FW-EDGE-01) | OK (1485 uniq) | OK (580 uniq) | OK (75 uniq) | OK (7 values) | OK | Full CIM via lookups + EVALs | OK |
-| FAKE:meraki:securityappliances | 40K | ? | ? | ? | N/A | ? | ? | Lookups defined | VERIFY |
-| FAKE:meraki:accesspoints | 19K | ? | ? | ? | ? | ? | ? | Lookups defined | VERIFY |
-| FAKE:meraki:switches | 6K | ? | ? | ? | N/A | ? | ? | Lookups defined | VERIFY |
-| FAKE:meraki:cameras | 15K | ? | ? | ? | N/A | ? | ? | Lookups defined | VERIFY |
-| FAKE:meraki:sensors | 291K | ? | N/A | N/A | N/A | N/A | ? | Health metrics | VERIFY |
-| FAKE:meraki:accesspoints:health | 321K | ? | N/A | N/A | N/A | N/A | ? | Health metrics | VERIFY |
-| FAKE:meraki:switches:health | 3,923K | ? | N/A | N/A | N/A | N/A | ? | Health metrics | VERIFY |
-| FAKE:cisco:ios | 30K | ? | ? | ? | ? | ? | ? | No CIM EVALs in props | WARN |
-| FAKE:cisco:aci:event | 36K | ? | ? | ? | ? | ? | ? | No CIM EVALs in props | WARN |
-| FAKE:cisco:aci:fault | 8K | ? | ? | N/A | N/A | ? | ? | No CIM EVALs in props | WARN |
-| FAKE:cisco:aci:audit | 45 | ? | ? | ? | ? | ? | ? | No CIM EVALs in props | WARN |
+*Verified 2026-02-14 via Splunk queries*
+
+| Sourcetype | Events | host | src | dest | user | action | vendor_product | Status |
+|-----------|--------|------|-----|------|------|--------|----------------|--------|
+| FAKE:cisco:asa | 1,137K | OK (FW-EDGE-01) | OK | OK | OK | OK (7 values) | Cisco ASA | OK + asset lookups |
+| FAKE:meraki:securityappliances | 40K | OK | OK | OK | N/A | OK (allowed etc) | Cisco Meraki MX | OK |
+| FAKE:meraki:accesspoints | 19K | OK | OK (clientMac) | OK | OK (clientDescription) | OK (via lookup) | Cisco Meraki MR | OK + mac lookup |
+| FAKE:meraki:switches | 6K | OK | N/A | N/A | N/A | OK (via lookup) | Cisco Meraki MS | OK |
+| FAKE:meraki:cameras | 15K | OK | N/A | N/A | N/A | N/A | Cisco Meraki MV | OK |
+| FAKE:meraki:sensors | 291K | OK | N/A | N/A | N/A | N/A | Cisco Meraki MT | OK (health metrics) |
+| FAKE:meraki:accesspoints:health | 321K | OK | N/A | N/A | N/A | N/A | Cisco Meraki MR | OK (health metrics) |
+| FAKE:meraki:switches:health | 3,928K | OK | N/A | N/A | N/A | N/A | Cisco Meraki MS | OK (health metrics) |
+| FAKE:cisco:ios | 30K | OK (3 switches) | N/A | N/A | N/A | N/A | Cisco IOS | OK (no CIM EVALs needed) |
+| FAKE:cisco:aci:event | 36K | OK | N/A | N/A | N/A | N/A | Cisco ACI | OK |
+| FAKE:cisco:aci:fault | 8K | OK | N/A | N/A | N/A | N/A | Cisco ACI | OK |
+| FAKE:cisco:aci:audit | 45 | OK | N/A | N/A | N/A | N/A | Cisco ACI | OK |
 
 ### 3.2 Cloud Security Sources
 
+*Verified 2026-02-14 via Splunk queries. Entra ID user bug FIXED.*
+
 | Sourcetype | Events | host | user | src | action | vendor_product | Status |
 |-----------|--------|------|------|-----|--------|----------------|--------|
-| FAKE:aws:cloudtrail | 4,871 | ? | OK (via alias) | OK (via alias) | OK (via alias) | OK | OK |
-| FAKE:aws:cloudwatch:guardduty | 169 | ? | ? | ? | ? | OK | VERIFY |
-| FAKE:aws:billing:cur | 527 | ? | N/A | N/A | N/A | OK | OK |
-| FAKE:azure:aad:signin | 19,639 | ? | **BUG** (null) | OK (188 uniq) | OK | OK | BUG 1.2 |
-| FAKE:azure:aad:audit | 752 | ? | **BUG** (null) | ? | ? | OK | BUG 1.2 |
-| FAKE:azure:aad:riskDetection | 91 | ? | ? | ? | N/A | OK | VERIFY |
-| FAKE:google:gcp:pubsub:audit:admin_activity:demo | 2,601 | OK | OK (full CIM) | OK | OK | OK | OK |
-| FAKE:google:gcp:pubsub:audit:data_access:demo | 992 | OK | OK (full CIM) | OK | OK | OK | OK |
-
-**Note:** GCP sourcetypes have `:demo` suffix in index — this is a sourcetype routing artifact from transforms.conf. This should be verified as intentional.
+| FAKE:aws:cloudtrail | 4,872 | OK | OK (via alias) | OK (via alias) | OK (via alias) | AWS CloudTrail | OK |
+| FAKE:aws:cloudwatch:guardduty | 169 | OK | N/A | N/A | N/A | AWS GuardDuty | OK (severity 1-3) |
+| FAKE:aws:billing:cur | 527 | OK | N/A | N/A | N/A | AWS Billing | OK |
+| FAKE:azure:aad:signin | 19,655 | OK | OK (FIXED) | OK | OK | Microsoft Entra ID | OK + asset/identity lookups |
+| FAKE:azure:aad:audit | 752 | OK | OK (via FIELDALIAS) | OK | OK | Microsoft Entra ID | OK (FIXED) |
+| FAKE:azure:aad:riskDetection | 92 | OK | N/A | N/A | N/A | Microsoft Entra ID | OK |
+| FAKE:google:gcp:pubsub:audit:admin_activity:demo | 2,602 | OK | OK | OK | OK | Google Cloud Platform | STALE (:demo suffix, needs re-index) |
+| FAKE:google:gcp:pubsub:audit:data_access:demo | 992 | OK | OK | OK | OK | Google Cloud Platform | STALE (:demo suffix, needs re-index) |
 
 ### 3.3 Collaboration Sources
 
+*Verified 2026-02-14 via Splunk queries*
+
 | Sourcetype | Events | Key Fields | vendor_product | Status |
 |-----------|--------|------------|----------------|--------|
-| FAKE:cisco:webex:events | 57K | ? | ? | VERIFY |
-| FAKE:cisco:webex:meetings | 737 | ? | ? | VERIFY |
-| FAKE:cisco:webex:meetings:history:meetingusagehistory | 588 | ? | ? | VERIFY |
-| FAKE:cisco:webex:meetings:history:meetingattendeehistory | 4,754 | ? | ? | VERIFY |
-| FAKE:cisco:webex:admin:audit:events | 549 | ? | ? | VERIFY |
-| FAKE:cisco:webex:security:audit:events | 10K | ? | ? | VERIFY |
-| FAKE:cisco:webex:meeting:qualities | 6,200 | ? | ? | VERIFY |
-| FAKE:cisco:webex:call:detailed_history | 1,234 | ? | ? | VERIFY |
-| FAKE:o365:reporting:messagetrace | 113K | ? | OK (via alias) | OK | VERIFY |
-| FAKE:o365:management:activity | 41K | ? | OK (via alias) | OK | VERIFY |
+| FAKE:cisco:webex:events | 57K | JSON auto-extracted | Cisco Webex | OK |
+| FAKE:cisco:webex:meetings | 737 | JSON auto-extracted | Cisco Webex Meetings API | OK |
+| FAKE:cisco:webex:meetings:history:meetingusagehistory | 588 | JSON auto-extracted | Cisco Webex Meetings | OK |
+| FAKE:cisco:webex:meetings:history:meetingattendeehistory | 4,754 | JSON auto-extracted | Cisco Webex Meetings | OK |
+| FAKE:cisco:webex:admin:audit:events | 549 | JSON auto-extracted | Cisco Webex Admin Audit | OK |
+| FAKE:cisco:webex:security:audit:events | 10K | JSON auto-extracted | Cisco Webex Security Audit | OK |
+| FAKE:cisco:webex:meeting:qualities | 6,200 | JSON auto-extracted | Cisco Webex Meeting Quality | OK |
+| FAKE:cisco:webex:call:detailed_history | 1,234 | JSON auto-extracted | Cisco Webex Calling | OK |
+| FAKE:o365:reporting:messagetrace | 113K | JSON auto-extracted | Microsoft Office 365 MessageTrace | OK |
+| FAKE:o365:management:activity | 41K | JSON auto-extracted | Microsoft Office 365 | OK |
 
 ### 3.4 Windows/Linux Sources
 
+*Verified 2026-02-14 via Splunk queries. vendor_product ADDED to all Perfmon + Linux.*
+
 | Sourcetype | Events | host | Key Fields | vendor_product | Status |
 |-----------|--------|------|------------|----------------|--------|
-| FAKE:WinEventLog | 13K | OK (8 hosts) | signature_id (17 uniq) | OK | OK |
-| FAKE:WinEventLog:Sysmon | 69K | ? | ? | ? | VERIFY |
-| FAKE:Perfmon:Processor | 1,438K | ? | Value, counter | ? | VERIFY |
-| FAKE:Perfmon:Memory | 1,141K | ? | Value, counter | ? | VERIFY |
-| FAKE:Perfmon:LogicalDisk | 1,141K | ? | Value, counter | ? | VERIFY |
-| FAKE:Perfmon:Network_Interface | 719K | ? | Value, counter | ? | VERIFY |
-| FAKE:Perfmon:SQLServer:sql_statistics | 9K | ? | Value, counter | ? | VERIFY |
-| FAKE:Perfmon:SQLServer:buffer_manager | 18K | ? | Value, counter | ? | VERIFY |
-| FAKE:Perfmon:SQLServer:locks | 9K | ? | Value, counter | ? | VERIFY |
-| FAKE:mssql:errorlog | 2,949 | ? | ? | ? | VERIFY |
-| FAKE:cpu | 53K | ? | pctIdle, cpu_load_percent | ? | VERIFY |
-| FAKE:vmstat | 53K | ? | MemFree, SwapUsed | ? | VERIFY |
-| FAKE:df | 53K | ? | UsePct, mount | ? | VERIFY |
-| FAKE:iostat | 53K | ? | rkBs, wkBs | ? | VERIFY |
-| FAKE:interfaces | 53K | ? | Iface, rxBytes | ? | VERIFY |
-| FAKE:linux:auth | 24K | ? | user, src, action, process | ? | VERIFY |
+| FAKE:WinEventLog | 13K | OK (8 hosts) | signature_id (17 uniq) | Microsoft Windows | OK + identity lookup |
+| FAKE:WinEventLog:Sysmon | 69K | OK (10 hosts) | EventCode | Microsoft Sysmon | OK |
+| FAKE:Perfmon:Processor | 1,440K | OK | Value, counter, metric_name | Microsoft Windows (ADDED) | OK |
+| FAKE:Perfmon:Memory | 1,143K | OK | Value, counter, metric_name | Microsoft Windows (ADDED) | OK |
+| FAKE:Perfmon:LogicalDisk | 1,143K | OK | Value, counter, metric_name | Microsoft Windows (ADDED) | OK |
+| FAKE:Perfmon:Network_Interface | 720K | OK | Value, counter, metric_name | Microsoft Windows (ADDED) | OK |
+| FAKE:Perfmon:SQLServer:sql_statistics | 9K | OK | Value, counter, metric_name | Microsoft Windows (ADDED) | OK |
+| FAKE:Perfmon:SQLServer:buffer_manager | 18K | OK | Value, counter, metric_name | Microsoft Windows (ADDED) | OK |
+| FAKE:Perfmon:SQLServer:locks | 9K | OK | Value, counter, metric_name | Microsoft Windows (ADDED, orphan fix) | OK |
+| FAKE:mssql:errorlog | 2,949 | OK (SQL-PROD-01) | error messages | Microsoft SQL Server | OK |
+| FAKE:cpu | 54K | OK (MON-ATL-01 etc) | pctIdle, cpu_load_percent | Linux (ADDED) | OK |
+| FAKE:vmstat | 54K | OK | MemFree, SwapUsed, metric_name | Linux (ADDED) | OK |
+| FAKE:df | 54K | OK | UsePct, mount, metric_name | Linux (ADDED) | OK |
+| FAKE:iostat | 54K | OK | rkBs, wkBs, metric_name | Linux (ADDED) | OK |
+| FAKE:interfaces | 54K | OK | Iface, rxBytes, metric_name | Linux (ADDED) | OK |
+| FAKE:linux:auth | 24K | OK (BASTION-BOS-01 etc) | user, src, action, process | Linux (ADDED) | OK + identity lookup |
 
 ### 3.5 Web/Retail/ERP/ITSM Sources
 
+*Verified 2026-02-14 via Splunk queries*
+
 | Sourcetype | Events | Key Fields | vendor_product | Status |
 |-----------|--------|------------|----------------|--------|
-| FAKE:access_combined | 11,018K | clientip, method, uri, status | OK | OK |
-| FAKE:online:order | 986K | JSON auto-extracted | OK | OK |
-| FAKE:online:order:registry | 209K | JSON auto-extracted | OK | OK |
-| FAKE:azure:servicebus | 1,032K | JSON auto-extracted | OK | OK |
-| FAKE:sap:auditlog | 42K | user (77 uniq), tcode (37 uniq) | N/A | STALE (web_order_id=0) |
-| FAKE:servicenow:incident | 2,707 | number (410 uniq), state, priority | N/A | OK |
-| FAKE:servicenow:change | 573 | ? | ? | VERIFY |
-| FAKE:servicenow:cmdb | ? | ? | ? | VERIFY (has props stanza, no data?) |
+| FAKE:access_combined | 11,029K | clientip, method, uri, status | Apache | OK |
+| FAKE:online:order | 988K | JSON auto-extracted | Retail Order System | OK |
+| FAKE:online:order:registry | 209K | JSON auto-extracted | Retail Order System | OK |
+| FAKE:azure:servicebus | 1,034K | JSON auto-extracted | Microsoft Azure Service Bus | OK |
+| FAKE:sap:auditlog | 42K | user (77 uniq), tcode (37 uniq) | SAP S/4HANA | STALE (web_order_id needs regen) |
+| FAKE:servicenow:incident | 2,708 | number, state, priority | ServiceNow | OK |
+| FAKE:servicenow:change | 573 | number, state | ServiceNow | OK |
+| FAKE:servicenow:cmdb | 0 | N/A | ServiceNow | NO DATA (stanza exists, no generator) |
 
 ### 3.6 Cisco Secure Access Sources
 
+*Verified 2026-02-14 via Splunk queries*
+
 | Sourcetype | Events | Key Fields | vendor_product | Status |
 |-----------|--------|------------|----------------|--------|
-| FAKE:cisco:umbrella:dns | 1,067K | ? | ? | VERIFY |
-| FAKE:cisco:umbrella:proxy | 341K | ? | ? | VERIFY |
-| FAKE:cisco:umbrella:firewall | 106K | ? | ? | VERIFY |
-| FAKE:cisco:umbrella:audit | 36 | ? | ? | VERIFY |
+| FAKE:cisco:umbrella:dns | 1,067K | CSV auto-extracted (user, action, query) | Cisco Umbrella | OK |
+| FAKE:cisco:umbrella:proxy | 342K | CSV auto-extracted | Cisco Umbrella | OK |
+| FAKE:cisco:umbrella:firewall | 106K | CSV auto-extracted | Cisco Umbrella | OK |
+| FAKE:cisco:umbrella:audit | 36 | CSV auto-extracted | Cisco Umbrella | OK |
 
 ### 3.7 Catalyst Center Sources
 
+*Verified 2026-02-14 via Splunk queries*
+
 | Sourcetype | Events | Key Fields | vendor_product | Status |
 |-----------|--------|------------|----------------|--------|
-| FAKE:cisco:catalyst:devicehealth | 27K | JSON auto-extracted | ? | VERIFY |
-| FAKE:cisco:catalyst:networkhealth | 18K | JSON auto-extracted | ? | VERIFY |
-| FAKE:cisco:catalyst:clienthealth | 1,116 | JSON auto-extracted | ? | VERIFY |
-| FAKE:cisco:catalyst:issue | 15 | JSON auto-extracted | ? | VERIFY |
+| FAKE:cisco:catalyst:devicehealth | 27K | JSON auto-extracted | Cisco Catalyst Center | OK |
+| FAKE:cisco:catalyst:networkhealth | 18K | JSON auto-extracted | Cisco Catalyst Center | OK |
+| FAKE:cisco:catalyst:clienthealth | 1,116 | JSON auto-extracted | Cisco Catalyst Center | OK |
+| FAKE:cisco:catalyst:issue | 15 | JSON auto-extracted | Cisco Catalyst Center | OK |
 
 ---
 

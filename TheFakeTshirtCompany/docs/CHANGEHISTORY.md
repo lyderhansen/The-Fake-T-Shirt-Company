@@ -33,7 +33,17 @@ Quality audit follow-up implementing P2-P4 items from `docs/QUALITY_CHECKLIST.md
 - `identity_inventory` on FAKE:azure:aad:signin, FAKE:WinEventLog, FAKE:linux:auth (user)
 - `mac_inventory` on FAKE:meraki:accesspoints (clientMac)
 
-### Batch 4: Ransomware Naming Alignment
+**Note:** EntraID identity lookup uses `email AS user` (not `identity AS user`) because `user` is lowercase full email while `identity` is just the username.
+
+### Batch 4: Field Verification
+
+Verified all 61 sourcetypes via Splunk queries. Updated QUALITY_CHECKLIST.md section 3 -- all VERIFY items resolved to OK. Key findings:
+- All vendor_product EVALs confirmed working
+- All inventory lookups enriching events correctly
+- servicenow:cmdb: stanza exists, 0 events (no generator)
+- GCP + SAP marked STALE (waiting for regeneration)
+
+### Batch 5: Ransomware Naming Alignment
 
 Renamed `ransomware` to `ransomware_attempt` to match scenario registry (`demo_id=ransomware_attempt`):
 - Renamed `scenario_ransomware.xml` to `scenario_ransomware_attempt.xml`
