@@ -665,7 +665,7 @@ def generate_gcp_logs(
         except ImportError:
             pass  # Scenario not available
 
-    base_events_per_peak_hour = int(15 * scale)
+    base_events_per_peak_hour = int(150 * scale)
 
     if not quiet:
         print("=" * 70, file=sys.stderr)

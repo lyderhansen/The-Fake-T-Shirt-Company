@@ -4,15 +4,15 @@ Interactive TUI for Splunk Log Generator using curses (Python stdlib).
 No external dependencies required!
 
 Layout (3-col top, 2-col bottom with double-line box drawing):
-  ╔═══════════════╦═══════════════╦═══════════════╗
-  ║  > GROUPS      ║  > SOURCES     ║  * SCENARIOS   ║
-  ║  [x] all       ║  [ ] asa       ║  [x] all       ║
-  ║  [ ] cloud     ║  [ ] aws       ║  [ ] exfil     ║
-  ║  [ ] network   ║  [ ] gcp       ║  [ ] ransom..  ║
+  ╔═══════════════╦══════════════════════════╦═══════════════╗
+  ║  > GROUPS      ║  > SOURCES (2-col)        ║  * SCENARIOS   ║
+  ║  [x] all       ║  [ ] asa    [ ] sysmon    ║  [x] all       ║
+  ║  [ ] cloud     ║  [ ] aws    [ ] meraki    ║  [ ] exfil     ║
+  ║  [ ] network   ║  [ ] gcp    [ ] webex     ║  [ ] ransom..  ║
   ╠═══════════════╩═══════╦═══════╩═══════════════╣
   ║  # CONFIGURATION       ║  ~ MERAKI HEALTH       ║
   ║  [TEST] Output -> tmp/ ║  [x] Enable Health     ║
-  ║  Start Date: 2026-01-01║  Interval: 5 min       ║
+  ║  Start Date: 2026-01-01║  Interval: 15 min      ║
   ╚════════════════════════╩════════════════════════╝
 
 Usage:
@@ -22,6 +22,7 @@ Usage:
 
 import curses
 import math
+import random
 import sys
 import time as time_mod
 from pathlib import Path
@@ -119,7 +120,10 @@ class TUIApp:
 
         # Animation state
         self.tshirt_x = -15
-        self.tshirt_y_offset = 0.0
+        self.wave_phase = 0.0
+        self.clouds = []          # List of [col, row, cloud_type] — drifting clouds
+        self.sun_frame = 0        # Rotating sun rays (0-3)
+        self.sun_tick = 0         # Sub-frame counter for slower sun rotation
         self.last_anim_time = 0
         self.logo_pulse = False
         self.logo_pulse_time = 0
@@ -185,9 +189,9 @@ class TUIApp:
         # Meraki Health configuration (bottom-right)
         self.meraki = [
             MenuItem("meraki_health_enabled", "Enable Health", "", selected=True),
-            MenuItem("meraki_health_interval", "Interval (min)", "5"),
-            MenuItem("meraki_mr_health", "MR AP Health", "~10K/day", selected=True),
-            MenuItem("meraki_ms_health", "MS Port Health", "~127K/day", selected=True),
+            MenuItem("meraki_health_interval", "Interval (min)", "15"),
+            MenuItem("meraki_mr_health", "MR AP Health", "~3.5K/day", selected=True),
+            MenuItem("meraki_ms_health", "MS Port Health", "~42K/day", selected=True),
         ]
 
     def get_current_items(self):
@@ -317,6 +321,7 @@ class TUIApp:
             items=self.source_groups,
             section_id=self.SECTION_GROUPS,
             show_checkbox=True,
+            align_descriptions=True,
         )
 
         # ═══════════ TOP-MIDDLE: SOURCES ═══════════
@@ -329,6 +334,7 @@ class TUIApp:
             items=self.source_items,
             section_id=self.SECTION_SOURCES,
             show_checkbox=True,
+            two_columns=True,
         )
 
         # ═══════════ TOP-RIGHT: SCENARIOS ═══════════
@@ -421,15 +427,220 @@ class TUIApp:
             for i, line in enumerate(LOGO_ASCII):
                 self.safe_addstr(logo_start_row + i, 2, line, logo_attr)
 
-            # Flying T-shirt with sine wave motion
-            tshirt_row = logo_start_row - len(TSHIRT_ASCII) - 1
-            y_offset = int(self.tshirt_y_offset)
-            if tshirt_row + y_offset > preview_row + 1:
-                for i, line in enumerate(TSHIRT_ASCII):
-                    x_pos = self.tshirt_x
-                    draw_row = tshirt_row + i + y_offset
+            # ═══════════ SURFING T-SHIRT ON WAVE ═══════════
+            # Available vertical space for wave + t-shirt
+            anim_top = preview_row + 2
+            anim_bottom = logo_start_row - 1
+            anim_height = anim_bottom - anim_top
 
-                    if draw_row >= h - 1 or draw_row <= preview_row:
+            # ═══════════ ANIMATED SUN (top-right of animation area) ═══════════
+            # 4 frames with subtly rotating rays around a semicolon core
+            sun_frames = [
+                [   # Frame 0: standard rays
+                    "      .      ",
+                    "    \\ | /    ",
+                    "  '-.;;;.-'  ",
+                    " -==;;;;;==- ",
+                    "  .-';;;'-.  ",
+                    "    / | \\    ",
+                    "      '      ",
+                ],
+                [   # Frame 1: rays rotated ~22 degrees
+                    "             ",
+                    "   \\ \\ | /   ",
+                    "  '-.;;;.-'  ",
+                    " -==;;;;;==- ",
+                    "  .-';;;'-.  ",
+                    "    / | / /  ",
+                    "             ",
+                ],
+                [   # Frame 2: rays rotated ~45 degrees
+                    "             ",
+                    "    --. .--  ",
+                    "  '-.;;;.-'  ",
+                    "  /=;;;;;=\\  ",
+                    "  .-';;;'-.  ",
+                    "    --' '--  ",
+                    "             ",
+                ],
+                [   # Frame 3: rays rotated ~67 degrees
+                    "             ",
+                    "    / / | \\  ",
+                    "  '-.;;;.-'  ",
+                    " -==;;;;;==- ",
+                    "  .-';;;'-.  ",
+                    "   \\ | \\ \\   ",
+                    "             ",
+                ],
+            ]
+            sf = self.sun_frame % len(sun_frames)
+            sun_art = sun_frames[sf]
+            sun_col = w - 17
+            for si, sline in enumerate(sun_art):
+                sun_row = anim_top + si
+                if preview_row < sun_row < logo_start_row and sun_col > 2:
+                    self.safe_addstr(sun_row, sun_col, sline, curses.color_pair(3) | curses.A_BOLD)
+
+            # ═══════════ CLOUDS ═══════════
+            cloud_shapes = [
+                # Type 0: small puffy cloud
+                [
+                    "   .--.",
+                    " .(    ).",
+                    "(_      _)",
+                    "  `----' ",
+                ],
+                # Type 1: medium cloud
+                [
+                    "    .---.  ",
+                    " .-(     )-.",
+                    "(           )",
+                    " `---..---' ",
+                ],
+                # Type 2: wispy cloud
+                [
+                    "  ._  .",
+                    " (  `' )",
+                    "  `---' ",
+                ],
+            ]
+            for cl_col, cl_row, cl_type in self.clouds:
+                shape = cloud_shapes[cl_type % len(cloud_shapes)]
+                for ci, cline in enumerate(shape):
+                    draw_row = cl_row + ci
+                    if preview_row < draw_row < logo_start_row and cl_col > -len(cline):
+                        # Clip cloud to visible area
+                        if cl_col < 2:
+                            visible = cline[2 - cl_col:]
+                            dcol = 2
+                        elif cl_col + len(cline) > w - 2:
+                            visible = cline[:w - 2 - cl_col]
+                            dcol = cl_col
+                        else:
+                            visible = cline
+                            dcol = cl_col
+                        if visible and 2 <= dcol < w - 2:
+                            self.safe_addstr(draw_row, dcol, visible, curses.A_DIM | curses.A_BOLD)
+
+            if anim_height >= 6:
+                wave_base_row = anim_bottom  # Bottom of wave area
+                wave_peak_height = min(anim_height - len(TSHIRT_ASCII), 8)  # Max wave crest height
+                tshirt_center = self.tshirt_x + 6  # Center of t-shirt
+
+                # Calculate wave height at each column
+                # Realistic surf wave: steep curling front, flat crest, long rolling tail
+                def wave_height_at(col):
+                    dx = col - tshirt_center
+                    if dx > 10:
+                        # Far ahead: steep drop to flat ocean
+                        return max(0, wave_peak_height * 0.4 * math.exp(-((dx - 10) ** 2) / 12.0))
+                    elif dx > 6:
+                        # Curling lip: steep front face
+                        t = (dx - 6) / 4.0
+                        return wave_peak_height * (1.0 - t * t * 0.6)
+                    elif dx > -2:
+                        # Crest zone: peak where t-shirt rides
+                        return wave_peak_height * (0.95 + 0.05 * math.cos(dx * 0.3))
+                    elif dx > -8:
+                        # Shoulder: gradually slopes down
+                        t = (-dx - 2) / 6.0
+                        return wave_peak_height * (0.95 - t * 0.25)
+                    else:
+                        # Long rolling tail with swell undulations
+                        base = wave_peak_height * 0.65 * math.exp(-((-dx - 8) ** 2) / 600.0)
+                        swell = 0.5 * math.sin((col + self.wave_phase) * 0.4)
+                        ripple = 0.2 * math.sin((col + self.wave_phase * 1.3) * 0.8)
+                        return max(0, base + swell + ripple)
+
+                # Draw the wave body (filled) and crest line
+                wave_attr = curses.color_pair(4)
+                wave_bold = curses.color_pair(4) | curses.A_BOLD
+                phase_int = int(self.wave_phase)
+                for col in range(2, w - 2):
+                    wh = wave_height_at(col)
+                    crest_row = int(wave_base_row - wh)
+
+                    if crest_row < anim_top:
+                        crest_row = anim_top
+                    if crest_row > wave_base_row:
+                        continue
+
+                    dx = col - tshirt_center
+
+                    # Draw crest character (top of wave at this column)
+                    if 6 < dx <= 10 and wh > 1.5:
+                        # Curling lip with spray effect
+                        spray = ["'", ".", ",", "`"]
+                        crest_char = spray[(col + phase_int) % 4]
+                        crest_attr = curses.color_pair(4) | curses.A_BOLD
+                    elif 4 < dx <= 6 and wh > wave_peak_height * 0.7:
+                        # Steep front face curling over
+                        crest_char = "\u2572"  # ╲
+                        crest_attr = wave_bold
+                    elif -2 <= dx <= 4 and wh > wave_peak_height * 0.8:
+                        # Crest: white foam line
+                        foam = ["\u2593", "\u2592", "\u2591"]  # dark/medium/light shade
+                        crest_char = foam[(col + phase_int) % 3]
+                        crest_attr = curses.color_pair(4) | curses.A_BOLD
+                    elif dx < -20:
+                        # Far tail: gentle ripples
+                        crest_char = "~"
+                        crest_attr = wave_attr
+                    else:
+                        crest_char = "\u2594"  # upper horizontal bar
+                        crest_attr = wave_bold
+
+                    if anim_top <= crest_row <= wave_base_row:
+                        self.safe_addstr(crest_row, col, crest_char, crest_attr)
+
+                    # Fill below crest with wave body -- depth gradient
+                    for fill_row in range(crest_row + 1, wave_base_row + 1):
+                        if anim_top <= fill_row <= wave_base_row:
+                            depth = fill_row - crest_row
+                            # Top layer: bright active water
+                            if depth <= 1:
+                                fill_char = "\u2248"  # approximately equal (wavy)
+                                fill_attr = wave_bold
+                            elif depth <= 3:
+                                # Mid layer: textured water
+                                pattern = (col + fill_row + phase_int)
+                                if pattern % 4 == 0:
+                                    fill_char = "\u2248"
+                                elif pattern % 4 == 1:
+                                    fill_char = "~"
+                                elif pattern % 4 == 2:
+                                    fill_char = "\u223C"
+                                else:
+                                    fill_char = "\u2248"
+                                fill_attr = wave_attr
+                            else:
+                                # Deep water: darker, calmer
+                                if (col + fill_row) % 3 == 0:
+                                    fill_char = "\u223C"
+                                else:
+                                    fill_char = "~"
+                                fill_attr = curses.color_pair(4) | curses.A_DIM
+                            self.safe_addstr(fill_row, col, fill_char, fill_attr)
+
+                # Draw spray particles above the curling lip
+                for spray_i in range(3):
+                    spray_col = tshirt_center + 8 + spray_i * 2 + (phase_int % 3)
+                    spray_row = int(wave_base_row - wave_peak_height) - 1 + (spray_i % 2)
+                    if anim_top <= spray_row < anim_bottom and 2 <= spray_col < w - 2:
+                        spray_chars = ["'", ".", "*", ","]
+                        sc = spray_chars[(spray_i + phase_int) % 4]
+                        self.safe_addstr(spray_row, spray_col, sc, wave_bold)
+
+                # Draw t-shirt sitting on top of the wave crest
+                crest_at_shirt = wave_height_at(tshirt_center)
+                tshirt_base_row = int(wave_base_row - crest_at_shirt)
+                tshirt_top_row = tshirt_base_row - len(TSHIRT_ASCII)
+
+                for i, line in enumerate(TSHIRT_ASCII):
+                    draw_row = tshirt_top_row + i
+                    x_pos = self.tshirt_x
+
+                    if draw_row >= anim_bottom or draw_row < anim_top:
                         continue
 
                     if x_pos < 0:
@@ -442,8 +653,8 @@ class TUIApp:
                         visible_line = line
                         draw_x = 2 + x_pos
 
-                    if visible_line and draw_x < w - 2:
-                        self.safe_addstr(draw_row, draw_x, visible_line, curses.color_pair(4) | curses.A_BOLD)
+                    if visible_line and 2 <= draw_x < w - 2:
+                        self.safe_addstr(draw_row, draw_x, visible_line, curses.color_pair(3) | curses.A_BOLD)
 
         # ═══════════ FOOTER ═══════════
         footer_parts = [
@@ -503,11 +714,18 @@ class TUIApp:
             vol_attr = curses.color_pair(5) if total > 100000 else curses.color_pair(4)
             self.safe_addstr(row, col, vol_str, vol_attr)
 
-    def _draw_section_content(self, start_row, col, width, height, title, items, section_id, show_checkbox=True):
+    def _draw_section_content(self, start_row, col, width, height, title, items, section_id,
+                              show_checkbox=True, two_columns=False, align_descriptions=False):
         """Draw a section with header and checkbox items.
 
         For SCENARIOS section: renders as two aligned columns (name | day range)
         with day ranges right-aligned for readability.
+
+        If two_columns=True, items are rendered in two side-by-side sub-columns
+        (first half left, second half right). Navigation stays linear.
+
+        If align_descriptions=True, descriptions are left-aligned to a common column
+        based on the longest label (e.g. groups section).
         """
         is_active = self.current_section == section_id
         icon_attr = curses.color_pair(3) | curses.A_BOLD if is_active else curses.A_BOLD
@@ -525,12 +743,38 @@ class TUIApp:
             # Calculate day column based on longest scenario name (checkbox + name)
             max_name_len = max((len(f"[x] {item.label}") for item in items
                                 if item.key not in ("all", "none")), default=16)
-            day_col = min(max_name_len + 1, width - 15)  # Leave room for day info
+            day_col = min(max_name_len + 2, width - 15)  # +2 ensures space before day code
+
+        # Calculate aligned description column for groups section
+        if align_descriptions:
+            # "[x] " = 4 chars + longest label
+            max_label_len = max((len(item.label) for item in items), default=4)
+            desc_col = 4 + max_label_len + 1  # checkbox + space + label + space
+
+        # Two-column layout: split items into left/right sub-columns
+        if two_columns:
+            sub_col_w = width // 2
+            rows_available = height - 1
+            half = (len(items) + 1) // 2  # Left column gets the extra item if odd
 
         for i, item in enumerate(items):
-            item_row = start_row + 1 + i
-            if item_row >= start_row + height:
-                break
+            if two_columns:
+                if i < half:
+                    item_row = start_row + 1 + i
+                    item_col = col
+                    item_width = sub_col_w - 1
+                else:
+                    item_row = start_row + 1 + (i - half)
+                    item_col = col + sub_col_w
+                    item_width = sub_col_w - 1
+                if item_row >= start_row + height:
+                    continue
+            else:
+                item_row = start_row + 1 + i
+                item_col = col
+                item_width = width - 1
+                if item_row >= start_row + height:
+                    break
 
             # Check if this is an unimplemented scenario
             is_planned = (is_scenario_section
@@ -559,26 +803,31 @@ class TUIApp:
                     if is_skipped and not is_planned:
                         day_part += " skip"
                     text = name_part + day_part
+                elif align_descriptions and item.description:
+                    # Pad label so descriptions align vertically
+                    name_part = f"{checkbox} {item.label}"
+                    name_part = name_part.ljust(desc_col)
+                    text = name_part + item.description
                 else:
-                    # Standard layout for "all" and "none" items
+                    # Standard layout
                     text = f"{checkbox} {item.label}"
-                    if item.description:
+                    if item.description and not two_columns:
                         text += f"  {item.description}"
             else:
                 text = f"  {item.label}"
 
-            text = text[:width - 1]
+            text = text[:item_width]
 
             if i == self.current_row and is_active:
-                self.safe_addstr(item_row, col, text, curses.color_pair(1))
+                self.safe_addstr(item_row, item_col, text, curses.color_pair(1))
             elif is_planned:
-                self.safe_addstr(item_row, col, text, curses.A_DIM)
+                self.safe_addstr(item_row, item_col, text, curses.A_DIM)
             elif is_skipped:
-                self.safe_addstr(item_row, col, text, curses.color_pair(5) | curses.A_DIM)
+                self.safe_addstr(item_row, item_col, text, curses.color_pair(5) | curses.A_DIM)
             elif item.selected and show_checkbox:
-                self.safe_addstr(item_row, col, text, curses.color_pair(2))
+                self.safe_addstr(item_row, item_col, text, curses.color_pair(2))
             else:
-                self.safe_addstr(item_row, col, text)
+                self.safe_addstr(item_row, item_col, text)
 
     def _draw_config_section(self, start_row, col, width, height, title, items, section_id):
         """Draw configuration section with test mode toggle and editable values."""
@@ -758,20 +1007,40 @@ class TUIApp:
     # ═══════════════════════════════════════════════════════════════════
 
     def update_animation(self):
-        """Update animation state with sine wave T-shirt and pulsing logo."""
+        """Update animation state with surfing T-shirt, wave, clouds, sun, and pulsing logo."""
         current_time = time_mod.time()
 
         if current_time - self.last_anim_time > 0.1:
             self.last_anim_time = current_time
             h, w = self.stdscr.getmaxyx()
 
-            # T-shirt horizontal movement
+            # T-shirt horizontal movement (rides the wave left to right)
             self.tshirt_x += 2
             if self.tshirt_x > w:
                 self.tshirt_x = -15
 
-            # Sine wave vertical offset (gentle wave: amplitude 2, period ~3 seconds)
-            self.tshirt_y_offset = math.sin(current_time * 2.0) * 2.0
+            # Wave phase scrolls continuously (for tail ripple texture)
+            self.wave_phase += 0.3
+
+            # Sun rotation — slow: advance frame every 8 ticks (~0.8s)
+            self.sun_tick += 1
+            if self.sun_tick >= 8:
+                self.sun_tick = 0
+                self.sun_frame = (self.sun_frame + 1) % 4
+
+            # Clouds: drift slowly right-to-left at same height as sun (top of anim area)
+            # Each cloud is [col, row, cloud_type (0-2)]
+            self.clouds = [[c - 1, r, ct] for c, r, ct in self.clouds if c > -20]
+            # Sun draws at roughly h-8 (logo) - anim_height area top
+            # Use same zone as sun: preview_row+2 to preview_row+8
+            # Approximate: the top of the animation area
+            cloud_zone_top = h // 2 + 4   # Same level as sun top
+            cloud_zone_bot = cloud_zone_top + 3  # Sun is ~7 lines tall
+            if cloud_zone_bot < h - 10:
+                if random.random() < 0.08:  # Slow spawn rate for natural feel
+                    row = random.randint(cloud_zone_top, cloud_zone_bot)
+                    cloud_type = random.randint(0, 2)
+                    self.clouds.append([w + 2, row, cloud_type])
 
         # Logo pulse (toggle bold every 2 seconds)
         if current_time - self.logo_pulse_time > 2.0:
@@ -878,23 +1147,45 @@ class TUIApp:
                 self.current_row = min(len(items) - 1, self.current_row + 1)
 
             # Horizontal navigation — 3 columns on top, 2 on bottom
+            # Sources section has 2 sub-columns: left/right arrow navigates between them
             elif key in (curses.KEY_LEFT, ord('h')):
                 if self.current_section == self.SECTION_SOURCES:
-                    self.current_section = self.SECTION_GROUPS
-                    self.current_row = min(self.current_row, len(self.source_groups) - 1)
+                    src_half = (len(self.source_items) + 1) // 2
+                    if self.current_row >= src_half:
+                        # Right sub-col -> left sub-col (same visual row)
+                        self.current_row = min(self.current_row - src_half, src_half - 1)
+                    else:
+                        # Left sub-col -> groups section
+                        self.current_section = self.SECTION_GROUPS
+                        self.current_row = min(self.current_row, len(self.source_groups) - 1)
                 elif self.current_section == self.SECTION_SCENARIOS:
                     self.current_section = self.SECTION_SOURCES
-                    self.current_row = min(self.current_row, len(self.source_items) - 1)
+                    # Enter sources on the right sub-column side
+                    src_half = (len(self.source_items) + 1) // 2
+                    self.current_row = min(self.current_row + src_half, len(self.source_items) - 1)
                 elif self.current_section == self.SECTION_MERAKI:
                     self.current_section = self.SECTION_CONFIG
                     self.current_row = min(self.current_row, len(self.config) - 1)
             elif key in (curses.KEY_RIGHT, ord('l')):
                 if self.current_section == self.SECTION_GROUPS:
                     self.current_section = self.SECTION_SOURCES
+                    # Enter sources on the left sub-column side
                     self.current_row = min(self.current_row, len(self.source_items) - 1)
                 elif self.current_section == self.SECTION_SOURCES:
-                    self.current_section = self.SECTION_SCENARIOS
-                    self.current_row = min(self.current_row, len(self.scenarios) - 1)
+                    src_half = (len(self.source_items) + 1) // 2
+                    if self.current_row < src_half:
+                        # Left sub-col -> right sub-col (same visual row)
+                        new_row = self.current_row + src_half
+                        if new_row < len(self.source_items):
+                            self.current_row = new_row
+                        else:
+                            # No item on right side at this row, go to scenarios
+                            self.current_section = self.SECTION_SCENARIOS
+                            self.current_row = min(self.current_row, len(self.scenarios) - 1)
+                    else:
+                        # Right sub-col -> scenarios section
+                        self.current_section = self.SECTION_SCENARIOS
+                        self.current_row = min(self.current_row - src_half, len(self.scenarios) - 1)
                 elif self.current_section == self.SECTION_CONFIG:
                     self.current_section = self.SECTION_MERAKI
                     self.current_row = min(self.current_row, len(self.meraki) - 1)

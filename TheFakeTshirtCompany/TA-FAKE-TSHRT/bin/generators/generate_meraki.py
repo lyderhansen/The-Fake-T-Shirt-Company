@@ -2772,7 +2772,7 @@ def generate_meraki_logs(
     scenarios: str = "none",
     output_file: str = None,
     quiet: bool = False,
-    health_interval: int = 5,
+    health_interval: int = 15,
     mr_health_enabled: bool = True,
     ms_health_enabled: bool = True,
 ) -> int:

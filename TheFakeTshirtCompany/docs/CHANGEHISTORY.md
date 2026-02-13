@@ -4,6 +4,30 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~22:00 UTC -- Increase Cloud/Entra Volume + Reduce Meraki MS Health Default
+
+### Changed
+
+- **`bin/generators/generate_aws.py`** -- `base_events_per_peak_hour` increased from 20 to 200 (~10x). Produces ~1,400 events/day at scale=1.0 instead of ~155.
+- **`bin/generators/generate_gcp.py`** -- `base_events_per_peak_hour` increased from 15 to 150 (~10x). Produces ~1,000 events/day at scale=1.0 instead of ~116.
+- **`bin/generators/generate_entraid.py`** -- `audit_per_day` increased from 20 to 200. Refactored `generate_audit_day()` to use `base_count` as a scale factor. All audit event categories scaled up: group changes (15-25/day), user attribute updates (10-20/day), license assignments (3-6/day), directory role changes (1-2/day), password resets (8-15/day), SSPR flows (30-50/day), app consent (5-10/day). Produces ~150-250 audit events/day at scale=1.0 instead of ~26.
+- **`bin/generators/generate_meraki.py`** -- Default `health_interval` changed from 5 to 15 minutes. Reduces MS switch health events from ~127K/day to ~42K/day.
+- **`bin/main_generate.py`** -- `--meraki-health-interval` default changed from 5 to 15 minutes, help text updated.
+
+### Context
+
+31-day full generation revealed unrealistically low volumes for AWS CloudTrail (~4.8K total), GCP Audit (~3.6K total), and Entra ID Audit (~800 total) compared to a 175-employee company. Meraki MS Health at 5min interval was conversely too high (~3.9M for 31 days). These adjustments bring volumes in line with realistic expectations.
+
+### Verification
+
+- 3-day test run (`--sources=aws,gcp,entraid,meraki --scenarios=exfil`): 187,353 total events
+- AWS: 4,120 events (3 days) = ~1,373/day (was ~155)
+- GCP: 3,062 events (3 days) = ~1,021/day (was ~116)
+- Entra ID Audit: 439 events (3 days) = ~146/day (was ~26)
+- Meraki MS Health: 126,720 events (3 days) = ~42,240/day (was ~126,720)
+
+---
+
 ## 2026-02-14 ~16:00 UTC -- Sync Webex TA + API with Shared Meeting Schedule
 
 ### Changed

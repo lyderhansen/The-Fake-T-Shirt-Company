@@ -1580,20 +1580,26 @@ def generate_audit_day(base_date: str, day: int, base_count: int,
                        active_scenarios: list = None) -> List[str]:
     """Generate enriched audit events for one day.
 
+    base_count scales all event categories proportionally (default 200 at scale=1.0).
+    At base_count=200, produces ~150-250 events/day for a 175-employee tenant.
+
     Event distribution (all with real group/app/role/attribute details):
-    - Group membership changes: 2-4/day (add + occasional remove)
-    - User attribute updates: 1-3/day (title, department, manager, phone, office)
-    - License/app assignments: every 3-5 days
-    - Directory role changes: every 5-7 days
-    - Password resets: 1-2/day
+    - Group membership changes: 15-25/day (add + occasional remove)
+    - User attribute updates: 10-20/day (title, department, manager, phone, office)
+    - License/app assignments: 3-6/day
+    - Directory role changes: 1-2/day
+    - Password resets: 8-15/day
     - CA policy updates: weekly
     - Certificate updates: bi-weekly
-    - SSPR flows: 5-10/day
+    - SSPR flows: 30-50/day
+    - App consent/registration: 5-10/day
     """
     events = []
+    # Scale factor relative to baseline of 200
+    sf = max(0.1, base_count / 200.0)
 
-    # ---- Group membership changes (2-4 per day) ----
-    group_count = random.randint(2, 4)
+    # ---- Group membership changes (15-25 per day) ----
+    group_count = random.randint(int(15 * sf), max(int(15 * sf) + 1, int(25 * sf)))
     for _ in range(group_count):
         hour = random.randint(8, 17)
         user = get_random_user()
@@ -1615,23 +1621,25 @@ def generate_audit_day(base_date: str, day: int, base_count: int,
                 active_scenarios=active_scenarios
             ))
 
-    # ---- User attribute updates (1-3 per day) ----
-    attr_count = random.randint(1, 3)
+    # ---- User attribute updates (10-20 per day) ----
+    attr_count = random.randint(int(10 * sf), max(int(10 * sf) + 1, int(20 * sf)))
     for _ in range(attr_count):
         hour = random.randint(9, 16)
         events.append(audit_update_user(
             base_date, day, hour, active_scenarios=active_scenarios
         ))
 
-    # ---- License/app assignments (every 3-5 days) ----
-    if day % random.randint(3, 5) == 0:
+    # ---- License/app assignments (3-6 per day) ----
+    license_count = random.randint(int(3 * sf), max(int(3 * sf) + 1, int(6 * sf)))
+    for _ in range(license_count):
         hour = random.randint(9, 15)
         events.append(audit_assign_license(
             base_date, day, hour, active_scenarios=active_scenarios
         ))
 
-    # ---- Directory role changes (every 5-7 days) ----
-    if day % random.randint(5, 7) == 0:
+    # ---- Directory role changes (1-2 per day) ----
+    role_count = random.randint(max(1, int(1 * sf)), max(1, int(2 * sf)))
+    for _ in range(role_count):
         hour = random.randint(10, 14)
         # Pick a real role and member
         role_names = list(ENTRA_ROLE_ASSIGNMENTS.keys())
@@ -1647,8 +1655,8 @@ def generate_audit_day(base_date: str, day: int, base_count: int,
                     admin_key="sec.admin"
                 ))
 
-    # ---- Password resets (1-2 per day) ----
-    reset_count = random.randint(1, 2)
+    # ---- Password resets (8-15 per day) ----
+    reset_count = random.randint(int(8 * sf), max(int(8 * sf) + 1, int(15 * sf)))
     for _ in range(reset_count):
         events.append(audit_password_reset(base_date, day, active_scenarios))
 
@@ -1661,8 +1669,8 @@ def generate_audit_day(base_date: str, day: int, base_count: int,
     if day % 10 == 6:
         events.append(audit_cert_update(base_date, day))
 
-    # ---- SSPR flow events (~5-10 per day, during business hours) ----
-    sspr_count = random.randint(5, 10)
+    # ---- SSPR flow events (~30-50 per day, during business hours) ----
+    sspr_count = random.randint(int(30 * sf), max(int(30 * sf) + 1, int(50 * sf)))
     for _ in range(sspr_count):
         hour = random.randint(8, 17)
         # Generate a flow sequence: verification step(s) followed by reset
@@ -1680,6 +1688,14 @@ def generate_audit_day(base_date: str, day: int, base_count: int,
                 minute = random.randint(0, 55)
                 success = step_i < num_steps - 1  # Last step fails
                 events.append(audit_sspr_flow(base_date, day, hour, minute + step_i, success=success))
+
+    # ---- App consent/registration events (5-10 per day) ----
+    consent_count = random.randint(int(5 * sf), max(int(5 * sf) + 1, int(10 * sf)))
+    for _ in range(consent_count):
+        hour = random.randint(9, 17)
+        events.append(audit_assign_license(
+            base_date, day, hour, active_scenarios=active_scenarios
+        ))
 
     return events
 
@@ -1773,7 +1789,7 @@ def generate_entraid_logs(
             pass
 
     signin_base = int(35 * scale)
-    audit_per_day = max(3, int(20 * scale))
+    audit_per_day = max(3, int(200 * scale))
 
     if not quiet:
         print("=" * 70, file=sys.stderr)

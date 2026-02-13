@@ -827,7 +827,7 @@ def generate_aws_logs(
         except ImportError:
             pass  # Scenario not available
 
-    base_events_per_peak_hour = int(20 * scale)
+    base_events_per_peak_hour = int(200 * scale)
 
     if not quiet:
         print("=" * 70, file=sys.stderr)

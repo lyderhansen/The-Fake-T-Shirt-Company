@@ -289,15 +289,15 @@ Output Directories:
                         help="Target orders per day for access logs (default: ~224)")
 
     # Meraki health options
-    parser.add_argument("--meraki-health-interval", type=int, default=5,
+    parser.add_argument("--meraki-health-interval", type=int, default=15,
                         choices=[5, 10, 15, 30],
-                        help="Minutes between Meraki health metric samples (default: 5, ~137K events/day)")
+                        help="Minutes between Meraki health metric samples (default: 15, ~46K events/day)")
     parser.add_argument("--no-meraki-health", action="store_true",
                         help="Disable all Meraki health metrics generation")
     parser.add_argument("--no-mr-health", action="store_true",
-                        help="Disable MR wireless AP health metrics (~10K events/day)")
+                        help="Disable MR wireless AP health metrics (~3.5K events/day)")
     parser.add_argument("--no-ms-health", action="store_true",
-                        help="Disable MS switch port health metrics (~127K events/day)")
+                        help="Disable MS switch port health metrics (~42K events/day)")
 
     args = parser.parse_args()
 
