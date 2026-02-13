@@ -1,7 +1,11 @@
-# bin/ — Log Generation Engine
+# bin/ -- Log Generation Engine
+
+> **AI Disclaimer:** This project was primarily developed with AI assistance (Claude).
+> While care has been taken to ensure accuracy, there may be inconsistencies or errors
+> in the generated logs that have not yet been discovered.
 
 This directory contains the Python code that generates all synthetic log data for
-The FAKE T-Shirt Company. No external dependencies — stdlib only.
+The FAKE T-Shirt Company. No external dependencies -- stdlib only.
 
 ## How It All Fits Together
 
@@ -27,7 +31,7 @@ The FAKE T-Shirt Company. No external dependencies — stdlib only.
     ┌─────────▼────────┐ ┌────▼─────┐ ┌────────▼────────┐
     │   generators/    │ │ shared/  │ │   scenarios/    │
     │                  │ │          │ │                 │
-    │ 19 generators    │ │ Company  │ │ 7 scenarios     │
+    │ 26 generators    │ │ Company  │ │ 10 scenarios    │
     │ One per log      │ │ Config   │ │ injected into   │
     │ source type      │ │ Time     │ │ generator       │
     │                  │ │ Products │ │ output          │
@@ -51,9 +55,9 @@ The FAKE T-Shirt Company. No external dependencies — stdlib only.
 
 | Directory | Purpose |
 |-----------|---------|
-| `generators/` | 19 log source generators — each produces one type of log |
+| `generators/` | 26 log source generators -- each produces one or more types of logs |
 | `shared/` | Shared data and utilities used by all generators |
-| `scenarios/` | Attack/ops/network scenarios injected into baseline traffic |
+| `scenarios/` | 10 attack/ops/network scenarios injected into baseline traffic |
 | `output/` | Generated log files (gitignored). Splunk reads from here |
 
 ## Entry Points
@@ -88,7 +92,7 @@ Generators don't just produce flat event counts. `time_utils.py` provides:
 
 A generator calls `calc_natural_events(base_events, date, day, hour, source_type)` and gets back a realistic count for that specific hour.
 
-## generators/ — The 19 Log Sources
+## generators/ -- The 26 Log Sources
 
 Each generator is a self-contained Python file that:
 1. Imports from `shared/` for company data, config, and timestamps
@@ -103,20 +107,31 @@ Each generator is a self-contained Python file that:
 | Generator | Output | Format | Sourcetype |
 |-----------|--------|--------|------------|
 | `generate_asa.py` | `network/cisco_asa.log` | Syslog | `cisco:asa` |
-| `generate_meraki.py` | `network/meraki_*.json` | JSON (5 device types) | `meraki:*` |
+| `generate_meraki.py` | `network/meraki_*.json` | JSON (5 device types + health) | `meraki:*` |
+| `generate_catalyst.py` | `network/catalyst_*.log` | Syslog | `cisco:ios` |
+| `generate_aci.py` | `network/aci_*.json` | JSON (faults, events, audits) | `cisco:aci:*` |
 
-**Cloud / Collaboration**
+**Cloud / Identity**
 
 | Generator | Output | Format | Sourcetype |
 |-----------|--------|--------|------------|
-| `generate_aws.py` | `cloud/aws_cloudtrail.json` | JSON | `aws:cloudtrail` |
-| `generate_gcp.py` | `cloud/gcp_audit.json` | JSON | `google:gcp:pubsub:message` |
-| `generate_entraid.py` | `cloud/entraid_*.json` | JSON | `azure:aad:signin` / `audit` |
-| `generate_exchange.py` | `cloud/exchange_*.json` | JSON | `ms:o365:reporting:messagetrace` |
-| `generate_office_audit.py` | `cloud/office_audit.json` | JSON | `o365:management:activity` |
-| `generate_webex.py` | `cloud/webex_events.json` | JSON | `cisco:webex:events` |
-| `generate_webex_ta.py` | `cloud/webex_ta_*.json` | JSON | `cisco:webex:meetings:history:*` |
-| `generate_webex_api.py` | `cloud/webex_api_*.json` | JSON | `cisco:webex:*` |
+| `generate_aws.py` | `cloud/aws/cloudtrail.json` | JSON | `aws:cloudtrail` |
+| `generate_aws_guardduty.py` | `cloud/aws/guardduty.json` | JSON | `aws:cloudwatch:guardduty` |
+| `generate_aws_billing.py` | `cloud/aws/billing_cur.csv` | CSV | `aws:billing:cur` |
+| `generate_gcp.py` | `cloud/gcp/audit.json` | JSON | `google:gcp:pubsub:message` |
+| `generate_entraid.py` | `cloud/entraid/*.json` | JSON | `azure:aad:signin` / `audit` |
+| `generate_secure_access.py` | `cloud/secure_access/*.csv` | CSV | `cisco:umbrella:*` (4 types) |
+| `generate_catalyst_center.py` | `cloud/catalyst_center/*.json` | JSON | `cisco:catalyst:*` (4 types) |
+
+**Collaboration**
+
+| Generator | Output | Format | Sourcetype |
+|-----------|--------|--------|------------|
+| `generate_exchange.py` | `cloud/microsoft/exchange_*.json` | JSON | `ms:o365:reporting:messagetrace` |
+| `generate_office_audit.py` | `cloud/microsoft/office_audit.json` | JSON | `o365:management:activity` |
+| `generate_webex.py` | `cloud/webex/webex_events.json` | JSON | `cisco:webex:events` |
+| `generate_webex_ta.py` | `cloud/webex/webex_ta_*.json` | JSON | `cisco:webex:meetings:history:*` |
+| `generate_webex_api.py` | `cloud/webex/webex_api_*.json` | JSON | `cisco:webex:*` (5 types) |
 
 **Windows / Endpoint**
 
@@ -131,7 +146,7 @@ Each generator is a self-contained Python file that:
 
 | Generator | Output | Format | Sourcetype |
 |-----------|--------|--------|------------|
-| `generate_linux.py` | `linux/*.log` | KV pairs (5 metric types) | `linux:*` |
+| `generate_linux.py` | `linux/*.log` | KV pairs (5 metrics + auth) | `cpu`, `vmstat`, `df`, `iostat`, `interfaces`, `linux:auth` |
 
 **Web / Retail**
 
@@ -141,21 +156,28 @@ Each generator is a self-contained Python file that:
 | `generate_orders.py` | `retail/orders.json` | JSON | `retail:orders` |
 | `generate_servicebus.py` | `servicebus/servicebus_events.json` | JSON | `azure:servicebus` |
 
+**ERP**
+
+| Generator | Output | Format | Sourcetype |
+|-----------|--------|--------|------------|
+| `generate_sap.py` | `erp/sap_auditlog.log` | Pipe-delimited | `sap:auditlog` |
+
 **ITSM**
 
 | Generator | Output | Format | Sourcetype |
 |-----------|--------|--------|------------|
-| `generate_servicenow.py` | `itsm/servicenow_*.log` | KV pairs | `servicenow:*` |
+| `generate_servicenow.py` | `itsm/servicenow_*.log` | KV pairs | `servicenow:incident`, `change`, `cmdb` |
 
 ### Dependencies
 
 Some generators must run after others because they share data:
 
 ```
-access  ──►  orders        (order_registry.json links web sessions to orders)
-access  ──►  servicebus    (same order registry)
-webex   ──►  meraki        (meeting schedule for sensor/meeting correlation)
-webex   ──►  exchange      (meeting schedule for calendar invite emails)
+access  -->  orders        (order_registry.json links web sessions to orders)
+access  -->  servicebus    (same order registry)
+access  -->  sap           (same order registry)
+webex   -->  meraki        (meeting schedule for sensor/meeting correlation)
+webex   -->  exchange      (meeting schedule for calendar invite emails)
 ```
 
 `main_generate.py` handles this automatically — Phase 1 runs independent generators in parallel, Phase 2 runs dependent ones.
@@ -176,17 +198,20 @@ Scenarios inject tagged events (`demo_id=<name>`) into the baseline traffic acro
 
 ```
 scenarios/
-├── registry.py              # Central registry — all scenarios defined here
+├── registry.py                # Central registry -- all scenarios defined here
 ├── security/
-│   ├── exfil.py             # APT-style data exfiltration (14-day campaign)
-│   └── ransomware_attempt.py # Ransomware detected and stopped by EDR
+│   ├── exfil.py               # APT-style data exfiltration (14-day campaign)
+│   ├── ransomware_attempt.py  # Ransomware detected and stopped by EDR
+│   └── phishing_test.py       # IT-run phishing awareness campaign
 ├── ops/
-│   ├── cpu_runaway.py       # SQL backup stuck at 100% CPU
-│   ├── memory_leak.py       # Application OOM crash
-│   └── disk_filling.py      # Server disk filling up
+│   ├── cpu_runaway.py         # SQL backup stuck at 100% CPU
+│   ├── memory_leak.py         # Application OOM crash
+│   ├── disk_filling.py        # Server disk filling up
+│   └── dead_letter_pricing.py # ServiceBus dead-letter queue, wrong prices
 └── network/
-    ├── firewall_misconfig.py # ACL misconfiguration outage
-    └── certificate_expiry.py # SSL cert expired
+    ├── firewall_misconfig.py  # ACL misconfiguration outage
+    ├── certificate_expiry.py  # SSL cert expired
+    └── ddos_attack.py         # Volumetric HTTP flood from botnet
 ```
 
 ### How Scenarios Work
@@ -196,18 +221,21 @@ scenarios/
 3. Each scenario class (e.g., `ExfilScenario`) provides methods that generators call to get the scenario events in the correct format for that log type
 4. All scenario events are tagged with `demo_id=<scenario_name>` for easy Splunk filtering
 
-### Scenario Timeline (14-day run)
+### Scenario Timeline (31-day run)
 
 ```
-Day:  0  1  2  3  4  5  6  7  8  9 10 11 12 13
-      │  │  │  │  │  │  │  │  │  │  │  │  │  │
-disk  ████████████                              Disk filling (Day 0-4)
-exfil recon──────│──►│──lateral─│persist─│exfil─ APT exfil (Day 0-13)
-memlk                ██████████████             Memory leak (Day 5-8)
-fwcfg                      ██                   Firewall misconfig (Day 6)
-ranso                      ██████               Ransomware attempt (Day 7-8)
-cpuRW                               ████        CPU runaway (Day 10-11)
-cert                                     ██     Certificate expiry (Day 11)
+Day:  1   2   3   4   5   6   7   8   9  10  11  12  13  14  ...  16  ...  18  19  ...  21  22  23
+      |   |   |   |   |   |   |   |   |   |   |   |   |   |       |       |   |       |   |   |
+Exfil [---Recon---|Acc|Lateral|Persist|---Exfiltration---|       |       |   |       |   |   |
+Disk  [---45%----|---|--70%--|--85%--|--95%---|--98%-----|       |       |   |       |   |   |
+FWMis |           |   |   XX  |       |        |          |       |       |   |       |   |   |
+Ranso |           |   |       |   XX  |        |          |       |       |   |       |   |   |
+MemLk |           |   |--Leak-|--OOM--|        |          |       |       |   |       |   |   |
+CPU   |           |   |       |       |  XXXX  |          |       |       |   |       |   |   |
+Cert  |           |   |       |       |   XX   |          |       |       |   |       |   |   |
+DLQ   |           |   |       |       |        |          |       X       |   |       |   |   |
+DDoS  |           |   |       |       |        |          |       |       XXXXX       |   |   |
+Phish |           |   |       |       |        |          |       |       |   |       XXXXX   |
 ```
 
 ### Cross-Generator Correlation
@@ -246,15 +274,23 @@ python3 tui_generate.py
 
 ```
 output/
-├── network/       cisco_asa.log, meraki_*.json
-├── cloud/         aws, gcp, entraid, exchange, webex, office_audit JSON files
+├── network/       cisco_asa.log, meraki_*.json, catalyst_*.log, aci_*.json
+├── cloud/
+│   ├── aws/       cloudtrail.json, guardduty.json, billing_cur.csv
+│   ├── entraid/   signin.json, audit.json
+│   ├── gcp/       audit.json
+│   ├── microsoft/ exchange_*.json, office_audit.json
+│   ├── webex/     webex_events.json, webex_ta_*.json, webex_api_*.json
+│   ├── secure_access/  dns.csv, proxy.csv, firewall.csv, audit.csv
+│   └── catalyst_center/ devicehealth.json, networkhealth.json, clienthealth.json, issues.json
 ├── windows/       perfmon_*.log, wineventlog_*.log, mssql_errorlog.log, sysmon_operational.log
-├── linux/         cpu.log, vmstat.log, df.log, iostat.log, interfaces.log
-├── web/           access_combined.log
+├── linux/         cpu.log, vmstat.log, df.log, iostat.log, interfaces.log, auth.log
+├── web/           access_combined.log, order_registry.json
 ├── retail/        orders.json
 ├── servicebus/    servicebus_events.json
+├── erp/           sap_auditlog.log
 ├── itsm/          servicenow_incidents.log, servicenow_cmdb.log, servicenow_change.log
-└── tmp/           Same structure — used by --test mode (default)
+└── tmp/           Same structure -- used by --test mode (default)
 ```
 
 Splunk's `default/inputs.conf` has monitor stanzas pointing to `output/<category>/<file>`.

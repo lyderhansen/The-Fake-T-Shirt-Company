@@ -2,6 +2,10 @@
 
 Documentation for The FAKE T-Shirt Company Splunk demo environment.
 
+> **AI Disclaimer:** This project was primarily developed with AI assistance (Claude).
+> While care has been taken to ensure accuracy, there may be inconsistencies or errors
+> in the generated logs that have not yet been discovered.
+
 ---
 
 ## Directory Index
@@ -24,7 +28,7 @@ Documentation for The FAKE T-Shirt Company Splunk demo environment.
 | Scenario | Category | Duration | Guide |
 |----------|----------|----------|-------|
 | **exfil** | Attack | 14 days | [scenarios/exfil.md](scenarios/exfil.md) |
-| **ransomware_attempt** | Attack | 1 day | [scenarios/ransomware.md](scenarios/ransomware.md) |
+| **ransomware_attempt** | Attack | 1 day | [scenarios/ransomware_attempt.md](scenarios/ransomware_attempt.md) |
 | **phishing_test** | Attack | 3 days | [scenarios/phishing_test.md](scenarios/phishing_test.md) |
 | **memory_leak** | Ops | 10 days | [scenarios/memory_leak.md](scenarios/memory_leak.md) |
 | **cpu_runaway** | Ops | 2 days | [scenarios/cpu_runaway.md](scenarios/cpu_runaway.md) |

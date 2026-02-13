@@ -1,4 +1,8 @@
-# default/ — Splunk Configuration
+# default/ -- Splunk Configuration
+
+> **AI Disclaimer:** This project was primarily developed with AI assistance (Claude).
+> While care has been taken to ensure accuracy, there may be inconsistencies or errors
+> in the generated logs that have not yet been discovered.
 
 This directory contains all Splunk configuration files that tell Splunk how to ingest,
 parse, and classify the generated log data.
@@ -23,10 +27,10 @@ installed Technology Add-ons.
 | File | Purpose |
 |------|---------|
 | **`app.conf`** | App identity — name, version (1.0.0), visibility |
-| **`inputs.conf`** | 37 monitor stanzas — one per log file, all to `fake_tshrt` index |
-| **`props.conf`** | 46 sourcetype definitions — timestamp parsing, field extraction, CIM mappings |
-| **`transforms.conf`** | 28 transforms — host extraction, field extraction, sourcetype routing, lookups |
-| **`eventtypes.conf`** | 15 event types — scenario filters, source groups, CIM-aligned categories |
+| **`inputs.conf`** | 60 monitor stanzas -- one per log file, all to `fake_tshrt` index |
+| **`props.conf`** | 64 sourcetype definitions -- timestamp parsing, field extraction, CIM mappings |
+| **`transforms.conf`** | 275 transforms -- host extraction, field extraction, sourcetype routing, lookups |
+| **`eventtypes.conf`** | 31 event types -- scenario filters (10), source groups (10), CIM-aligned (11) |
 | **`tags.conf`** | CIM tags — maps event types to data model tags (authentication, network, etc.) |
 | **`restmap.conf`** | 2 REST endpoints — log generation and index management from Splunk Web |
 | **`web.conf`** | Exposes REST endpoints to Splunk Web (port 8000) |
@@ -95,6 +99,7 @@ the same way they would with production data.
 | `FAKE:df` | KV pairs | [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) | [df(1) man page](https://man7.org/linux/man-pages/man1/df.1.html) |
 | `FAKE:iostat` | KV pairs | [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) | [iostat(1) man page](https://man7.org/linux/man-pages/man1/iostat.1.html) |
 | `FAKE:interfaces` | KV pairs | [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) | [/proc/net/dev](https://man7.org/linux/man-pages/man5/proc.5.html) |
+| `FAKE:linux:auth` | Syslog | [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) | [auth.log / secure](https://man7.org/linux/man-pages/man3/syslog.3.html) |
 
 ### Web / Retail
 
@@ -123,6 +128,39 @@ the older XML API (meetings history):
 | `FAKE:cisco:webex:call:detailed_history` | JSON | Webex Add-on (REST API) | [Webex Call History API](https://developer.webex.com/docs/api/v1/call-history) |
 | `FAKE:cisco:webex:meetings:history:meetingusagehistory` | JSON | WebEx Meetings App (XML API) | [Webex Meetings XML API](https://developer.cisco.com/site/webex-developer/web-conferencing/xml-api/overview/) |
 | `FAKE:cisco:webex:meetings:history:meetingattendeehistory` | JSON | WebEx Meetings App (XML API) | [Webex Meetings XML API](https://developer.cisco.com/site/webex-developer/web-conferencing/xml-api/overview/) |
+
+### Cisco Secure Access
+
+| Sourcetype | Format | Inspired By | Vendor Docs |
+|------------|--------|-------------|-------------|
+| `FAKE:cisco:umbrella:dns` | CSV | [Cisco Umbrella Add-on for Splunk](https://splunkbase.splunk.com/app/3563) | [Cisco Umbrella Log Formats](https://docs.umbrella.com/deployment/docs/log-formats-and-versioning) |
+| `FAKE:cisco:umbrella:proxy` | CSV | [Cisco Umbrella Add-on for Splunk](https://splunkbase.splunk.com/app/3563) | [Cisco Umbrella Log Formats](https://docs.umbrella.com/deployment/docs/log-formats-and-versioning) |
+| `FAKE:cisco:umbrella:firewall` | CSV | [Cisco Umbrella Add-on for Splunk](https://splunkbase.splunk.com/app/3563) | [Cisco Umbrella Log Formats](https://docs.umbrella.com/deployment/docs/log-formats-and-versioning) |
+| `FAKE:cisco:umbrella:audit` | CSV | [Cisco Umbrella Add-on for Splunk](https://splunkbase.splunk.com/app/3563) | [Cisco Umbrella Log Formats](https://docs.umbrella.com/deployment/docs/log-formats-and-versioning) |
+
+### Cisco Catalyst Switches / ACI
+
+| Sourcetype | Format | Inspired By | Vendor Docs |
+|------------|--------|-------------|-------------|
+| `FAKE:cisco:ios` | Syslog | [Splunk Add-on for Cisco IOS](https://splunkbase.splunk.com/app/1467) | [Cisco IOS Syslog](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/bsm/command/bsm-cr-book.html) |
+| `FAKE:cisco:aci:fault` | JSON | Custom | [Cisco ACI Fault Reference](https://www.cisco.com/c/en/us/td/docs/dcn/aci/apic/all/faults-and-events/cisco-apic-faults-events-reference.html) |
+| `FAKE:cisco:aci:event` | JSON | Custom | [Cisco ACI REST API](https://developer.cisco.com/docs/aci/) |
+| `FAKE:cisco:aci:audit` | JSON | Custom | [Cisco ACI REST API](https://developer.cisco.com/docs/aci/) |
+
+### Cisco Catalyst Center
+
+| Sourcetype | Format | Inspired By | Vendor Docs |
+|------------|--------|-------------|-------------|
+| `FAKE:cisco:catalyst:devicehealth` | JSON | Custom | [Catalyst Center API](https://developer.cisco.com/docs/dna-center/) |
+| `FAKE:cisco:catalyst:networkhealth` | JSON | Custom | [Catalyst Center API](https://developer.cisco.com/docs/dna-center/) |
+| `FAKE:cisco:catalyst:clienthealth` | JSON | Custom | [Catalyst Center API](https://developer.cisco.com/docs/dna-center/) |
+| `FAKE:cisco:catalyst:issue` | JSON | Custom | [Catalyst Center API](https://developer.cisco.com/docs/dna-center/) |
+
+### ERP (SAP)
+
+| Sourcetype | Format | Inspired By | Vendor Docs |
+|------------|--------|-------------|-------------|
+| `FAKE:sap:auditlog` | Pipe-delimited | Custom | [SAP Security Audit Log](https://help.sap.com/docs/sap-netweaver-as-for-abap-7.52/the-security-audit-log) |
 
 ### ITSM (ServiceNow)
 
@@ -211,7 +249,10 @@ Lookups enrich events with additional fields at search time:
 | `windows_severity_lookup` | `windows_severity_lookup.csv` | WinEventLog — severity by event Type |
 | `windows_signature_lookup` | `windows_signature_lookup.csv` | WinEventLog — signature, action, result by ID |
 | `splunk_ta_o365_cim_messagetrace_action` | `splunk_ta_o365_cim_messagetrace_action.csv` | Exchange — action by Status |
-| `customer_lookup` | `customer_lookup.csv` | Retail — customer enrichment |
+| `customer_lookup` | `customer_lookup.csv` | Retail -- customer enrichment |
+| `asset_inventory` | `asset_inventory.csv` | ASA, Entra ID -- host/owner enrichment by IP |
+| `identity_inventory` | `identity_inventory.csv` | Entra ID, WinEventLog, linux:auth -- user enrichment by email/identity |
+| `mac_inventory` | `mac_inventory.csv` | Meraki AP -- device enrichment by MAC address |
 
 ---
 
@@ -219,25 +260,36 @@ Lookups enrich events with additional fields at search time:
 
 Event types group sourcetypes into logical categories. Tags map these to CIM data models.
 
-### Scenario Event Types
+### Scenario Event Types (10)
 
 | Event Type | Search | Tags |
 |------------|--------|------|
 | `demo_scenario_exfil` | `demo_id=exfil` | attack, exfiltration, apt |
+| `demo_scenario_ransomware_attempt` | `demo_id=ransomware_attempt` | attack, malware |
+| `demo_scenario_phishing_test` | `demo_id=phishing_test` | attack, phishing |
 | `demo_scenario_memory_leak` | `demo_id=memory_leak` | performance, operations |
 | `demo_scenario_cpu_runaway` | `demo_id=cpu_runaway` | performance, operations |
 | `demo_scenario_disk_filling` | `demo_id=disk_filling` | performance, operations |
+| `demo_scenario_dead_letter_pricing` | `demo_id=dead_letter_pricing` | performance, operations |
 | `demo_scenario_firewall_misconfig` | `demo_id=firewall_misconfig` | misconfiguration, network |
+| `demo_scenario_certificate_expiry` | `demo_id=certificate_expiry` | misconfiguration, network |
+| `demo_scenario_ddos_attack` | `demo_id=ddos_attack` | attack, network |
 
-### CIM Event Types
+### CIM Event Types (11)
 
 | Event Type | Maps To | Tags |
 |------------|---------|------|
-| `demo_authentication` | Entra ID sign-in, WinEventLog 4624/4625 | authentication |
-| `demo_network_traffic` | Cisco ASA, Meraki MX | network, communicate |
-| `demo_change` | Entra ID audit, CloudTrail, GCP | change |
+| `demo_authentication` | Entra ID sign-in, WinEventLog 4624/4625, linux:auth | authentication |
+| `demo_network_traffic` | Cisco ASA, Meraki MX, Umbrella FW | network, communicate |
+| `demo_change` | Entra ID audit, CloudTrail, GCP, O365 audit | change |
 | `demo_malware` | ASA IDS/IPS events | malware, attack |
 | `demo_web` | Apache access logs | web |
+| `demo_email` | Exchange message trace | email |
+| `demo_dns` | Cisco Umbrella DNS | network, resolution, dns |
+| `demo_performance` | Perfmon, Linux metrics (cpu, vmstat, df, iostat, interfaces) | performance |
+| `demo_endpoint` | WinEventLog, Sysmon | endpoint |
+| `demo_intrusion_detection` | GuardDuty, Umbrella blocked, ASA deny | ids, attack |
+| `demo_database` | MSSQL error log | database |
 
 ---
 

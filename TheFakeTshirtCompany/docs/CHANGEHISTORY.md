@@ -4,6 +4,33 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~03:00 UTC -- README Update Pass: All 6 README Files + Root README
+
+Comprehensive update of all README.md files to match current project state. Added AI disclaimer to all files.
+
+### Created
+
+- **`README.md` (root)** -- New root-level README with project overview, repository structure, quick start, data source summary, scenario list, and documentation index.
+
+### Updated
+
+- **`TA-FAKE-TSHRT/README.md`** -- Complete rewrite. Fixed: 17->26 generators, 7->10 scenarios, wrong sourcetype naming (`:demo` suffix -> `FAKE:` prefix), wrong index name (`splunk_demo` -> `fake_tshrt`). Added missing data sources (Secure Access, Catalyst, ACI, SAP, GuardDuty, Billing, Sysmon, linux:auth). Added missing CLI options (--scale, --parallel, --test/--no-test).
+
+- **`TA-FAKE-TSHRT/default/README.md`** -- Fixed counts: 37->60 inputs, 46->64 props, 28->275 transforms, 15->31 eventtypes. Added 5 missing scenario event types and 6 missing CIM event types. Added Secure Access, Catalyst/ACI, Catalyst Center, SAP sourcetype sections. Added linux:auth to Linux section. Added inventory lookups (asset, identity, MAC) to lookup table.
+
+- **`TA-FAKE-TSHRT/bin/README.md`** -- Fixed counts: 19->26 generators, 7->10 scenarios. Added missing generators: catalyst, aci, secure_access, catalyst_center, aws_guardduty, aws_billing, sap. Added missing scenarios: phishing_test, ddos_attack, dead_letter_pricing. Updated scenario timeline to show all 10 scenarios across 31 days. Added erp/ and updated output directory structure. Added sap dependency on access.
+
+- **`docs/README.md`** -- Fixed ransomware link: `scenarios/ransomware.md` -> `scenarios/ransomware_attempt.md`.
+
+- **`docs/datasource_docs/README.md`** -- Added linux:auth to Linux section. Added linux:auth volume entry.
+
+### AI Disclaimer
+
+Added to all README files:
+> This project was primarily developed with AI assistance (Claude). While care has been taken to ensure accuracy, there may be inconsistencies or errors in the generated logs that have not yet been discovered.
+
+---
+
 ## 2026-02-14 ~01:00 UTC -- P2-P4 Quality Checklist: CIM Eventtypes, vendor_product, Lookups, Ransomware Rename
 
 Quality audit follow-up implementing P2-P4 items from `docs/QUALITY_CHECKLIST.md`. All changes are search-time config -- no data regeneration required.
