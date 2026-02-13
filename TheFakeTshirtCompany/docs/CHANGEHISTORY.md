@@ -4,6 +4,20 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~22:40 UTC -- Align --show-files counts and add ANSI color coding
+
+### Changed
+
+- **`bin/main_generate.py`** -- Per-file counts now globally right-aligned to a fixed column computed from the longest path in `GENERATOR_OUTPUT_FILES`. Previously each generator's counts aligned independently, causing jagged output when generators with short paths (e.g., `linux/cpu.log`) were mixed with long paths (e.g., `cisco_secure_access_firewall.csv`).
+- **`bin/main_generate.py`** -- Added ANSI color coding to CLI output (auto-disabled when piped or `NO_COLOR` set): green checkmarks, yellow event counts, cyan per-file counts, dim file paths/timing. Summary footer also colorized (green "Complete!", yellow total).
+
+### Verification
+
+- 7-generator test run (`perfmon,wineventlog,linux,entraid,catalyst_center,aci,secure_access`): all per-file counts aligned to same column regardless of path length
+- Colors render in iTerm2/Terminal.app, degrade gracefully to plain text when piped
+
+---
+
 ## 2026-02-13 ~22:30 UTC -- Fix --show-files to display event counts instead of line counts
 
 ### Fixed

@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -17,6 +18,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
+
+# ANSI color codes for terminal output (disabled if not a TTY)
+if sys.stdout.isatty() and os.environ.get("NO_COLOR") is None:
+    _C_RESET = "\033[0m"
+    _C_DIM = "\033[2m"
+    _C_CYAN = "\033[36m"
+    _C_GREEN = "\033[32m"
+    _C_YELLOW = "\033[33m"
+else:
+    _C_RESET = _C_DIM = _C_CYAN = _C_GREEN = _C_YELLOW = ""
 
 from shared.config import (
     DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE,
@@ -85,6 +96,9 @@ GENERATORS: Dict[str, Callable] = {
     "aws_billing": generate_aws_billing_logs,
 }
 
+# Width for aligning generator name column in output (longest name + 1)
+_GEN_NAME_WIDTH = max(len(n) for n in GENERATORS) + 1
+
 # Group sources for easy selection
 SOURCE_GROUPS = {
     "all": list(GENERATORS.keys()),
@@ -137,25 +151,49 @@ def parse_sources(sources_str: str) -> List[str]:
     return list(set(sources))  # Remove duplicates
 
 
+# Global column width for --show-files alignment (computed once from all known paths)
+_FILE_COL_WIDTH = 0  # Set lazily on first call
+
+
+def _get_file_col_width(output_label: str) -> int:
+    """Compute global column width for aligned file count display."""
+    global _FILE_COL_WIDTH
+    if _FILE_COL_WIDTH == 0:
+        max_len = 0
+        for files in GENERATOR_OUTPUT_FILES.values():
+            for f in files:
+                path_len = len(f"{output_label}/{f}")
+                if path_len > max_len:
+                    max_len = path_len
+        _FILE_COL_WIDTH = max_len + 3  # +3 for comfortable spacing before count
+    return _FILE_COL_WIDTH
+
+
 def _print_file_counts(result: Dict, output_base: Path, output_label: str):
     """Print per-file event counts for --show-files.
 
     Uses generator-reported file_counts (accurate event counts) when available,
     falls back to raw line counts for generators that return int.
+    Counts are right-aligned to a fixed global column so they line up across all generators.
     """
     gen_name = result.get("name", "")
     file_counts = result.get("file_counts", {})
     files = GENERATOR_OUTPUT_FILES.get(gen_name, [gen_name])
+    col_width = _get_file_col_width(output_label)
+
+    prefix = f"       {_C_DIM}->{_C_RESET} {_C_DIM}{output_label}/"
     for f in files:
         file_path = output_base / f
+        display_path = f"{output_label}/{f}"
+        padding = " " * max(col_width - len(display_path), 1)
         if file_path.exists():
             if f in file_counts:
                 count = file_counts[f]
             else:
                 count = sum(1 for _ in open(file_path))
-            print(f"       -> {output_label}/{f:45} {count:>10,}")
+            print(f"{prefix}{f}{_C_RESET}{padding}{_C_CYAN}{count:>12,}{_C_RESET}")
         else:
-            print(f"       -> {output_label}/{f:45} {'(not found)':>10}")
+            print(f"{prefix}{f}{_C_RESET}{padding}{_C_DIM}{'(not found)':>12}{_C_RESET}")
 
 
 def run_generator(name: str, func: Callable, **kwargs) -> Dict:
@@ -489,10 +527,12 @@ Output Directories:
                     result = future.result()
                     phase_results.append(result)
                     if not args.quiet:
-                        status = "✓" if result["success"] else "✗"
                         count = result.get("count", 0)
                         dur = result["duration"]
-                        print(f"  [{status}] {result['name']:12} {count:>10,} events  ({dur:.1f}s)")
+                        if result["success"]:
+                            print(f"  [{_C_GREEN}✓{_C_RESET}] {result['name']:{_GEN_NAME_WIDTH}} {_C_YELLOW}{count:>10,}{_C_RESET} events  {_C_DIM}({dur:.1f}s){_C_RESET}")
+                        else:
+                            print(f"  [✗] {result['name']:{_GEN_NAME_WIDTH}} {count:>10,} events  ({dur:.1f}s)")
                         if args.show_files:
                             _print_file_counts(result, current_output_base, output_label)
         else:
@@ -505,9 +545,11 @@ Output Directories:
                 result = run_generator(name, func, **kwargs)
                 phase_results.append(result)
                 if not args.quiet:
-                    status = "✓" if result["success"] else "✗"
                     count = result.get("count", 0)
-                    print(f" [{status}] {count:,} events ({result['duration']:.1f}s)")
+                    if result["success"]:
+                        print(f" [{_C_GREEN}✓{_C_RESET}] {_C_YELLOW}{count:,}{_C_RESET} events {_C_DIM}({result['duration']:.1f}s){_C_RESET}")
+                    else:
+                        print(f" [✗] {count:,} events ({result['duration']:.1f}s)")
                     if args.show_files:
                         _print_file_counts(result, current_output_base, output_label)
 
@@ -559,10 +601,10 @@ Output Directories:
     if not args.quiet:
         print()
         print("=" * 70)
-        print(f"  Complete!")
-        print(f"  Total Events:  {total_events:,}")
+        print(f"  {_C_GREEN}Complete!{_C_RESET}")
+        print(f"  Total Events:  {_C_YELLOW}{total_events:,}{_C_RESET}")
         print(f"  Total Time:    {total_time:.1f}s")
-        print(f"  Generators:    {successful} successful, {failed} failed")
+        print(f"  Generators:    {_C_GREEN}{successful} successful{_C_RESET}, {failed} failed")
         print(f"  Throughput:    {total_events / total_time:,.0f} events/sec")
         print(f"  Output:        {output_summary}")
         print("=" * 70)
