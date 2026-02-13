@@ -4,6 +4,25 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~10:00 UTC -- Consolidate Nested Docs into Main Docs
+
+### Moved
+
+- **`TA-FAKE-TSHRT/docs/architecture.html`** (92KB) -> `docs/reference/architecture.html` -- Replaces older 48KB version
+- **`TA-FAKE-TSHRT/docs/architecture_connections.svg`** -> `docs/reference/architecture_connections.svg`
+- **`TA-FAKE-TSHRT/docs/architecture_overview.svg`** -> `docs/reference/architecture_overview.svg`
+- **`TA-FAKE-TSHRT/docs/scenario_playground.html`** -> `docs/reference/scenario_playground.html`
+
+### Removed
+
+- **`TA-FAKE-TSHRT/docs/`** directory -- All files consolidated into `docs/reference/`. Splunk app package should only contain Splunk-specific content.
+
+### Updated
+
+- **`CLAUDE.md`** -- Updated Repository Structure `reference/` description to reflect new architecture files.
+
+---
+
 ## 2026-02-14 ~09:00 UTC -- Document Custom Fields in Both READMEs
 
 ### Added

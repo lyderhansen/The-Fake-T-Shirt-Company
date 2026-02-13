@@ -10,7 +10,7 @@ mac_address,ip_address,hostname,username,display_name,location,department,device
 00:14:22:9B:C8:20,10.10.30.66,BOS-WS-SHARRIS01,sophia.harris,Sophia Harris,BOS,Finance,workstation
 00:14:22:B8:64:AA,10.10.30.108,BOS-WS-DEVANS01,dylan.evans,Dylan Evans,BOS,Marketing,workstation
 00:14:22:C6:B4:E1,10.10.31.50,BOS-WS-CROBERTS01,claire.roberts,Claire Roberts,BOS,Legal,workstation
-00:14:22:D5:2B:71,10.20.30.84,ATL-WS-EJENKINS01,ebony.jenkins,Ebony Jenkins,ATL,Marketing,workstation
+00:14:22:D5:2B:71,10.20.30.84,ATL-WS-DGRANT01,diana.grant,Diana Grant,ATL,Marketing,workstation
 00:14:22:D6:B3:24,10.10.31.13,BOS-WS-SMORRIS01,sarah.morris,Sarah Morris,BOS,HR,workstation
 00:14:22:DA:78:43,10.10.30.60,BOS-WS-ZBROOKS01,zara.brooks,Zara Brooks,BOS,Finance,workstation
 00:50:B6:10:52:B7,10.30.30.61,AUS-WS-AHERNANDEZ01,ava.hernandez,Ava Hernandez,AUS,Marketing,workstation
@@ -46,7 +46,7 @@ mac_address,ip_address,hostname,username,display_name,location,department,device
 10:60:4B:E5:D6:7B,10.20.30.73,ATL-WS-TBROOKS01,tanisha.brooks,Tanisha Brooks,ATL,Sales,workstation
 10:60:4B:E8:E0:57,10.10.30.159,BOS-WS-BTURNER01,brandon.turner,Brandon Turner,BOS,Engineering,workstation
 10:60:4B:E9:CD:E5,10.30.30.17,AUS-WS-WANDERSON01,wyatt.anderson,Wyatt Anderson,AUS,Sales,workstation
-10:60:4B:F2:74:4D,10.20.30.29,ATL-WS-LBROWN01,latoya.brown,Latoya Brown,ATL,IT,workstation
+10:60:4B:F2:74:4D,10.20.30.29,ATL-WS-NPATEL01,nina.patel,Nina Patel,ATL,IT,workstation
 10:60:4B:F6:D4:05,10.10.30.164,BOS-WS-HSANDERS01,hannah.sanders,Hannah Sanders,BOS,Engineering,workstation
 34:17:EB:10:7F:1A,10.20.30.22,ATL-WS-JWASHINGTON01,jerome.washington,Jerome Washington,ATL,IT,workstation
 34:17:EB:14:05:46,10.10.31.52,BOS-WS-GCOX01,grace.cox,Grace Cox,BOS,Legal,workstation
@@ -58,7 +58,7 @@ mac_address,ip_address,hostname,username,display_name,location,department,device
 34:17:EB:73:8F:B7,10.30.30.75,AUS-WS-CPATEL01,cameron.patel,Cameron Patel,AUS,Operations,workstation
 34:17:EB:74:F4:A5,10.20.30.82,ATL-WS-DMOORE01,desiree.moore,Desiree Moore,ATL,Marketing,workstation
 34:17:EB:80:3B:0F,10.10.30.185,BOS-WS-JCOOPER01,jennifer.cooper,Jennifer Cooper,BOS,IT,workstation
-34:17:EB:9C:AB:B1,10.20.30.80,ATL-WS-KWASHINGTON01,keisha.washington,Keisha Washington,ATL,Marketing,workstation
+34:17:EB:9C:AB:B1,10.20.30.80,ATL-WS-RCOLE01,rachel.cole,Rachel Cole,ATL,Marketing,workstation
 34:17:EB:CC:53:83,10.30.30.20,AUS-WS-BWHITE01,brooklyn.white,Brooklyn White,AUS,Sales,workstation
 34:17:EB:D9:B3:28,10.20.30.18,ATL-WS-KBUTLER01,keith.butler,Keith Butler,ATL,IT,workstation
 34:17:EB:DD:BE:C5,10.20.30.57,ATL-WS-JCARTER01,jasmine.carter,Jasmine Carter,ATL,Engineering,workstation

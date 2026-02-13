@@ -119,7 +119,7 @@ ip,mac,nt_host,dns,owner,priority,lat,long,city,country,bunit,category,pci_domai
 10.20.30.26,B8:AC:6F:4D:54:E5,ATL-WS-DCOLEMAN01,atl-ws-dcoleman01.theFakeTshirtCompany.com,derek.coleman,medium,33.7490,-84.3880,Atlanta,US,IT,workstation,,true,true,true,true
 10.20.30.27,94:57:A5:0A:80:D9,ATL-WS-TRUSSELL01,atl-ws-trussell01.theFakeTshirtCompany.com,tonya.russell,medium,33.7490,-84.3880,Atlanta,US,IT,workstation,,true,true,true,true
 10.20.30.28,E8:6A:64:B2:12:F4,ATL-WS-MWILLIAMS01,atl-ws-mwilliams01.theFakeTshirtCompany.com,marcus.williams,medium,33.7490,-84.3880,Atlanta,US,IT,workstation,,true,true,true,true
-10.20.30.29,10:60:4B:F2:74:4D,ATL-WS-LBROWN01,atl-ws-lbrown01.theFakeTshirtCompany.com,latoya.brown,medium,33.7490,-84.3880,Atlanta,US,IT,workstation,,true,true,true,true
+10.20.30.29,10:60:4B:F2:74:4D,ATL-WS-NPATEL01,atl-ws-npatel01.theFakeTshirtCompany.com,nina.patel,medium,33.7490,-84.3880,Atlanta,US,IT,workstation,,true,true,true,true
 10.20.30.50,94:57:A5:62:95:29,ATL-WS-DHAYES01,atl-ws-dhayes01.theFakeTshirtCompany.com,darren.hayes,medium,33.7490,-84.3880,Atlanta,US,Engineering,workstation,,true,true,true,true
 10.20.30.51,E8:6A:64:B2:E0:67,ATL-WS-CPRICE01,atl-ws-cprice01.theFakeTshirtCompany.com,crystal.price,medium,33.7490,-84.3880,Atlanta,US,Engineering,workstation,,true,true,true,true
 10.20.30.52,F8:BC:12:ED:05:BC,ATL-WS-JTHOMAS01,atl-ws-jthomas01.theFakeTshirtCompany.com,jamal.thomas,medium,33.7490,-84.3880,Atlanta,US,Engineering,workstation,,true,true,true,true
@@ -133,11 +133,11 @@ ip,mac,nt_host,dns,owner,priority,lat,long,city,country,bunit,category,pci_domai
 10.20.30.72,00:50:B6:CC:09:F9,ATL-WS-RALLEN01,atl-ws-rallen01.theFakeTshirtCompany.com,rodney.allen,medium,33.7490,-84.3880,Atlanta,US,Sales,workstation,,true,true,true,true
 10.20.30.73,10:60:4B:E5:D6:7B,ATL-WS-TBROOKS01,atl-ws-tbrooks01.theFakeTshirtCompany.com,tanisha.brooks,medium,33.7490,-84.3880,Atlanta,US,Sales,workstation,,true,true,true,true
 10.20.30.74,F8:BC:12:CC:1E:1B,ATL-WS-CMITCHELL01,atl-ws-cmitchell01.theFakeTshirtCompany.com,calvin.mitchell,medium,33.7490,-84.3880,Atlanta,US,Sales,workstation,,true,true,true,true
-10.20.30.80,34:17:EB:9C:AB:B1,ATL-WS-KWASHINGTON01,atl-ws-kwashington01.theFakeTshirtCompany.com,keisha.washington,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
+10.20.30.80,34:17:EB:9C:AB:B1,ATL-WS-RCOLE01,atl-ws-rcole01.theFakeTshirtCompany.com,rachel.cole,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
 10.20.30.81,00:50:B6:37:3D:68,ATL-WS-ADAVIS01,atl-ws-adavis01.theFakeTshirtCompany.com,anthony.davis,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
 10.20.30.82,34:17:EB:74:F4:A5,ATL-WS-DMOORE01,atl-ws-dmoore01.theFakeTshirtCompany.com,desiree.moore,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
 10.20.30.83,E8:6A:64:67:37:2C,ATL-WS-CPARKER01,atl-ws-cparker01.theFakeTshirtCompany.com,corey.parker,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
-10.20.30.84,00:14:22:D5:2B:71,ATL-WS-EJENKINS01,atl-ws-ejenkins01.theFakeTshirtCompany.com,ebony.jenkins,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
+10.20.30.84,00:14:22:D5:2B:71,ATL-WS-DGRANT01,atl-ws-dgrant01.theFakeTshirtCompany.com,diana.grant,medium,33.7490,-84.3880,Atlanta,US,Marketing,workstation,,true,true,true,true
 10.20.30.90,34:17:EB:53:8A:9B,ATL-WS-JTAYLOR01,atl-ws-jtaylor01.theFakeTshirtCompany.com,jacqueline.taylor,medium,33.7490,-84.3880,Atlanta,US,HR,workstation,,true,true,true,true
 10.20.30.91,3C:D9:2B:94:4A:9B,ATL-WS-RHARRIS01,atl-ws-rharris01.theFakeTshirtCompany.com,reginald.harris,medium,33.7490,-84.3880,Atlanta,US,HR,workstation,,true,true,true,true
 10.20.30.92,3C:D9:2B:C1:A5:97,ATL-WS-MWRIGHT01,atl-ws-mwright01.theFakeTshirtCompany.com,monique.wright,medium,33.7490,-84.3880,Atlanta,US,HR,workstation,,true,true,true,true
