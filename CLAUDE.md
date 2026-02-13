@@ -970,7 +970,6 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
 
 | Gap | Description | Fix Required |
 |-----|-------------|-------------|
-| ServiceNow CMDB | Generator code exists, Splunk stanza exists, but 0 events in index. CMDB records are generated but may not be getting written to output. | Data regeneration after code investigation |
 | SAP timestamps | SAP events use `%Y-%m-%d %H:%M:%S` but some events may have timezone inconsistencies | Data regeneration |
 | GCP sourcetype split | GCP events split across `admin_activity:demo` and `data_access:demo` variants | Data regeneration |
 

@@ -1211,9 +1211,9 @@ def generate_cmdb_records(start_date: str) -> List[str]:
     Sources: SERVERS, ASA_PERIMETER, MERAKI_FIREWALLS, BUSINESS_APPS,
     SCENARIO_WORKSTATIONS, and dependency relationships.
     """
-    # sys_updated_on = day before start_date
+    # sys_updated_on = start_date (so CMDB records appear within the data time range)
     base_date = datetime.strptime(start_date, "%Y-%m-%d")
-    cmdb_ts = (base_date - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+    cmdb_ts = base_date.strftime("%Y-%m-%dT00:00:00Z")
 
     records = []
     asset_counter = 0

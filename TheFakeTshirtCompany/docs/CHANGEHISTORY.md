@@ -4,6 +4,28 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~07:00 UTC -- Fix ServiceNow CMDB Timestamp
+
+### Root Cause
+
+CMDB records (37 events) existed in Splunk but were invisible with the default Jan 2026 time range. All records had `sys_updated_on="2025-12-31T00:00:00Z"` (start_date minus 1 day), placing them outside the standard search window.
+
+### Fixed
+
+- **`bin/generators/generate_servicenow.py`** (line 1216) -- Changed CMDB `sys_updated_on` from `start_date - 1 day` to `start_date`. Records now timestamped at `2026-01-01T00:00:00Z`, within the data time range.
+
+### Documentation Updated
+
+- **`CLAUDE.md`** -- Removed CMDB from "Known Data Gaps" table (was not a real gap, just a timestamp issue)
+- **`docs/QUALITY_CHECKLIST.md`** -- Marked CMDB item as fixed in P4 stretch goals
+
+### Verification
+
+- Pre-fix: 37 events found with `earliest=0` but 0 with `earliest=1767225600`
+- Post-fix: Needs data regeneration (`--sources=servicenow`) for corrected timestamps
+
+---
+
 ## 2026-02-14 ~06:00 UTC -- Root-Level README.md
 
 ### Created

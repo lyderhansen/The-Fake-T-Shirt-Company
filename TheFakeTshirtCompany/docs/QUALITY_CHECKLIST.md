@@ -459,7 +459,7 @@ These are intentional simplifications but should be verified they don't break TA
 - [x] Add CIM field aliases for Secure Access (DNS, Proxy, FW) sourcetypes — Added REPORT transforms for headerless CSV extraction + CIM fields (query, dest, http_method, status, etc.)
 - [x] Add CIM field aliases for Catalyst Center sourcetypes — Added dest, cpu_load_percent, mem_used_percent, status, signature, severity
 - [x] Verify Webex field extractions and CIM compliance — Added user/action aliases to webex:events, admin:audit, attendee history
-- [ ] Add servicenow:cmdb data generation — DEFERRED (stanza exists, generator code exists, but 0 events — needs code investigation and data regeneration)
+- [x] Fix servicenow:cmdb visibility — 37 events existed but `sys_updated_on` was set to start_date minus 1 day (2025-12-31), outside default time range. Fixed timestamp to use start_date. Needs data regeneration to take effect.
 
 ---
 
