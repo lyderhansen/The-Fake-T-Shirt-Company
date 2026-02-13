@@ -164,14 +164,14 @@ E-commerce orders from theFakeTshirtCompany.com online store.
 ### 1. Daily Revenue
 Track sales over time:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | timechart span=1d sum(order_total) AS revenue
 ```
 
 ### 2. Product Performance
 Find best sellers:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | spath items{}
 | mvexpand items{}
 | spath input=items{} output=product_name path=product_name
@@ -183,7 +183,7 @@ index=retail sourcetype=retail:orders
 ### 3. Category Breakdown
 Revenue by product type:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | spath items{}
 | mvexpand items{}
 | spath input=items{} output=category path=category
@@ -195,7 +195,7 @@ index=retail sourcetype=retail:orders
 ### 4. Average Order Value
 Calculate AOV:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | stats avg(order_total) AS aov, count AS orders, sum(order_total) AS total_revenue
 | eval aov = round(aov, 2)
 ```
@@ -203,7 +203,7 @@ index=retail sourcetype=retail:orders
 ### 5. Geographic Analysis
 Sales by region:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | stats count AS orders, sum(order_total) AS revenue by customer_location
 | eval avg_order = round(revenue/orders, 2)
 | sort - revenue
@@ -212,7 +212,7 @@ index=retail sourcetype=retail:orders
 ### 6. Payment Method Analysis
 Track payment preferences:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | stats count AS orders, sum(order_total) AS revenue by payment_method
 | sort - orders
 ```
@@ -220,7 +220,7 @@ index=retail sourcetype=retail:orders
 ### 7. Hourly Order Volume
 Peak shopping hours:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | eval hour = strftime(_time, "%H")
 | stats count by hour
 | sort hour
@@ -229,7 +229,7 @@ index=retail sourcetype=retail:orders
 ### 8. Cart Size Analysis
 Items per order distribution:
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | spath items{}
 | eval item_count = mvcount(items{})
 | stats count by item_count
@@ -250,7 +250,7 @@ index=retail sourcetype=retail:orders
 
 ### Sample Dashboard Query
 ```spl
-index=retail sourcetype=retail:orders
+index=fake_tshrt sourcetype="FAKE:retail:orders"
 | stats
     count AS orders,
     sum(order_total) AS revenue,
@@ -271,11 +271,11 @@ index=retail sourcetype=retail:orders
 
 ### Order Lifecycle Query
 ```spl
-(index=web uri="/orders/*") OR (index=retail sourcetype=retail:orders) OR (index=retail sourcetype=azure:servicebus)
+(index=fake_tshrt sourcetype="FAKE:access_combined" uri="/orders/*") OR (index=fake_tshrt sourcetype="FAKE:retail:orders") OR (index=fake_tshrt sourcetype="FAKE:azure:servicebus")
 | eval source=case(
-    sourcetype="access_combined", "Web",
-    sourcetype="retail:orders", "Order",
-    sourcetype="azure:servicebus", "ServiceBus"
+    sourcetype="FAKE:access_combined", "Web",
+    sourcetype="FAKE:retail:orders", "Order",
+    sourcetype="FAKE:azure:servicebus", "ServiceBus"
 )
 | transaction order_id maxspan=1h
 | table order_id, source, eventType, status

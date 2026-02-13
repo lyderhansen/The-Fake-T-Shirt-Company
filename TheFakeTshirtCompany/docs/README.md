@@ -51,7 +51,7 @@ python3 main_generate.py --all --scenarios=all --days=14
 ### Filter by scenario in Splunk
 All scenarios are tagged with `demo_id` field:
 ```spl
-index=* demo_id=exfil | stats count by sourcetype
+index=fake_tshrt demo_id=exfil | stats count by sourcetype
 ```
 
 ---
@@ -116,5 +116,5 @@ Cert  │           │   │       │       │   ████            │ 
 
 **Universal Splunk filter:**
 ```spl
-index=* demo_id=<scenario_name> | timechart count by sourcetype
+index=fake_tshrt demo_id=<scenario_name> | timechart count by sourcetype
 ```

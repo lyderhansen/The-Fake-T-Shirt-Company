@@ -77,34 +77,34 @@ Application Centric Infrastructure logs from the Boston data center fabric, cove
 
 ### 1. Critical fabric faults
 ```spl
-index=network sourcetype="cisco:aci:fault" severity="critical" OR severity="major"
+index=fake_tshrt sourcetype="FAKE:cisco:aci:fault" severity="critical" OR severity="major"
 | table _time, code, severity, descr
 | sort - _time
 ```
 
 ### 2. Endpoint anomalies (exfil)
 ```spl
-index=network sourcetype="cisco:aci:event" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:aci:event" demo_id=exfil
 | stats count by descr
 | sort - count
 ```
 
 ### 3. DDoS fabric impact
 ```spl
-index=network sourcetype="cisco:aci:fault" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:cisco:aci:fault" demo_id=ddos_attack
 | timechart span=1h count by severity
 ```
 
 ### 4. Configuration audit trail
 ```spl
-index=network sourcetype="cisco:aci:audit"
+index=fake_tshrt sourcetype="FAKE:cisco:aci:audit"
 | table _time, user, descr
 | sort _time
 ```
 
 ### 5. CPU runaway downstream effects
 ```spl
-index=network sourcetype="cisco:aci:fault" demo_id=cpu_runaway
+index=fake_tshrt sourcetype="FAKE:cisco:aci:fault" demo_id=cpu_runaway
 | table _time, descr, severity
 ```
 

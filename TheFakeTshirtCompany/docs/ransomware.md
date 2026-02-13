@@ -70,14 +70,14 @@ A ransomware attack that is **detected and stopped**. Sales engineer Brooklyn Wh
 
 ```
 13:55          14:02          14:03          14:05          14:08          14:12    14:15
-  │              │              │              │              │              │        │
-  ▼              ▼              ▼              ▼              ▼              ▼        ▼
-┌────┐        ┌────┐        ┌────┐        ┌────┐        ┌────┐        ┌────┐    ┌────┐
-│EMAIL│───────│MACRO│───────│DROP│────────│ C2 │────────│LAT │────────│ EDR│────│ISOL│
-│RECV │       │EXEC │       │ER  │        │CALL│        │MOVE│        │ DET│    │ATE │
-└────┘        └────┘        └────┘        └────┘        └────┘        └────┘    └────┘
-                                                           │              │        │
-                                                           │              │        │
+  |              |              |              |              |              |        |
+  v              v              v              v              v              v        v
++----+        +----+        +----+        +----+        +----+        +----+    +----+
+|EMAIL|-------|MACRO|-------|DROP|--------| C2 |--------|LAT |--------| EDR|----|ISOL|
+|RECV |       |EXEC |       |ER  |        |CALL|        |MOVE|        | DET|    |ATE |
++----+        +----+        +----+        +----+        +----+        +----+    +----+
+                                                           |              |        |
+                                                           |              |        |
                                                        BLOCKED        QUARANTINE  DISCONNECT
 ```
 
@@ -113,7 +113,7 @@ All lateral attempts blocked by Meraki IDS/IPS.
 
 ### Exchange - Phishing email
 ```spl
-index=cloud sourcetype="ms:o365:*"
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace"
   sender="*invoices-delivery.com"
   recipient="brooklyn.white*"
   demo_id=ransomware_attempt
@@ -121,7 +121,7 @@ index=cloud sourcetype="ms:o365:*"
 
 ### Windows Event Log - Kill chain
 ```spl
-index=windows sourcetype=WinEventLog
+index=fake_tshrt sourcetype="FAKE:WinEventLog"
   (EventCode=4688 OR EventCode=4697 OR EventCode=1116 OR EventCode=4625)
   ComputerName="AUS-WS-BWHITE01"
   demo_id=ransomware_attempt
@@ -137,14 +137,14 @@ index=windows sourcetype=WinEventLog
 
 ### ASA - C2 communication
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   dest_ip=194.26.29.42
   demo_id=ransomware_attempt
 ```
 
 ### Meraki - IDS and isolation
 ```spl
-index=network sourcetype=meraki:*
+index=fake_tshrt sourcetype="FAKE:meraki:mx"
   (type=ids_alert OR type=client_isolated)
   demo_id=ransomware_attempt
 ```
@@ -171,14 +171,14 @@ index=network sourcetype=meraki:*
 
 ### Full attack timeline
 ```spl
-index=* demo_id=ransomware_attempt
+index=fake_tshrt demo_id=ransomware_attempt
 | sort _time
 | table _time, sourcetype, host, EventCode, message, action
 ```
 
 ### Process creation chain
 ```spl
-index=windows sourcetype=WinEventLog EventCode=4688
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4688
   ComputerName="AUS-WS-BWHITE01"
   demo_id=ransomware_attempt
 | table _time, NewProcessName, ParentProcessName, CommandLine
@@ -186,7 +186,7 @@ index=windows sourcetype=WinEventLog EventCode=4688
 
 ### C2 beacons
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   src_ip=10.30.30.20 dest_ip=194.26.29.42
   demo_id=ransomware_attempt
 | timechart count
@@ -194,7 +194,7 @@ index=network sourcetype=cisco:asa
 
 ### Lateral movement attempts
 ```spl
-index=windows EventCode=4625
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4625
   IpAddress=10.30.30.20
   demo_id=ransomware_attempt
 | stats count by TargetUserName, IpPort
@@ -202,7 +202,7 @@ index=windows EventCode=4625
 
 ### Meraki isolation event
 ```spl
-index=network sourcetype=meraki:mx
+index=fake_tshrt sourcetype="FAKE:meraki:mx"
   type=client_isolated
   demo_id=ransomware_attempt
 | table _time, deviceName, clientMac, eventData.reason

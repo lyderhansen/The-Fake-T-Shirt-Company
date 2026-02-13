@@ -206,7 +206,7 @@ Each order generates 5 ServiceBus events:
 ### 1. Order Lifecycle
 Track complete order journey:
 ```spl
-index=retail sourcetype=azure:servicebus order_id="ORD-2026-000001"
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" order_id="ORD-2026-000001"
 | sort timestamp
 | table timestamp, eventType, body.*
 ```
@@ -214,14 +214,14 @@ index=retail sourcetype=azure:servicebus order_id="ORD-2026-000001"
 ### 2. Event Volume by Type
 Monitor message throughput:
 ```spl
-index=retail sourcetype=azure:servicebus
+index=fake_tshrt sourcetype="FAKE:azure:servicebus"
 | timechart span=1h count by eventType
 ```
 
 ### 3. Payment Success Rate
 Track payment outcomes:
 ```spl
-index=retail sourcetype=azure:servicebus eventType="PaymentProcessed"
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" eventType="PaymentProcessed"
 | stats count by body.status
 | eval pct = round(count / sum(count) * 100, 2)
 ```
@@ -229,7 +229,7 @@ index=retail sourcetype=azure:servicebus eventType="PaymentProcessed"
 ### 4. Processing Latency
 Measure order-to-payment time:
 ```spl
-index=retail sourcetype=azure:servicebus eventType IN ("OrderCreated", "PaymentProcessed")
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" eventType IN ("OrderCreated", "PaymentProcessed")
 | transaction order_id maxspan=1m
 | eval latency_ms = duration * 1000
 | stats avg(latency_ms) AS avg_latency, p95(latency_ms) AS p95_latency
@@ -238,7 +238,7 @@ index=retail sourcetype=azure:servicebus eventType IN ("OrderCreated", "PaymentP
 ### 5. Fulfillment Time
 Measure order-to-ship time:
 ```spl
-index=retail sourcetype=azure:servicebus eventType IN ("OrderCreated", "ShipmentDispatched")
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" eventType IN ("OrderCreated", "ShipmentDispatched")
 | transaction order_id maxspan=48h
 | eval hours_to_ship = duration / 3600
 | stats avg(hours_to_ship) AS avg_hours, p95(hours_to_ship) AS p95_hours
@@ -247,7 +247,7 @@ index=retail sourcetype=azure:servicebus eventType IN ("OrderCreated", "Shipment
 ### 6. Queue Health
 Monitor queue depths:
 ```spl
-index=retail sourcetype=azure:servicebus
+index=fake_tshrt sourcetype="FAKE:azure:servicebus"
 | stats count by queue_name
 | sort - count
 ```
@@ -255,7 +255,7 @@ index=retail sourcetype=azure:servicebus
 ### 7. Warehouse Distribution
 Track inventory allocation:
 ```spl
-index=retail sourcetype=azure:servicebus eventType="InventoryReserved"
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" eventType="InventoryReserved"
 | spath body.items{}
 | mvexpand body.items{}
 | spath input=body.items{} output=warehouse path=warehouse_id
@@ -265,7 +265,7 @@ index=retail sourcetype=azure:servicebus eventType="InventoryReserved"
 ### 8. Carrier Usage
 Analyze shipping carriers:
 ```spl
-index=retail sourcetype=azure:servicebus eventType="ShipmentDispatched"
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" eventType="ShipmentDispatched"
 | stats count by body.carrier_name
 | sort - count
 ```
@@ -293,8 +293,8 @@ t=20:00:00    ShipmentDispatched Package shipped
 
 ### Cross-Source Order View
 ```spl
-(index=retail sourcetype=retail:orders) OR (index=retail sourcetype=azure:servicebus)
-| eval source=if(sourcetype="retail:orders", "Order", "ServiceBus")
+(index=fake_tshrt sourcetype="FAKE:retail:orders") OR (index=fake_tshrt sourcetype="FAKE:azure:servicebus")
+| eval source=if(sourcetype="FAKE:retail:orders", "Order", "ServiceBus")
 | transaction order_id
 | table order_id, source, eventType, status, order_total
 ```

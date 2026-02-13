@@ -78,7 +78,7 @@ IOS-XE syslog events from Catalyst 9300 distribution switches across 3 locations
 
 ### 1. Interface flapping detection
 ```spl
-index=network sourcetype="cisco:ios" "LINEPROTO-5-UPDOWN"
+index=fake_tshrt sourcetype="FAKE:cisco:ios" "LINEPROTO-5-UPDOWN"
 | rex "Interface (?<interface>\S+)"
 | stats count by host, interface
 | where count > 4
@@ -87,27 +87,27 @@ index=network sourcetype="cisco:ios" "LINEPROTO-5-UPDOWN"
 
 ### 2. 802.1X authentication failures
 ```spl
-index=network sourcetype="cisco:ios" "DOT1X-5-FAIL"
+index=fake_tshrt sourcetype="FAKE:cisco:ios" "DOT1X-5-FAIL"
 | stats count by host
 | sort - count
 ```
 
 ### 3. Spanning tree changes
 ```spl
-index=network sourcetype="cisco:ios" "STP-5-TCHANGE"
+index=fake_tshrt sourcetype="FAKE:cisco:ios" "STP-5-TCHANGE"
 | timechart span=1h count by host
 ```
 
 ### 4. After-hours port activity (exfil)
 ```spl
-index=network sourcetype="cisco:ios" "DOT1X-5-SUCCESS" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:ios" "DOT1X-5-SUCCESS" demo_id=exfil
 | where date_hour >= 20 OR date_hour <= 5
 | table _time, host, interface, client_mac
 ```
 
 ### 5. DDoS uplink impact
 ```spl
-index=network sourcetype="cisco:ios" "LINEPROTO-5-UPDOWN" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:cisco:ios" "LINEPROTO-5-UPDOWN" demo_id=ddos_attack
 | table _time, host, interface
 ```
 

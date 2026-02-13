@@ -128,14 +128,14 @@ Apache Combined Log Format:
 ### 1. Traffic Analysis
 Track page views over time:
 ```spl
-index=web sourcetype=access_combined
+index=fake_tshrt sourcetype="FAKE:access_combined"
 | timechart span=1h count
 ```
 
 ### 2. Popular Products
 Find most viewed products:
 ```spl
-index=web sourcetype=access_combined uri="/products/*" status=200
+index=fake_tshrt sourcetype="FAKE:access_combined" uri="/products/*" status=200
 | rex field=uri "/products/(?<product>.+)"
 | stats count by product
 | sort - count | head 10
@@ -144,7 +144,7 @@ index=web sourcetype=access_combined uri="/products/*" status=200
 ### 3. Conversion Funnel
 Track checkout funnel:
 ```spl
-index=web sourcetype=access_combined
+index=fake_tshrt sourcetype="FAKE:access_combined"
 | eval stage=case(
     match(uri, "^/$"), "1_homepage",
     match(uri, "^/products"), "2_product",
@@ -159,21 +159,21 @@ index=web sourcetype=access_combined
 ### 4. Error Detection
 Find error spikes:
 ```spl
-index=web sourcetype=access_combined status>=500
+index=fake_tshrt sourcetype="FAKE:access_combined" status>=500
 | timechart span=15m count by status
 ```
 
 ### 5. Response Time Analysis
 Monitor performance:
 ```spl
-index=web sourcetype=access_combined status=200
+index=fake_tshrt sourcetype="FAKE:access_combined" status=200
 | timechart span=1h avg(response_time) AS avg_ms, p95(response_time) AS p95_ms
 ```
 
 ### 6. Memory Leak Impact
 Track errors during memory leak:
 ```spl
-index=web sourcetype=access_combined demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:access_combined" demo_id=memory_leak
 | timechart span=1h count(eval(status>=500)) AS errors, count AS total
 | eval error_rate = round(errors/total*100, 2)
 ```
@@ -181,14 +181,14 @@ index=web sourcetype=access_combined demo_id=memory_leak
 ### 7. Certificate Expiry Impact
 Track SSL errors:
 ```spl
-index=web sourcetype=access_combined demo_id=certificate_expiry
+index=fake_tshrt sourcetype="FAKE:access_combined" demo_id=certificate_expiry
 | timechart span=1h count by status
 ```
 
 ### 8. Session Analysis
 Track user journeys:
 ```spl
-index=web sourcetype=access_combined session_id=sess_abc123
+index=fake_tshrt sourcetype="FAKE:access_combined" session_id=sess_abc123
 | sort _time
 | table _time, uri, status, response_time
 ```

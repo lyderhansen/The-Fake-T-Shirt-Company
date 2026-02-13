@@ -96,7 +96,7 @@ LOGIN -> CONFIG -> BAD ACL -----------------> FIX -> SAVE -> LOGOUT
 
 ### ASA - Admin activity
 ```spl
-index=network sourcetype=cisco:asa user="network.admin" demo_id=firewall_misconfig
+index=fake_tshrt sourcetype="FAKE:cisco:asa" user="network.admin" demo_id=firewall_misconfig
 | sort _time
 ```
 
@@ -107,7 +107,7 @@ index=network sourcetype=cisco:asa user="network.admin" demo_id=firewall_misconf
 
 ### ASA - Blocked traffic
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   "%ASA-4-106023" dest=203.0.113.10
   demo_id=firewall_misconfig
 | timechart span=5m count
@@ -138,14 +138,14 @@ index=network sourcetype=cisco:asa
 
 ### Full incident timeline
 ```spl
-index=network sourcetype=cisco:asa demo_id=firewall_misconfig
+index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=firewall_misconfig
 | sort _time
 | table _time, action, message
 ```
 
 ### Config changes only
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   ("%ASA-5-111008" OR "%ASA-5-111010")
   demo_id=firewall_misconfig
 | table _time, message
@@ -153,14 +153,14 @@ index=network sourcetype=cisco:asa
 
 ### Deny events over time
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   "%ASA-4-106023" demo_id=firewall_misconfig
 | timechart span=5m count AS "Blocked Connections"
 ```
 
 ### Impact assessment
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   "%ASA-4-106023" demo_id=firewall_misconfig
 | stats count AS blocked_connections,
         dc(src_ip) AS unique_customers
@@ -168,8 +168,7 @@ index=network sourcetype=cisco:asa
 
 ### Compare to normal traffic
 ```spl
-index=network sourcetype=cisco:asa dest=203.0.113.10
+index=fake_tshrt sourcetype="FAKE:cisco:asa" dest=203.0.113.10
 | eval status=if(action="deny", "Blocked", "Allowed")
 | timechart span=15m count by status
 ```
-

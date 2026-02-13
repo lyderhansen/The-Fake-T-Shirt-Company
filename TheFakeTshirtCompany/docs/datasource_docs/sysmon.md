@@ -117,21 +117,21 @@ demo_id=ransomware_attempt
 
 ### 1. Detect lateral movement (Mimikatz)
 ```spl
-index=windows sourcetype="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+index=fake_tshrt sourcetype="FAKE:WinEventLog:Microsoft-Windows-Sysmon/Operational"
   EventCode=10 TargetImage="*lsass.exe"
 | table _time, ComputerName, SourceImage, GrantedAccess
 ```
 
 ### 2. Suspicious PowerShell execution
 ```spl
-index=windows sourcetype="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+index=fake_tshrt sourcetype="FAKE:WinEventLog:Microsoft-Windows-Sysmon/Operational"
   EventCode=1 Image="*powershell.exe" (CommandLine="*-enc*" OR CommandLine="*Invoke-*")
 | table _time, ComputerName, User, CommandLine
 ```
 
 ### 3. C2 callback detection
 ```spl
-index=windows sourcetype="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+index=fake_tshrt sourcetype="FAKE:WinEventLog:Microsoft-Windows-Sysmon/Operational"
   EventCode=3 demo_id=exfil
 | stats count by DestinationIp, DestinationPort, Image
 | sort - count
@@ -139,14 +139,14 @@ index=windows sourcetype="WinEventLog:Microsoft-Windows-Sysmon/Operational"
 
 ### 4. Ransomware file creation
 ```spl
-index=windows sourcetype="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+index=fake_tshrt sourcetype="FAKE:WinEventLog:Microsoft-Windows-Sysmon/Operational"
   EventCode=11 demo_id=ransomware_attempt
 | table _time, ComputerName, Image, TargetFilename
 ```
 
 ### 5. Registry persistence
 ```spl
-index=windows sourcetype="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+index=fake_tshrt sourcetype="FAKE:WinEventLog:Microsoft-Windows-Sysmon/Operational"
   EventCode=13 TargetObject="*\Run\*"
 | table _time, ComputerName, User, TargetObject, Details
 ```

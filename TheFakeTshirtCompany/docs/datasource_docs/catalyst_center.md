@@ -88,38 +88,38 @@ Polling interval: 5 minutes (288 polls/day per device).
 
 ### 1. Device health over time
 ```spl
-index=cloud sourcetype="cisco:catalyst:devicehealth"
+index=fake_tshrt sourcetype="FAKE:cisco:catalyst:devicehealth"
 | timechart span=1h avg(overallHealth) by name
 ```
 
 ### 2. Network health by site
 ```spl
-index=cloud sourcetype="cisco:catalyst:networkhealth"
+index=fake_tshrt sourcetype="FAKE:cisco:catalyst:networkhealth"
 | timechart span=1h avg(healthScore) by site
 ```
 
 ### 3. High-severity issues
 ```spl
-index=cloud sourcetype="cisco:catalyst:issue" issueSeverity="HIGH"
+index=fake_tshrt sourcetype="FAKE:cisco:catalyst:issue" issueSeverity="HIGH"
 | table _time, issueName, issueDescription, issueSeverity
 | sort - _time
 ```
 
 ### 4. DDoS impact on network health
 ```spl
-index=cloud sourcetype="cisco:catalyst:devicehealth" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:cisco:catalyst:devicehealth" demo_id=ddos_attack
 | timechart span=30m avg(cpuUtilization) AS cpu, avg(overallHealth) AS health by name
 ```
 
 ### 5. CPU runaway correlation
 ```spl
-index=cloud sourcetype="cisco:catalyst:issue" demo_id=cpu_runaway
+index=fake_tshrt sourcetype="FAKE:cisco:catalyst:issue" demo_id=cpu_runaway
 | table _time, issueDescription, issueSeverity
 ```
 
 ### 6. Client health trends
 ```spl
-index=cloud sourcetype="cisco:catalyst:clienthealth"
+index=fake_tshrt sourcetype="FAKE:cisco:catalyst:clienthealth"
 | timechart span=1h avg(healthScore) AS client_health
 ```
 

@@ -257,7 +257,7 @@ Based upon TA: [ta_cisco_webex_add_on_for_splunk/releases/tag/v1.3.1](https://gi
 ### 1. User Provisioning Audit
 Track user management:
 ```spl
-index=cloud sourcetype="cisco:webex:admin:audit:events" category="USERS"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:admin:audit:events" category="USERS"
 | table _time, action, admin.email, resource.name
 | sort _time
 ```
@@ -265,7 +265,7 @@ index=cloud sourcetype="cisco:webex:admin:audit:events" category="USERS"
 ### 2. Login Pattern Analysis
 Find suspicious login times:
 ```spl
-index=cloud sourcetype="cisco:webex:security:audit:events" action="User login"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:security:audit:events" action="User login"
 | eval hour = strftime(_time, "%H")
 | where hour < 6 OR hour > 22
 | table _time, user.email, ipAddress, location
@@ -274,14 +274,14 @@ index=cloud sourcetype="cisco:webex:security:audit:events" action="User login"
 ### 3. Meeting Quality Trends
 Monitor quality over time:
 ```spl
-index=cloud sourcetype="cisco:webex:meeting:qualities"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meeting:qualities"
 | timechart span=1d avg(audioMOS) AS avg_mos, avg(videoLossPct) AS avg_loss
 ```
 
 ### 4. Poor Quality Meetings
 Find problematic meetings:
 ```spl
-index=cloud sourcetype="cisco:webex:meeting:qualities"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meeting:qualities"
 | where audioMOS < 3.5 OR videoLossPct > 5
 | table _time, meetingId, audioMOS, videoLossPct, jitterMs
 ```
@@ -289,14 +289,14 @@ index=cloud sourcetype="cisco:webex:meeting:qualities"
 ### 5. Call Volume Analysis
 Track calling patterns:
 ```spl
-index=cloud sourcetype="cisco:webex:call:detailed_history"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:call:detailed_history"
 | timechart span=1h count by callType
 ```
 
 ### 6. Admin Activity Summary
 Summarize admin actions:
 ```spl
-index=cloud sourcetype="cisco:webex:admin:audit:events"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:admin:audit:events"
 | stats count by admin.email, category, action
 | sort - count
 ```

@@ -268,7 +268,7 @@ Multi-site SD-WAN and network infrastructure including security appliances (MX),
 ### 1. Wireless Client Tracking
 Track client connections across APs:
 ```spl
-index=network sourcetype=cisco:meraki:* eventType=association
+index=fake_tshrt sourcetype="FAKE:cisco:meraki:*" eventType=association
 | stats count, values(deviceName) AS aps by clientMac
 | sort - count
 ```
@@ -276,7 +276,7 @@ index=network sourcetype=cisco:meraki:* eventType=association
 ### 2. IDS Alert Analysis
 Review security events:
 ```spl
-index=network sourcetype=cisco:meraki:* eventType=security_event
+index=fake_tshrt sourcetype="FAKE:cisco:meraki:*" eventType=security_event
 | stats count by signature, severity, action
 | sort - count
 ```
@@ -284,7 +284,7 @@ index=network sourcetype=cisco:meraki:* eventType=security_event
 ### 3. Meeting Room Correlation
 Combine camera + sensor + Webex:
 ```spl
-index=network sourcetype=cisco:meraki:*
+index=fake_tshrt sourcetype="FAKE:cisco:meraki:*"
   (eventType=person_detection OR eventType=door_open OR eventType=temperature)
 | eval room=case(
     match(deviceName, "LINK"), "Link",
@@ -297,7 +297,7 @@ index=network sourcetype=cisco:meraki:*
 ### 4. Ransomware Detection Timeline
 Full ransomware kill chain:
 ```spl
-index=network sourcetype=cisco:meraki:* demo_id=ransomware_attempt
+index=fake_tshrt sourcetype="FAKE:cisco:meraki:*" demo_id=ransomware_attempt
 | sort _time
 | table _time, deviceName, eventType, action, signature
 ```
@@ -305,7 +305,7 @@ index=network sourcetype=cisco:meraki:* demo_id=ransomware_attempt
 ### 5. Temperature Anomalies
 Monitor DC temperatures:
 ```spl
-index=network sourcetype=cisco:meraki:* eventType=temperature
+index=fake_tshrt sourcetype="FAKE:cisco:meraki:*" eventType=temperature
 | where value > 25
 | stats latest(value) AS temp, latest(_time) AS last_seen by deviceName
 | sort - temp
@@ -314,7 +314,7 @@ index=network sourcetype=cisco:meraki:* eventType=temperature
 ### 6. SD-WAN Health
 Monitor WAN link status:
 ```spl
-index=network sourcetype=cisco:meraki:* eventType IN ("sd_wan_events", "sd_wan_failover")
+index=fake_tshrt sourcetype="FAKE:cisco:meraki:*" eventType IN ("sd_wan_events", "sd_wan_failover")
 | timechart span=1h count by eventType
 ```
 

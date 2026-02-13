@@ -143,14 +143,14 @@ demo_host=BOS-SQL-PROD-01
 ### 1. CPU Trend Analysis
 Track CPU over time:
 ```spl
-index=windows sourcetype=perfmon counter="% Processor Time" instance="_Total"
+index=fake_tshrt sourcetype="FAKE:perfmon" counter="% Processor Time" instance="_Total"
 | timechart span=15m avg(Value) by demo_host
 ```
 
 ### 2. High CPU Detection
 Find servers with high CPU:
 ```spl
-index=windows sourcetype=perfmon counter="% Processor Time" Value>80
+index=fake_tshrt sourcetype="FAKE:perfmon" counter="% Processor Time" Value>80
 | stats count, avg(Value) AS avg_cpu, max(Value) AS max_cpu by demo_host
 | where count > 3
 ```
@@ -158,14 +158,14 @@ index=windows sourcetype=perfmon counter="% Processor Time" Value>80
 ### 3. Memory Pressure
 Identify memory issues:
 ```spl
-index=windows sourcetype=perfmon counter="% Committed Bytes In Use"
+index=fake_tshrt sourcetype="FAKE:perfmon" counter="% Committed Bytes In Use"
 | timechart span=1h avg(Value) by demo_host
 ```
 
 ### 4. Disk Space Monitoring
 Track available disk:
 ```spl
-index=windows sourcetype=perfmon counter="Free Space"
+index=fake_tshrt sourcetype="FAKE:perfmon" counter="Free Space"
 | stats latest(Value) AS free_pct by demo_host, instance
 | where free_pct < 20
 ```
@@ -173,14 +173,14 @@ index=windows sourcetype=perfmon counter="Free Space"
 ### 5. CPU Runaway Timeline
 Full CPU runaway scenario:
 ```spl
-index=windows sourcetype=perfmon demo_id=cpu_runaway counter="% Processor Time"
+index=fake_tshrt sourcetype="FAKE:perfmon" demo_id=cpu_runaway counter="% Processor Time"
 | timechart span=15m avg(Value) AS cpu_pct
 ```
 
 ### 6. Pre/During/Post Comparison
 Compare CPU across scenario phases:
 ```spl
-index=windows sourcetype=perfmon demo_host="SQL-PROD-01" counter="% Processor Time"
+index=fake_tshrt sourcetype="FAKE:perfmon" demo_host="SQL-PROD-01" counter="% Processor Time"
 | eval phase=case(
     _time < relative_time(now(), "-3d"), "Before",
     _time < relative_time(now(), "-1d"), "During",
@@ -192,7 +192,7 @@ index=windows sourcetype=perfmon demo_host="SQL-PROD-01" counter="% Processor Ti
 ### 7. Server Health Dashboard
 Multi-metric overview:
 ```spl
-index=windows sourcetype=perfmon
+index=fake_tshrt sourcetype="FAKE:perfmon"
 | stats latest(Value) AS value by demo_host, counter
 | eval metric=case(
     counter="% Processor Time", "CPU",

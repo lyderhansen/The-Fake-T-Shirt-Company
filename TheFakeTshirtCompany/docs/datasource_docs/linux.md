@@ -128,21 +128,21 @@ Jan 05 14:23:45 WEB-01 interfaces: host=WEB-01 interface=eth0 bytesIn=1048576 by
 ### 1. Memory Leak Detection
 Track memory growth over time:
 ```spl
-index=linux sourcetype=linux:vmstat host=WEB-01 mem_used_pct=*
+index=fake_tshrt sourcetype="FAKE:linux:vmstat" host=WEB-01 mem_used_pct=*
 | timechart span=4h avg(mem_used_pct) AS "Memory %"
 ```
 
 ### 2. Disk Space Trending
 Monitor disk filling:
 ```spl
-index=linux sourcetype=linux:df host=MON-ATL-01
+index=fake_tshrt sourcetype="FAKE:linux:df" host=MON-ATL-01
 | timechart span=1d avg(pctUsed) AS "Disk %"
 ```
 
 ### 3. OOM Prediction
 Find servers approaching OOM:
 ```spl
-index=linux sourcetype=linux:vmstat mem_used_pct>90
+index=fake_tshrt sourcetype="FAKE:linux:vmstat" mem_used_pct>90
 | stats latest(mem_used_pct) AS mem_pct, latest(mem_available_mb) AS avail_mb by host
 | where avail_mb < 500
 ```
@@ -150,7 +150,7 @@ index=linux sourcetype=linux:vmstat mem_used_pct>90
 ### 4. Disk Space Alerts
 Find critically full disks:
 ```spl
-index=linux sourcetype=linux:df pctUsed>85
+index=fake_tshrt sourcetype="FAKE:linux:df" pctUsed>85
 | stats latest(pctUsed) AS disk_pct, latest(availGb) AS free_gb by host, disk
 | sort - disk_pct
 ```
@@ -158,30 +158,30 @@ index=linux sourcetype=linux:df pctUsed>85
 ### 5. Memory Leak Timeline
 Full memory leak scenario:
 ```spl
-index=linux sourcetype=linux:vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:linux:vmstat" host=WEB-01 demo_id=memory_leak
 | timechart span=4h avg(mem_used_pct) AS "Memory %"
 ```
 
 ### 6. Disk Filling Timeline
 Full disk filling scenario:
 ```spl
-index=linux sourcetype=linux:df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:linux:df" host=MON-ATL-01 demo_id=disk_filling
 | timechart span=1d avg(pctUsed) AS "Disk %"
 ```
 
 ### 7. I/O Wait Correlation
 Correlate I/O wait with disk usage:
 ```spl
-index=linux host=MON-ATL-01 (sourcetype=linux:vmstat OR sourcetype=linux:df)
-| eval metric=if(sourcetype="linux:vmstat", "io_wait", "disk_pct")
-| eval value=if(sourcetype="linux:vmstat", pctIOWait, pctUsed)
+index=fake_tshrt host=MON-ATL-01 (sourcetype="FAKE:linux:vmstat" OR sourcetype="FAKE:linux:df")
+| eval metric=if(sourcetype="FAKE:linux:vmstat", "io_wait", "disk_pct")
+| eval value=if(sourcetype="FAKE:linux:vmstat", pctIOWait, pctUsed)
 | timechart span=4h avg(value) by metric
 ```
 
 ### 8. Network Anomalies
 Detect unusual traffic:
 ```spl
-index=linux sourcetype=linux:interfaces host=WEB-01
+index=fake_tshrt sourcetype="FAKE:linux:interfaces" host=WEB-01
 | eval bytes_total = bytesIn + bytesOut
 | timechart span=1h sum(bytes_total) AS total_bytes
 ```

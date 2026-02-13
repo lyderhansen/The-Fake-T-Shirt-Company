@@ -239,14 +239,14 @@ Cisco Webex collaboration device events from 21 meeting rooms across 3 locations
 ### 1. Meeting Volume Analysis
 Track meeting patterns:
 ```spl
-index=cloud sourcetype="cisco:webex:events" event_type="meeting_started"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type="meeting_started"
 | timechart span=1h count by location_code
 ```
 
 ### 2. Room Utilization
 Find busiest rooms:
 ```spl
-index=cloud sourcetype="cisco:webex:events" event_type="meeting_started"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type="meeting_started"
 | stats count AS meetings, sum(actual_duration_min) AS total_minutes by room
 | eval hours = round(total_minutes / 60, 1)
 | sort - hours
@@ -255,7 +255,7 @@ index=cloud sourcetype="cisco:webex:events" event_type="meeting_started"
 ### 3. Quality Issues
 Identify problematic meetings:
 ```spl
-index=cloud sourcetype="cisco:webex:events" event_type="quality_metrics"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type="quality_metrics"
 | where audio.mos_score < 3.5 OR video.packet_loss_pct > 3
 | table _time, room, audio.mos_score, video.packet_loss_pct, quality_issue
 ```
@@ -263,7 +263,7 @@ index=cloud sourcetype="cisco:webex:events" event_type="quality_metrics"
 ### 4. Problem Room Trends
 Track specific room issues:
 ```spl
-index=cloud sourcetype="cisco:webex:events" event_type="quality_metrics"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type="quality_metrics"
   room IN ("Kirby", "Cortana")
 | timechart span=1d avg(audio.mos_score) by room
 ```
@@ -271,7 +271,7 @@ index=cloud sourcetype="cisco:webex:events" event_type="quality_metrics"
 ### 5. Ghost Meeting Detection
 Find no-shows:
 ```spl
-index=cloud sourcetype="cisco:webex:events"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:events"
 | transaction meeting_id maxspan=2h
 | where NOT match(_raw, "participant_joined")
 | table meeting_id, room, organizer
@@ -280,7 +280,7 @@ index=cloud sourcetype="cisco:webex:events"
 ### 6. Participant Analysis
 Track meeting participation:
 ```spl
-index=cloud sourcetype="cisco:webex:events" event_type="participant_joined"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:events" event_type="participant_joined"
 | stats count AS meetings_attended by participant_email
 | sort - meetings_attended
 ```

@@ -101,20 +101,20 @@ AWS API activity logs from account 123456789012 in us-east-1, covering 8 service
 
 ### 1. Data exfiltration detection
 ```spl
-index=cloud sourcetype="aws:cloudtrail" eventName=GetObject demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=GetObject demo_id=exfil
 | stats count, dc(requestParameters.key) AS unique_files by userIdentity.userName, requestParameters.bucketName
 | sort - count
 ```
 
 ### 2. IAM backdoor detection
 ```spl
-index=cloud sourcetype="aws:cloudtrail" eventName IN ("CreateUser", "AttachUserPolicy")
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName IN ("CreateUser", "AttachUserPolicy")
 | table _time, userIdentity.userName, eventName, requestParameters.userName, requestParameters.policyArn
 ```
 
 ### 3. Credential theft detection
 ```spl
-index=cloud sourcetype="aws:cloudtrail" eventName=GetSecretValue
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=GetSecretValue
 | eval suspicious=if(like(sourceIPAddress,"185.%"),1,0)
 | where suspicious=1
 | table _time, userIdentity.userName, sourceIPAddress, requestParameters.secretId
@@ -122,20 +122,20 @@ index=cloud sourcetype="aws:cloudtrail" eventName=GetSecretValue
 
 ### 4. DDoS auto-scaling response
 ```spl
-index=cloud sourcetype="aws:cloudtrail" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" demo_id=ddos_attack
 | table _time, eventName, requestParameters.alarmName, requestParameters.instanceType
 | sort _time
 ```
 
 ### 5. CloudWatch alarm history
 ```spl
-index=cloud sourcetype="aws:cloudtrail" eventName=SetAlarmState
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=SetAlarmState
 | table _time, requestParameters.alarmName, requestParameters.stateValue, demo_id
 ```
 
 ### 6. Off-hours activity
 ```spl
-index=cloud sourcetype="aws:cloudtrail"
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail"
 | eval hour=strftime(_time, "%H")
 | where hour < 6 OR hour > 22
 | stats count by userIdentity.userName, eventName, hour
@@ -143,7 +143,7 @@ index=cloud sourcetype="aws:cloudtrail"
 
 ### 7. All event types overview
 ```spl
-index=cloud sourcetype="aws:cloudtrail"
+index=fake_tshrt sourcetype="FAKE:aws:cloudtrail"
 | stats count by eventName, eventSource
 | sort - count
 ```

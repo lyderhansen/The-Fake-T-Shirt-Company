@@ -35,9 +35,9 @@ En dag-for-dag guide for å demonstrere sikkerhetshendelser og driftsproblemer i
 Alle scenarioer er tagget med `demo_id` felt:
 
 ```spl
-index=* demo_id=exfil | stats count by sourcetype
-index=* demo_id=ransomware_attempt | stats count by sourcetype
-index=* demo_id=memory_leak | stats count by sourcetype
+index=fake_tshrt demo_id=exfil | stats count by sourcetype
+index=fake_tshrt demo_id=ransomware_attempt | stats count by sourcetype
+index=fake_tshrt demo_id=memory_leak | stats count by sourcetype
 ```
 
 ---
@@ -245,7 +245,7 @@ En ransomware-angrep som blir **oppdaget og stoppet**. Bruker Brooklyn White i A
 
 ### Exchange - Phishing email
 ```spl
-index=cloud sourcetype="ms:o365:*"
+index=fake_tshrt sourcetype="FAKE:ms:o365:*"
   sender="*invoices-delivery.com"
   recipient="brooklyn.white*"
   demo_id=ransomware_attempt
@@ -253,7 +253,7 @@ index=cloud sourcetype="ms:o365:*"
 
 ### Windows Event Log - Kill chain
 ```spl
-index=windows sourcetype=WinEventLog
+index=fake_tshrt sourcetype="FAKE:WinEventLog"
   (EventCode=4688 OR EventCode=4697 OR EventCode=1116)
   ComputerName="AUS-WS-BWHITE01"
   demo_id=ransomware_attempt
@@ -269,14 +269,14 @@ index=windows sourcetype=WinEventLog
 
 ### ASA - C2 kommunikasjon
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   dest_ip=194.26.29.42
   demo_id=ransomware_attempt
 ```
 
 ### Meraki - IDS og isolasjon
 ```spl
-index=network sourcetype=meraki:*
+index=fake_tshrt sourcetype="FAKE:meraki:*"
   (type=ids_alert OR type=client_isolated)
   demo_id=ransomware_attempt
 ```
@@ -340,13 +340,13 @@ En gradvis minnelekkasje på WEB-01 over 10 dager som kulminerer i OOM-krasj. Sc
 
 ### Linux vmstat - Memory trend
 ```spl
-index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
 | timechart avg(memory_pct) AS memory, avg(swap_used_kb) AS swap by host
 ```
 
 ### ASA - Connection timeouts
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   dest_ip=172.16.1.10
   ("TCP FINs" OR "TCP Reset" OR "SYN Timeout")
   demo_id=memory_leak
@@ -413,7 +413,7 @@ SQL backup-jobb på SQL-PROD-01 henger og forårsaker 100% CPU over 32 timer. DB
 
 ### Perfmon - CPU trend
 ```spl
-index=windows sourcetype=perfmon
+index=fake_tshrt sourcetype="FAKE:perfmon"
   host=SQL-PROD-01
   counter="% Processor Time"
   demo_id=cpu_runaway
@@ -422,7 +422,7 @@ index=windows sourcetype=perfmon
 
 ### Windows Event Log - SQL errors
 ```spl
-index=windows sourcetype=WinEventLog
+index=fake_tshrt sourcetype="FAKE:WinEventLog"
   host=SQL-PROD-01
   (EventCode=17883 OR EventCode=833 OR EventCode=19406)
   demo_id=cpu_runaway
@@ -435,7 +435,7 @@ index=windows sourcetype=WinEventLog
 
 ### Windows Event Log - Fix
 ```spl
-index=windows sourcetype=WinEventLog
+index=fake_tshrt sourcetype="FAKE:WinEventLog"
   host=SQL-PROD-01
   (EventCode=17148 OR EventCode=17147)
   demo_id=cpu_runaway
@@ -494,13 +494,13 @@ Monitoring-server i Atlanta fyller gradvis opp disken over 14 dager. Illustrerer
 
 ### Linux df - Disk trend
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | timechart avg(pct_used) AS disk_pct
 ```
 
 ### Linux - IO Wait correlation
 ```spl
-index=linux sourcetype=vmstat host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:vmstat" host=MON-ATL-01 demo_id=disk_filling
 | timechart avg(io_wait) AS io_wait, avg(disk_pct) AS disk
 ```
 
@@ -548,7 +548,7 @@ Nettverksadmin prøver å blokkere threat-trafikk men gjør en ACL-feil og blokk
 
 ### ASA - Admin aktivitet
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   (%ASA-5-111008 OR %ASA-5-111010 OR %ASA-6-605005)
   demo_id=firewall_misconfig
 | sort _time
@@ -556,7 +556,7 @@ index=network sourcetype=cisco:asa
 
 ### ASA - Blokkert trafikk
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   %ASA-4-106023
   dest_ip=203.0.113.10
   demo_id=firewall_misconfig
@@ -612,7 +612,7 @@ Wildcard SSL-sertifikat utløper ved midnatt dag 12. Alle HTTPS-forbindelser fei
 
 ### ASA - SSL failures
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   (%ASA-6-725007 OR %ASA-4-725006)
   "certificate expired"
   demo_id=certificate_expiry
@@ -621,7 +621,7 @@ index=network sourcetype=cisco:asa
 
 ### Access log - HTTP errors
 ```spl
-index=web sourcetype=access_combined
+index=fake_tshrt sourcetype="FAKE:access_combined"
   (status=502 OR status=503)
   demo_id=certificate_expiry
 | timechart count
@@ -648,20 +648,20 @@ index=web sourcetype=access_combined
 
 ### Oversikt over alle scenarioer
 ```spl
-index=* demo_id=*
+index=fake_tshrt demo_id=*
 | stats count by demo_id, sourcetype
 | sort - count
 ```
 
 ### Timeline for ett scenario
 ```spl
-index=* demo_id=exfil
+index=fake_tshrt demo_id=exfil
 | timechart count by sourcetype
 ```
 
 ### Finn nøkkelhendelser
 ```spl
-index=* demo_id=exfil
+index=fake_tshrt demo_id=exfil
   (src_ip=185.220.101.42 OR user=jessica.brown OR user=alex.miller)
 | sort _time
 | table _time, sourcetype, src_ip, dest_ip, user, action, message
@@ -673,13 +673,13 @@ index=* demo_id=exfil
 
 ### Threat actor aktivitet
 ```spl
-index=network sourcetype=cisco:asa src=185.220.101.42 demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:asa" src=185.220.101.42 demo_id=exfil
 | stats count by action, dest_port
 ```
 
 ### Cloud data access
 ```spl
-index=cloud (sourcetype=aws:cloudtrail OR sourcetype=google:gcp:*)
+index=fake_tshrt (sourcetype="FAKE:aws:cloudtrail" OR sourcetype="FAKE:google:gcp:*")
   (eventName=GetObject OR methodName=*get*)
   demo_id=exfil
 | stats count by eventName, bucketName
@@ -687,7 +687,7 @@ index=cloud (sourcetype=aws:cloudtrail OR sourcetype=google:gcp:*)
 
 ### Lateral movement
 ```spl
-index=* demo_id=exfil
+index=fake_tshrt demo_id=exfil
   (src_ip=10.20.30.15 OR src_ip=10.10.30.55)
   (dest_ip=10.10.20.* OR dest_ip=10.20.20.*)
 | stats count by src_ip, dest_ip, dest_port
@@ -699,7 +699,7 @@ index=* demo_id=exfil
 
 ### Memory leak progression
 ```spl
-index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
 | eval memory_gb = memory_used_kb / 1048576
 | eval swap_gb = swap_used_kb / 1048576
 | timechart span=1h avg(memory_gb) AS "Memory (GB)", avg(swap_gb) AS "Swap (GB)"
@@ -707,14 +707,14 @@ index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
 
 ### CPU runaway
 ```spl
-index=windows sourcetype=perfmon host=SQL-PROD-01
+index=fake_tshrt sourcetype="FAKE:perfmon" host=SQL-PROD-01
   counter="% Processor Time" demo_id=cpu_runaway
 | timechart span=1h avg(Value) AS "CPU %"
 ```
 
 ### Disk filling
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | timechart span=1h avg(pct_used) AS "Disk %"
 ```
 
@@ -724,7 +724,7 @@ index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
 
 ### Attack timeline
 ```spl
-index=* (demo_id=exfil OR demo_id=ransomware_attempt)
+index=fake_tshrt (demo_id=exfil OR demo_id=ransomware_attempt)
 | eval severity=case(
     like(message, "%deny%") OR like(action, "%block%"), "blocked",
     like(message, "%built%") OR like(action, "%allow%"), "allowed",
@@ -735,7 +735,7 @@ index=* (demo_id=exfil OR demo_id=ransomware_attempt)
 
 ### Compromised users
 ```spl
-index=* demo_id=exfil
+index=fake_tshrt demo_id=exfil
   (user=jessica.brown OR user=alex.miller)
 | stats count, earliest(_time) AS first_seen, latest(_time) AS last_seen by user, sourcetype
 ```

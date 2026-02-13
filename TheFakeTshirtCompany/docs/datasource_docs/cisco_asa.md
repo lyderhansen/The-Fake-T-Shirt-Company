@@ -96,7 +96,7 @@ Perimeter firewall logs from FW-EDGE-01, a Cisco ASA 5525-X protecting all exter
 ### 1. Exfiltration Detection
 Track large outbound data transfers:
 ```spl
-index=network sourcetype=cisco:asa action=Teardown demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:asa" action=Teardown demo_id=exfil
 | eval bytes_mb = bytes / 1048576
 | where bytes_mb > 10
 | stats sum(bytes_mb) AS total_mb by src, dst
@@ -106,7 +106,7 @@ index=network sourcetype=cisco:asa action=Teardown demo_id=exfil
 ### 2. Port Scan Detection
 Identify reconnaissance activity:
 ```spl
-index=network sourcetype=cisco:asa "%ASA-4-106023"
+index=fake_tshrt sourcetype="FAKE:cisco:asa" "%ASA-4-106023"
 | stats dc(dport) AS unique_ports, count by src
 | where unique_ports > 10
 | sort - unique_ports
@@ -115,7 +115,7 @@ index=network sourcetype=cisco:asa "%ASA-4-106023"
 ### 3. C2 Beacon Detection
 Find periodic outbound connections (potential C2):
 ```spl
-index=network sourcetype=cisco:asa action=Built dest_port=443
+index=fake_tshrt sourcetype="FAKE:cisco:asa" action=Built dest_port=443
 | bin _time span=5m
 | stats count by _time, src, dst
 | eventstats stdev(count) AS stdev, avg(count) AS avg by src, dst
@@ -125,7 +125,7 @@ index=network sourcetype=cisco:asa action=Built dest_port=443
 ### 4. Admin Activity Audit
 Track firewall configuration changes:
 ```spl
-index=network sourcetype=cisco:asa ("%ASA-5-111008" OR "%ASA-5-111010" OR "%ASA-6-605005")
+index=fake_tshrt sourcetype="FAKE:cisco:asa" ("%ASA-5-111008" OR "%ASA-5-111010" OR "%ASA-6-605005")
 | table _time, message
 | sort _time
 ```
@@ -133,14 +133,14 @@ index=network sourcetype=cisco:asa ("%ASA-5-111008" OR "%ASA-5-111010" OR "%ASA-
 ### 5. SSL Certificate Issues
 Monitor certificate problems:
 ```spl
-index=network sourcetype=cisco:asa ("%ASA-6-725007" OR "%ASA-4-725006")
+index=fake_tshrt sourcetype="FAKE:cisco:asa" ("%ASA-6-725007" OR "%ASA-4-725006")
 | timechart span=1h count by message_code
 ```
 
 ### 6. Connection Timeline (Exfil)
 Full timeline for exfil scenario:
 ```spl
-index=network sourcetype=cisco:asa demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=exfil
 | timechart span=1d count by action
 ```
 

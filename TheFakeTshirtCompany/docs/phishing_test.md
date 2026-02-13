@@ -116,51 +116,51 @@ Day 21                              Day 22                    Day 23
 
 ### Exchange - Campaign emails
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace" demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" demo_id=phishing_test
 | stats count by SenderAddress, Subject
 ```
 
 ### Exchange - All phishing emails with recipients
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace" demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" demo_id=phishing_test
   SenderAddress="noreply@security-training*"
 | timechart span=1h count
 ```
 
 ### Entra ID - Credential submissions
 ```spl
-index=cloud sourcetype="azure:aad:signin" demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" demo_id=phishing_test
 | table _time, userPrincipalName, status.errorCode, ipAddress, location.city
 ```
 
 ### WinEventLog - Link clicks (browser launches)
 ```spl
-index=windows sourcetype=WinEventLog demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:WinEventLog" demo_id=phishing_test
 | table _time, ComputerName, user, NewProcessName
 ```
 
 ### Secure Access - DNS/proxy for phishing domain
 ```spl
-index=cloud sourcetype="cisco:umbrella:dns" demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" demo_id=phishing_test
 | stats count by domain, response
 ```
 
 ### Office Audit - SafeLinks clicks
 ```spl
-index=cloud sourcetype="o365:management:activity" demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:o365:management:activity" demo_id=phishing_test
 | search Operation="SafeLinksClick*"
 | table _time, UserId, Url
 ```
 
 ### Full campaign timeline
 ```spl
-index=* demo_id=phishing_test
+index=fake_tshrt demo_id=phishing_test
 | timechart span=1h count by sourcetype
 ```
 
 ### Click rate analysis
 ```spl
-index=* demo_id=phishing_test
+index=fake_tshrt demo_id=phishing_test
 | stats dc(user) AS unique_users by sourcetype
 | sort - unique_users
 ```

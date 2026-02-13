@@ -99,14 +99,14 @@ Daily AWS cost data in CUR format showing per-service billing with scenario-driv
 
 ### 1. Daily cost trend
 ```spl
-index=cloud sourcetype="aws:billing:cur"
+index=fake_tshrt sourcetype="FAKE:aws:billing:cur"
 | eval cost=tonumber('lineItem/UnblendedCost')
 | timechart span=1d sum(cost) AS daily_cost
 ```
 
 ### 2. DDoS cost spike
 ```spl
-index=cloud sourcetype="aws:billing:cur" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:aws:billing:cur" demo_id=ddos_attack
 | eval cost=tonumber('lineItem/UnblendedCost')
 | stats sum(cost) AS ddos_cost by lineItem/ProductCode
 | sort - ddos_cost
@@ -114,7 +114,7 @@ index=cloud sourcetype="aws:billing:cur" demo_id=ddos_attack
 
 ### 3. Cost by service
 ```spl
-index=cloud sourcetype="aws:billing:cur"
+index=fake_tshrt sourcetype="FAKE:aws:billing:cur"
 | eval cost=tonumber('lineItem/UnblendedCost')
 | stats sum(cost) AS total by product/serviceName
 | sort - total
@@ -122,17 +122,17 @@ index=cloud sourcetype="aws:billing:cur"
 
 ### 4. Exfil S3 cost anomaly
 ```spl
-index=cloud sourcetype="aws:billing:cur" lineItem/ProductCode=AmazonS3 lineItem/UsageType="DataTransfer-Out-Bytes"
+index=fake_tshrt sourcetype="FAKE:aws:billing:cur" lineItem/ProductCode=AmazonS3 lineItem/UsageType="DataTransfer-Out-Bytes"
 | eval cost=tonumber('lineItem/UnblendedCost')
 | timechart span=1d sum(cost) AS s3_egress_cost
 ```
 
 ### 5. EC2 data transfer correlation with DDoS
 ```spl
-index=cloud sourcetype="aws:billing:cur" lineItem/ProductCode=AmazonEC2 lineItem/UsageType="DataTransfer-Out-Bytes"
+index=fake_tshrt sourcetype="FAKE:aws:billing:cur" lineItem/ProductCode=AmazonEC2 lineItem/UsageType="DataTransfer-Out-Bytes"
 | eval cost=tonumber('lineItem/UnblendedCost')
 | timechart span=1d sum(cost) AS ec2_transfer
-| appendcols [search index=cloud sourcetype="aws:cloudtrail" eventName=SetAlarmState requestParameters.alarmName="WebServer-HighCPU" | timechart span=1d count AS alarm_count]
+| appendcols [search index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=SetAlarmState requestParameters.alarmName="WebServer-HighCPU" | timechart span=1d count AS alarm_count]
 ```
 
 ---

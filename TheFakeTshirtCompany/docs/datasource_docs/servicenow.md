@@ -140,14 +140,14 @@ timestamp="2026-01-08T14:20:00Z" number="INC0000999" state="New" short_descripti
 ### 1. Incident Volume Trends
 Track incident patterns:
 ```spl
-index=itsm sourcetype=servicenow:incident state="New"
+index=fake_tshrt sourcetype="FAKE:servicenow:incident" state="New"
 | timechart span=1d count by category
 ```
 
 ### 2. Priority Distribution
 Analyze incident priorities:
 ```spl
-index=itsm sourcetype=servicenow:incident
+index=fake_tshrt sourcetype="FAKE:servicenow:incident"
 | stats count by priority
 | eval priority_name=case(
     priority=1, "Critical",
@@ -162,7 +162,7 @@ index=itsm sourcetype=servicenow:incident
 ### 3. MTTR by Category
 Calculate mean time to resolve:
 ```spl
-index=itsm sourcetype=servicenow:incident state="Resolved"
+index=fake_tshrt sourcetype="FAKE:servicenow:incident" state="Resolved"
 | rex field=resolution_time "(?<hours>\d+)h"
 | stats avg(hours) AS mttr_hours by category
 | sort mttr_hours
@@ -171,7 +171,7 @@ index=itsm sourcetype=servicenow:incident state="Resolved"
 ### 4. Assignment Group Workload
 See team distribution:
 ```spl
-index=itsm sourcetype=servicenow:incident
+index=fake_tshrt sourcetype="FAKE:servicenow:incident"
 | stats count, dc(number) AS unique_incidents by assignment_group
 | sort - count
 ```
@@ -179,14 +179,14 @@ index=itsm sourcetype=servicenow:incident
 ### 5. Scenario-Specific Incidents
 Track incidents by scenario:
 ```spl
-index=itsm sourcetype=servicenow:incident demo_id=*
+index=fake_tshrt sourcetype="FAKE:servicenow:incident" demo_id=*
 | stats count, values(short_description) AS incidents by demo_id
 ```
 
 ### 6. Incident Timeline
 Full lifecycle of an incident:
 ```spl
-index=itsm sourcetype=servicenow:incident number="INC0000123"
+index=fake_tshrt sourcetype="FAKE:servicenow:incident" number="INC0000123"
 | sort _time
 | table _time, state, assigned_to, work_notes, close_notes
 ```

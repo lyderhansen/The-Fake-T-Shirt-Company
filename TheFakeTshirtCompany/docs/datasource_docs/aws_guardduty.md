@@ -78,28 +78,28 @@ AWS GuardDuty threat detection findings providing automated security monitoring 
 
 ### 1. High-severity findings
 ```spl
-index=cloud sourcetype="aws:cloudwatch:guardduty" severity>=7
+index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" severity>=7
 | table _time, type, severity, title, demo_id
 | sort - severity
 ```
 
 ### 2. Exfil detection timeline
 ```spl
-index=cloud sourcetype="aws:cloudwatch:guardduty" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" demo_id=exfil
 | table _time, type, severity, title
 | sort _time
 ```
 
 ### 3. Finding type distribution
 ```spl
-index=cloud sourcetype="aws:cloudwatch:guardduty"
+index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty"
 | stats count, avg(severity) AS avg_sev by type
 | sort - avg_sev
 ```
 
 ### 4. Cross-correlate with CloudTrail
 ```spl
-index=cloud (sourcetype="aws:cloudwatch:guardduty" severity>=7) OR (sourcetype="aws:cloudtrail" eventName IN ("CreateUser","AttachUserPolicy","GetSecretValue") demo_id=exfil)
+index=fake_tshrt (sourcetype="FAKE:aws:cloudwatch:guardduty" severity>=7) OR (sourcetype="FAKE:aws:cloudtrail" eventName IN ("CreateUser","AttachUserPolicy","GetSecretValue") demo_id=exfil)
 | table _time, sourcetype, type, eventName, severity
 | sort _time
 ```

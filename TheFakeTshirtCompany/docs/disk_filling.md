@@ -54,22 +54,22 @@ Monitoring server in Atlanta gradually fills up disk over 14 days. This demonstr
 
 ```
 Disk %
-100│                                              ████
- 95│                                         █████
- 90│                                    █████
- 85│                               █████
- 80│                          █████     ◄── Day 8: WARNING (75%)
- 75│                     █████
- 70│                █████
- 65│           █████
- 60│      █████                              ◄── Day 11: CRITICAL (85%)
- 55│ █████
- 50│█
- 45├────────────────────────────────────────────────────►
-   │ Day 1  3    5    7    9    11   13   14
-                           │          │
-                           │          └── EMERGENCY
-                           └── WARNING starts
+100|                                              ____
+ 95|                                         _____
+ 90|                                    _____
+ 85|                               _____
+ 80|                          _____     <-- Day 8: WARNING (75%)
+ 75|                     _____
+ 70|                _____
+ 65|           _____
+ 60|      _____                              <-- Day 11: CRITICAL (85%)
+ 55| _____
+ 50|_
+ 45+-------------------------------------------------------->
+   | Day 1  3    5    7    9    11   13   14
+                           |          |
+                           |          +-- EMERGENCY
+                           +-- WARNING starts
 ```
 
 ---
@@ -102,15 +102,15 @@ As disk fills, IO wait increases (system spends more time waiting for disk):
 
 ```
 IO Wait %
- 35│                                              ████
- 30│                                         █████
- 25│                                    █████
- 20│                               █████
- 15│                          █████
- 10│                     █████
-  5│                █████
-  0│████████████████
-   └────────────────────────────────────────────────►
+ 35|                                              ____
+ 30|                                         _____
+ 25|                                    _____
+ 20|                               _____
+ 15|                          _____
+ 10|                     _____
+  5|                _____
+  0|________________
+   +-------------------------------------------------------->
      Day 1    5      8     10     12     14
 ```
 
@@ -120,19 +120,19 @@ IO Wait %
 
 ### Linux df - Disk trend
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | timechart span=4h avg(pct_used) AS "Disk %"
 ```
 
 ### Linux - IO Wait correlation
 ```spl
-index=linux sourcetype=vmstat host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:vmstat" host=MON-ATL-01 demo_id=disk_filling
 | timechart span=4h avg(io_wait) AS io_wait, avg(disk_pct) AS disk
 ```
 
 ### Disk by mount point
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | stats latest(pct_used) AS disk_pct by mount
 | sort - disk_pct
 ```
@@ -159,13 +159,13 @@ index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
 
 ### Disk progression over 14 days
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | timechart span=1d avg(pct_used) AS "Disk %"
 ```
 
 ### Daily breakdown
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | eval day=strftime(_time, "%Y-%m-%d")
 | stats min(pct_used) AS min, max(pct_used) AS max, avg(pct_used) AS avg by day
 | sort day
@@ -173,16 +173,16 @@ index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
 
 ### IO Wait correlation
 ```spl
-index=linux host=MON-ATL-01 demo_id=disk_filling
-  (sourcetype=df OR sourcetype=vmstat)
-| eval metric=if(sourcetype="df", "disk_pct", "io_wait")
-| eval value=if(sourcetype="df", pct_used, io_wait)
+index=fake_tshrt host=MON-ATL-01 demo_id=disk_filling
+  (sourcetype="FAKE:df" OR sourcetype="FAKE:vmstat")
+| eval metric=if(sourcetype="FAKE:df", "disk_pct", "io_wait")
+| eval value=if(sourcetype="FAKE:df", pct_used, io_wait)
 | timechart span=4h avg(value) by metric
 ```
 
 ### Threshold alerts
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | eval severity=case(
     pct_used >= 95, "EMERGENCY",
     pct_used >= 85, "CRITICAL",
@@ -194,7 +194,7 @@ index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
 
 ### Free space in GB
 ```spl
-index=linux sourcetype=df host=MON-ATL-01 demo_id=disk_filling
+index=fake_tshrt sourcetype="FAKE:df" host=MON-ATL-01 demo_id=disk_filling
 | eval free_gb = (100 - pct_used) * 5
 | timechart span=1d avg(free_gb) AS "Free GB"
 ```

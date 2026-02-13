@@ -97,41 +97,41 @@ CRASH --> DLQ ALERT --> COMPLAINTS --> FOUND --> FIX --> RECOVERED
 
 ### ServiceBus - Dead letter events
 ```spl
-index=servicebus sourcetype="azure:servicebus" demo_id=dead_letter_pricing
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" demo_id=dead_letter_pricing
 | timechart span=30m count by messageType
 ```
 
 ### ServiceBus - DLQ accumulation
 ```spl
-index=servicebus sourcetype="azure:servicebus" demo_id=dead_letter_pricing
+index=fake_tshrt sourcetype="FAKE:azure:servicebus" demo_id=dead_letter_pricing
   "deadLetter"
 | timechart span=15m count AS dead_letter_messages
 ```
 
 ### Orders - Revenue impact
 ```spl
-index=retail sourcetype="retail:orders" demo_id=dead_letter_pricing
+index=fake_tshrt sourcetype="FAKE:retail:orders" demo_id=dead_letter_pricing
 | eval price_diff = expected_total - total
 | stats sum(price_diff) AS revenue_impact, count AS affected_orders
 ```
 
 ### Access - Error rate during incident
 ```spl
-index=web sourcetype=access_combined demo_id=dead_letter_pricing
+index=fake_tshrt sourcetype="FAKE:access_combined" demo_id=dead_letter_pricing
 | eval is_error=if(status>=400, 1, 0)
 | timechart span=15m avg(is_error) AS error_rate, count AS requests
 ```
 
 ### ServiceNow - Incident progression
 ```spl
-index=itsm sourcetype=servicenow:incident demo_id=dead_letter_pricing
+index=fake_tshrt sourcetype="FAKE:servicenow:incident" demo_id=dead_letter_pricing
 | table _time, number, priority, state, short_description
 | sort _time
 ```
 
 ### Cross-source correlation
 ```spl
-index=* demo_id=dead_letter_pricing
+index=fake_tshrt demo_id=dead_letter_pricing
 | timechart span=30m count by sourcetype
 ```
 

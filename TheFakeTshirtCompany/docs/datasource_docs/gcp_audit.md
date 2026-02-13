@@ -107,14 +107,14 @@ Google Cloud Platform audit logs from project faketshirtcompany-prod-01 in us-ce
 
 ### 1. Data exfiltration detection
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" demo_id=exfil
 | stats count by protoPayload.methodName, protoPayload.authenticationInfo.principalEmail
 | sort - count
 ```
 
 ### 2. Threat actor IP activity
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
     protoPayload.requestMetadata.callerIp="185.220.101.42"
 | table _time, protoPayload.methodName, protoPayload.resourceName, severity
 | sort _time
@@ -122,7 +122,7 @@ index=cloud sourcetype="google:gcp:pubsub:message"
 
 ### 3. IAM persistence detection
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
     protoPayload.methodName IN ("google.iam.admin.v1.CreateServiceAccount",
     "google.iam.admin.v1.CreateServiceAccountKey", "google.iam.admin.v1.SetIamPolicy")
 | table _time, protoPayload.authenticationInfo.principalEmail,
@@ -132,7 +132,7 @@ index=cloud sourcetype="google:gcp:pubsub:message"
 
 ### 4. Off-hours activity
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
 | eval hour=strftime(_time, "%H")
 | where hour < 6 OR hour > 22
 | stats count by protoPayload.authenticationInfo.principalEmail,
@@ -141,7 +141,7 @@ index=cloud sourcetype="google:gcp:pubsub:message"
 
 ### 5. Cloud Logging reconnaissance (attacker checking for detection)
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
     protoPayload.methodName="*ListLogEntries*"
 | table _time, protoPayload.authenticationInfo.principalEmail,
     protoPayload.requestMetadata.callerIp, protoPayload.request.filter
@@ -149,21 +149,21 @@ index=cloud sourcetype="google:gcp:pubsub:message"
 
 ### 6. BigQuery pipeline failures (cpu_runaway correlation)
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
     protoPayload.serviceName="bigquery.googleapis.com" severity=ERROR
 | table _time, protoPayload.resourceName, protoPayload.status.message, demo_id
 ```
 
 ### 7. Multi-cloud exfil correlation (AWS + GCP)
 ```spl
-index=cloud (sourcetype="aws:cloudtrail" OR sourcetype="google:gcp:pubsub:message")
+index=fake_tshrt (sourcetype="FAKE:aws:cloudtrail" OR sourcetype="FAKE:google:gcp:pubsub:message")
     demo_id=exfil
 | timechart span=1h count by sourcetype
 ```
 
 ### 8. Storage access by bucket
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
     protoPayload.serviceName="storage.googleapis.com"
 | rex field=protoPayload.resourceName "buckets/(?<bucket>[^/]+)"
 | stats count by bucket, protoPayload.methodName
@@ -172,7 +172,7 @@ index=cloud sourcetype="google:gcp:pubsub:message"
 
 ### 9. Error rate by service
 ```spl
-index=cloud sourcetype="google:gcp:pubsub:message"
+index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message"
 | stats count AS total, count(eval(severity="ERROR")) AS errors
     by protoPayload.serviceName
 | eval error_pct=round(errors/total*100, 1)

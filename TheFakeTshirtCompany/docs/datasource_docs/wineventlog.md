@@ -192,7 +192,7 @@ demo_id=cpu_runaway
 ### 1. Authentication Monitoring
 Track logon activity:
 ```spl
-index=windows sourcetype=WinEventLog EventCode=4624
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4624
 | stats count by TargetUserName, LogonType
 | sort - count
 ```
@@ -200,7 +200,7 @@ index=windows sourcetype=WinEventLog EventCode=4624
 ### 2. Failed Logon Detection
 Find brute force attempts:
 ```spl
-index=windows sourcetype=WinEventLog EventCode=4625
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4625
 | stats count by TargetUserName, SourceNetworkAddress
 | where count > 5
 | sort - count
@@ -209,7 +209,7 @@ index=windows sourcetype=WinEventLog EventCode=4625
 ### 3. Process Creation Chain
 Track process genealogy:
 ```spl
-index=windows sourcetype=WinEventLog EventCode=4688
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4688
 | table _time, ComputerName, NewProcessName, ParentProcessName, CommandLine
 | sort _time
 ```
@@ -217,14 +217,14 @@ index=windows sourcetype=WinEventLog EventCode=4688
 ### 4. Service Installation
 Monitor new services:
 ```spl
-index=windows sourcetype=WinEventLog EventCode=4697
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4697
 | table _time, ComputerName, ServiceName, ServiceFileName
 ```
 
 ### 5. Ransomware Kill Chain
 Full ransomware timeline:
 ```spl
-index=windows sourcetype=WinEventLog demo_id=ransomware_attempt
+index=fake_tshrt sourcetype="FAKE:WinEventLog" demo_id=ransomware_attempt
 | sort _time
 | table _time, EventCode, ComputerName, NewProcessName, TargetUserName
 ```
@@ -232,7 +232,7 @@ index=windows sourcetype=WinEventLog demo_id=ransomware_attempt
 ### 6. SQL Server Errors
 Track database issues:
 ```spl
-index=windows sourcetype=WinEventLog ComputerName="*SQL*"
+index=fake_tshrt sourcetype="FAKE:WinEventLog" ComputerName="*SQL*"
   (EventCode=17883 OR EventCode=833 OR EventCode=19406)
 | table _time, EventCode, Message
 ```

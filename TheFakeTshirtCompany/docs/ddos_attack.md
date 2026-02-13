@@ -158,51 +158,51 @@ RESIDUAL -> END --> RECOVERY -> CHANGE REQUEST
 
 ### ASA - Attack traffic
 ```spl
-index=network sourcetype=cisco:asa demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=ddos_attack
 | timechart span=1h count by action
 ```
 
 ### ASA - Emergency ACLs
 ```spl
-index=network sourcetype=cisco:asa demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=ddos_attack
   ("%ASA-5-111008" OR "%ASA-5-111010")
 | table _time, message
 ```
 
 ### Meraki - IDS alerts
 ```spl
-index=network sourcetype="meraki:mx" type="security_event" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:meraki:mx" type="security_event" demo_id=ddos_attack
 | stats count by eventData.message
 ```
 
 ### Meraki - SD-WAN failover
 ```spl
-index=network sourcetype="meraki:mx" type="sd_wan_failover" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:meraki:mx" type="sd_wan_failover" demo_id=ddos_attack
 | table _time, description, eventData.from_wan, eventData.to_wan, eventData.reason
 ```
 
 ### Meraki - SD-WAN health degradation
 ```spl
-index=network sourcetype="meraki:mx" type="sd_wan_health" demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:meraki:mx" type="sd_wan_health" demo_id=ddos_attack
 | timechart span=1h avg(eventData.latencyMs) AS latency, avg(eventData.lossPercent) AS loss
 ```
 
 ### Access - Error rate
 ```spl
-index=web sourcetype=access_combined demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:access_combined" demo_id=ddos_attack
 | eval is_error=if(status>=500, 1, 0)
 | timechart span=1h avg(is_error) AS error_rate
 ```
 
 ### ServiceNow - Incident timeline
 ```spl
-index=itsm sourcetype=servicenow:incident demo_id=ddos_attack
+index=fake_tshrt sourcetype="FAKE:servicenow:incident" demo_id=ddos_attack
 | table _time, number, priority, short_description, state
 ```
 
 ### Full cross-source timeline
 ```spl
-index=* demo_id=ddos_attack
+index=fake_tshrt demo_id=ddos_attack
 | timechart span=1h count by sourcetype
 ```
 

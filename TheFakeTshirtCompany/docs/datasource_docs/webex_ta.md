@@ -69,35 +69,35 @@ Webex meeting history and attendee data in the Splunk TA for Cisco Webex Meeting
 
 ### 1. Meeting frequency by host
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
 | stats count by hostName
 | sort - count
 ```
 
 ### 2. Average meeting duration
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
 | stats avg(duration) AS avg_minutes, count AS meetings
 | eval avg_minutes = round(avg_minutes, 1)
 ```
 
 ### 3. Attendee participation rates
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
 | stats count AS meetings_attended by attendeeName
 | sort - meetings_attended
 ```
 
 ### 4. Client platform distribution
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
 | stats count by clientType, clientOS
 | sort - count
 ```
 
 ### 5. Exfil user meeting activity
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
   (attendeeEmail="alex.miller@*" OR attendeeEmail="jessica.brown@*")
 | table _time, confName, attendeeName, ipAddress, duration
 ```

@@ -58,7 +58,7 @@ Wildcard SSL certificate expires at midnight, causing a 7-hour service outage un
 Hour:  00   01   02   03   04   05   06   07   08
        |    |    |    |    |    |    |    |    |
        v    v    v    v    v    v    v    v    v
-CERT   ████████████████████████████████████
+CERT   ____________________________________
 EXPIRES|<--- LOW TRAFFIC --->|<-- BUSY -->|
        |    |    |    |    |    |    |    |
        |    |    |    |    |    |    v    |
@@ -108,7 +108,7 @@ EXPIRES|<--- LOW TRAFFIC --->|<-- BUSY -->|
 
 ### ASA - SSL failures
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   ("%ASA-6-725007" OR "%ASA-4-725006")
   demo_id=certificate_expiry
 | timechart span=1h count
@@ -116,7 +116,7 @@ index=network sourcetype=cisco:asa
 
 ### ASA - Certificate expired message
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   "%ASA-4-725006" "certificate expired"
   demo_id=certificate_expiry
 | table _time, message
@@ -124,7 +124,7 @@ index=network sourcetype=cisco:asa
 
 ### Access - HTTP 5xx errors
 ```spl
-index=web sourcetype=access_combined
+index=fake_tshrt sourcetype="FAKE:access_combined"
   (status=502 OR status=503)
   demo_id=certificate_expiry
 | timechart span=1h count by status
@@ -158,27 +158,27 @@ index=web sourcetype=access_combined
 
 ### Full incident timeline
 ```spl
-index=* demo_id=certificate_expiry
+index=fake_tshrt demo_id=certificate_expiry
 | sort _time
 | table _time, sourcetype, message, status
 ```
 
 ### SSL failures by hour
 ```spl
-index=network sourcetype=cisco:asa demo_id=certificate_expiry
+index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=certificate_expiry
 | timechart span=1h count by action
 ```
 
 ### Customer impact
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   "%ASA-6-725007" demo_id=certificate_expiry
 | stats dc(src_ip) AS unique_customers, count AS total_failures
 ```
 
 ### Recovery verification
 ```spl
-index=network sourcetype=cisco:asa demo_id=certificate_expiry
+index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=certificate_expiry
 | eval status=case(
     match(message, "725007|725006|302014.*Reset"), "Failed",
     match(message, "725001"), "Success",
@@ -189,7 +189,7 @@ index=network sourcetype=cisco:asa demo_id=certificate_expiry
 
 ### Certificate details
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   "%ASA-4-725006" demo_id=certificate_expiry
 | rex "CN=(?<cert_cn>[^,]+)"
 | stats count by cert_cn
@@ -197,9 +197,8 @@ index=network sourcetype=cisco:asa
 
 ### Business hours impact
 ```spl
-index=* demo_id=certificate_expiry
+index=fake_tshrt demo_id=certificate_expiry
 | eval hour=strftime(_time, "%H")
 | eval business_hours=if(hour>=8 AND hour<=18, "Business", "After-hours")
 | stats count by business_hours, sourcetype
 ```
-

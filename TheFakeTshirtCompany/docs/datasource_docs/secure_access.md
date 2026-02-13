@@ -84,14 +84,14 @@ Cloud-delivered security logs from Cisco Secure Access (formerly Umbrella), cove
 
 ### 1. Blocked DNS domains
 ```spl
-index=cloud sourcetype="cisco:umbrella:dns" Action="Blocked"
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" Action="Blocked"
 | stats count by Domain, Categories
 | sort - count
 ```
 
 ### 2. Exfil cloud storage detection
 ```spl
-index=cloud sourcetype="cisco:umbrella:proxy" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:proxy" demo_id=exfil
   Categories="Cloud Storage"
 | stats sum(RequestSize) AS uploaded_bytes by Identity, URL
 | eval uploaded_mb = round(uploaded_bytes/1048576, 2)
@@ -100,7 +100,7 @@ index=cloud sourcetype="cisco:umbrella:proxy" demo_id=exfil
 
 ### 3. C2 beacon pattern
 ```spl
-index=cloud sourcetype="cisco:umbrella:dns" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" demo_id=exfil
 | bin _time span=5m
 | stats count by _time, Domain
 | eventstats stdev(count) AS stdev, avg(count) AS avg by Domain
@@ -109,19 +109,19 @@ index=cloud sourcetype="cisco:umbrella:dns" demo_id=exfil
 
 ### 4. Ransomware blocked domains
 ```spl
-index=cloud sourcetype="cisco:umbrella:dns" demo_id=ransomware_attempt Action="Blocked"
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" demo_id=ransomware_attempt Action="Blocked"
 | table _time, Identity, Domain, Categories
 ```
 
 ### 5. Phishing simulation DNS
 ```spl
-index=cloud sourcetype="cisco:umbrella:dns" demo_id=phishing_test
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" demo_id=phishing_test
 | stats count by Domain, Action
 ```
 
 ### 6. Admin audit trail
 ```spl
-index=cloud sourcetype="cisco:umbrella:audit"
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:audit"
 | table _time, AdminUser, ActionType, ActionName
 ```
 

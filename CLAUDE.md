@@ -700,25 +700,25 @@ Legitimate overtime work on days 3 and 7 (NOT related to exfil scenario):
 
 ```spl
 # Find all exfil scenario events
-index=* demo_id=exfil | stats count by sourcetype
+index=fake_tshrt demo_id=exfil | stats count by sourcetype
 
 # Timeline of attack phases
-index=* demo_id=exfil | timechart count by sourcetype
+index=fake_tshrt demo_id=exfil | timechart count by sourcetype
 
 # Compromised user activity
-index=cloud sourcetype="azure:aad:signin" user="alex.miller"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" user="alex.miller"
 
 # CPU runaway correlation
-index=windows demo_host="SQL-PROD-01" | timechart avg(Value) by counter
+index=fake_tshrt sourcetype="FAKE:perfmon" demo_host="SQL-PROD-01" | timechart avg(Value) by counter
 
 # Order revenue by product type
-index=retail sourcetype="retail:orders" | stats sum(total) by product_type
+index=fake_tshrt sourcetype="FAKE:retail:orders" | stats sum(total) by product_type
 
 # SAP transaction activity by T-code
-index=erp sourcetype="sap:auditlog" | stats count by tcode | sort -count
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" | stats count by tcode | sort -count
 
 # SAP failed operations
-index=erp sourcetype="sap:auditlog" status="E" | stats count by user, tcode, description
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" status="E" | stats count by user, tcode, description
 ```
 
 ---
@@ -954,6 +954,7 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
 - Output goes to `bin/output/` organized by category (network/, cloud/, windows/, linux/, web/, retail/, erp/, itsm/, servicebus/)
 - Default timeline: 14 days starting 2026-01-01
 - Splunk index: `fake_tshrt`
+- **Splunk sourcetypes are prefixed with `FAKE:`** -- e.g., `FAKE:cisco:asa`, `FAKE:aws:cloudtrail`. Generators produce events with standard sourcetype names; Splunk's `props.conf`/`transforms.conf` apply the `FAKE:` prefix at index time. All SPL queries in documentation must use: `index=fake_tshrt sourcetype="FAKE:cisco:asa"`
 - All scenario events queryable via `demo_id` field in Splunk
 - 13 servers across 2 locations (10 Boston, 3 Atlanta), 175 employees across 3 locations
 - SAP generator correlates with orders via `order_registry.json` (NDJSON format, one JSON object per line)

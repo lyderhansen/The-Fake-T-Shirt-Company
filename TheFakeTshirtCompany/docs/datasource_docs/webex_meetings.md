@@ -161,14 +161,14 @@ One event per attendee per meeting with individual participation details.
 ### 1. Meeting Volume Trends
 Track meeting patterns:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
 | timechart span=1d count AS meetings, sum(TotalAttendees) AS total_attendees
 ```
 
 ### 2. Organizer Activity
 Find most active meeting hosts:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
 | stats count AS meetings, sum(Duration) AS total_minutes by OrganizerEmail
 | eval hours = round(total_minutes / 60, 1)
 | sort - meetings
@@ -177,7 +177,7 @@ index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
 ### 3. Meeting Duration Analysis
 Analyze meeting lengths:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
 | stats count by Duration
 | eval duration_bucket = case(
     Duration <= 15, "Quick (≤15 min)",
@@ -191,7 +191,7 @@ index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
 ### 4. Client Type Distribution
 See how people join:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
 | stats count by ClientType
 | sort - count
 ```
@@ -199,7 +199,7 @@ index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
 ### 5. Late Joiners
 Find participants who join late:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
 | rex field=JoinTime "(?<join_time>\d{2}:\d{2}:\d{2})$"
 | rex field=MeetingStartTime "(?<start_time>\d{2}:\d{2}:\d{2})$"
 | eval late_seconds = strptime(join_time, "%H:%M:%S") - strptime(start_time, "%H:%M:%S")
@@ -211,7 +211,7 @@ index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
 ### 6. Recording Compliance
 Track recorded meetings:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
 | stats count AS total,
         count(eval(RecordingPresent="Yes")) AS recorded
 | eval recording_pct = round(recorded / total * 100, 1)
@@ -220,7 +220,7 @@ index=cloud sourcetype="cisco:webex:meetings:history:meetingusagehistory"
 ### 7. External Participants
 Find meetings with external attendees:
 ```spl
-index=cloud sourcetype="cisco:webex:meetings:history:meetingattendeehistory"
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
   NOT UserEmail="*@theFakeTshirtCompany.com"
 | stats dc(MeetingNumber) AS meetings, dc(UserEmail) AS unique_externals
 ```

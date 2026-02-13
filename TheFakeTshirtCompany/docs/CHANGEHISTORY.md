@@ -4,6 +4,115 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-12 ~23:00 UTC -- Phase 11: Scenario Doc Updates + SPL Query Standardization
+
+### Problem
+
+Two documentation issues existed after Phases 8-10:
+
+1. **Scenario docs were stale** -- exfil.md and cpu_runaway.md didn't reflect new AWS GuardDuty, AWS Billing, expanded GCP events, or registry changes (webex/linux added to exfil)
+2. **SPL queries used wrong index/sourcetypes** -- ~275 SPL queries across ~40 docs used incorrect patterns (`index=network`, `index=cloud`, unprefixed sourcetypes) instead of `index=fake_tshrt` with `FAKE:` prefix
+
+### Part A: Scenario content updates
+
+**exfil.md -- Major update:**
+- Added Days 6 credential pivot section documenting Jessica resetting Alex's password (WinEventLog 4724/4738) and MFA (Entra ID audit), explaining the IT Admin -> Finance privilege escalation
+- Added GuardDuty findings to Days 8-10 (UnauthorizedAccess:IAMUser/MaliciousIPCaller, Persistence:IAMUser/UserPermissions)
+- Added AWS Billing cost anomaly to Days 11-13 (S3 DataTransfer-Out 1.5x spike)
+- Added GCP BigQuery exfil (Day 12, tabledata.list on customer_database) and cover tracks (Day 13, storage.objects.delete)
+- Added "All Exfil Log Sources" table listing all 18 sources
+- Added new SPL queries: GuardDuty findings, billing anomaly, GCP cover tracks, credential pivot events
+
+**cpu_runaway.md -- GCP cascade added:**
+- Added "Cross-Cloud Cascade (GCP)" section explaining SQL-PROD-01 -> BigQuery pipeline failure chain (RESOURCE_EXHAUSTED)
+- Added GCP BigQuery SPL queries and talking point
+
+**scenario_overview.md:**
+- Updated exfil Primary Logs to include "GuardDuty, Billing, GCP Audit"
+- Updated cpu_runaway Primary Logs to include "GCP Audit"
+
+### Part B: SPL query standardization
+
+Standardized all SPL queries across all documentation to use:
+- `index=fake_tshrt` (replacing `index=network`, `index=cloud`, `index=windows`, `index=linux`, `index=web`, `index=retail`, `index=itsm`, `index=erp`, `index=servicebus`, `index=*`)
+- `FAKE:` prefixed sourcetypes (e.g., `FAKE:cisco:asa` not `cisco:asa`)
+
+### Part C: CLAUDE.md update
+
+Added `FAKE:` prefix documentation rule to Development Notes section.
+
+### Verification
+
+```
+Wrong index patterns (index=network/cloud/windows/linux/web/retail/itsm/erp/servicebus/*): 0 found
+Non-FAKE sourcetypes in SPL: 0 found
+Correct index=fake_tshrt references: 388 across 43 files
+FAKE: prefix references: 471 across 44 files
+```
+
+### Files modified
+
+**Scenario docs (12 files):**
+
+| File | Changes |
+|------|---------|
+| `docs/exfil.md` | Major content update + SPL standardization |
+| `docs/cpu_runaway.md` | GCP cascade content + SPL standardization |
+| `docs/scenario_overview.md` | Updated Primary Logs + SPL standardization |
+| `docs/ransomware.md` | SPL standardization (9 queries) |
+| `docs/phishing_test.md` | SPL standardization (8 queries) |
+| `docs/memory_leak.md` | SPL standardization (8 queries) |
+| `docs/disk_filling.md` | SPL standardization (8 queries) |
+| `docs/ddos_attack.md` | SPL standardization (8 queries) |
+| `docs/firewall_misconfig.md` | SPL standardization (7 queries) |
+| `docs/certificate_expiry.md` | SPL standardization (9 queries) |
+| `docs/dead_letter_pricing.md` | SPL standardization (6 queries) |
+| `docs/splunk_queries.md` | SPL standardization (~52 queries) |
+
+**Datasource docs (26 files):**
+
+| File | Changes |
+|------|---------|
+| `docs/datasource_docs/README.md` | SPL standardization (4 queries) |
+| `docs/datasource_docs/cisco_asa.md` | SPL standardization |
+| `docs/datasource_docs/meraki.md` | SPL standardization |
+| `docs/datasource_docs/catalyst.md` | SPL standardization |
+| `docs/datasource_docs/catalyst_center.md` | SPL standardization |
+| `docs/datasource_docs/aci.md` | SPL standardization |
+| `docs/datasource_docs/aws_cloudtrail.md` | SPL standardization |
+| `docs/datasource_docs/aws_guardduty.md` | SPL standardization |
+| `docs/datasource_docs/aws_billing.md` | SPL standardization |
+| `docs/datasource_docs/gcp_audit.md` | SPL standardization |
+| `docs/datasource_docs/entraid.md` | SPL standardization |
+| `docs/datasource_docs/secure_access.md` | SPL standardization |
+| `docs/datasource_docs/exchange.md` | SPL standardization |
+| `docs/datasource_docs/wineventlog.md` | SPL standardization |
+| `docs/datasource_docs/sysmon.md` | SPL standardization |
+| `docs/datasource_docs/perfmon.md` | SPL standardization |
+| `docs/datasource_docs/mssql.md` | SPL standardization |
+| `docs/datasource_docs/linux.md` | SPL standardization |
+| `docs/datasource_docs/access.md` | SPL standardization |
+| `docs/datasource_docs/orders.md` | SPL standardization |
+| `docs/datasource_docs/servicebus.md` | SPL standardization |
+| `docs/datasource_docs/servicenow.md` | SPL standardization |
+| `docs/datasource_docs/sap.md` | SPL standardization |
+| `docs/datasource_docs/webex_api.md` | SPL standardization |
+| `docs/datasource_docs/webex_devices.md` | SPL standardization |
+| `docs/datasource_docs/webex_meetings.md` | SPL standardization |
+| `docs/datasource_docs/webex_ta.md` | SPL standardization |
+
+**Other docs (3 files):**
+
+| File | Changes |
+|------|---------|
+| `docs/DEMO_TALKING_TRACK.md` | SPL standardization (29 queries) |
+| `docs/README.md` | SPL standardization (2 queries) |
+| `CLAUDE.md` | Added FAKE: prefix documentation rule |
+
+**Total: 41 documentation files updated, ~300+ SPL queries standardized, 0 code changes.**
+
+---
+
 ## 2026-02-13 ~07:30 UTC -- Phase 10: Registry Alignment + Entra ID Documentation
 
 ### Registry alignment (2 fixes)

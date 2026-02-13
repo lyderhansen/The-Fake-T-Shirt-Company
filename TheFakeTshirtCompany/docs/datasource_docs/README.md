@@ -154,15 +154,15 @@ All sources can be correlated using these key fields:
 
 ```spl
 # All events from a scenario
-index=* demo_id=exfil
+index=fake_tshrt demo_id=exfil
 
 # All events from a host
-index=* demo_host="SQL-PROD-01"
+index=fake_tshrt demo_host="SQL-PROD-01"
 
 # All events for a user
-index=* (user="alex.miller" OR userPrincipalName="alex.miller@theFakeTshirtCompany.com")
+index=fake_tshrt (user="alex.miller" OR userPrincipalName="alex.miller@theFakeTshirtCompany.com")
 
 # Cross-source timeline
-index=* demo_id=exfil | sort _time | table _time, sourcetype, host, message
+index=fake_tshrt demo_id=exfil | sort _time | table _time, sourcetype, host, message
 ```
 

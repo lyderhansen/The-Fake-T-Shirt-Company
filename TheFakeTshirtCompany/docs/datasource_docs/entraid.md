@@ -259,7 +259,7 @@ Day 11-14: Continued exfil-phase sign-ins from threat IP
 
 ### 1. Compromised user sign-in timeline
 ```spl
-index=cloud sourcetype="azure:aad:signin"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
     properties.userPrincipalName="alex.miller@theFakeTshirtCompany.com"
 | eval status=if('properties.status.errorCode'="0", "success", "failed")
 | timechart span=1h count by status
@@ -267,7 +267,7 @@ index=cloud sourcetype="azure:aad:signin"
 
 ### 2. Threat actor IP activity
 ```spl
-index=cloud sourcetype="azure:aad:signin"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
     callerIpAddress="185.220.101.42"
 | table _time, properties.userPrincipalName, properties.status.errorCode,
     properties.status.failureReason, properties.conditionalAccessStatus
@@ -276,14 +276,14 @@ index=cloud sourcetype="azure:aad:signin"
 
 ### 3. MFA method distribution
 ```spl
-index=cloud sourcetype="azure:aad:signin" properties.status.errorCode=0
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" properties.status.errorCode=0
 | stats count by properties.mfaDetail.authMethod
 | sort - count
 ```
 
 ### 4. Password spray detection
 ```spl
-index=cloud sourcetype="azure:aad:signin" properties.status.errorCode=50126
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" properties.status.errorCode=50126
 | eval src_country=mvindex(split('properties.location.countryOrRegion', ","), 0)
 | stats dc(properties.userPrincipalName) AS targets,
     values(properties.userPrincipalName) AS users
@@ -294,7 +294,7 @@ index=cloud sourcetype="azure:aad:signin" properties.status.errorCode=50126
 
 ### 5. Conditional Access blocks
 ```spl
-index=cloud sourcetype="azure:aad:signin"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
     properties.status.errorCode=53003
 | table _time, properties.userPrincipalName, callerIpAddress,
     properties.appDisplayName, properties.location.city
@@ -303,7 +303,7 @@ index=cloud sourcetype="azure:aad:signin"
 
 ### 6. Privilege escalation audit trail
 ```spl
-index=cloud sourcetype="azure:aad:audit"
+index=fake_tshrt sourcetype="FAKE:azure:aad:audit"
     properties.activityDisplayName IN ("Add member to role", "Add application",
     "Consent to application", "Add service principal credentials")
 | table _time, properties.activityDisplayName,
@@ -314,7 +314,7 @@ index=cloud sourcetype="azure:aad:audit"
 
 ### 7. Risk detection timeline
 ```spl
-index=cloud sourcetype="azure:aad:signin" OR sourcetype="azure:aad:audit"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" OR sourcetype="FAKE:azure:aad:audit"
     properties.riskEventType=*
 | table _time, properties.riskEventType, properties.riskLevel,
     properties.userPrincipalName, properties.ipAddress
@@ -323,7 +323,7 @@ index=cloud sourcetype="azure:aad:signin" OR sourcetype="azure:aad:audit"
 
 ### 8. Service principal health
 ```spl
-index=cloud sourcetype="azure:aad:signin"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
     properties.isInteractive=false properties.servicePrincipalName=*
 | eval status=if('properties.status.errorCode'="0", "success", "failed")
 | stats count by properties.appDisplayName, status
@@ -332,7 +332,7 @@ index=cloud sourcetype="azure:aad:signin"
 
 ### 9. SSPR flow analysis
 ```spl
-index=cloud sourcetype="azure:aad:audit"
+index=fake_tshrt sourcetype="FAKE:azure:aad:audit"
     properties.activityDisplayName="Self-service password reset flow*"
 | table _time, properties.targetResources{}.userPrincipalName,
     properties.activityDisplayName, properties.result
@@ -341,7 +341,7 @@ index=cloud sourcetype="azure:aad:audit"
 
 ### 10. Account lockout events
 ```spl
-index=cloud sourcetype="azure:aad:signin"
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
     properties.status.errorCode=50053
 | table _time, properties.userPrincipalName, callerIpAddress,
     properties.status.failureReason

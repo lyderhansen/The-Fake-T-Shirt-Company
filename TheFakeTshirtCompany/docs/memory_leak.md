@@ -37,7 +37,7 @@ A gradual memory leak on WEB-01 over 10 days that culminates in an OOM crash. Th
 | 4-5 | 60-75% | 0 | None | Degrading |
 | 6-7 | 75-85% | 2-4 GB | None | Concerning |
 | 8-9 | 85-95% | 8-16 GB | +5-15% | **WARNING** |
-| **10 @14:00** | 98% → OOM | 25-30 GB | +10-25% | **CRASH** |
+| **10 @14:00** | 98% -> OOM | 25-30 GB | +10-25% | **CRASH** |
 | 11-14 | 50-60% | 0 | None | Recovered |
 
 ---
@@ -46,19 +46,19 @@ A gradual memory leak on WEB-01 over 10 days that culminates in an OOM crash. Th
 
 ```
 Memory %
-100│                                          ▲ OOM!
- 95│                                     ╱────┤
- 90│                                ╱────     │
- 85│                           ╱────          │
- 80│                      ╱────               │
- 75│                 ╱────                    │
- 70│            ╱────                         │
- 65│       ╱────                              │
- 60│──────╱                                   │  ◄── Restart
- 55│                                          ▼     Back to normal
- 50├──────────────────────────────────────────┴──────────────────
-   │
-   └──Day 1─────Day 5─────Day 7─────Day 9────Day 10────Day 14──►
+100|                                          ^ OOM!
+ 95|                                     /----+
+ 90|                                /----     |
+ 85|                           /----          |
+ 80|                      /----               |
+ 75|                 /----                    |
+ 70|            /----                         |
+ 65|       /----                              |
+ 60|------/                                   |  <-- Restart
+ 55|                                          v     Back to normal
+ 50+------------------------------------------+------------------
+   |
+   +--Day 1-----Day 5-----Day 7-----Day 9----Day 10----Day 14-->
 ```
 
 ---
@@ -105,7 +105,7 @@ The firewall sees TCP connection failures correlating with memory pressure:
 
 ### Linux vmstat - Memory trend
 ```spl
-index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
 | eval memory_gb = memory_used_kb / 1048576
 | eval swap_gb = swap_used_kb / 1048576
 | timechart span=1h avg(memory_gb) AS "Memory (GB)", avg(swap_gb) AS "Swap (GB)"
@@ -113,7 +113,7 @@ index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
 
 ### ASA - Connection timeouts
 ```spl
-index=network sourcetype=cisco:asa
+index=fake_tshrt sourcetype="FAKE:cisco:asa"
   dest_ip=172.16.1.10
   ("TCP FINs" OR "TCP Reset" OR "SYN Timeout")
   demo_id=memory_leak
@@ -122,7 +122,7 @@ index=network sourcetype=cisco:asa
 
 ### Linux - Memory percentage over time
 ```spl
-index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
 | timechart span=1h avg(memory_pct) AS "Memory %"
 ```
 
@@ -131,10 +131,10 @@ index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
 ## Correlation View
 
 ```spl
-index=* demo_id=memory_leak (host=WEB-01 OR dest_ip=172.16.1.10)
+index=fake_tshrt demo_id=memory_leak (host=WEB-01 OR dest_ip=172.16.1.10)
 | eval metric=case(
-    sourcetype="vmstat", "Memory %: ".memory_pct,
-    sourcetype="cisco:asa", "ASA Timeout",
+    sourcetype="FAKE:vmstat", "Memory %: ".memory_pct,
+    sourcetype="FAKE:cisco:asa", "ASA Timeout",
     true(), sourcetype
 )
 | timechart span=1h count by metric
@@ -162,30 +162,30 @@ index=* demo_id=memory_leak (host=WEB-01 OR dest_ip=172.16.1.10)
 
 ### Memory progression
 ```spl
-index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
 | timechart span=4h avg(memory_pct) AS memory, avg(swap_pct) AS swap
 ```
 
 ### Day of crash detail
 ```spl
-index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
 | where strftime(_time, "%Y-%m-%d") = "2026-01-10"
 | timechart span=15m avg(memory_pct) AS memory
 ```
 
 ### Timeout correlation
 ```spl
-index=network sourcetype=cisco:asa dest_ip=172.16.1.10 demo_id=memory_leak
+index=fake_tshrt sourcetype="FAKE:cisco:asa" dest_ip=172.16.1.10 demo_id=memory_leak
 | timechart span=1h count AS timeouts
 | join _time [
-    search index=linux sourcetype=vmstat host=WEB-01 demo_id=memory_leak
+    search index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=memory_leak
     | timechart span=1h avg(memory_pct) AS memory
 ]
 ```
 
 ### OOM event
 ```spl
-index=linux host=WEB-01 demo_id=memory_leak
+index=fake_tshrt host=WEB-01 demo_id=memory_leak
   ("Out of memory" OR "OOM killer" OR "oom-killer")
 | table _time, message
 ```

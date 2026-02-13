@@ -128,7 +128,7 @@ Microsoft 365 Exchange message trace logs for email flow analysis.
 ### 1. Phishing Detection
 Find suspicious external senders:
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace"
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace"
   NOT SenderAddress="*@theFakeTshirtCompany.com"
   (Subject="*urgent*" OR Subject="*action required*" OR Subject="*verify*")
 | table _time, SenderAddress, RecipientAddress, Subject
@@ -137,7 +137,7 @@ index=cloud sourcetype="ms:o365:reporting:messagetrace"
 ### 2. Data Exfiltration via Email
 Track large emails to external recipients:
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace"
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace"
   NOT RecipientAddress="*@theFakeTshirtCompany.com"
   Size > 1000000
 | eval size_mb = round(Size / 1048576, 2)
@@ -148,7 +148,7 @@ index=cloud sourcetype="ms:o365:reporting:messagetrace"
 ### 3. Forwarding to Personal Email
 Detect data leaving via personal accounts:
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace"
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace"
   RecipientAddress IN ("*@gmail.com", "*@protonmail.com", "*@yahoo.com", "*@outlook.com")
 | stats count, sum(Size) AS total_bytes by SenderAddress, RecipientAddress
 | eval total_mb = round(total_bytes / 1048576, 2)
@@ -158,14 +158,14 @@ index=cloud sourcetype="ms:o365:reporting:messagetrace"
 ### 4. Email Volume Analysis
 Track email patterns:
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace"
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace"
 | timechart span=1h count by Status
 ```
 
 ### 5. Domain Analysis
 Identify communication with unusual domains:
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace"
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace"
   NOT RecipientAddress="*@theFakeTshirtCompany.com"
 | rex field=RecipientAddress "@(?<domain>.+)$"
 | stats count by domain
@@ -175,7 +175,7 @@ index=cloud sourcetype="ms:o365:reporting:messagetrace"
 ### 6. Exfil Email Timeline
 Track exfiltration scenario emails:
 ```spl
-index=cloud sourcetype="ms:o365:reporting:messagetrace" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" demo_id=exfil
 | sort _time
 | table _time, SenderAddress, RecipientAddress, Subject, Size
 ```

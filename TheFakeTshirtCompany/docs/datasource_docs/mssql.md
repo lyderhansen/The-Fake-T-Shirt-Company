@@ -70,21 +70,21 @@ SQL Server ERRORLOG entries from SQL-PROD-01, the primary e-commerce database se
 
 ### 1. Backup monitoring
 ```spl
-index=windows sourcetype=mssql:errorlog "Backup database"
+index=fake_tshrt sourcetype="FAKE:mssql:errorlog" "Backup database"
 | rex "processed (?<pages>\d+) pages in (?<duration>[\d.]+) seconds"
 | timechart span=1d avg(duration) AS backup_duration_sec
 ```
 
 ### 2. CPU runaway detection
 ```spl
-index=windows sourcetype=mssql:errorlog demo_id=cpu_runaway
+index=fake_tshrt sourcetype="FAKE:mssql:errorlog" demo_id=cpu_runaway
 | sort _time
 | table _time, message
 ```
 
 ### 3. Failed login brute force
 ```spl
-index=windows sourcetype=mssql:errorlog "Login failed"
+index=fake_tshrt sourcetype="FAKE:mssql:errorlog" "Login failed"
 | rex "\[CLIENT: (?<client_ip>[^\]]+)\]"
 | stats count by client_ip
 | where count > 5
@@ -92,13 +92,13 @@ index=windows sourcetype=mssql:errorlog "Login failed"
 
 ### 4. Deadlock detection
 ```spl
-index=windows sourcetype=mssql:errorlog "deadlock"
+index=fake_tshrt sourcetype="FAKE:mssql:errorlog" "deadlock"
 | timechart span=1d count AS deadlocks
 ```
 
 ### 5. xp_cmdshell usage (exfil)
 ```spl
-index=windows sourcetype=mssql:errorlog "xp_cmdshell" demo_id=exfil
+index=fake_tshrt sourcetype="FAKE:mssql:errorlog" "xp_cmdshell" demo_id=exfil
 | table _time, message
 ```
 

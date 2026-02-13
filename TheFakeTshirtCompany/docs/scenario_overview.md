@@ -8,11 +8,11 @@ Quick reference table for all demo scenarios.
 
 | Scenario | Category | Duration | Days | Peak Time | Primary Logs |
 |----------|----------|----------|------|-----------|--------------|
-| [exfil](exfil.md) | Attack | 14 days | 1-14 | Night (exfil) | ASA, CloudTrail, EntraID |
+| [exfil](exfil.md) | Attack | 14 days | 1-14 | Night (exfil) | ASA, CloudTrail, GuardDuty, Billing, EntraID, GCP Audit |
 | [ransomware](ransomware.md) | Attack | 20 min | 8 | 14:00-14:15 | WinEventLog, ASA, Meraki |
 | [phishing_test](phishing_test.md) | Attack | 3 days | 21-23 | Day 21 09:00 | Exchange, EntraID, WinEventLog |
 | [memory_leak](memory_leak.md) | Ops | 10 days | 1-10 | Day 10 14:00 | Linux vmstat |
-| [cpu_runaway](cpu_runaway.md) | Ops | 2 days | 11-12 | Day 11 15:00 | Perfmon, WinEventLog |
+| [cpu_runaway](cpu_runaway.md) | Ops | 2 days | 11-12 | Day 11 15:00 | Perfmon, WinEventLog, GCP Audit |
 | [disk_filling](disk_filling.md) | Ops | 14 days | 1-14 | Day 13-14 | Linux df |
 | [dead_letter_pricing](dead_letter_pricing.md) | Ops | 5 hours | 16 | 08:00-13:00 | ServiceBus, Orders, Access |
 | [firewall_misconfig](firewall_misconfig.md) | Network | 2 hours | 7 | 10:15-12:05 | ASA |
@@ -94,22 +94,22 @@ All scenarios are tagged with `demo_id` field:
 
 ```spl
 # Single scenario
-index=* demo_id=exfil
+index=fake_tshrt demo_id=exfil
 
 # Multiple scenarios
-index=* demo_id IN ("exfil", "ransomware_attempt")
+index=fake_tshrt demo_id IN ("exfil", "ransomware_attempt")
 
 # All scenarios
-index=* demo_id=*
+index=fake_tshrt demo_id=*
 
 # By category (attack)
-index=* demo_id IN ("exfil", "ransomware_attempt", "phishing_test")
+index=fake_tshrt demo_id IN ("exfil", "ransomware_attempt", "phishing_test")
 
 # By category (ops)
-index=* demo_id IN ("memory_leak", "cpu_runaway", "disk_filling", "dead_letter_pricing")
+index=fake_tshrt demo_id IN ("memory_leak", "cpu_runaway", "disk_filling", "dead_letter_pricing")
 
 # By category (network)
-index=* demo_id IN ("firewall_misconfig", "certificate_expiry", "ddos_attack")
+index=fake_tshrt demo_id IN ("firewall_misconfig", "certificate_expiry", "ddos_attack")
 ```
 
 ---
