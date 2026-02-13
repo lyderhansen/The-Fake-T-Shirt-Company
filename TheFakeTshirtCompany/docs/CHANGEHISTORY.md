@@ -4,6 +4,92 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~14:00 UTC -- Phase 13: docs/ Directory Reorganization
+
+Reorganized the flat `docs/` directory (20+ files mixed together) into a clean subfolder structure.
+
+### New structure
+
+```
+docs/
+├── README.md              # Rewritten as navigation index
+├── CHANGEHISTORY.md       # Stays at root
+├── scenarios/             # 10 scenario guides + README (overview)
+├── datasource_docs/       # 29 data source docs (unchanged)
+├── reference/             # SPL queries, design language, floor plans, architecture
+├── guides/                # Demo talking track, Docker setup
+├── graphic/               # Floor plan images, logos (unchanged)
+└── archive/               # 6 obsolete docs (old validations, changelog, checklist)
+```
+
+### File moves
+
+| Action | From | To |
+|--------|------|-----|
+| Move (10 files) | `docs/*.md` (scenario docs) | `docs/scenarios/` |
+| Move+Rename | `docs/scenario_overview.md` | `docs/scenarios/README.md` |
+| Move (3 files) | `docs/splunk_queries.md`, `dashboard_design_language.md`, `floor_plan.md` | `docs/reference/` |
+| Move+Rename | `docs/The FAKE T-Shirt Company...html` | `docs/reference/architecture.html` |
+| Move+Rename | `docs/DEMO_TALKING_TRACK.md` | `docs/guides/demo_talking_track.md` |
+| Move | `docs/Docker/docker.txt` | `docs/guides/docker_setup.md` |
+| Move (6 files) | Stale docs (validation reports, old changelog, checklist) | `docs/archive/` |
+| Delete | `docs/Docker/` | Empty directory removed |
+
+### Other updates
+
+- `docs/README.md` -- rewritten as directory index with all 10 scenarios, timeline, key personnel
+- `CLAUDE.md` -- Repository Structure updated with new docs/ subfolder layout
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `docs/README.md` | Rewritten as navigation index |
+| `CLAUDE.md` | Updated Repository Structure section |
+| `docs/CHANGEHISTORY.md` | This entry |
+| 26 files | Moved to new locations (see table above) |
+
+---
+
+## 2026-02-13 ~12:00 UTC -- Phase 12: Documentation Gaps (Office 365 Audit + Webex Cleanup)
+
+### New: Office 365 Unified Audit Log documentation
+
+Created `docs/datasource_docs/office_audit.md` -- comprehensive documentation for `generate_office_audit.py` (941-line generator):
+
+- 3 workloads: SharePoint (25%), OneDrive (35%), Teams (40%)
+- 30+ operation types across 6 RecordTypes (6, 7, 25, 14, 146, 18)
+- ~170 events/peak hour at scale 1.0
+- 8 SharePoint sites with department-based access control
+- 9 Teams with 40+ channels
+- 3 scenario integrations: exfil (Days 4-13, multi-phase data theft), ransomware_attempt (Days 8-9, encryption + recovery), phishing_test (Days 21-23, SafeLinks + admin review)
+- 8 SPL use case queries, 4 talking points
+- All SPL uses `index=fake_tshrt sourcetype="FAKE:o365:management:activity"`
+
+### Deleted: Duplicate webex_meetings.md
+
+Removed `docs/datasource_docs/webex_meetings.md` -- was a duplicate of `webex_ta.md`:
+- Both documented the same generator (`generate_webex_ta.py`)
+- Both covered the same sourcetypes (`cisco:webex:meetings:history:*`)
+- `webex_ta.md` is more complete (includes scenario integration)
+
+### README.md updates
+
+- Added Office 365 Audit to Cloud & Identity table and Volume Summary
+- Removed duplicate webex_meetings.md entry from Collaboration table
+- Renamed webex_ta.md label from "Legacy" to primary
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `docs/datasource_docs/office_audit.md` | **NEW** -- comprehensive M365 Unified Audit Log documentation |
+| `docs/datasource_docs/webex_meetings.md` | **DELETED** -- duplicate of webex_ta.md |
+| `docs/datasource_docs/README.md` | Added office_audit, removed webex_meetings, updated volume summary |
+| `docs/CHANGEHISTORY.md` | This entry |
+
+---
+
 ## 2026-02-12 ~23:00 UTC -- Phase 11: Scenario Doc Updates + SPL Query Standardization
 
 ### Problem

@@ -132,7 +132,13 @@ The-Fake-T-Shirt-Company/
     │   ├── lookups/              # CSV lookup tables
     │   ├── metadata/             # Splunk metadata
     │   └── static/               # App icons
-    └── docs/                     # Scenario docs, SPL queries, data source docs
+    └── docs/                     # Project documentation
+        ├── scenarios/            # 10 scenario guides (exfil, ransomware, etc.)
+        ├── datasource_docs/      # 29 data source docs + index
+        ├── reference/            # SPL queries, design language, floor plans
+        ├── guides/               # Demo talking track, Docker setup
+        ├── graphic/              # Floor plan images, logos
+        └── archive/              # Obsolete docs (kept for history)
 ```
 
 ## Tech Stack
