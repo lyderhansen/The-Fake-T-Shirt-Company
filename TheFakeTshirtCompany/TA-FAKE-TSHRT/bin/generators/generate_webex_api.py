@@ -34,6 +34,7 @@ from shared.company import (
     USERS, get_random_user, LOCATIONS, get_users_by_location, NETWORK_CONFIG,
     TENANT, ORG_NAME, TENANT_ID,
 )
+from shared.meeting_schedule import _meeting_schedule
 from scenarios.registry import expand_scenarios
 
 # =============================================================================
@@ -541,48 +542,106 @@ def generate_events_for_day(
             ))
 
     # === Meetings ===
-    if is_wknd:
-        meeting_count = int(random.randint(3, 6) * scale)
+    # Agenda lookup for meeting titles from shared schedule
+    _AGENDA_MAP = {t["name"]: t["agenda"] for t in MEETING_TEMPLATES}
+    _DEFAULT_AGENDA = "Scheduled meeting"
+
+    # Try shared schedule first (populated by generate_webex.py in Phase 1)
+    if _meeting_schedule:
+        target_date = dt.date() if hasattr(dt, 'date') else dt
+        for key, scheduled_list in _meeting_schedule.items():
+            for scheduled in scheduled_list:
+                # Filter to this day
+                meeting_date = scheduled.start_time.date() if hasattr(scheduled.start_time, 'date') else scheduled.start_time
+                if meeting_date != target_date:
+                    continue
+                # Skip ghosts and walk-ins
+                if scheduled.is_ghost or scheduled.is_walkin:
+                    continue
+
+                # Look up host user
+                host_username = scheduled.organizer_email.split("@")[0] if scheduled.organizer_email else ""
+                host_user = USERS.get(host_username)
+                if not host_user:
+                    continue
+
+                # Build meeting record from shared schedule data
+                meeting_demo_id = demo_id if host_username in EXFIL_USERS else None
+                agenda = _AGENDA_MAP.get(scheduled.meeting_title, _DEFAULT_AGENDA)
+                template_for_record = {"name": scheduled.meeting_title, "agenda": agenda}
+                meeting_record = generate_meeting_record(
+                    host_user, scheduled.start_time, scheduled.end_time,
+                    template_for_record, demo_id=meeting_demo_id
+                )
+                meetings.append(meeting_record)
+
+                # Generate quality records for participants from shared schedule
+                participants_for_quality = [host_user]
+                used_usernames = {host_username}
+                for p_email in scheduled.participants:
+                    p_username = p_email.split("@")[0] if "@" in p_email else p_email
+                    if p_username == host_username:
+                        continue
+                    p_user = USERS.get(p_username)
+                    if p_user and p_username not in used_usernames:
+                        participants_for_quality.append(p_user)
+                        used_usernames.add(p_username)
+
+                for participant in participants_for_quality:
+                    join_offset = timedelta(minutes=random.randint(-3, 5))
+                    leave_offset = timedelta(minutes=random.randint(-5, 3))
+                    join_time = scheduled.start_time + join_offset
+                    leave_time = scheduled.end_time + leave_offset
+
+                    if join_time < leave_time:
+                        part_demo_id = demo_id if participant.username in EXFIL_USERS else None
+                        meeting_qualities.append(generate_meeting_quality_record(
+                            participant, meeting_record["id"], join_time, leave_time, demo_id=part_demo_id
+                        ))
     else:
-        meeting_count = int(random.randint(22, 44) * scale)
+        # Fallback: independent generation (when running standalone without webex)
+        if is_wknd:
+            meeting_count = int(random.randint(3, 6) * scale)
+        else:
+            meeting_count = int(random.randint(22, 44) * scale)
 
-    for _ in range(meeting_count):
-        user = get_random_user()
-        template = random.choice(MEETING_TEMPLATES)
+        for _ in range(meeting_count):
+            user = get_random_user()
+            template = random.choice(MEETING_TEMPLATES)
 
-        hour = random.randint(8, 17)
-        minute = random.choice([0, 15, 30, 45])
-        start_time = dt.replace(hour=hour, minute=minute, second=0)
+            hour = random.randint(8, 17)
+            minute = random.choice([0, 15, 30, 45])
+            start_time = dt.replace(hour=hour, minute=minute, second=0)
 
-        duration_mins = random.randint(template["duration"][0], template["duration"][1])
-        end_time = start_time + timedelta(minutes=duration_mins)
+            duration_mins = random.randint(template["duration"][0], template["duration"][1])
+            end_time = start_time + timedelta(minutes=duration_mins)
 
-        meeting_demo_id = demo_id if user.username in EXFIL_USERS else None
-        meeting_record = generate_meeting_record(user, start_time, end_time, template, demo_id=meeting_demo_id)
-        meetings.append(meeting_record)
+            meeting_demo_id = demo_id if user.username in EXFIL_USERS else None
+            meeting_record = generate_meeting_record(user, start_time, end_time, template, demo_id=meeting_demo_id)
+            meetings.append(meeting_record)
 
-        # Generate quality records for participants
-        num_participants = random.randint(template["participants"][0], template["participants"][1])
-        participants = [user]
-        used_usernames = {user.username}
+            # Generate quality records for participants
+            num_participants = random.randint(template["participants"][0], template["participants"][1])
+            participants = [user]
+            used_usernames = {user.username}
 
-        for _ in range(num_participants - 1):
-            participant = get_random_user()
-            if participant.username not in used_usernames:
-                participants.append(participant)
-                used_usernames.add(participant.username)
+            for _ in range(num_participants - 1):
+                participant = get_random_user()
+                if participant.username not in used_usernames:
+                    participants.append(participant)
+                    used_usernames.add(participant.username)
 
-        for participant in participants:
-            join_offset = timedelta(minutes=random.randint(-3, 5))
-            leave_offset = timedelta(minutes=random.randint(-5, 3))
-            join_time = start_time + join_offset
-            leave_time = end_time + leave_offset
+            for participant in participants:
+                join_offset = timedelta(minutes=random.randint(-3, 5))
+                leave_offset = timedelta(minutes=random.randint(-5, 3))
+                join_time = start_time + join_offset
+                leave_time = end_time + leave_offset
 
-            if join_time < leave_time:
-                part_demo_id = demo_id if participant.username in EXFIL_USERS else None
-                meeting_qualities.append(generate_meeting_quality_record(
-                    participant, meeting_record["id"], join_time, leave_time, demo_id=part_demo_id
-                ))
+                if join_time < leave_time:
+                    part_demo_id = demo_id if participant.username in EXFIL_USERS else None
+                    meeting_qualities.append(generate_meeting_quality_record(
+                        participant, meeting_record["id"], join_time, leave_time, demo_id=part_demo_id
+                    ))
 
     # === Call History ===
     if not is_wknd:

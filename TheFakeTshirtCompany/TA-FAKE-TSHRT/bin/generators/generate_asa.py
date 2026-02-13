@@ -84,7 +84,7 @@ def asa_pri(severity: int) -> str:
 
 # Import scenarios
 from scenarios.security import ExfilScenario, RansomwareAttemptScenario
-from scenarios.ops import MemoryLeakScenario
+from scenarios.ops import MemoryLeakScenario, CpuRunawayScenario
 from scenarios.network import FirewallMisconfigScenario, CertificateExpiryScenario, DdosAttackScenario
 from scenarios.registry import expand_scenarios, source_needed_for_scenarios
 
@@ -1041,7 +1041,7 @@ _time_utils = None
 
 def init_scenarios(config: Config, company: Company, time_utils: TimeUtils):
     """Initialize scenario instances."""
-    global _exfil_scenario, _memleak_scenario, _fw_misconfig_scenario, _ransomware_scenario, _cert_expiry_scenario, _ddos_attack_scenario, _time_utils
+    global _exfil_scenario, _memleak_scenario, _fw_misconfig_scenario, _ransomware_scenario, _cert_expiry_scenario, _ddos_attack_scenario, _cpu_runaway_scenario, _time_utils
     _time_utils = time_utils
     _exfil_scenario = ExfilScenario(config, company, time_utils)
     _memleak_scenario = MemoryLeakScenario(demo_id_enabled=config.demo_id_enabled)
@@ -1049,6 +1049,7 @@ def init_scenarios(config: Config, company: Company, time_utils: TimeUtils):
     _ransomware_scenario = RansomwareAttemptScenario(demo_id_enabled=config.demo_id_enabled)
     _cert_expiry_scenario = CertificateExpiryScenario(demo_id_enabled=config.demo_id_enabled)
     _ddos_attack_scenario = DdosAttackScenario(demo_id_enabled=config.demo_id_enabled)
+    _cpu_runaway_scenario = CpuRunawayScenario(demo_id_enabled=config.demo_id_enabled)
 
 
 # =============================================================================
@@ -1090,6 +1091,7 @@ def generate_asa_logs(
     include_ransomware = "ransomware_attempt" in active_scenarios
     include_cert_expiry = "certificate_expiry" in active_scenarios
     include_ddos_attack = "ddos_attack" in active_scenarios
+    include_cpu_runaway = "cpu_runaway" in active_scenarios
 
     # Scale base events
     # 10x increase from 200 to 2000 to better reflect perimeter traffic
@@ -1145,6 +1147,9 @@ def generate_asa_logs(
 
             if include_ddos_attack:
                 all_events.extend(_ddos_attack_scenario.generate_hour(day, hour, _time_utils))
+
+            if include_cpu_runaway:
+                all_events.extend(_cpu_runaway_scenario.asa_get_events(day, hour, _time_utils))
 
         if not quiet:
             print(f"  [ASA] Day {day + 1}/{days} ({date_str})... done", file=sys.stderr)

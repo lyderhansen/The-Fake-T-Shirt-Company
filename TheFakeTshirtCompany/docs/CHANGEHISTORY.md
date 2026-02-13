@@ -4,6 +4,42 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~16:00 UTC -- Sync Webex TA + API with Shared Meeting Schedule
+
+### Changed
+
+- **`bin/generators/generate_webex_ta.py`** -- Now reads from the shared `meeting_schedule.py` (populated by `generate_webex.py` in Phase 1) instead of generating independent meetings. Same meeting titles, times, hosts, and participants now appear across all Webex sourcetypes. Falls back to independent generation for standalone use.
+- **`bin/generators/generate_webex_api.py`** -- Same as above: meetings and quality records now read from shared schedule. Admin audit, security audit, and call history remain independent (not meeting-specific). Falls back to independent generation for standalone use.
+- **`bin/main_generate.py`** -- Added `webex_ta` and `webex_api` to `GENERATOR_DEPENDENCIES` (both depend on `webex`), moving them from Phase 1 to Phase 2.
+
+### Added
+
+- **`docs/reference/meeting_correlation_cheatsheet.md`** -- Quick reference for tracing meetings across all correlated sources: room-to-device mapping (21 rooms), correlation fields per sourcetype, Exchange email subject patterns, meeting behavior patterns, and sample SPL queries.
+
+### Context
+
+Previously, all three Webex generators had overlapping meeting template names ("Team Standup", "Project Review", etc.) but generated them independently -- different times, hosts, and participants. In Splunk, the same meeting title would appear at 3 different times with 3 different organizers, making cross-sourcetype correlation impossible. Now all five correlated generators (webex, webex_ta, webex_api, exchange, meraki) produce events for the exact same meetings.
+
+### Verification
+
+- Generated webex + webex_ta + webex_api with `--days=3 --scenarios=exfil`: all 177 meetings match perfectly across all 3 sourcetypes (same title, time, host)
+- Exchange calendar invites include matching meeting titles with room names
+- Phase 2 dependency ordering confirmed working
+
+---
+
+## 2026-02-14 ~14:00 UTC -- Fix cpu_runaway ASA Plot Hole
+
+### Fixed
+
+- **`bin/generators/generate_asa.py`** -- Integrated `CpuRunawayScenario.asa_get_events()` which was already fully implemented in the scenario class but never called from the generator. ASA now generates TCP SYN Timeout events (APP-BOS-01 -> SQL-PROD-01:1433) during the cpu_runaway scenario's critical phase (Days 11-12). 157 events in test run.
+
+### Context
+
+Full audit of all 10 scenarios vs all generators confirmed this was the only remaining plot hole. All 10 scenarios now have 100% source coverage matching their registry declarations.
+
+---
+
 ## 2026-02-14 ~12:00 UTC -- Fix Scenario Source Gaps
 
 ### Fixed

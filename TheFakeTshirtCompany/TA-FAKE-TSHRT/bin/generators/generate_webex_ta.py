@@ -27,7 +27,9 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import date_add, get_hour_activity_level, is_weekend
 from shared.company import (
     USERS, get_random_user, LOCATIONS, get_users_by_location, NETWORK_CONFIG,
+    TENANT,
 )
+from shared.meeting_schedule import _meeting_schedule
 from scenarios.registry import expand_scenarios
 
 # =============================================================================
@@ -35,7 +37,6 @@ from scenarios.registry import expand_scenarios
 # =============================================================================
 
 WEBEX_SITE_URL = "theFakeTshirtCompany.webex.com"
-TENANT = "theFakeTshirtCompany.com"
 
 # Meeting types (MC = Meeting Center)
 MEETING_TYPES = ["MC", "TC", "EC", "SC"]  # Meeting, Training, Event, Support
@@ -268,6 +269,134 @@ def create_attendee_record(
 # MEETING SIMULATION
 # =============================================================================
 
+def _lookup_user_by_email(email: str):
+    """Look up a User object by email address. Returns None if not found."""
+    username = email.split("@")[0] if "@" in email else email
+    return USERS.get(username)
+
+
+def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], day: int) -> Optional[MeetingRecord]:
+    """Convert a ScheduledMeeting from the shared schedule to a MeetingRecord.
+
+    This ensures webex_ta records match the same meetings that appear in
+    webex device events, Exchange calendar invites, and Meraki sensor data.
+    """
+    # Skip ghost meetings (no-shows don't produce TA records)
+    if scheduled_meeting.is_ghost:
+        return None
+    # Skip walk-ins (no Webex booking)
+    if scheduled_meeting.is_walkin:
+        return None
+
+    # Determine host info
+    host_email = scheduled_meeting.organizer_email
+    host_name = scheduled_meeting.organizer_name
+    host_username = host_email.split("@")[0] if "@" in host_email else ""
+
+    # Determine demo_id
+    demo_id = None
+    if "exfil" in active_scenarios and day <= 13:
+        if host_username in EXFIL_USERS:
+            demo_id = "exfil"
+
+    # Build attendee records from the shared participant list
+    attendees = []
+    location = scheduled_meeting.location_code
+
+    # Host as first attendee
+    host_join = scheduled_meeting.start_time - timedelta(minutes=random.randint(1, 5))
+    host_leave = scheduled_meeting.end_time + timedelta(minutes=random.randint(0, 2))
+    attendees.append(AttendeeRecord(
+        name=host_name,
+        email=host_email,
+        join_time=host_join,
+        leave_time=host_leave,
+        ip_address=get_user_ip(location),
+        client_type=random.choice(CLIENT_TYPES[:4]),
+        client_os=random.choice(CLIENT_OS[:4]),
+        is_external=False,
+        is_host=True,
+    ))
+
+    # Other participants from the shared schedule
+    for p_email in scheduled_meeting.participants:
+        if p_email == host_email:
+            continue  # Skip host (already added)
+
+        user = _lookup_user_by_email(p_email)
+        is_external = user is None or f"@{TENANT}" not in p_email
+
+        if user:
+            name = user.display_name
+            ip_address = get_user_ip(user.location)
+        else:
+            # External participant
+            name = p_email.split("@")[0].replace(".", " ").title()
+            ip_address = f"{random.randint(50, 200)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}"
+
+        # Join/leave with realistic variance
+        join_offset = random.choice([
+            timedelta(seconds=random.randint(-60, 60)),
+            timedelta(seconds=random.randint(-60, 60)),
+            timedelta(minutes=random.randint(1, 5)),
+            timedelta(minutes=random.randint(-3, 0)),
+        ])
+        leave_offset = random.choice([
+            timedelta(seconds=random.randint(-30, 30)),
+            timedelta(seconds=random.randint(-30, 30)),
+            timedelta(minutes=random.randint(-10, -1)),
+            timedelta(minutes=random.randint(0, 2)),
+        ])
+        join_time = scheduled_meeting.start_time + join_offset
+        leave_time = scheduled_meeting.end_time + leave_offset
+        if join_time > leave_time:
+            join_time = scheduled_meeting.start_time
+            leave_time = scheduled_meeting.end_time
+
+        attendees.append(AttendeeRecord(
+            name=name,
+            email=p_email,
+            join_time=join_time,
+            leave_time=leave_time,
+            ip_address=ip_address,
+            client_type=random.choice(CLIENT_TYPES),
+            client_os=random.choice(CLIENT_OS),
+            is_external=is_external,
+            is_host=False,
+        ))
+
+    return MeetingRecord(
+        conf_id=generate_conf_id(),
+        meeting_key=generate_meeting_key(),
+        conf_name=scheduled_meeting.meeting_title,
+        host_name=host_name,
+        host_email=host_email,
+        host_webex_id=host_username,
+        start_time=scheduled_meeting.start_time,
+        end_time=scheduled_meeting.end_time,
+        location=location,
+        meeting_type=random.choice(MEETING_TYPES),
+        attendees=attendees,
+        demo_id=demo_id,
+    )
+
+
+def _get_scheduled_meetings_for_day(day: int, location: str) -> list:
+    """Get all meetings for a specific day and location from the shared schedule."""
+    meetings = []
+    for key, scheduled_list in _meeting_schedule.items():
+        loc_code, room = key.split(":", 1)
+        if loc_code != location:
+            continue
+        for m in scheduled_list:
+            # Check if meeting is on the right day by comparing dates
+            if m.start_time.day == (day + 1) or m.start_time.timetuple().tm_yday == day + 1:
+                # More robust: compare the actual date
+                pass
+            meetings.append(m)
+    return meetings
+
+
 def generate_meetings_for_day(
     base_date: str,
     day: int,
@@ -275,18 +404,36 @@ def generate_meetings_for_day(
     scale: float,
     active_scenarios: List[str],
 ) -> List[MeetingRecord]:
-    """Generate all meetings for a single day at a location."""
+    """Generate all meetings for a single day at a location.
+
+    If the shared meeting schedule is populated (by generate_webex.py in Phase 1),
+    reads from it to produce correlated records. Otherwise falls back to
+    independent generation for standalone use.
+    """
     meetings = []
-
     dt = date_add(base_date, day)
-    is_wknd = is_weekend(dt)
 
-    # Get users for this location
+    # Try shared schedule first (populated by generate_webex.py)
+    if _meeting_schedule:
+        target_date = dt.date() if hasattr(dt, 'date') else dt
+        for key, scheduled_list in _meeting_schedule.items():
+            loc_code = key.split(":", 1)[0]
+            if loc_code != location:
+                continue
+            for scheduled in scheduled_list:
+                meeting_date = scheduled.start_time.date() if hasattr(scheduled.start_time, 'date') else scheduled.start_time
+                if meeting_date == target_date:
+                    meeting = _convert_scheduled_meeting(scheduled, active_scenarios, day)
+                    if meeting:
+                        meetings.append(meeting)
+        return meetings
+
+    # Fallback: independent generation (when running standalone without webex)
+    is_wknd = is_weekend(dt)
     location_users = get_users_by_location(location)
     if not location_users:
         return meetings
 
-    # Calculate number of meetings based on activity level and scale
     if is_wknd:
         base_meetings = random.randint(3, 6)
     else:
@@ -294,7 +441,6 @@ def generate_meetings_for_day(
 
     num_meetings = int(base_meetings * scale)
 
-    # Generate meetings throughout business hours (8 AM - 6 PM)
     for _ in range(num_meetings):
         meeting = generate_single_meeting(
             dt, location, location_users, active_scenarios, day

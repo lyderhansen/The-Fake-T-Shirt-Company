@@ -111,9 +111,11 @@ SOURCE_GROUPS = {
 GENERATOR_DEPENDENCIES = {
     "orders": ["access"],
     "servicebus": ["access"],
-    "meraki": ["webex"],  # Meraki door sensors use Webex meeting schedule
-    "exchange": ["webex"],  # Exchange calendar emails use Webex meeting schedule
-    "sap": ["access"],     # SAP reads order_registry.json for sales order correlation
+    "meraki": ["webex"],      # Meraki door sensors use Webex meeting schedule
+    "exchange": ["webex"],    # Exchange calendar emails use Webex meeting schedule
+    "webex_ta": ["webex"],    # Webex TA reads shared meeting schedule
+    "webex_api": ["webex"],   # Webex API reads shared meeting schedule
+    "sap": ["access"],        # SAP reads order_registry.json for sales order correlation
 }
 
 
