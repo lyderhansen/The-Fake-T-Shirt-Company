@@ -4,6 +4,24 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~12:00 UTC -- Fix Scenario Source Gaps
+
+### Fixed
+
+- **`bin/generators/generate_secure_access.py`** -- Added `_generate_phishing_test_proxy_events()` function + integration call. Phishing test scenario now generates Secure Access Proxy logs (~95 events over 3 days) for employees clicking the simulated phishing link.
+- **`bin/generators/generate_catalyst.py`** -- Enhanced `_generate_firewall_misconfig_events()` with interface flap events (`%LINK-3-UPDOWN`, `%LINEPROTO-5-UPDOWN`) on CAT-BOS-DIST-01 uplink during outage window (hours 10-12). Previously only generated STP topology traps.
+
+### Corrected Documentation
+
+- **`CLAUDE.md`** -- Updated Known Scenario Source Gaps: 2 of 4 gaps were already implemented (ransomware+ASA, certificate_expiry+Access). Remaining 2 gaps now fixed.
+
+### Verification
+
+- `secure_access --scenarios=phishing_test --days=25`: 95 proxy events with `demo_id=phishing_test` (days 21-23)
+- `catalyst --scenarios=firewall_misconfig --days=14`: 10 events -- interface down at hour 10, STP traps hours 10-11, interface up at hour 12
+
+---
+
 ## 2026-02-14 ~10:00 UTC -- Consolidate Nested Docs into Main Docs
 
 ### Moved

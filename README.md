@@ -4,7 +4,7 @@ A Splunk Technology Add-on that generates realistic synthetic log data for demos
 
 > **AI Disclaimer:** This project was primarily developed with AI assistance (Claude).
 > While care has been taken to ensure accuracy, there may be inconsistencies or errors
-> in the generated logs that have not yet been discovered. Please report any issues.
+> in the generated logs that have not yet been discovered.
 
 ---
 

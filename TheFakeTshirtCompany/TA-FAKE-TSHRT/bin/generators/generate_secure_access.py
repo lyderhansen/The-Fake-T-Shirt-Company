@@ -1023,6 +1023,39 @@ def _generate_phishing_test_dns_events(start_date: str, day: int, hour: int) -> 
     return events
 
 
+def _generate_phishing_test_proxy_events(start_date: str, day: int, hour: int) -> List[str]:
+    """Generate Proxy events for phishing_test scenario.
+
+    Days 20-22: Subset of employees who click the phishing link visit the
+    credential-harvesting page.  The domain is an internal IT test so the
+    action is ALLOWED and the category is "Business Services".
+    """
+    events = []
+
+    if 20 <= day <= 22 and 9 <= hour <= 17:
+        # ~2-5 employees per hour actually click the link (fewer than DNS lookups)
+        num_clicks = random.randint(2, 5)
+        phishing_paths = [
+            "/login",
+            "/login?ref=email",
+            "/verify-account",
+            "/reset-password",
+        ]
+        for _ in range(num_clicks):
+            user = USERS[random.choice(USER_KEYS)]
+            path = random.choice(phishing_paths)
+            events.append(_generate_proxy_event(
+                start_date, day, hour, user=user,
+                url_override=f"https://phishing-sim.thefaketshirtcompany.com{path}",
+                categories_override="Business Services",
+                action_override="ALLOWED",
+                status_override="200",
+                demo_id="phishing_test"
+            ))
+
+    return events
+
+
 # =============================================================================
 # MAIN GENERATOR FUNCTION
 # =============================================================================
@@ -1147,6 +1180,10 @@ def generate_secure_access_logs(
                 phish_dns = _generate_phishing_test_dns_events(start_date, day, hour)
                 dns_events.extend(phish_dns)
                 demo_id_counts["dns"] += len(phish_dns)
+
+                phish_proxy = _generate_phishing_test_proxy_events(start_date, day, hour)
+                proxy_events.extend(phish_proxy)
+                demo_id_counts["proxy"] += len(phish_proxy)
 
     # Sort all events by timestamp (tab-separated prefix)
     dns_events.sort()

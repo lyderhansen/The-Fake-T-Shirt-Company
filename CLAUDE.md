@@ -378,16 +378,14 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 
 ### Known Scenario Source Gaps
 
-These are code bugs where a scenario SHOULD generate events for a source but currently does not:
+All previously identified gaps have been resolved:
 
-| Scenario | Missing Source | Expected Events |
-|----------|--------------|----------------|
-| ransomware_attempt | ASA | Firewall events for C2 traffic and endpoint isolation |
-| phishing_test | Secure Access Proxy | Proxy logs for users clicking phishing URLs |
-| firewall_misconfig | Catalyst Switch | IOS-XE events for impacted routing/switching |
-| certificate_expiry | Apache Access | HTTP 502/503 errors from expired cert |
-
-These gaps require generator code fixes (not data regeneration). Tracked for future fix.
+| Scenario | Source | Status |
+|----------|--------|--------|
+| ransomware_attempt | ASA | Was already implemented (asa_hour + asa_crosssite_hour) |
+| phishing_test | Secure Access Proxy | Fixed -- added _generate_phishing_test_proxy_events() |
+| firewall_misconfig | Catalyst Switch | Fixed -- enhanced with LINK/LINEPROTO interface flaps |
+| certificate_expiry | Apache Access | Was already implemented (CertificateExpiryScenario.access_hour) |
 
 ## Company Data (company.py)
 

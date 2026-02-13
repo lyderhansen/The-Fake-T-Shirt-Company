@@ -472,19 +472,63 @@ def _generate_firewall_misconfig_events(start_date: str, day: int, hour: int,
                                         seq_counter: list) -> List[str]:
     """Generate Catalyst events for firewall_misconfig scenario.
 
-    Day 6: STP reconvergence from network instability.
+    Day 6 (0-indexed 5), 10:15-12:05: ASA ACL misconfiguration causes
+    upstream connectivity issues visible on the Boston distribution switch.
+
+    Events:
+        - Hour 10: Uplink interface flap on CAT-BOS-DIST-01 (link to FW-EDGE-01)
+        - Hours 10-12: STP topology changes across all switches
+        - Hour 12: Interface recovers after ASA ACL is corrected
     """
     events = []
 
-    if day == 6 and 10 <= hour <= 12:
-        # STP reconvergence
-        if random.random() < 0.6:
-            for switch in SWITCH_NAMES:
-                vlan = random.choice([10, 20, 30])
+    if day != 5:
+        return events
+
+    switch = "CAT-BOS-DIST-01"
+    uplink = CATALYST_SWITCHES[switch]["uplink_ports"][0]  # TenGigabitEthernet1/1/1
+
+    if hour == 10:
+        # 10:15 - Uplink to FW-EDGE-01 goes down after bad ACL applied
+        ts = _format_syslog_ts(start_date, day, hour)
+
+        msg_link = f"%LINK-3-UPDOWN: Interface {uplink}, changed state to down"
+        seq_counter[0] += 1
+        events.append(_build_syslog_line(PRI_ERROR, seq_counter[0], switch, ts, msg_link, "firewall_misconfig"))
+
+        msg_proto = f"%LINEPROTO-5-UPDOWN: Line protocol on Interface {uplink}, changed state to down"
+        seq_counter[0] += 1
+        events.append(_build_syslog_line(PRI_NOTICE, seq_counter[0], switch, ts, msg_proto, "firewall_misconfig"))
+
+        # STP reconvergence triggered by link loss
+        for sw in SWITCH_NAMES:
+            vlan = random.choice([10, 20, 30])
+            ts2 = _format_syslog_ts(start_date, day, hour)
+            msg = f"%SPANTREE-5-TOPOTRAP: Topology change Trap for vlan {vlan}"
+            seq_counter[0] += 1
+            events.append(_build_syslog_line(PRI_NOTICE, seq_counter[0], sw, ts2, msg, "firewall_misconfig"))
+
+    elif hour == 11:
+        # Ongoing instability — periodic STP traps
+        if random.random() < 0.7:
+            for sw in SWITCH_NAMES:
+                vlan = random.choice([10, 20, 30, 40])
                 ts = _format_syslog_ts(start_date, day, hour)
                 msg = f"%SPANTREE-5-TOPOTRAP: Topology change Trap for vlan {vlan}"
                 seq_counter[0] += 1
-                events.append(_build_syslog_line(PRI_NOTICE, seq_counter[0], switch, ts, msg, "firewall_misconfig"))
+                events.append(_build_syslog_line(PRI_NOTICE, seq_counter[0], sw, ts, msg, "firewall_misconfig"))
+
+    elif hour == 12:
+        # 12:05 - ACL corrected, uplink recovers
+        ts = _format_syslog_ts(start_date, day, hour)
+
+        msg_link = f"%LINK-3-UPDOWN: Interface {uplink}, changed state to up"
+        seq_counter[0] += 1
+        events.append(_build_syslog_line(PRI_ERROR, seq_counter[0], switch, ts, msg_link, "firewall_misconfig"))
+
+        msg_proto = f"%LINEPROTO-5-UPDOWN: Line protocol on Interface {uplink}, changed state to up"
+        seq_counter[0] += 1
+        events.append(_build_syslog_line(PRI_NOTICE, seq_counter[0], switch, ts, msg_proto, "firewall_misconfig"))
 
     return events
 
