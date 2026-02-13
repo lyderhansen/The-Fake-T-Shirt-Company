@@ -4,6 +4,14 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~06:00 UTC -- Root-Level README.md
+
+### Created
+
+- **`README.md` (git root)** -- New root-level README at same location as CLAUDE.md. Adapted from `TheFakeTshirtCompany/README.md` with adjusted relative links (prefixed with `TheFakeTshirtCompany/`). Includes project overview, repo structure from git root, quick start, data source summary, scenario table, and documentation index.
+
+---
+
 ## 2026-02-14 ~05:00 UTC -- P3/P4 Quality Checklist: Scenario Dashboards, CIM Fields, Documentation
 
 Completed remaining P3 and P4 items from QUALITY_CHECKLIST.md.
