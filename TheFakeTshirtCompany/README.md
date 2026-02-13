@@ -89,6 +89,29 @@ All sourcetypes are prefixed with `FAKE:` (e.g., `FAKE:cisco:asa`) and indexed t
 
 ---
 
+## Custom Fields (Not in Real Logs)
+
+The generators inject a few synthetic fields that do **not** exist in real-world log data.
+These fields enable scenario filtering, cross-source correlation, and host routing in Splunk.
+
+| Field | Where | Purpose |
+|-------|-------|---------|
+| `demo_id` | All 26 generators, all sourcetypes | Tags events belonging to a scenario (e.g., `demo_id=exfil`). Appended as KV pair in syslog or JSON field in structured logs. Empty string for baseline events. |
+| `IDX_demo_id` | Indexed field (transforms.conf) | Index-time copy of `demo_id` for tstats acceleration. Use `IDX_demo_id=exfil` in tstats queries. |
+| `demo_host` | Perfmon only (7 sourcetypes) | Explicit host identifier for Perfmon multiline events. Used by transforms.conf to set `host` metadata since Perfmon events lack a native hostname field. |
+| `wrong_price` | Retail orders (dead_letter_pricing scenario only) | Boolean flag on orders placed during the pricing error window. |
+| `revenue_impact` | Retail orders (dead_letter_pricing scenario only) | Dollar amount of revenue lost/gained per order due to pricing errors. |
+| `originalPrice` | Retail orders (dead_letter_pricing scenario only) | Per-item original price before the dead-letter error modified it. |
+| `priceErrorType` | Retail orders (dead_letter_pricing scenario only) | Type of pricing error (`price_doubled`, `price_halved`). |
+
+**Example -- filtering scenario events:**
+```spl
+index=fake_tshrt demo_id=exfil | stats count by sourcetype
+| tstats count where index=fake_tshrt IDX_demo_id=ddos_attack by _time span=1h
+```
+
+---
+
 ## Scenarios (10)
 
 | Scenario | Category | Duration | What Happens |

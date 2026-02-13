@@ -4,6 +4,15 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~09:00 UTC -- Document Custom Fields in Both READMEs
+
+### Added
+
+- **`README.md` (git root)** + **`TheFakeTshirtCompany/README.md`** -- Added "Custom Fields (Not in Real Logs)" section documenting all synthetic fields injected by generators: `demo_id`, `IDX_demo_id`, `demo_host`, `wrong_price`, `revenue_impact`, `originalPrice`, `priceErrorType`. Includes where each field appears, its purpose, and example SPL queries for filtering.
+- **`CLAUDE.md`** -- Already had this information; README sections now match.
+
+---
+
 ## 2026-02-14 ~08:00 UTC -- Quick Start Rewrite in Both READMEs
 
 ### Updated
