@@ -139,3 +139,13 @@ index=fake_tshrt sourcetype="FAKE:cisco:ios" "LINEPROTO-5-UPDOWN" demo_id=ddos_a
 - [Meraki](meraki.md) - SD-WAN and wireless
 - [Cisco ACI](aci.md) - Data center fabric
 - [Catalyst Center](catalyst_center.md) - Network assurance
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Cisco Catalyst Add-on for Splunk](https://splunkbase.splunk.com/app/7538) |
+| **Ingestion** | Syslog (UDP/TCP) to Splunk or [SC4S](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/) |
+| **Real sourcetype** | `cisco:ios` -- matches our generator exactly |

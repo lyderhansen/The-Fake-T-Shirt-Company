@@ -258,3 +258,15 @@ Day 13-14: Disk 95-98% ← EMERGENCY
 - [ServiceNow](servicenow.md) - Incident correlation
 - [Apache Access](access.md) - Web tier correlation
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) |
+| **Ingestion** | Universal Forwarder with scripted inputs executing system commands |
+| **Real sourcetypes** | `cpu`, `vmstat`, `df`, `iostat`, `interfaces`, `linux_secure` (no prefix). Our generator adds `linux:` prefix for namespace clarity |
+
+See [REFERENCES.md](REFERENCES.md#note-8-linux-metrics) for details.
+

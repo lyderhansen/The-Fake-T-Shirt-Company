@@ -180,3 +180,13 @@ index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=exfil
 - [Entra ID](entraid.md) - VPN authentication
 - [WinEventLog](wineventlog.md) - Correlate with user logons
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for Cisco ASA](https://splunkbase.splunk.com/app/1620) |
+| **Ingestion** | Syslog (UDP/TCP) to Splunk or [SC4S](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/) |
+| **Real sourcetype** | `cisco:asa` -- matches our generator exactly |
+

@@ -347,3 +347,16 @@ index=fake_tshrt sourcetype="FAKE:cisco:meraki:*" eventType IN ("sd_wan_events",
 - [Cisco ASA](cisco_asa.md) - Perimeter firewall
 - [ServiceNow](servicenow.md) - Network incidents
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) |
+| **Ingestion** | REST API polling + Webhooks (HEC), or Syslog via [SC4S](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/cisco_meraki/) |
+| **Real sourcetypes** | `meraki:securityappliances` (MX), `meraki:accesspoints` (MR), `meraki:switches` (MS), `meraki:cameras` (MV) |
+| **Our sourcetypes** | `meraki:mx/mr/ms/mv/mt` -- simplified device-type names for demo clarity |
+
+See [REFERENCES.md](REFERENCES.md#note-1-cisco-meraki) for detailed sourcetype mapping.
+

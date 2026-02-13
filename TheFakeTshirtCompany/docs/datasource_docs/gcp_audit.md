@@ -240,3 +240,15 @@ Day 13:  storage.objects.delete x2-4 on exports/staging/* (cover tracks)
 - [Cisco ASA](cisco_asa.md) - Network exfil traffic
 - [Perfmon](perfmon.md) - CPU runaway server metrics
 - [MSSQL](mssql.md) - Database connection failures (cpu_runaway)
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for GCP](https://splunkbase.splunk.com/app/3088) |
+| **Ingestion** | Cloud Logging log sink to Pub/Sub, Splunk add-on pulls from subscription |
+| **Real sourcetypes** | v4.0.0+: `google:gcp:pubsub:audit:*` subtypes. Our generator uses the catch-all `google:gcp:pubsub:message` |
+
+See [REFERENCES.md](REFERENCES.md#note-3-gcp-audit-logs) for details.

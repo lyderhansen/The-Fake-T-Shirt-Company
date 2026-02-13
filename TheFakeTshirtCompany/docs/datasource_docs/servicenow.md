@@ -254,3 +254,15 @@ Day 12, 10:30: State → Resolved
 - [Cisco ASA](cisco_asa.md) - Network incidents
 - [WinEventLog](wineventlog.md) - Security incidents
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for ServiceNow](https://splunkbase.splunk.com/app/1928) |
+| **Ingestion** | Modular input polling ServiceNow REST Table API |
+| **Real sourcetype** | `snow:incident` (and `snow:<table_name>` for other tables). Our generator uses `servicenow:incident` |
+
+See [REFERENCES.md](REFERENCES.md#note-9-servicenow) for details.
+

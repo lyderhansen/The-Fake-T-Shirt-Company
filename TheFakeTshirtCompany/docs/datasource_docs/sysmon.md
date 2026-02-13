@@ -177,3 +177,15 @@ index=fake_tshrt sourcetype="FAKE:WinEventLog:Microsoft-Windows-Sysmon/Operation
 - [WinEventLog](wineventlog.md) - Logon events, service changes
 - [Cisco ASA](cisco_asa.md) - Network-level C2 detection
 - [Entra ID](entraid.md) - Cloud identity correlation
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for Sysmon](https://splunkbase.splunk.com/app/5709) (current) / [App 1914](https://splunkbase.splunk.com/app/1914) (archived) |
+| **Ingestion** | Universal Forwarder monitoring `Microsoft-Windows-Sysmon/Operational` channel with `renderXml=true` |
+| **Real sourcetype** | Current TA uses `XmlWinEventLog` (sourcetype) with Sysmon channel as source. We use legacy `XmlWinEventLog:Microsoft-Windows-Sysmon/Operational` |
+
+See [REFERENCES.md](REFERENCES.md#note-7-microsoft-sysmon) for details.

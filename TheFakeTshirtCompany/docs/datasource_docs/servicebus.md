@@ -322,3 +322,13 @@ t=20:00:00    ShipmentDispatched Package shipped
 - [Orders](orders.md) - Original order data
 - [Access Logs](access.md) - Web checkout flow
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | None dedicated. Closest: [Splunk Add-on for MS Cloud Services](https://splunkbase.splunk.com/app/3110) (Event Hubs) |
+| **Ingestion** | Custom integration via Azure Functions to HEC, or Event Hubs bridge |
+| **Real sourcetype** | `azure:servicebus` -- custom format, no standard TA equivalent |
+

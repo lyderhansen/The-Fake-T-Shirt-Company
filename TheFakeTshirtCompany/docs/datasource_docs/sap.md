@@ -155,3 +155,13 @@ index=fake_tshrt sourcetype="FAKE:sap:auditlog" (description="*Login*" OR descri
 - [Orders](orders.md) - Order creation
 - [ServiceBus](servicebus.md) - Price update pipeline
 - [ServiceNow](servicenow.md) - Incident tracking
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [PowerConnect for SAP Solutions](https://splunkbase.splunk.com/app/3153) (commercial, by SoftwareOne). Alternative: UF file monitor |
+| **Ingestion** | PowerConnect: SAP ABAP push to Splunk. Custom: UF monitors SAP Security Audit Log files in `/SAL` directory |
+| **Real sourcetype** | `sap:auditlog` -- community convention for UF-based collection |

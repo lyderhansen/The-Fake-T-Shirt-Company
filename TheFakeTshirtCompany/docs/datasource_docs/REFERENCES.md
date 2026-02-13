@@ -1,66 +1,176 @@
 # Data Source Format References
 
-This document tracks the source documentation used to create each log generator, with links to official Splunk Add-ons and vendor API documentation.
+Splunk Add-on references, ingestion methods, and sourcetype accuracy for every data source in this project. Use this to understand how each log type would be collected in a real Splunk deployment.
 
 ---
 
-## Reference Status Summary
+## Quick Reference
 
-| Source | Splunk Add-on | Vendor API | Status |
-|--------|--------------|------------|--------|
-| Cisco ASA | ✅ | ✅ | Documented |
-| Meraki | ✅ | ✅ | Documented |
-| AWS CloudTrail | ✅ | ✅ | Documented |
-| GCP Audit | ✅ | ✅ | Documented |
-| Microsoft Entra ID | ✅ | ✅ | Documented |
-| Exchange | ✅ | ✅ | Documented |
-| Webex Meetings TA | ✅ | ✅ | Documented |
-| Webex REST API | ✅ | ✅ | Documented |
-| Windows Perfmon | ✅ | N/A | Documented |
-| Windows Event Log | ✅ | N/A | Documented |
-| Linux Metrics | N/A | N/A | Standard format |
-| Apache Access | N/A | N/A | Standard format |
-| Retail Orders | N/A | N/A | Custom (fictional) |
-| Azure ServiceBus | ❌ | ❌ | Not documented |
-| ServiceNow | ✅ | ✅ | Documented |
+| Source | Splunk Add-on | Splunkbase | Ingestion Method | Our Sourcetype | Accurate? |
+|--------|--------------|------------|------------------|----------------|-----------|
+| **Network** |
+| Cisco ASA | Splunk Add-on for Cisco ASA | [1620](https://splunkbase.splunk.com/app/1620) | Syslog / SC4S | `cisco:asa` | Exact |
+| Cisco Meraki | Cisco Meraki Add-on for Splunk | [5580](https://splunkbase.splunk.com/app/5580) | REST API / Webhooks | `meraki:mx` etc. | See note 1 |
+| Cisco Catalyst (IOS) | Cisco Catalyst Add-on for Splunk | [7538](https://splunkbase.splunk.com/app/7538) | Syslog / SC4S | `cisco:ios` | Exact |
+| Cisco ACI | Cisco DC Networking | [7777](https://splunkbase.splunk.com/app/7777) | REST API (APIC) | `cisco:aci:*` | See note 2 |
+| **Cloud & Identity** |
+| AWS CloudTrail | Splunk Add-on for AWS | [1876](https://splunkbase.splunk.com/app/1876) | S3 + SQS polling | `aws:cloudtrail` | Exact |
+| AWS GuardDuty | Splunk Add-on for AWS | [1876](https://splunkbase.splunk.com/app/1876) | EventBridge + Firehose | `aws:cloudwatch:guardduty` | Exact |
+| AWS Billing CUR | Splunk Add-on for AWS | [1876](https://splunkbase.splunk.com/app/1876) | S3 polling | `aws:billing:cur` | Exact |
+| GCP Audit Logs | Splunk Add-on for GCP | [3088](https://splunkbase.splunk.com/app/3088) | Pub/Sub subscription | `google:gcp:pubsub:message` | See note 3 |
+| Entra ID | Splunk Add-on for MS Cloud Services | [3110](https://splunkbase.splunk.com/app/3110) | Azure Event Hubs | `azure:aad:signin/audit` | See note 4 |
+| Exchange | Splunk Add-on for MS Office 365 | [4055](https://splunkbase.splunk.com/app/4055) | Office 365 API | `ms:o365:reporting:messagetrace` | See note 5 |
+| Office 365 Audit | Splunk Add-on for MS Office 365 | [4055](https://splunkbase.splunk.com/app/4055) | Management Activity API | `o365:management:activity` | Exact |
+| Cisco Secure Access | Cisco Secure Access Add-on | [7569](https://splunkbase.splunk.com/app/7569) | S3 bucket polling | `cisco:umbrella:*` | Exact |
+| Catalyst Center | Cisco Catalyst Center Add-on | [7858](https://splunkbase.splunk.com/app/7858) | REST API | `cisco:catalyst:*` | Exact |
+| **Collaboration** |
+| Webex Devices | (custom) | -- | Webex xAPI / webhooks | `cisco:webex:events` | Custom |
+| Webex Meetings TA | Cisco WebEx Meetings Add-on | [GitHub](https://github.com/splunk/ta-cisco-webex-meetings-add-on-for-splunk) | Webex XML API (legacy) | `cisco:webex:meetings:history:*` | Exact |
+| Webex REST API | Webex Add-on for Splunk | [8365](https://splunkbase.splunk.com/app/8365) | Webex REST API | `cisco:webex:*` | Partial |
+| **Windows** |
+| Perfmon | Splunk Add-on for MS Windows | [742](https://splunkbase.splunk.com/app/742) | Universal Forwarder | `perfmon` | See note 6 |
+| WinEventLog | Splunk Add-on for MS Windows | [742](https://splunkbase.splunk.com/app/742) | Universal Forwarder | `XmlWinEventLog` | Exact |
+| Sysmon | Splunk Add-on for Sysmon | [5709](https://splunkbase.splunk.com/app/5709) | Universal Forwarder | `XmlWinEventLog:Microsoft-Windows-Sysmon/Operational` | See note 7 |
+| MSSQL | Splunk Add-on for MS SQL Server | [2648](https://splunkbase.splunk.com/app/2648) | File monitor + DB Connect | `mssql:errorlog` | Exact |
+| **Linux** |
+| Linux Metrics | Splunk Add-on for Unix and Linux | [833](https://splunkbase.splunk.com/app/833) | Universal Forwarder (scripted) | `linux:*` | See note 8 |
+| **Web & Retail** |
+| Apache Access | (Splunk built-in) | -- | Universal Forwarder (file monitor) | `access_combined` | Exact |
+| Retail Orders | (custom) | -- | File monitor | `retail:orders` | Custom |
+| Azure ServiceBus | (custom) | -- | Custom / Event Hubs | `azure:servicebus` | Custom |
+| **ERP** |
+| SAP S/4HANA | PowerConnect for SAP Solutions | [3153](https://splunkbase.splunk.com/app/3153) | SAP ABAP push / UF file monitor | `sap:auditlog` | Community |
+| **ITSM** |
+| ServiceNow | Splunk Add-on for ServiceNow | [1928](https://splunkbase.splunk.com/app/1928) | REST API polling | `servicenow:incident` | See note 9 |
 
 ---
 
-## Network
+## Sourcetype Accuracy Notes
 
-### Cisco ASA
+Our project uses the `FAKE:` prefix for all sourcetypes at index time (e.g., `FAKE:cisco:asa`). The base sourcetype names are designed to match what real Splunk TAs produce, with some deliberate deviations documented below.
+
+### Note 1: Cisco Meraki
+
+**Our sourcetypes:** `meraki:mx`, `meraki:mr`, `meraki:ms`, `meraki:mv`, `meraki:mt`
+
+**Real TA sourcetypes:**
+- API-based: `meraki:securityappliances` (MX), `meraki:accesspoints` (MR), `meraki:switches` (MS), `meraki:cameras` (MV)
+- Syslog-based: generic `meraki` (via SC4S or TA-meraki community add-on)
+- No official MT (sensor) sourcetype exists
+
+**Decision:** We use shorter device-type-based names for clarity in demos. The official names are longer and less intuitive for training purposes.
+
+### Note 2: Cisco ACI
+
+**Our sourcetypes:** `cisco:aci:fault`, `cisco:aci:event`, `cisco:aci:audit`
+
+**Real TA sourcetypes:** `cisco:apic:health`, `cisco:apic:stats`, `cisco:apic:class`, `cisco:apic:authentication`
+
+**Decision:** We use event-type-based naming (`fault/event/audit`) which maps more naturally to security operations use cases. The real TA uses data-category-based naming from the APIC API. The legacy [Cisco ACI Add-on](https://splunkbase.splunk.com/app/1897) (deprecated) and current [Cisco DC Networking](https://splunkbase.splunk.com/app/7777) app both use `cisco:apic:*`.
+
+### Note 3: GCP Audit Logs
+
+**Our sourcetype:** `google:gcp:pubsub:message`
+
+**Real TA sourcetypes (v4.0.0+):**
+- `google:gcp:pubsub:audit:admin_activity`
+- `google:gcp:pubsub:audit:data_access`
+- `google:gcp:pubsub:audit:system_event`
+- `google:gcp:pubsub:audit:policy_denied`
+- `google:gcp:pubsub:message` (catch-all for unclassified messages)
+
+**Decision:** We use the generic `google:gcp:pubsub:message` which is valid but represents the catch-all type. In a real deployment with GCP TA v4.0.0+, audit logs are auto-classified into the more specific subtypes.
+
+### Note 4: Microsoft Entra ID
+
+**Our sourcetypes:** `azure:aad:signin`, `azure:aad:audit`
+
+**Current recommended TA:** [Splunk Add-on for Microsoft Cloud Services](https://splunkbase.splunk.com/app/3110) uses `azure:monitor:aad` for all Entra ID data (sign-in and audit distinguished by `body.records.category` field).
+
+**Legacy TA:** [Splunk Add-on for Microsoft Azure](https://splunkbase.splunk.com/app/3757) (deprecated) uses `azure:aad:signin` and `azure:aad:audit`.
+
+**Decision:** We use the legacy (but widely recognized) sourcetype names. Splunk ES detections and many real-world deployments still reference `azure:aad:signin/audit`. These names are more descriptive for training.
+
+### Note 5: Exchange Message Trace
+
+**Our sourcetype:** `ms:o365:reporting:messagetrace`
+
+**Current TA sourcetype:** `o365:reporting:messagetrace` (no `ms:` prefix)
+
+**Decision:** Our `ms:` prefix comes from the older Microsoft Office 365 Reporting Add-on. The current [Splunk Add-on for Microsoft Office 365](https://splunkbase.splunk.com/app/4055) drops the prefix. Both are widely seen in real deployments.
+
+### Note 6: Windows Perfmon
+
+**Our sourcetype:** `perfmon`
+
+**Real TA sourcetypes:** `Perfmon:CPU`, `Perfmon:Memory`, `Perfmon:LogicalDisk`, `Perfmon:Network`, `Perfmon:PhysicalDisk`, `Perfmon:Process`, etc.
+
+**Decision:** We use a single generic `perfmon` sourcetype. The real TA subdivides by counter object. Our approach simplifies demos while preserving the counter/instance structure in the event data.
+
+### Note 7: Microsoft Sysmon
+
+**Our sourcetype:** `XmlWinEventLog:Microsoft-Windows-Sysmon/Operational`
+
+**Current TA:** [Splunk Add-on for Sysmon](https://splunkbase.splunk.com/app/5709) uses `XmlWinEventLog` as sourcetype with `XmlWinEventLog:Microsoft-Windows-Sysmon/Operational` as the **source** field.
+
+**Legacy TA:** [Splunk Add-on for Microsoft Sysmon](https://splunkbase.splunk.com/app/1914) (archived) used `XmlWinEventLog:Microsoft-Windows-Sysmon/Operational` as the sourcetype directly.
+
+**Decision:** We follow the legacy convention which is more descriptive and still common in many deployments.
+
+### Note 8: Linux Metrics
+
+**Our sourcetypes:** `linux:cpu`, `linux:vmstat`, `linux:df`, `linux:iostat`, `linux:interfaces`, `linux:auth`
+
+**Real TA sourcetypes:** `cpu`, `vmstat`, `df`, `iostat`, `interfaces`, `linux_secure`
+
+**Decision:** We add a `linux:` prefix for namespace clarity in a multi-source demo environment. The real [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) uses shorter names without the prefix.
+
+### Note 9: ServiceNow
+
+**Our sourcetype:** `servicenow:incident`
+
+**Real TA sourcetype:** `snow:incident` (and `snow:<table_name>` for other tables)
+
+**Decision:** We use a more descriptive `servicenow:` prefix. The real [Splunk Add-on for ServiceNow](https://splunkbase.splunk.com/app/1928) uses the abbreviated `snow:` prefix.
+
+---
+
+## Detailed References by Category
+
+### Network
+
+#### Cisco ASA
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Splunk Add-on for Cisco ASA](https://splunkbase.splunk.com/app/1620) |
+| **Splunk Add-on** | [Splunk Add-on for Cisco ASA](https://splunkbase.splunk.com/app/1620) (v6.0.0) |
 | **Splunk Docs** | [Configure inputs for Cisco ASA](https://docs.splunk.com/Documentation/AddOns/released/CiscoASA/Inputs) |
 | **SC4S** | [Splunk Connect for Syslog - Cisco](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/) |
 | **Cisco Docs** | [ASA Syslog Messages](https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/b_syslog.html) |
-| **Cisco Setup** | [Configure ASA Syslog](https://www.cisco.com/c/en/us/support/docs/security/pix-500-series-security-appliances/63884-config-asa-00.html) |
 
-**Sourcetype:** `cisco:asa`
+**Sourcetype:** `cisco:asa` | **Ingestion:** Syslog (UDP/TCP) to Splunk or SC4S
 
 **Key Message Codes:**
-- `%ASA-6-302013` - TCP connection built (outbound)
-- `%ASA-6-302014` - TCP connection teardown
+- `%ASA-6-302013/302014` - TCP connection built/teardown
 - `%ASA-4-106023` - Packet denied by ACL
 - `%ASA-4-733100` - Threat detection triggered
 
 ---
 
-### Cisco Meraki
+#### Cisco Meraki
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) |
-| **Splunk Docs** | [Splunk Add-on for Cisco Meraki](https://docs.splunk.com/Documentation/AddOns/released/Meraki/Sourcetypes) |
-| **SC4S** | [Splunk Connect for Syslog - Cisco Meraki](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/cisco_meraki/) |
-| **Meraki Docs** | [Cisco Meraki Add-on for Splunk](https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/Cisco_Meraki_Add-on_for_Splunk) |
-| **Meraki API** | [Meraki Dashboard API](https://developer.cisco.com/meraki/api-v1/) |
+| **Splunk Add-on** | [Cisco Meraki Add-on for Splunk](https://splunkbase.splunk.com/app/5580) (v3.2.0) |
+| **SC4S** | [SC4S - Cisco Meraki](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/cisco_meraki/) |
+| **Meraki Docs** | [Meraki Add-on for Splunk](https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/Cisco_Meraki_Add-on_for_Splunk) |
+| **Meraki API** | [Dashboard API v1](https://developer.cisco.com/meraki/api-v1/) |
 
-**Sourcetypes:** `meraki`, `meraki:webhook`, `cisco:meraki:*`
+**Sourcetypes:** `meraki:securityappliances`, `meraki:accesspoints`, `meraki:switches`, `meraki:cameras`, `meraki:webhook`
 
-#### MR Wireless Health Events (API References)
+**Ingestion:** REST API polling (device/network data) + Webhooks via HEC (alerts). Syslog via SC4S for traditional syslog.
+
+#### MR Wireless Health API Endpoints
 
 | Event Type | API Endpoint |
 |------------|--------------|
@@ -70,230 +180,353 @@ This document tracks the source documentation used to create each log generator,
 | `latency_stats` | [Device Wireless Latency Stats](https://developer.cisco.com/meraki/api-v1/get-device-wireless-latency-stats/) |
 | `client_health_score` | [Network Wireless Client Health Scores](https://developer.cisco.com/meraki/api-v1/get-network-wireless-client-health-scores/) |
 | `health_alert` | [Network Health Alerts](https://developer.cisco.com/meraki/api-v1/get-network-health-alerts/) |
-| `application_health` | [Network Insight Application Health By Time](https://developer.cisco.com/meraki/api-v1/get-network-insight-application-health-by-time/) |
-
-**KPI Thresholds** (from [Meraki Best Practices](https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/Monitoring_and_Reporting/Meraki_Health_Overview)):
-- SNR: >27 dB good, 20-27 dB fair, <20 dB poor
-- RSSI: >-50 dBm good, -50 to -70 dBm fair, <-70 dBm poor
-- Latency: <30 ms good, 30-60 ms fair, >60 ms poor
 
 ---
 
-## Cloud & Identity
-
-### AWS CloudTrail
+#### Cisco Catalyst Switches (IOS/IOS-XE)
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) |
-| **Splunk Docs** | [Configure CloudTrail inputs](https://docs.splunk.com/Documentation/AddOns/released/AWS/CloudTrail) |
-| **Source Types** | [AWS Source Types](https://docs.splunk.com/Documentation/AddOns/released/AWS/DataTypes) |
-| **GitHub Docs** | [Splunk Add-on for AWS - CloudTrail](https://splunk.github.io/splunk-add-on-for-amazon-web-services/CloudTrail/) |
+| **Splunk Add-on** | [Cisco Catalyst Add-on for Splunk](https://splunkbase.splunk.com/app/7538) (v3.0.0) |
+| **Legacy TA** | [Cisco Networks Add-on (TA-cisco_ios)](https://splunkbase.splunk.com/app/1467) (deprecated) |
+| **SC4S** | [SC4S - Cisco IOS](https://splunk.github.io/splunk-connect-for-syslog/main/sources/vendor/Cisco/) |
+
+**Sourcetype:** `cisco:ios` | **Ingestion:** Syslog (UDP/TCP) to Splunk or SC4S
+
+---
+
+#### Cisco ACI
+
+| Resource | Link |
+|----------|------|
+| **Splunk App** | [Cisco DC Networking](https://splunkbase.splunk.com/app/7777) (v1.2.0) |
+| **Legacy TA** | [Cisco ACI Add-on](https://splunkbase.splunk.com/app/1897) (deprecated) |
+
+**Sourcetypes (real):** `cisco:apic:health`, `cisco:apic:stats`, `cisco:apic:class`, `cisco:apic:authentication`
+
+**Ingestion:** REST API polling from APIC controller via modular inputs
+
+---
+
+### Cloud & Identity
+
+#### AWS CloudTrail
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) (v8.1.0) |
+| **GitHub Docs** | [CloudTrail Input](https://splunk.github.io/splunk-add-on-for-amazon-web-services/CloudTrail/) |
 | **AWS Docs** | [CloudTrail Event Reference](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html) |
-| **Splunk Lantern** | [Onboarding AWS CloudTrail data](https://lantern.splunk.com/Data_Sources/Amazon/Onboarding_AWS_CloudTrail_data) |
 
-**Sourcetype:** `aws:cloudtrail`
-
----
-
-### GCP Audit Logs
-
-| Resource | Link |
-|----------|------|
-| **Splunk Add-on** | [Splunk Add-on for Google Cloud Platform](https://splunkbase.splunk.com/app/3088) |
-| **Splunk Docs** | [GCP Source Types](https://docs.splunk.com/Documentation/AddOns/released/GoogleCloud/Sourcetypes) |
-| **GitHub Docs** | [Splunk Add-on for GCP - Sourcetypes](https://splunk.github.io/splunk-add-on-for-google-cloud-platform/Sourcetypes/) |
-| **Google Docs** | [Cloud Audit Logs](https://cloud.google.com/logging/docs/audit) |
-| **Splunk Blog** | [Getting to Know Google Cloud Audit Logs](https://www.splunk.com/en_us/blog/partners/getting-to-know-google-cloud-audit-logs.html) |
-
-**Sourcetype:** `google:gcp:pubsub:message`
-
-**Note:** Version 4.0.0+ has improved sourcetyping with more granular types like `google:gcp:pubsub:audit:auth`.
+**Sourcetype:** `aws:cloudtrail` | **Ingestion:** S3 bucket polling via SQS notifications, or Kinesis Firehose push to HEC
 
 ---
 
-### Microsoft Entra ID (Azure AD)
+#### AWS GuardDuty
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Splunk Add-on for Microsoft Azure](https://splunkbase.splunk.com/app/3757) |
-| **Splunk Docs** | [Microsoft Cloud Services Add-on](https://docs.splunk.com/Documentation/AddOns/released/MSCloudServices/ConfigureappinAzureAD) |
-| **GitHub Wiki** | [Splunk Add-on for Microsoft Azure](https://github.com/splunk/splunk-add-on-microsoft-azure/wiki) |
-| **Microsoft Docs** | [Sign-in log schema](https://learn.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema) |
-| **Microsoft Tutorial** | [Configure Microsoft Entra SSO for Splunk](https://learn.microsoft.com/en-us/azure/active-directory/saas-apps/splunkenterpriseandsplunkcloud-tutorial) |
-
-**Sourcetypes:** `azure:aad:signin`, `azure:aad:audit`, `azure:monitor:aad`
-
-**Note:** Best practice is to send Entra ID data to Event Hub, then use `azure:monitor:aad` sourcetype.
-
----
-
-### Exchange (Office 365 Message Trace)
-
-| Resource | Link |
-|----------|------|
-| **Splunk Add-on** | [Splunk Add-on for Microsoft Office 365](https://splunkbase.splunk.com/app/4055) |
-| **Splunk Docs** | [Configure Message Trace Input](https://docs.splunk.com/Documentation/AddOns/released/MSO365/Configureinputmessagetrace) |
-| **GitHub Docs** | [Configure Message Trace Input](https://splunk.github.io/splunk-add-on-for-microsoft-office-365/ConfigureMessageTraceInput/) |
-| **Splunk Lantern** | [Microsoft Office 365 Reporting](https://lantern.splunk.com/Data_Descriptors/Data_Sources/Microsoft:_Office_365_Reporting) |
-| **Microsoft Docs** | [Message Trace](https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-modern-eac) |
-
-**Sourcetype:** `ms:o365:reporting:messagetrace`
-
-**API Endpoint:** `https://reports.office365.com/ecp/reportingwebservice/reporting.svc/MessageTrace`
-
-**Limitation:** API can only return data up to 7 days back (portal shows 90 days).
-
----
-
-## Collaboration
-
-### Webex Meetings TA (XML API)
-
-| Resource | Link |
-|----------|------|
-| **Splunk Add-on** | [Cisco WebEx Meetings Add-on for Splunk](https://splunkbase.splunk.com/app/4992) |
-| **GitHub** | [ta-cisco-webex-meetings-add-on-for-splunk](https://github.com/splunk/ta-cisco-webex-meetings-add-on-for-splunk) |
-| **Splunk Blog** | [Splunking Cisco Webex Meetings Data](https://www.splunk.com/en_us/blog/it/splunking-cisco-webex-meetings-data.html) |
-| **Webex API** | [Webex Meetings XML API](https://developer.webex.com/) |
+| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) (v8.1.0) |
+| **GitHub Docs** | [AWS Data Types](https://splunk.github.io/splunk-add-on-for-amazon-web-services/DataTypes/) |
 
 **Sourcetypes:**
-- `cisco:webex:meetings:history:meetingusagehistory`
-- `cisco:webex:meetings:history:meetingattendeehistory`
-- `cisco:webex:meetings:history:trainingattendeehistory`
-- `cisco:webex:meetings:history:supportattendeehistory`
-- `cisco:webex:meetings:history:eventattendeehistory`
+- `aws:cloudwatch:guardduty` (push via EventBridge + Firehose -- our choice)
+- `aws:cloudwatchlogs:guardduty` (pull via CloudWatch Logs)
 
-**Note:** Historical data may be incomplete if fetched <48 hours after meeting end. Set interval to 86400+ for historical inputs.
+**Ingestion:** EventBridge rule catches GuardDuty findings, routes to Kinesis Firehose, pushes to Splunk HEC
 
 ---
 
-### Webex REST API
+#### AWS Billing (Cost & Usage Report)
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Cisco Webex Add-on for Splunk](https://splunkbase.splunk.com/app/5781) |
-| **GitHub** | [ta_cisco_webex_add_on_for_splunk](https://github.com/splunk/ta_cisco_webex_add_on_for_splunk) |
+| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) (v8.1.0) |
+| **GitHub Docs** | [Billing CUR Input](https://splunk.github.io/splunk-add-on-for-amazon-web-services/BillingCostandUsage/) |
+
+**Sourcetype:** `aws:billing:cur` | **Ingestion:** S3 polling of CUR files delivered by AWS
+
+---
+
+#### GCP Audit Logs
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for GCP](https://splunkbase.splunk.com/app/3088) (v5.0.1) |
+| **GitHub Docs** | [GCP Sourcetypes](https://splunk.github.io/splunk-add-on-for-google-cloud-platform/Sourcetypes/) |
+| **Google Docs** | [Cloud Audit Logs](https://cloud.google.com/logging/docs/audit) |
+
+**Sourcetype:** `google:gcp:pubsub:message` (catch-all; v4.0.0+ auto-classifies into `google:gcp:pubsub:audit:*`)
+
+**Ingestion:** GCP Cloud Logging exports to Pub/Sub topic via log sink; Splunk add-on pulls from Pub/Sub subscription
+
+---
+
+#### Microsoft Entra ID (Azure AD)
+
+| Resource | Link |
+|----------|------|
+| **Current TA** | [Splunk Add-on for Microsoft Cloud Services](https://splunkbase.splunk.com/app/3110) (v6.1.0) |
+| **Legacy TA** | [Splunk Add-on for Microsoft Azure](https://splunkbase.splunk.com/app/3757) (deprecated) |
+| **Microsoft Docs** | [Sign-in log schema](https://learn.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema) |
+
+**Sourcetypes:**
+- Current: `azure:monitor:aad` (via Event Hubs)
+- Legacy: `azure:aad:signin`, `azure:aad:audit` (via Graph API -- our choice)
+
+**Ingestion:** Azure Event Hubs (recommended) or Microsoft Graph API (legacy)
+
+---
+
+#### Exchange (Message Trace)
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for Microsoft Office 365](https://splunkbase.splunk.com/app/4055) (v5.1.0) |
+| **GitHub Docs** | [Message Trace Input](https://splunk.github.io/splunk-add-on-for-microsoft-office-365/ConfigureMessageTraceInput/) |
+
+**Sourcetype:** `o365:reporting:messagetrace` (current TA) / `ms:o365:reporting:messagetrace` (legacy -- our choice)
+
+**Ingestion:** Office 365 Message Trace Report API polling
+
+**Limitation:** API returns max 7 days of data
+
+---
+
+#### Office 365 Unified Audit Log
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for Microsoft Office 365](https://splunkbase.splunk.com/app/4055) (v5.1.0) |
+| **GitHub Docs** | [Management Activity Input](https://splunk.github.io/splunk-add-on-for-microsoft-office-365/) |
+
+**Sourcetype:** `o365:management:activity` | **Ingestion:** Office 365 Management Activity API polling
+
+---
+
+#### Cisco Secure Access (Umbrella)
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Cisco Secure Access Add-on for Splunk](https://splunkbase.splunk.com/app/7569) (v1.0.48) |
+| **Cisco DevNet** | [Cloud Security Add-on Docs](https://developer.cisco.com/docs/cloud-security/cisco-cloud-security-add-on-for-splunk/) |
+
+**Sourcetypes:** `cisco:umbrella:dns`, `cisco:umbrella:proxy`, `cisco:umbrella:firewall`, `cisco:umbrella:audit`
+
+**Ingestion:** S3 bucket polling (Umbrella/Secure Access exports logs to AWS S3)
+
+---
+
+#### Cisco Catalyst Center
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Cisco Catalyst Center Add-on for Splunk](https://splunkbase.splunk.com/app/7858) (v1.0.1) |
+| **Alternative** | [Cisco Catalyst Add-on for Splunk](https://splunkbase.splunk.com/app/7538) (also includes Catalyst Center inputs) |
+
+**Sourcetypes:** `cisco:catalyst:devicehealth`, `cisco:catalyst:networkhealth`, `cisco:catalyst:clienthealth`, `cisco:catalyst:issue` (+ `cisco:catalyst:client`, `cisco:catalyst:compliance`, `cisco:catalyst:securityadvisory`)
+
+**Ingestion:** REST API polling from Catalyst Center API
+
+---
+
+### Collaboration
+
+#### Webex Room Devices
+
+No dedicated Splunk TA for Webex device telemetry (xAPI events).
+
+**Our sourcetype:** `cisco:webex:events` (custom)
+
+**Real-world options:**
+- Webex Control Hub can export device analytics
+- Custom webhook/xAPI integration to HEC
+- [Webex Add-on for Splunk](https://splunkbase.splunk.com/app/8365) covers meetings/calls but not device telemetry
+
+---
+
+#### Webex Meetings TA (XML API)
+
+| Resource | Link |
+|----------|------|
+| **GitHub** | [ta-cisco-webex-meetings-add-on-for-splunk](https://github.com/splunk/ta-cisco-webex-meetings-add-on-for-splunk) |
+
+**Sourcetypes:** `cisco:webex:meetings:history:meetingusagehistory`, `...meetingattendeehistory`, etc.
+
+**Ingestion:** Webex Meetings XML API (legacy, deprecated by Cisco)
+
+---
+
+#### Webex REST API
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Webex Add-on for Splunk](https://splunkbase.splunk.com/app/8365) (v1.3.1) |
 | **Webex Developer** | [Webex REST API](https://developer.webex.com/) |
 
-**Sourcetypes:**
-- `cisco:webex:meetings`
-- `cisco:webex:admin:audit:events`
-- `cisco:webex:security:audit:events`
-- `cisco:webex:meeting:qualities`
-- `cisco:webex:call:detailed_history`
+**Sourcetypes:** `cisco:webex:meetings`, `cisco:webex:admin:audit:events`, `cisco:webex:security:audit:events`, `cisco:webex:meeting:qualities`, `cisco:webex:call:detailed_history`
+
+**Ingestion:** Webex REST API polling
 
 ---
 
-## Windows
+### Windows
 
-### Windows Performance Monitor (Perfmon)
+#### Windows Performance Monitor (Perfmon)
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) |
-| **Splunk Docs** | [Monitor Windows performance](https://docs.splunk.com/Documentation/Splunk/9.2.1/Data/MonitorWindowsperformance) |
-| **Source Types** | [Windows Add-on Sourcetypes](https://docs.splunk.com/Documentation/WindowsAddOn/8.1.2/User/SourcetypesandCIMdatamodelinfo) |
+| **Splunk Add-on** | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) (v9.1.2) |
 | **GitHub Docs** | [Splunk Add-on for Microsoft Windows](https://splunk.github.io/splunk-add-on-for-microsoft-windows/) |
 
-**Sourcetype:** `Perfmon`
+**Sourcetype (real):** `Perfmon:CPU`, `Perfmon:Memory`, `Perfmon:LogicalDisk`, etc. (one per counter object)
 
-**Collection Modes:**
-- **single** (default): One event per counter/instance combination
-- **multikv**: Smaller indexing volume, but some apps require single mode
-
-**Note:** Use `useEnglishOnly=true` for compatibility with apps like Enterprise Security.
+**Ingestion:** Universal Forwarder with `[perfmon://...]` input stanzas. Use `useEnglishOnly=true` for ES compatibility.
 
 ---
 
-### Windows Event Log
+#### Windows Event Log
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) |
-| **Splunk Docs** | [Monitor Windows event log data](https://docs.splunk.com/Documentation/Splunk/9.4.2/Data/MonitorWindowseventlogdata) |
-| **Source Types** | [Windows Add-on Sourcetypes](https://docs.splunk.com/Documentation/WindowsAddOn/8.1.2/User/SourcetypesandCIMdatamodelinfo) |
-| **CIM Changes** | [CIM and Field Mapping Changes](https://docs.splunk.com/Documentation/WindowsAddOn/8.1.2/User/CIMModelandFieldMappingChanges) |
-| **Microsoft Docs** | [Windows Security Events](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/security-auditing-overview) |
+| **Splunk Add-on** | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) (v9.1.2) |
+| **Splunk Docs** | [Monitor Windows Event Log data](https://docs.splunk.com/Documentation/Splunk/9.4.2/Data/MonitorWindowseventlogdata) |
 
-**Sourcetypes:** `WinEventLog`, `XmlWinEventLog`
+**Sourcetypes:** `WinEventLog` (classic) / `XmlWinEventLog` (XML, default since TA v6.0.0)
 
-**Note:** This project uses the classic `WinEventLog` format (KV pairs), not the XML format (`XmlWinEventLog`). The Sysmon sourcetype is `WinEventLog:Sysmon`.
+**Ingestion:** Universal Forwarder with `[WinEventLog://Security]` etc., `renderXml=true` for XML mode
 
 ---
 
-## ITSM
-
-### ServiceNow
+#### Microsoft Sysmon
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Splunk Add-on for ServiceNow](https://splunkbase.splunk.com/app/1928) |
-| **Splunk Docs** | [About the Add-on](https://splunk.github.io/splunk-add-on-for-servicenow/) |
-| **Source Types** | [ServiceNow Source Types](https://splunk.github.io/splunk-add-on-for-servicenow/Datatypes/) |
-| **ServiceNow Docs** | [Table API](https://developer.servicenow.com/dev.do#!/reference/api/vancouver/rest/c_TableAPI) |
+| **Splunk Add-on** | [Splunk Add-on for Sysmon](https://splunkbase.splunk.com/app/5709) (v5.0.0) |
+| **Legacy TA** | [Splunk Add-on for Microsoft Sysmon](https://splunkbase.splunk.com/app/1914) (archived) |
 
-**Sourcetype:** `snow:incident` (schema: `snow:<table_name>`)
+**Ingestion:** Universal Forwarder monitoring `Microsoft-Windows-Sysmon/Operational` channel with `renderXml=true`
 
-**Features:**
-- Collects data from any ServiceNow table exposed via REST API
-- Can create incidents/events in ServiceNow from Splunk alerts
-- Auto-creates incidents from Critical (severity=1) events
+**Dependencies:** Microsoft Sysmon installed on endpoint + Splunk Add-on for Microsoft Windows (App 742)
 
 ---
 
-## Standard Formats (No Add-on Required)
+#### Microsoft SQL Server
 
-### Linux Metrics
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for Microsoft SQL Server](https://splunkbase.splunk.com/app/2648) (v3.1.0) |
 
-Standard Linux command output formats:
-- **vmstat** - CPU/memory statistics
-- **df** - Disk space usage
-- **iostat** - I/O statistics
-- **interfaces** - Network statistics
+**Sourcetypes:** `mssql:errorlog` (file monitor), `mssql:agentlog`, `mssql:audit` (DB Connect), `mssql:trclog` (DB Connect)
 
-**Sourcetypes:** `linux:vmstat`, `linux:df`, `linux:iostat`, `linux:interfaces`
+**Ingestion:** File monitoring for error/agent logs + Splunk DB Connect for audit/trace data
 
 ---
 
-### Apache Access Logs
+### Linux
 
-Standard Apache Combined Log Format - widely documented.
+#### Linux System Metrics
 
-**Format:** `%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i"`
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for Unix and Linux](https://splunkbase.splunk.com/app/833) (v10.2.0) |
+| **GitHub Docs** | [Sourcetypes](https://splunk.github.io/splunk-add-on-for-unix-and-linux/Sourcetypes/) |
 
-**Sourcetype:** `access_combined`
+**Sourcetypes (real):** `cpu`, `vmstat`, `df`, `iostat`, `interfaces`, `linux_secure` (no prefix)
+
+**Ingestion:** Universal Forwarder with scripted inputs executing system commands on schedule
+
+---
+
+### Web & Retail
+
+#### Apache Access Logs
+
+**Sourcetype:** `access_combined` (Splunk built-in pretrained sourcetype, no TA required)
+
+**Alternative TA:** [Splunk Add-on for Apache Web Server](https://splunkbase.splunk.com/app/3186) uses `apache:access:combined`
+
+**Ingestion:** Universal Forwarder monitoring Apache log files
 
 **Reference:** [Apache Log Files](https://httpd.apache.org/docs/current/logs.html)
 
 ---
 
-## Custom/Fictional Formats
+#### Retail Orders
 
-### Retail Orders
+Custom JSON format for fictional e-commerce orders. No real-world equivalent.
 
-Custom JSON format for fictional e-commerce data. No external reference.
-
-**Sourcetype:** `retail:orders`
+**Sourcetype:** `retail:orders` (custom) | **Ingestion:** File monitor
 
 ---
 
-### Azure ServiceBus
+#### Azure ServiceBus
 
-Custom JSON format based on typical ServiceBus message structure.
+Custom JSON format for ServiceBus dead-letter/message data. No dedicated Splunk TA exists.
 
-**Sourcetype:** `azure:servicebus`
-
-**Note:** No specific Splunk Add-on reference documented. Consider using [Splunk Add-on for Microsoft Cloud Services](https://splunkbase.splunk.com/app/3110) for real Azure data.
+**Sourcetype:** `azure:servicebus` (custom) | **Ingestion:** Custom integration (Azure Functions to HEC, or Event Hubs via [MS Cloud Services Add-on](https://splunkbase.splunk.com/app/3110))
 
 ---
 
-## Summary
+### ERP
 
-This documentation provides links to:
-1. **Splunk Add-ons** on Splunkbase for each data source
-2. **Splunk Documentation** for configuration and sourcetypes
-3. **Vendor APIs** for understanding the original data format
-4. **GitHub repositories** for add-on source code and additional docs
+#### SAP S/4HANA Audit Log
 
-When generating synthetic logs, these references ensure our format matches what Splunk expects from real data sources.
+| Resource | Link |
+|----------|------|
+| **Commercial TA** | [PowerConnect for SAP Solutions](https://splunkbase.splunk.com/app/3153) (v9.0.1, by SoftwareOne) |
+| **Community Guide** | [WALLSEC/SAPtoSPLUNK](https://github.com/WALLSEC/SAPtoSPLUNK) |
+
+**Sourcetype:** `sap:auditlog` (community convention)
+
+**Ingestion options:**
+- **PowerConnect** (commercial): SAP-side ABAP add-on pushes data to Splunk
+- **Custom/UF** (free): Universal Forwarder monitors SAP Security Audit Log files in `/SAL` directory
+
+**Note:** SAP audit logs are UTF-16LE encoded with 200-char fixed-width records. Custom `props.conf` required for proper parsing.
+
+---
+
+### ITSM
+
+#### ServiceNow
+
+| Resource | Link |
+|----------|------|
+| **Splunk Add-on** | [Splunk Add-on for ServiceNow](https://splunkbase.splunk.com/app/1928) (v9.2.1) |
+| **GitHub Docs** | [ServiceNow Datatypes](https://splunk.github.io/splunk-add-on-for-servicenow/Datatypes/) |
+
+**Sourcetype (real):** `snow:incident` (schema: `snow:<table_name>`)
+
+**Ingestion:** Modular input polling ServiceNow REST Table API
+
+---
+
+## Ingestion Architecture Summary
+
+```
+                    Real-World Ingestion Methods
+                    ============================
+
+  [Syslog Sources]           [API Sources]              [File Sources]
+  ASA, Catalyst, Meraki      AWS, GCP, Azure,           Perfmon, WinEventLog,
+                             O365, ServiceNow,          Sysmon, MSSQL, Linux,
+                             Catalyst Center,           Apache, SAP
+                             Secure Access, Webex
+        |                          |                          |
+        v                          v                          v
+  +----------+            +--------------+           +------------------+
+  | SC4S /   |            | Splunk HF    |           | Universal        |
+  | Syslog   |            | (Heavy Fwd)  |           | Forwarder (UF)   |
+  | Server   |            | Modular      |           | on endpoint      |
+  +----------+            | Inputs       |           +------------------+
+        |                 +--------------+                    |
+        |                        |                            |
+        +------------------------+----------------------------+
+                                 |
+                                 v
+                        +----------------+
+                        | Splunk Indexer  |
+                        | index=fake_tshrt|
+                        +----------------+
+```

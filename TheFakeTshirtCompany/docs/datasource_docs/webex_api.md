@@ -325,3 +325,13 @@ index=fake_tshrt sourcetype="FAKE:cisco:webex:admin:audit:events"
 - [Webex Meetings TA](webex_meetings.md) - Meeting history
 - [Entra ID](entraid.md) - Identity correlation
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Webex Add-on for Splunk](https://splunkbase.splunk.com/app/8365) |
+| **Ingestion** | Webex REST API polling |
+| **Real sourcetypes** | `cisco:webex:meetings`, `cisco:webex:admin:audit:events`, `cisco:webex:meeting:qualities`, etc. |
+

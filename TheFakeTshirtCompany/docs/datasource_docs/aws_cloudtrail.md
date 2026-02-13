@@ -195,3 +195,13 @@ Day 11-13: Mass GetObject at 01:00-05:00
 - [GCP Audit](gcp_audit.md) - Multi-cloud correlation
 - [Entra ID](entraid.md) - User authentication
 - [Cisco ASA](cisco_asa.md) - Network exfil correlation
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) |
+| **Ingestion** | S3 bucket polling via SQS, or Kinesis Firehose push to HEC |
+| **Real sourcetype** | `aws:cloudtrail` -- matches our generator exactly |

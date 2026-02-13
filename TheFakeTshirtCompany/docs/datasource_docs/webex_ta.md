@@ -133,3 +133,13 @@ Note: This generator uses `MM/DD/YYYY HH:MM:SS` format (Webex TA convention), di
 - [Webex API](webex_api.md) - Real-time meeting events and quality metrics
 - [Webex Devices](webex_devices.md) - Room device telemetry and room analytics
 - [Entra ID](entraid.md) - User identity correlation
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Cisco WebEx Meetings Add-on](https://github.com/splunk/ta-cisco-webex-meetings-add-on-for-splunk) (GitHub) |
+| **Ingestion** | Webex Meetings XML API (legacy, deprecated by Cisco) |
+| **Real sourcetypes** | `cisco:webex:meetings:history:meetingusagehistory`, `...meetingattendeehistory`, etc. -- matches our generator |

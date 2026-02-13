@@ -283,3 +283,13 @@ index=fake_tshrt sourcetype="FAKE:WinEventLog" ComputerName="*SQL*"
 - [ServiceNow](servicenow.md) - Incident tracking
 - [Meraki](meraki.md) - Network isolation events
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) |
+| **Ingestion** | Universal Forwarder with `[WinEventLog://Security]` and `renderXml=true` |
+| **Real sourcetype** | `XmlWinEventLog` -- matches our generator exactly |
+

@@ -335,3 +335,13 @@ Webex events correlate with Meraki MT sensors:
 - [Webex API](webex_api.md) - Admin and quality data
 - [Meraki MT](meraki.md) - Sensor correlation
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | None (no dedicated TA for Webex device telemetry) |
+| **Ingestion** | Custom webhook/xAPI integration to HEC, or Webex Control Hub export |
+| **Real sourcetype** | `cisco:webex:events` -- custom format for device telemetry |
+

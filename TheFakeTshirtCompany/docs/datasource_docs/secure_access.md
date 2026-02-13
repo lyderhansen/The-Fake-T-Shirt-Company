@@ -156,3 +156,13 @@ index=fake_tshrt sourcetype="FAKE:cisco:umbrella:audit"
 - [Cisco ASA](cisco_asa.md) - Perimeter firewall (network-level view)
 - [Exchange](exchange.md) - Email trace for phishing
 - [Sysmon](sysmon.md) - Endpoint process/network activity
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Cisco Secure Access Add-on for Splunk](https://splunkbase.splunk.com/app/7569) |
+| **Ingestion** | S3 bucket polling (Umbrella/Secure Access exports logs to AWS S3) |
+| **Real sourcetypes** | `cisco:umbrella:dns/proxy/firewall/audit` -- all match our generator exactly |

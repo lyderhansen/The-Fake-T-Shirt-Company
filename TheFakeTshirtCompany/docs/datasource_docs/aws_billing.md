@@ -162,3 +162,13 @@ index=fake_tshrt sourcetype="FAKE:aws:billing:cur" lineItem/ProductCode=AmazonEC
 - [AWS GuardDuty](aws_guardduty.md) - Threat detection findings
 - [Cisco ASA](cisco_asa.md) - Perimeter traffic correlation
 - [Perfmon](perfmon.md) - Server resource metrics
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) |
+| **Ingestion** | S3 polling of Cost and Usage Report files |
+| **Real sourcetype** | `aws:billing:cur` -- matches our generator exactly |

@@ -377,3 +377,15 @@ index=fake_tshrt sourcetype="FAKE:azure:aad:signin"
 - [Cisco Secure Access](secure_access.md) - DNS/proxy identity-based access
 - [Exchange](exchange.md) - Phishing delivery correlation
 - [Office Audit](office_audit.md) - M365 activity correlation
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for MS Cloud Services](https://splunkbase.splunk.com/app/3110) (current) / [MS Azure Add-on](https://splunkbase.splunk.com/app/3757) (legacy) |
+| **Ingestion** | Azure Event Hubs (recommended) or Microsoft Graph API (legacy) |
+| **Real sourcetypes** | Current: `azure:monitor:aad`. Legacy: `azure:aad:signin`, `azure:aad:audit` (our choice) |
+
+See [REFERENCES.md](REFERENCES.md#note-4-microsoft-entra-id) for details.

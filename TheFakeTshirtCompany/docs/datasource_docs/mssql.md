@@ -128,3 +128,13 @@ index=fake_tshrt sourcetype="FAKE:mssql:errorlog" "xp_cmdshell" demo_id=exfil
 - [Perfmon](perfmon.md) - CPU/memory metrics for SQL-PROD-01
 - [WinEventLog](wineventlog.md) - Service start/stop events
 - [Cisco ASA](cisco_asa.md) - Network connections to SQL port 1433
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for Microsoft SQL Server](https://splunkbase.splunk.com/app/2648) |
+| **Ingestion** | File monitoring for errorlog + Splunk DB Connect for audit/trace data |
+| **Real sourcetype** | `mssql:errorlog` -- matches our generator exactly |

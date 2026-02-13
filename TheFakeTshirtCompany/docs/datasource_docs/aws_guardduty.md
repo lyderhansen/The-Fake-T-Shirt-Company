@@ -132,3 +132,13 @@ index=fake_tshrt (sourcetype="FAKE:aws:cloudwatch:guardduty" severity>=7) OR (so
 - [AWS Billing](aws_billing.md) - Cost anomaly detection
 - [Cisco Secure Access](secure_access.md) - DNS/proxy C2 detection
 - [Entra ID](entraid.md) - Identity compromise
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for AWS](https://splunkbase.splunk.com/app/1876) |
+| **Ingestion** | EventBridge + Kinesis Firehose to HEC, or CloudWatch Logs polling |
+| **Real sourcetype** | `aws:cloudwatch:guardduty` -- matches our generator (push variant) |

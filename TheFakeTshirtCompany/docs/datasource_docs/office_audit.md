@@ -305,3 +305,13 @@ Key indicators:
 **Cross-source correlation:** "When you see bulk FileDownloaded events in M365 Audit, correlate with Entra ID sign-ins (same user, same ClientIP from Germany) and ASA logs (large outbound data transfers) to build the complete attack narrative."
 
 **Phishing awareness metrics:** "The phishing_test scenario shows SafeLinksUrlClicked events -- you can measure exactly which employees clicked the simulated phishing link and correlate with their department and location."
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for MS Office 365](https://splunkbase.splunk.com/app/4055) |
+| **Ingestion** | Office 365 Management Activity API polling |
+| **Real sourcetype** | `o365:management:activity` -- matches our generator exactly |

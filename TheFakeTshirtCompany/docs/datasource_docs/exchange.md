@@ -263,3 +263,15 @@ Day 11-14, 01:00-05:00: Multiple large emails
 - [WinEventLog](wineventlog.md) - Attachment execution
 - [Cisco ASA](cisco_asa.md) - Network exfiltration
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for MS Office 365](https://splunkbase.splunk.com/app/4055) |
+| **Ingestion** | Office 365 Message Trace Report API polling (max 7-day lookback) |
+| **Real sourcetype** | Current TA: `o365:reporting:messagetrace`. Our generator uses legacy `ms:o365:reporting:messagetrace` |
+
+See [REFERENCES.md](REFERENCES.md#note-5-exchange-message-trace) for details.
+

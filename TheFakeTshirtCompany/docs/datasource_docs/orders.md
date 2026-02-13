@@ -304,3 +304,13 @@ index=fake_tshrt sourcetype="FAKE:retail:orders"
 - [Apache Access](access.md) - Web traffic
 - [ServiceBus](servicebus.md) - Order processing events
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | None (custom/fictional sourcetype) |
+| **Ingestion** | File monitor of generated JSON |
+| **Real sourcetype** | `retail:orders` -- custom format, no real-world TA equivalent |
+

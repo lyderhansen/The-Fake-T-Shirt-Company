@@ -298,7 +298,8 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
             items = len(order.get("products", []))
             total = order.get("cart_total", 0)
             cust_id = order.get("customer_id", "CUST-00000")
-            details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}"
+            web_order_id = order.get("order_id", "")
+            details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}"
             # Carry scenario tag from order_registry (e.g. dead_letter_pricing)
             order_scenario = order.get("scenario")
             if order_scenario:

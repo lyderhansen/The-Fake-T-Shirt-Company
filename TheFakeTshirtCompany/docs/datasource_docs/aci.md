@@ -136,3 +136,16 @@ index=fake_tshrt sourcetype="FAKE:cisco:aci:fault" demo_id=cpu_runaway
 - [Catalyst Center](catalyst_center.md) - Network assurance
 - [Cisco ASA](cisco_asa.md) - Perimeter firewall
 - [Meraki](meraki.md) - SD-WAN and branch
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Cisco DC Networking](https://splunkbase.splunk.com/app/7777) (replaced legacy [ACI Add-on](https://splunkbase.splunk.com/app/1897)) |
+| **Ingestion** | REST API polling from APIC controller |
+| **Real sourcetypes** | `cisco:apic:health`, `cisco:apic:stats`, `cisco:apic:class` |
+| **Our sourcetypes** | `cisco:aci:fault/event/audit` -- event-type naming for SOC clarity |
+
+See [REFERENCES.md](REFERENCES.md#note-2-cisco-aci) for detailed sourcetype mapping.

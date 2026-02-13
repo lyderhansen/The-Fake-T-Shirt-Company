@@ -4,6 +4,43 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~18:00 UTC -- Fix SAP-to-Access Order Correlation
+
+SAP VA01 (Create Sales Order) events now include the web order ID (`ref ORD-2026-XXXXX`) in the details field, enabling direct correlation between SAP sales orders and web orders from access logs.
+
+**Problem:** SAP generator read `order_registry.json` but never wrote the `order_id` field to output. The only correlation path was `customer_id` + approximate timestamp, which was fragile.
+
+**Fix:**
+- `generate_sap.py`: Added `web_order_id = order.get("order_id", "")` and appended `ref {web_order_id}` to VA01 details
+- `transforms.conf`: Updated `extract_sap_sales_order` regex to capture `web_order_id` as auto-extracted field
+
+**Before:** `Sales order for customer CUST-00019, 2 items, total $133.00`
+**After:** `Sales order for customer CUST-00019, 2 items, total $133.00, ref ORD-2026-00456`
+
+**Verification:** Generated 3 days, 96 VA01 events -- all 96 `ref ORD-*` values found in `order_registry.json`. Pass.
+
+**Files changed:**
+- `bin/generators/generate_sap.py` (line 301)
+- `default/transforms.conf` (`extract_sap_sales_order` stanza)
+
+---
+
+## 2026-02-13 ~18:00 UTC -- Phase 14: Data Source Ingestion Reference Guide
+
+Completely rewrote `docs/datasource_docs/REFERENCES.md` with full coverage of all 28+ data sources.
+
+**Added:**
+- Quick reference table with Splunk Add-on, Splunkbase ID, ingestion method, and sourcetype accuracy for every source
+- 9 detailed "Sourcetype Accuracy Notes" documenting deliberate deviations from real TA sourcetypes
+- Detailed references for 12 previously undocumented sources: ACI, Catalyst, Catalyst Center, Secure Access, Sysmon, MSSQL, SAP, Office 365 Audit, AWS GuardDuty, AWS Billing, Webex Devices, Webex REST API
+- Ingestion architecture diagram (Syslog/API/UF flows)
+- All Splunkbase URLs verified against live pages
+
+**Files changed:**
+- `docs/datasource_docs/REFERENCES.md` (complete rewrite)
+
+---
+
 ## 2026-02-13 ~14:00 UTC -- Phase 13: docs/ Directory Reorganization
 
 Reorganized the flat `docs/` directory (20+ files mixed together) into a clean subfolder structure.

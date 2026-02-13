@@ -151,3 +151,13 @@ index=fake_tshrt sourcetype="FAKE:cisco:catalyst:clienthealth"
 - [Cisco ACI](aci.md) - Data center fabric health
 - [Meraki](meraki.md) - SD-WAN health and failover
 - [Perfmon](perfmon.md) - Server performance metrics
+
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Cisco Catalyst Center Add-on for Splunk](https://splunkbase.splunk.com/app/7858) |
+| **Ingestion** | REST API polling from Catalyst Center API |
+| **Real sourcetypes** | `cisco:catalyst:devicehealth/networkhealth/clienthealth/issue` -- all match our generator exactly |

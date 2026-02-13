@@ -262,3 +262,15 @@ Day 12, 11:00:      CPU back to normal (~30%)
 - [ServiceNow](servicenow.md) - Incident correlation
 - [Cisco ASA](cisco_asa.md) - Network timeout correlation
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | [Splunk Add-on for Microsoft Windows](https://splunkbase.splunk.com/app/742) |
+| **Ingestion** | Universal Forwarder with `[perfmon://...]` input stanzas |
+| **Real sourcetypes** | `Perfmon:CPU`, `Perfmon:Memory`, `Perfmon:LogicalDisk`, etc. Our generator uses single `perfmon` sourcetype |
+
+See [REFERENCES.md](REFERENCES.md#note-6-windows-perfmon) for details.
+

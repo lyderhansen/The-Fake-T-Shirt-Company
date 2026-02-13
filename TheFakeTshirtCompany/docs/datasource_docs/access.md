@@ -251,3 +251,13 @@ Day 12, 07:00+: Recovery
 - [Linux](linux.md) - Server health
 - [ServiceNow](servicenow.md) - Incident correlation
 
+---
+
+## Ingestion Reference
+
+| | |
+|---|---|
+| **Splunk Add-on** | Built-in Splunk pretrained sourcetype (no TA required). Optional: [Splunk Add-on for Apache Web Server](https://splunkbase.splunk.com/app/3186) |
+| **Ingestion** | Universal Forwarder monitoring Apache log files |
+| **Real sourcetype** | `access_combined` (built-in) -- matches our generator exactly |
+
