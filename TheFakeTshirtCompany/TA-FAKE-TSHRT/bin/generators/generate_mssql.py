@@ -672,7 +672,7 @@ def generate_mssql_logs(
     if not quiet:
         print(f"  Generated {total_events:,} MSSQL Error Log events", file=sys.stderr)
 
-    return total_events
+    return {"total": total_events, "files": {"windows/mssql_errorlog.log": total_events}}
 
 
 # =============================================================================

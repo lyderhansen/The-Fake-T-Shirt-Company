@@ -137,16 +137,49 @@ def parse_sources(sources_str: str) -> List[str]:
     return list(set(sources))  # Remove duplicates
 
 
+def _print_file_counts(result: Dict, output_base: Path, output_label: str):
+    """Print per-file event counts for --show-files.
+
+    Uses generator-reported file_counts (accurate event counts) when available,
+    falls back to raw line counts for generators that return int.
+    """
+    gen_name = result.get("name", "")
+    file_counts = result.get("file_counts", {})
+    files = GENERATOR_OUTPUT_FILES.get(gen_name, [gen_name])
+    for f in files:
+        file_path = output_base / f
+        if file_path.exists():
+            if f in file_counts:
+                count = file_counts[f]
+            else:
+                count = sum(1 for _ in open(file_path))
+            print(f"       -> {output_label}/{f:45} {count:>10,}")
+        else:
+            print(f"       -> {output_label}/{f:45} {'(not found)':>10}")
+
+
 def run_generator(name: str, func: Callable, **kwargs) -> Dict:
-    """Run a single generator and return results."""
+    """Run a single generator and return results.
+
+    Generators may return:
+      - int: total event count (single-file generators)
+      - dict: {"total": N, "files": {"rel/path": count, ...}} (multi-file generators)
+    """
     start_time = time.time()
     try:
-        count = func(**kwargs)
+        result = func(**kwargs)
         duration = time.time() - start_time
+        if isinstance(result, dict):
+            count = result.get("total", 0)
+            file_counts = result.get("files", {})
+        else:
+            count = result
+            file_counts = {}
         return {
             "name": name,
             "success": True,
             "count": count,
+            "file_counts": file_counts,
             "duration": duration,
         }
     except Exception as e:
@@ -461,14 +494,7 @@ Output Directories:
                         dur = result["duration"]
                         print(f"  [{status}] {result['name']:12} {count:>10,} events  ({dur:.1f}s)")
                         if args.show_files:
-                            files = GENERATOR_OUTPUT_FILES.get(result['name'], [result['name']])
-                            for f in files:
-                                file_path = current_output_base / f
-                                if file_path.exists():
-                                    line_count = sum(1 for _ in open(file_path))
-                                    print(f"       → {output_label}/{f:45} {line_count:>10,}")
-                                else:
-                                    print(f"       → {output_label}/{f:45} {'(not created)':>10}")
+                            _print_file_counts(result, current_output_base, output_label)
         else:
             # Sequential execution
             for name in phase_sources:
@@ -483,14 +509,7 @@ Output Directories:
                     count = result.get("count", 0)
                     print(f" [{status}] {count:,} events ({result['duration']:.1f}s)")
                     if args.show_files:
-                        files = GENERATOR_OUTPUT_FILES.get(name, [name])
-                        for f in files:
-                            file_path = current_output_base / f
-                            if file_path.exists():
-                                line_count = sum(1 for _ in open(file_path))
-                                print(f"       → {output_label}/{f:45} {line_count:>10,}")
-                            else:
-                                print(f"       → {output_label}/{f:45} {'(not created)':>10}")
+                        _print_file_counts(result, current_output_base, output_label)
 
         return phase_results
 

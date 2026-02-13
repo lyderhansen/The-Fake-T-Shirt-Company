@@ -1914,12 +1914,17 @@ def generate_servicenow_logs(
         print(f"  [Changes] {len(all_changes)} events written to {change_path}", file=sys.stderr)
 
     total = len(cmdb_records) + len(all_incidents) + len(all_changes)
+    file_counts = {
+        "itsm/servicenow_incidents.log": len(all_incidents),
+        "itsm/servicenow_cmdb.log": len(cmdb_records),
+        "itsm/servicenow_change.log": len(all_changes),
+    }
 
     if not quiet:
         print(f"  Total: {total:,} events ({len(cmdb_records)} CMDB, "
               f"{len(all_incidents)} incidents, {len(all_changes)} changes)", file=sys.stderr)
 
-    return total
+    return {"total": total, "files": file_counts}
 
 
 # =============================================================================

@@ -1600,6 +1600,11 @@ def generate_wineventlog(
             f.write(event + "\n")
 
     total = len(security_events) + len(system_events) + len(application_events)
+    file_counts = {
+        "windows/wineventlog_security.log": len(security_events),
+        "windows/wineventlog_system.log": len(system_events),
+        "windows/wineventlog_application.log": len(application_events),
+    }
 
     if not quiet:
         # Count scenario events
@@ -1610,7 +1615,7 @@ def generate_wineventlog(
         if exfil_count or cpu_count:
             print(f"             Scenario events: exfil={exfil_count}, cpu_runaway={cpu_count}", file=sys.stderr)
 
-    return total
+    return {"total": total, "files": file_counts}
 
 
 def format_scenario_event(base_date: str, day: int, hour: int, event_dict: dict,

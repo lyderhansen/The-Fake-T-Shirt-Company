@@ -1206,6 +1206,12 @@ def generate_secure_access_logs(
 
     total = len(dns_events) + len(proxy_events) + len(fw_events) + len(audit_events)
     total_demo = sum(demo_id_counts.values())
+    file_counts = {
+        "cloud/cisco_secure_access/cisco_secure_access_dns.csv": len(dns_events),
+        "cloud/cisco_secure_access/cisco_secure_access_proxy.csv": len(proxy_events),
+        "cloud/cisco_secure_access/cisco_secure_access_firewall.csv": len(fw_events),
+        "cloud/cisco_secure_access/cisco_secure_access_audit.csv": len(audit_events),
+    }
 
     if not quiet:
         print(f"  [SecureAccess] Complete! {total:,} total events written", file=sys.stderr)
@@ -1219,7 +1225,7 @@ def generate_secure_access_logs(
                   f"fw={demo_id_counts['fw']}, audit={demo_id_counts['audit']})",
                   file=sys.stderr)
 
-    return total
+    return {"total": total, "files": file_counts}
 
 
 # =============================================================================

@@ -692,13 +692,17 @@ def generate_webex_ta_logs(
             f.write(json.dumps(record) + "\n")
 
     total_records = len(meeting_usage_records) + len(attendee_records)
+    file_counts = {
+        "cloud/webex/webex_ta_meetingusage.json": len(meeting_usage_records),
+        "cloud/webex/webex_ta_attendee.json": len(attendee_records),
+    }
 
     if not quiet:
         print(f"  [Webex TA] Complete! {total_records:,} records written:", file=sys.stderr)
         print(f"    - {meetingusage_file.name}: {len(meeting_usage_records):,} meeting records", file=sys.stderr)
         print(f"    - {attendee_file.name}: {len(attendee_records):,} attendee records", file=sys.stderr)
 
-    return total_records
+    return {"total": total_records, "files": file_counts}
 
 
 def main():

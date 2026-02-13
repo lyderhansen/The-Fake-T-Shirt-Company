@@ -1882,6 +1882,11 @@ def generate_entraid_logs(
             f.write(event + "\n")
 
     total = len(signin_events) + len(audit_events) + len(risk_events)
+    file_counts = {
+        "cloud/entraid/entraid_signin.json": len(signin_events),
+        "cloud/entraid/entraid_audit.json": len(audit_events),
+        "cloud/entraid/entraid_risk_detection.json": len(risk_events),
+    }
 
     if not quiet:
         # Count exfil events
@@ -1892,7 +1897,7 @@ def generate_entraid_logs(
         if exfil_signin or exfil_audit or exfil_risk:
             print(f"          exfil events: {exfil_signin} signin, {exfil_audit} audit, {exfil_risk} risk", file=sys.stderr)
 
-    return total
+    return {"total": total, "files": file_counts}
 
 
 def main():

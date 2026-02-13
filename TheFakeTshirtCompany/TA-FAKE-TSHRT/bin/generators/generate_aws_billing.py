@@ -343,7 +343,8 @@ def generate_aws_billing_logs(
         if exfil_days:
             print(f"        Exfil cost: {exfil_days} days affected", file=sys.stderr)
 
-    return len(all_rows)
+    total = len(all_rows)
+    return {"total": total, "files": {"cloud/aws/aws_billing_cur.csv": total}}
 
 
 def main():

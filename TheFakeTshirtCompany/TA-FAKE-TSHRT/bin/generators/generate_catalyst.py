@@ -660,7 +660,8 @@ def generate_catalyst_logs(
         if demo_id_count:
             print(f"          demo_id events: {demo_id_count:,}", file=sys.stderr)
 
-    return len(all_events)
+    total = len(all_events)
+    return {"total": total, "files": {"network/cisco_catalyst/cisco_catalyst_syslog.log": total}}
 
 
 # =============================================================================

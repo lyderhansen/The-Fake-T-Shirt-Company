@@ -1462,7 +1462,7 @@ def generate_sysmon_logs(
     if not quiet:
         print(f"[sysmon] Total: {total:,} events written to {output_path}")
 
-    return total
+    return {"total": total, "files": {"windows/sysmon_operational.log": total}}
 
 
 def _extract_timestamp(event_block: str) -> str:

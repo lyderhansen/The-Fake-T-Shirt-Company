@@ -644,6 +644,11 @@ def generate_aci_logs(
     _write_json(audit_path, audit_events)
 
     total = len(fault_events) + len(event_events) + len(audit_events)
+    file_counts = {
+        "network/cisco_aci/cisco_aci_fault.json": len(fault_events),
+        "network/cisco_aci/cisco_aci_event.json": len(event_events),
+        "network/cisco_aci/cisco_aci_audit.json": len(audit_events),
+    }
 
     if not quiet:
         print(f"  [ACI] Complete! {total:,} total events written", file=sys.stderr)
@@ -653,7 +658,7 @@ def generate_aci_logs(
         if demo_id_count:
             print(f"          demo_id events: {demo_id_count:,}", file=sys.stderr)
 
-    return total
+    return {"total": total, "files": file_counts}
 
 
 # =============================================================================

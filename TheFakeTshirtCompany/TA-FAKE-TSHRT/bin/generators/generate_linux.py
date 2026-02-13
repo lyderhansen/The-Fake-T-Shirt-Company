@@ -625,11 +625,14 @@ def generate_linux_logs(
 
     # Write output files
     total_events = 0
+    file_counts = {}
     for metric_type, lines in all_metrics.items():
         output_path = out_dir / f"{metric_type}.log"
         with open(output_path, "w") as f:
             for line in lines:
                 f.write(line + "\n")
+        rel_path = f"linux/{metric_type}.log"
+        file_counts[rel_path] = len(lines)
         total_events += len(lines)
 
     # Write auth.log
@@ -638,12 +641,13 @@ def generate_linux_logs(
         for line in auth_events:
             f.write(line + "\n")
     auth_count = len(auth_events)
+    file_counts["linux/auth.log"] = auth_count
     total_events += auth_count
 
     if not quiet:
         print(f"  [Linux] Complete! {total_events:,} events ({total_events - auth_count:,} metrics + {auth_count:,} auth.log)", file=sys.stderr)
 
-    return total_events
+    return {"total": total_events, "files": file_counts}
 
 
 def main():

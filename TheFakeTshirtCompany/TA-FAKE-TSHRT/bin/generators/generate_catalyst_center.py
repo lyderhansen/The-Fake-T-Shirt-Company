@@ -725,6 +725,12 @@ def generate_catalyst_center_logs(
     _write_json(issues_path, issue_events)
 
     total = len(device_events) + len(network_events) + len(client_events) + len(issue_events)
+    file_counts = {
+        "cloud/catalyst_center/catalyst_center_devicehealth.json": len(device_events),
+        "cloud/catalyst_center/catalyst_center_networkhealth.json": len(network_events),
+        "cloud/catalyst_center/catalyst_center_clienthealth.json": len(client_events),
+        "cloud/catalyst_center/catalyst_center_issues.json": len(issue_events),
+    }
 
     if not quiet:
         print(f"  [CatCenter] Complete! {total:,} total events written", file=sys.stderr)
@@ -735,7 +741,7 @@ def generate_catalyst_center_logs(
         if demo_id_count:
             print(f"          demo_id events: {demo_id_count:,}", file=sys.stderr)
 
-    return total
+    return {"total": total, "files": file_counts}
 
 
 # =============================================================================

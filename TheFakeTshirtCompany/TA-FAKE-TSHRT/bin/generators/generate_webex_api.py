@@ -768,6 +768,13 @@ def generate_webex_api_logs(
         len(all_meetings) + len(all_admin_audits) + len(all_security_audits) +
         len(all_meeting_qualities) + len(all_call_histories)
     )
+    file_counts = {
+        "cloud/webex/webex_api_meetings.json": len(all_meetings),
+        "cloud/webex/webex_api_admin_audit.json": len(all_admin_audits),
+        "cloud/webex/webex_api_security_audit.json": len(all_security_audits),
+        "cloud/webex/webex_api_meeting_qualities.json": len(all_meeting_qualities),
+        "cloud/webex/webex_api_call_history.json": len(all_call_histories),
+    }
 
     if not quiet:
         print(f"  [Webex API] Complete! {total_records:,} records written:", file=sys.stderr)
@@ -777,7 +784,7 @@ def generate_webex_api_logs(
         print(f"    - {meeting_qualities_file.name}: {len(all_meeting_qualities):,} quality records", file=sys.stderr)
         print(f"    - {call_history_file.name}: {len(all_call_histories):,} call records", file=sys.stderr)
 
-    return total_records
+    return {"total": total_records, "files": file_counts}
 
 
 def main():

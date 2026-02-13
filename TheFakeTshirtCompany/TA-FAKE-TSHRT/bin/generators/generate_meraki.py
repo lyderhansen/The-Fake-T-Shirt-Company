@@ -2961,6 +2961,18 @@ def generate_meraki_logs(
     }
 
     total_events = 0
+    file_counts = {}
+
+    # Map device_type to relative path for GENERATOR_OUTPUT_FILES
+    device_to_relpath = {
+        "mx": "network/meraki/meraki_mx_appliance.json",
+        "mr": "network/meraki/meraki_mr_wireless.json",
+        "mr_health": "network/meraki/meraki_mr_health.json",
+        "ms": "network/meraki/meraki_ms_switch.json",
+        "ms_health": "network/meraki/meraki_ms_health.json",
+        "mv": "network/meraki/meraki_mv_camera.json",
+        "mt": "network/meraki/meraki_mt_sensor.json",
+    }
 
     # Write all files as JSON (one JSON object per line)
     for device_type, events in all_events.items():
@@ -2969,6 +2981,7 @@ def generate_meraki_logs(
         with open(output_path, "w") as f:
             for event in events:
                 f.write(json.dumps(event) + "\n")
+        file_counts[device_to_relpath[device_type]] = len(events)
         total_events += len(events)
 
     if not quiet:
@@ -2976,7 +2989,7 @@ def generate_meraki_logs(
         for device_type in ["mx", "mr", "mr_health", "ms", "ms_health", "mv", "mt"]:
             print(f"    - {output_files[device_type].name}: {len(all_events[device_type]):,} events", file=sys.stderr)
 
-    return total_events
+    return {"total": total_events, "files": file_counts}
 
 
 def main():

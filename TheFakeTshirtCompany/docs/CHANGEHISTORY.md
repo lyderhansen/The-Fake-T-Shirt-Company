@@ -4,6 +4,41 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-13 ~22:30 UTC -- Fix --show-files to display event counts instead of line counts
+
+### Fixed
+
+- **`bin/main_generate.py`** -- `run_generator()` now handles both `int` and `dict` returns from generators. Added `_print_file_counts()` helper that uses generator-reported per-file event counts instead of raw line counts (`sum(1 for _ in open(f))`). Both parallel and sequential `--show-files` display paths now call the new helper.
+- **`bin/generators/generate_perfmon.py`** -- Returns `{"total": N, "files": {"windows/perfmon_*.log": n}}` with per-file event counts for all 4 metric files (processor, memory, logicaldisk, network_interface).
+- **`bin/generators/generate_wineventlog.py`** -- Returns dict with per-file counts for security/system/application log files.
+- **`bin/generators/generate_sysmon.py`** -- Returns dict with per-file count for sysmon_operational.log.
+- **`bin/generators/generate_mssql.py`** -- Returns dict with per-file count for mssql_errorlog.log.
+- **`bin/generators/generate_linux.py`** -- Returns dict with per-file counts for 6 files (cpu, vmstat, df, iostat, interfaces, auth).
+- **`bin/generators/generate_meraki.py`** -- Returns dict with per-file counts for 7 files (mx, mr, mr_health, ms, ms_health, mv, mt).
+- **`bin/generators/generate_servicenow.py`** -- Returns dict with per-file counts for incidents/cmdb/change files.
+- **`bin/generators/generate_entraid.py`** -- Returns dict with per-file counts for signin/audit/risk_detection files.
+- **`bin/generators/generate_aci.py`** -- Returns dict with per-file counts for fault/event/audit files.
+- **`bin/generators/generate_secure_access.py`** -- Returns dict with per-file counts for dns/proxy/firewall/audit files.
+- **`bin/generators/generate_catalyst_center.py`** -- Returns dict with per-file counts for devicehealth/networkhealth/clienthealth/issues files.
+- **`bin/generators/generate_webex_ta.py`** -- Returns dict with per-file counts for meetingusage/attendee files.
+- **`bin/generators/generate_webex_api.py`** -- Returns dict with per-file counts for meetings/admin_audit/security_audit/meeting_qualities/call_history files.
+- **`bin/generators/generate_catalyst.py`** -- Returns dict (single-file, but syslog had multiline events causing 1,209 events vs 1,222 lines).
+- **`bin/generators/generate_aws_billing.py`** -- Returns dict (single-file, but CSV header row caused 17 events vs 18 lines).
+
+### Context
+
+The `--show-files` feature displayed raw line counts per file, which was severely misleading for multiline log formats. Perfmon events span 7-8 lines each, WinEventLog XML ~17 lines, and Sysmon XML ~24 lines. For example, perfmon showed `98,112` lines for a file with only `14,016` events. The fix has each multi-file generator return a `{"total": N, "files": {"rel/path": count}}` dict. Single-file generators that don't have multiline issues continue returning `int` (backward compatible). The `_print_file_counts()` helper falls back to line counting for any file without a generator-reported count.
+
+### Verification
+
+- Full test run (`--all --scenarios=none --days=1 --test --show-files`): All 26 generators pass
+- Perfmon: 37,776 total = 14,016 + 11,592 + 8,208 + 3,960 (was showing 98K/81K/57K/27K lines)
+- WinEventLog: 591 total = 311 + 163 + 117 (was showing 5,459/2,867/1,965 lines)
+- Sysmon: 2,567 total (was showing 62,321 lines)
+- All per-file event counts sum correctly to generator totals
+
+---
+
 ## 2026-02-13 ~22:00 UTC -- Increase Cloud/Entra Volume + Reduce Meraki MS Health Default
 
 ### Changed

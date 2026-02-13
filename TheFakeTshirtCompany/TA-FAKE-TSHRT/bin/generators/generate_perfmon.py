@@ -589,17 +589,20 @@ def generate_perfmon_logs(
 
     # Write output files - events are multiline, separated by blank line
     total_events = 0
+    file_counts = {}
     for metric_type, lines in all_metrics.items():
         output_path = out_dir / f"perfmon_{metric_type}.log"
         with open(output_path, "w") as f:
             for line in lines:
                 f.write(line + "\n")
+        rel_path = f"windows/perfmon_{metric_type}.log"
+        file_counts[rel_path] = len(lines)
         total_events += len(lines)
 
     if not quiet:
         print(f"  [Perfmon] Complete! {total_events:,} metric samples written", file=sys.stderr)
 
-    return total_events
+    return {"total": total_events, "files": file_counts}
 
 
 def main():
