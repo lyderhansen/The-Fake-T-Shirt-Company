@@ -71,10 +71,7 @@ splunk list index fake_tshrt
 cd $SPLUNK_HOME/etc/apps/TA-FAKE-TSHRT/bin
 python3 main_generate.py --tui
 
-# 5. Restart Splunk to trigger ingestion of new data
-splunk restart
-
-# 6. Search
+# 5. Search
 | tstats count where index=fake_tshrt earliest=0 latest=now by sourcetype
 ```
 
