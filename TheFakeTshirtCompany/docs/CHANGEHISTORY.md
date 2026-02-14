@@ -4,6 +4,59 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~09:00 UTC -- Supporting TA Alignment Phase 3: AWS CloudTrail CIM
+
+### Added
+
+- **`local/eventtypes.conf`** -- 10 new AWS CloudTrail eventtypes:
+  - **Authentication** (4): `fake_aws_cloudtrail_auth` (AssumeRole+ConsoleLogin), `fake_aws_cloudtrail_consolelogin_auth`, `fake_aws_cloudtrail_assumeRole_auth`, `fake_aws_cloudtrail_multifactor_auth` (MFA events)
+  - **Change** (4): `fake_aws_cloudtrail_change` (10 mutating eventNames), `fake_aws_cloudtrail_iam_change` (CreateAccessKey+DeleteAccessKey), `fake_aws_cloudtrail_delete_events` (Delete*/Terminate*), `fake_aws_cloudtrail_endpoint_change` (S3 PutObject+DeleteObject)
+  - **Compute** (1): `fake_aws_cloudtrail_ec2_events` (RunInstances+TerminateInstances)
+  - **Error** (1): `fake_aws_cloudtrail_errors` (any errorCode present)
+  - Source: Splunk_TA_aws v7.x (Splunkbase #1876)
+  - Scoped to the 19 eventNames our generator produces
+
+- **`local/tags.conf`** -- 10 new CIM tag stanzas:
+  - `authentication`, `default`, `cloud` for ConsoleLogin auth
+  - `assume_role`, `cloud` for AssumeRole auth
+  - `multifactor`, `cloud` for MFA events
+  - `change`, `cloud` for change/delete/endpoint events
+  - `error`, `cloud` for error events
+
+- **`local/props.conf`** -- New `[FAKE:aws:cloudtrail]` stanza with CIM field enrichment:
+  - **16 FIELDALIAS**: desc, start_time, temp_access_key, user_access_key, app (eventType), dvc (eventSource), region, signature (eventName), src_ip, user_group_id, vendor_region, reason, command, image_id, instance_type, result_id
+  - **14 EVAL statements**: msg, user_arn, userName, result, vendor_account, user (complex CASE for IAMUser/AssumedRole identity), user_name, user_id, user_type, user_agent, aws_account_id, dest (per-eventName: instanceId, bucketName, LoginTo, eventSource), object (per-eventName resource), object_id (resource identifiers)
+  - **4 LOOKUP statements**: action_status, object_category, changetype (by source), changetype (by eventName)
+  - Note: EVAL-user and EVAL-dest override basic FIELDALIAS from default/props.conf (EVAL takes precedence in Splunk)
+
+- **`local/transforms.conf`** -- 4 new lookup definitions:
+  - `[aws_cloudtrail_action_status_lookup]` -- WILDCARD(errorCode), maps eventName+errorCode to action+status (58 rows)
+  - `[aws_cloudtrail_eventname_lookup]` -- Maps eventName to object_category (19 rows)
+  - `[aws_cloudtrail_changetype_lookup]` -- Maps eventSource to change_type (47 rows, full copy from real TA)
+  - `[aws_cloudtrail_eventname_changetype_lookup]` -- Maps eventName to change_type (13 rows)
+
+- **`lookups/aws_cloudtrail_action_status.csv`** -- New file. Action/status mapping for our 19 eventNames + error codes (58 rows, trimmed from 528 in real TA)
+- **`lookups/aws_cloudtrail_eventname_lookup.csv`** -- New file. Object category mapping (19 rows, trimmed from 155 in real TA)
+- **`lookups/aws_cloudtrail_changetype.csv`** -- New file. EventSource to change_type (47 rows, full copy from real TA + 3 added: signin, monitoring, config)
+- **`lookups/aws_cloudtrail_eventname_changetype.csv`** -- New file. EventName to change_type (13 rows, trimmed from 86 in real TA)
+
+### Not in Scope (Phase 3)
+
+- **REPORT extraction**: Real TA has `user-for-aws-cloudtrail-acctmgmt` regex extraction for user from errorMessage. Not needed -- our generator includes userName in userIdentity.
+- **Network dataset EVALs**: Real TA has dest_ip_range, dest_port_range, direction for network ACL events. We don't generate these eventNames.
+- **object_attrs EVAL**: Real TA has 30+ line CASE for resource attribute extraction. Our events have simpler structure.
+
+### Verification
+
+- Requires Splunk restart to pick up changes
+- Test: `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" | stats count by eventtype`
+- Test CIM fields: `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" | stats count by user, dest, action, status, object_category`
+- Test auth: `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=ConsoleLogin | table user, action, status, src, reason`
+- Test change: `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName IN ("CreateAccessKey","RunInstances") | table user, action, object, change_type`
+- Phase 3 of Supporting TA Alignment project. Next: Phase 4 (Entra ID)
+
+---
+
 ## 2026-02-15 ~07:00 UTC -- Supporting TA Alignment Phase 2: Windows + Sysmon CIM
 
 ### Added

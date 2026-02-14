@@ -1,0 +1,14 @@
+eventName,change_type
+AssumeRole,AAA
+ConsoleLogin,AAA
+CreateAccessKey,AAA
+DeleteAccessKey,AAA
+DeleteObject,storage
+GetSecretValue,AAA
+PutObject,storage
+RunInstances,virtual_server
+SetAlarmState,monitoring
+StartConfigRulesEvaluation,configuration
+TerminateInstances,virtual_server
+PutEvaluations,configuration
+PutLogEvents,logging
