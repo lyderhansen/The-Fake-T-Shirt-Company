@@ -28,10 +28,26 @@ This file documents all project changes with date/time, affected files, and desc
   - **Performance**: 4 eventtypes -> `performance`, `cpu`/`memory`/`disk`/`storage`/`report`
   - **Sysmon**: 5 eventtypes -> `process`/`report`, `network`/`communicate`, `endpoint`/`filesystem`, `endpoint`/`registry`, `network`/`resolution`/`dns`
 
+- **`local/props.conf`** -- New file. CIM field enrichment for WinEventLog and Sysmon:
+  - **`[FAKE:WinEventLog]`** -- 8 FIELDALIAS + 10 EVAL statements:
+    - FIELDALIAS: dest_nt_host, severity_id, body, event_id, id, user_id, service_name, parent_process
+    - EVAL: vendor, product, dest, src (EventCode-specific), authentication_method, authentication_service, process_name, process_path, process, parent_process_name, result_id
+  - **`[FAKE:WinEventLog:Sysmon]`** -- 8 FIELDALIAS + 25 EVAL + 2 LOOKUP statements:
+    - FIELDALIAS: dvc, src_port, query, reply_code_id, registry_path, granted_access, process_integrity_level, eventid
+    - EVAL: action (by EventCode), dest, src, process_path, process_name, process_id, process_guid, process_exec, parent_process_path/name/id, file_path, file_name, registry_key_name, registry_value_name, app, direction, protocol, state, transport, user, object_category, os, status
+    - LOOKUP: sysmon_eventcode_lookup (EventCode -> description/signature), sysmon_record_type_lookup (DNS record type)
+
+- **`local/transforms.conf`** -- 2 new Sysmon lookup definitions:
+  - `[sysmon_eventcode_lookup]` -- Maps EventCode to EventDescription (31 entries)
+  - `[sysmon_record_type_lookup]` -- Maps DNS record_type_id to record_type_name (47 entries)
+
+- **`lookups/sysmon_eventcode_lookup.csv`** -- New file. Sysmon EventCode descriptions (source: Splunk_TA_microsoft_sysmon)
+- **`lookups/sysmon_record_type_lookup.csv`** -- New file. DNS record type names (source: Splunk_TA_microsoft_sysmon)
+
 ### Not in Scope (Phase 2)
 
-- **Props/transforms**: Real TA has 348 transforms for XML parsing. Our generators produce KV format, so existing `KV_MODE=AUTO` + Sysmon REPORT extractions work fine.
-- **Lookups**: Real TA has 38 CSV files. We have `windows_severity_lookup.csv` and `windows_signature_lookup.csv`. Remaining 36 are for sourcetypes we don't generate.
+- **Full XML parsing transforms**: Real TA has 348 transforms for XML block extraction. Our generators produce KV format, not XML, so these are irrelevant.
+- **Windows lookups**: Real TA has 38 CSV files. Most are for sourcetypes/EventCodes we don't generate. We keep `windows_severity_lookup.csv` and `windows_signature_lookup.csv` from default/.
 
 ### Verification
 
@@ -39,6 +55,8 @@ This file documents all project changes with date/time, affected files, and desc
 - Test: `index=fake_tshrt sourcetype="FAKE:WinEventLog" | stats count by eventtype`
 - Test: `index=fake_tshrt sourcetype="FAKE:WinEventLog:Sysmon" | stats count by eventtype`
 - Test: `index=fake_tshrt sourcetype="FAKE:Perfmon:*" | stats count by eventtype`
+- Test Sysmon CIM fields: `index=fake_tshrt sourcetype="FAKE:WinEventLog:Sysmon" EventCode=1 | table process_name, process_path, parent_process_name, action, dest, user`
+- Test WinEventLog CIM fields: `index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4624 | table src, dest, authentication_method, user`
 - Phase 2 of Supporting TA Alignment project. Next: Phase 3 (AWS CloudTrail)
 
 ---
