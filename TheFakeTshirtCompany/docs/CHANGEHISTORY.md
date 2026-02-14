@@ -4,6 +4,17 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~04:30 UTC -- Fix addon references in REFERENCES.md
+
+### Fixed
+
+- **`docs/datasource_docs/REFERENCES.md`** -- Corrected three addon references:
+  - Webex REST API: Replaced wrong Splunkbase 8365 with correct GitHub repo (`splunk/ta_cisco_webex_add_on_for_splunk`)
+  - Catalyst Center: Replaced wrong Splunkbase 7858 with correct 7538 (Cisco Catalyst Add-on for Splunk, covers both switches and Catalyst Center)
+  - Cisco Secure Access: Verified already correct (Splunkbase 7569)
+
+---
+
 ## 2026-02-15 ~03:30 UTC -- Dynamic customer pool + tshirtcid in SAP
 
 ### Fixed

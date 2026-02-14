@@ -62,7 +62,7 @@ Phase 2 (sequential): orders -> servicebus -> sap
 | `order_id` | `ORD-YYYY-NNNNN` | `ORD-2026-00001` | access | orders, servicebus, sap |
 | `customer_id` | `CUST-NNNNN` | `CUST-00050` | access | access, orders, sap |
 | `session_id` | `sess_XXXXXXXX` | `sess_a1b2c3d4` | access | access, orders, servicebus |
-| `tshirtcid` | UUID v4 | `a1b2c1d2-...` | access | access, orders, servicebus |
+| `tshirtcid` | UUID v4 | `a1b2c1d2-...` | access | access, orders, servicebus, sap |
 | `product slug` | kebab-case | `works-on-my-machine-tee` | products.py | access (URL), orders (SKU), sap (material) |
 | `demo_id` | scenario tag | `dead_letter_pricing` | scenarios | all 5 sources |
 
@@ -214,9 +214,9 @@ Each order produces 3 events (complete SAP order lifecycle):
 
 **Example lifecycle (pipe-delimited):**
 ```
-2026-01-05 14:25:13|SAP-PROD-01|DIA|noah.reed|VA01|S|Create Sales Order|SO-2026-00001|Sales order for customer CUST-00050, 2 items, total $115.00, ref ORD-2026-00001
-2026-01-05 14:47:41|SAP-PROD-01|DIA|noah.reed|VL01N|S|Create Delivery|DL-2026-00001|Delivery for SO-2026-00001, shipping point BOS1, 2 items
-2026-01-05 16:12:33|SAP-PROD-01|DIA|noah.reed|VF01|S|Create Billing Document|INV-2026-00001|Invoice for SO-2026-00001, $115.00
+2026-01-05 14:25:13|SAP-PROD-01|DIA|noah.reed|VA01|S|Create Sales Order|SO-2026-00001|Sales order for customer CUST-00050, 2 items, total $115.00, ref ORD-2026-00001, tshirtcid=a1b2c1d2-4e56-4f7g-h8i9-j1k2l3m4n5o6
+2026-01-05 14:47:41|SAP-PROD-01|DIA|noah.reed|VL01N|S|Create Delivery|DL-2026-00001|Delivery for SO-2026-00001, shipping point BOS1, 2 items, tshirtcid=a1b2c1d2-4e56-4f7g-h8i9-j1k2l3m4n5o6
+2026-01-05 16:12:33|SAP-PROD-01|DIA|noah.reed|VF01|S|Create Billing Document|INV-2026-00001|Invoice for SO-2026-00001, $115.00, tshirtcid=a1b2c1d2-4e56-4f7g-h8i9-j1k2l3m4n5o6
 ```
 
 **SAP field positions:**
@@ -231,7 +231,7 @@ Each order produces 3 events (complete SAP order lifecycle):
 | 6 | Status | `S` (success), `E` (error), `W` (warning) |
 | 7 | Description | `Create Sales Order` |
 | 8 | Document number | `SO-2026-00001` |
-| 9 | Details | Free text with customer, items, total, web ref |
+| 9 | Details | Free text with customer, items, total, web ref, tshirtcid |
 | 10 | demo_id (optional) | `demo_id=dead_letter_pricing` |
 
 **SAP document chain:**
@@ -269,7 +269,7 @@ Jan 05 2026 14:23:45 FW-EDGE-01 %ASA-6-302013: Built inbound TCP connection 5432
 | ID Type | Format | Example | Range |
 |---------|--------|---------|-------|
 | Order ID | `ORD-YYYY-NNNNN` | `ORD-2026-00001` | Sequential per run |
-| Customer ID | `CUST-NNNNN` | `CUST-00050` | Pareto: 30% top 50, 70% rest up to ~500 |
+| Customer ID | `CUST-NNNNN` | `CUST-00050` | Dynamic pool: `max(500, orders_per_day * days // 4)`. VIP (top 5%) drives 30% of traffic |
 | Session ID | `sess_XXXXXXXX` | `sess_a1b2c3d4` | Random hex |
 | Tracking cookie | UUID v4 | `a1b2c1d2-4e56-...` | Standard UUID |
 | ServiceBus message | `msg-ORDER_ID-TYPE-NNNNN` | `msg-ORD-2026-00001-OrderCreated-75234` | Unique per message |

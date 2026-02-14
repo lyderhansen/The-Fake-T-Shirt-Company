@@ -232,6 +232,7 @@ The-Fake-T-Shirt-Company/
 
 # Access/Orders-specific
 --orders-per-day=N       Target orders per day (default: ~224)
+                         Also drives dynamic customer pool size (see below)
 
 # Meraki-specific
 --meraki-health-interval Health metric frequency (5/10/15/30 min)
@@ -525,7 +526,7 @@ number="INC0001234" state="In Progress" priority="2" short_description="CPU runa
 
 ### SAP Audit Log (Pipe-delimited)
 ```
-2026-01-05 14:23:45|SAP-PROD-01|DIA|alex.miller|VA01|S|Create Sales Order|SO-2026-00123|Sales order created for customer C-10042, 3 items, total $234.56
+2026-01-05 14:23:45|SAP-PROD-01|DIA|alex.miller|VA01|S|Create Sales Order|SO-2026-00123|Sales order for customer CUST-00042, 3 items, total $234.56, ref ORD-2026-00123, tshirtcid=a1b2c1d2-4e56-4f7g-h8i9-j1k2l3m4n5o6
 2026-01-05 14:24:12|SAP-PROD-01|DIA|warehouse.user|MIGO|S|Goods Receipt 101|MAT-2026-04567|GR for PO 456, material M-0001 "Hack the Planet Tee", qty 500
 2026-01-05 02:00:05|SAP-PROD-01|BTC|sap.batch|SM37|S|Background Job Complete|MRP_NIGHTLY_RUN|MRP run completed, planned orders: 12, processing time: 847s
 ```
@@ -549,6 +550,31 @@ number="INC0001234" state="In Progress" priority="2" short_description="CPU runa
 - **Accessories** (10): $28-85 - Caps, beanies, backpack, laptop sleeve
 
 Categories: developer, sysadmin, security, nerd, modern
+
+## Customer Pool & VIP Segmentation
+
+The customer pool scales dynamically based on order volume to maintain realistic purchase frequency (~4 orders/customer).
+
+**Formula:**
+```python
+pool_total = max(500, orders_per_day * days // 4)   # ~4 orders per customer
+pool_vip = max(50, pool_total // 20)                 # VIP = top 5% of pool
+```
+
+**Traffic split:** VIP customers (CUST-00001 to CUST-{pool_vip}) drive 30% of orders. Regular customers (CUST-{pool_vip+1} to CUST-{pool_total}) drive 70%.
+
+| orders_per_day | days | pool_total | pool_vip | avg orders/customer |
+|----------------|------|------------|----------|---------------------|
+| 224 (default)  | 14   | 784        | 50       | ~4                  |
+| 224 (default)  | 31   | 1,736      | 86       | ~4                  |
+| 5,000          | 14   | 17,500     | 875      | ~4                  |
+| 5,000          | 31   | 38,750     | 1,937    | ~4                  |
+
+**Customer Lookup Enrichment:**
+- File: `lookups/customer_lookup.csv` (500 rows)
+- Scope: Only VIP customers (CUST-00001 to CUST-00500) have lookup data
+- Fields: customer_id, customer_name, email, segment, country, location, signup_date
+- Customers above CUST-00500 won't match the lookup (by design: VIP enrichment use case)
 
 ## Meraki Device Configuration (Multi-Site)
 
@@ -981,7 +1007,8 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
 - **Splunk sourcetypes are prefixed with `FAKE:`** -- e.g., `FAKE:cisco:asa`, `FAKE:aws:cloudtrail`. Generators produce events with standard sourcetype names; Splunk's `props.conf`/`transforms.conf` apply the `FAKE:` prefix at index time. All SPL queries in documentation must use: `index=fake_tshrt sourcetype="FAKE:cisco:asa"`
 - All scenario events queryable via `demo_id` field in Splunk
 - 13 servers across 2 locations (10 Boston, 3 Atlanta), 175 employees across 3 locations
-- SAP generator correlates with orders via `order_registry.json` (NDJSON format, one JSON object per line)
+- SAP generator correlates with orders via `order_registry.json` (NDJSON format, one JSON object per line). tshirtcid (browser cookie UUID) is included in VA01/VL01N/VF01 event details and extracted via `extract_sap_tshirtcid` transform
+- Customer pool is dynamic: `pool_total = max(500, orders_per_day * days // 4)` targeting ~4 orders/customer. VIP = top 5% of pool driving 30% of traffic (Pareto). `customer_lookup.csv` covers 500 VIP customers only (CUST-00001 to CUST-00500)
 
 ## Future Enhancements
 

@@ -22,11 +22,11 @@ Splunk Add-on references, ingestion methods, and sourcetype accuracy for every d
 | Exchange | Splunk Add-on for MS Office 365 | [4055](https://splunkbase.splunk.com/app/4055) | Office 365 API | `ms:o365:reporting:messagetrace` | See note 5 |
 | Office 365 Audit | Splunk Add-on for MS Office 365 | [4055](https://splunkbase.splunk.com/app/4055) | Management Activity API | `o365:management:activity` | Exact |
 | Cisco Secure Access | Cisco Secure Access Add-on | [7569](https://splunkbase.splunk.com/app/7569) | S3 bucket polling | `cisco:umbrella:*` | Exact |
-| Catalyst Center | Cisco Catalyst Center Add-on | [7858](https://splunkbase.splunk.com/app/7858) | REST API | `cisco:catalyst:*` | Exact |
+| Catalyst Center | Cisco Catalyst Add-on for Splunk | [7538](https://splunkbase.splunk.com/app/7538) | REST API | `cisco:catalyst:*` | Exact |
 | **Collaboration** |
 | Webex Devices | (custom) | -- | Webex xAPI / webhooks | `cisco:webex:events` | Custom |
 | Webex Meetings TA | Cisco WebEx Meetings Add-on | [GitHub](https://github.com/splunk/ta-cisco-webex-meetings-add-on-for-splunk) | Webex XML API (legacy) | `cisco:webex:meetings:history:*` | Exact |
-| Webex REST API | Webex Add-on for Splunk | [8365](https://splunkbase.splunk.com/app/8365) | Webex REST API | `cisco:webex:*` | Partial |
+| Webex REST API | Cisco Webex Add-on for Splunk | [GitHub](https://github.com/splunk/ta_cisco_webex_add_on_for_splunk) | Webex REST API | `cisco:webex:*` | Partial |
 | **Windows** |
 | Perfmon | Splunk Add-on for MS Windows | [742](https://splunkbase.splunk.com/app/742) | Universal Forwarder | `perfmon` | See note 6 |
 | WinEventLog | Splunk Add-on for MS Windows | [742](https://splunkbase.splunk.com/app/742) | Universal Forwarder | `XmlWinEventLog` | Exact |
@@ -321,8 +321,7 @@ Our project uses the `FAKE:` prefix for all sourcetypes at index time (e.g., `FA
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Cisco Catalyst Center Add-on for Splunk](https://splunkbase.splunk.com/app/7858) (v1.0.1) |
-| **Alternative** | [Cisco Catalyst Add-on for Splunk](https://splunkbase.splunk.com/app/7538) (also includes Catalyst Center inputs) |
+| **Splunk Add-on** | [Cisco Catalyst Add-on for Splunk](https://splunkbase.splunk.com/app/7538) (same add-on as Catalyst switches -- includes Catalyst Center inputs) |
 
 **Sourcetypes:** `cisco:catalyst:devicehealth`, `cisco:catalyst:networkhealth`, `cisco:catalyst:clienthealth`, `cisco:catalyst:issue` (+ `cisco:catalyst:client`, `cisco:catalyst:compliance`, `cisco:catalyst:securityadvisory`)
 
@@ -341,7 +340,7 @@ No dedicated Splunk TA for Webex device telemetry (xAPI events).
 **Real-world options:**
 - Webex Control Hub can export device analytics
 - Custom webhook/xAPI integration to HEC
-- [Webex Add-on for Splunk](https://splunkbase.splunk.com/app/8365) covers meetings/calls but not device telemetry
+- [Cisco Webex Add-on for Splunk](https://github.com/splunk/ta_cisco_webex_add_on_for_splunk) covers meetings/calls but not device telemetry
 
 ---
 
@@ -361,7 +360,7 @@ No dedicated Splunk TA for Webex device telemetry (xAPI events).
 
 | Resource | Link |
 |----------|------|
-| **Splunk Add-on** | [Webex Add-on for Splunk](https://splunkbase.splunk.com/app/8365) (v1.3.1) |
+| **Splunk Add-on** | [Cisco Webex Add-on for Splunk](https://github.com/splunk/ta_cisco_webex_add_on_for_splunk) |
 | **Webex Developer** | [Webex REST API](https://developer.webex.com/) |
 
 **Sourcetypes:** `cisco:webex:meetings`, `cisco:webex:admin:audit:events`, `cisco:webex:security:audit:events`, `cisco:webex:meeting:qualities`, `cisco:webex:call:detailed_history`
