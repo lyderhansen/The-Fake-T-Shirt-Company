@@ -4,6 +4,45 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~07:00 UTC -- Supporting TA Alignment Phase 2: Windows + Sysmon CIM
+
+### Added
+
+- **`local/eventtypes.conf`** -- 26 new eventtypes for Windows, Sysmon, and Perfmon:
+  - **Windows base** (3): `fake_wineventlog_security`, `fake_wineventlog_system`, `fake_wineventlog_application` -- log source filters
+  - **Authentication** (6): `fake_windows_logon_success` (4624), `fake_windows_logon_failure` (4625), `fake_windows_special_privileges` (4672), `fake_windows_auth_ticket_granted` (4768), `fake_windows_service_ticket_granted` (4769), `fake_windows_account_used4logon` (4776)
+  - **Account Management** (3): `fake_windows_account_password_set` (4724), `fake_windows_account_modified` (4738), `fake_windows_account_lockout` (4740)
+  - **Process Tracking** (1): `fake_windows_process_new` (4688)
+  - **CIM Composite** (4): `fake_windows_security_authentication`, `fake_windows_security_change`, `fake_windows_security_change_account`, `fake_windows_endpoint_processes`
+  - **System** (1): `fake_windows_time_sync` (EventCode 37)
+  - **Perfmon** (3): `fake_perfmon_cputime`, `fake_perfmon_memory`, `fake_perfmon_logicaldisk`
+  - **Sysmon** (5): `fake_sysmon_process` (1,5,7,8,10), `fake_sysmon_network` (3), `fake_sysmon_filemod` (11), `fake_sysmon_regmod` (13), `fake_sysmon_dns` (22)
+  - Source: Splunk_TA_windows v9.x (Splunkbase #742) and Splunk_TA_microsoft_sysmon v4.x (Splunkbase #5765)
+  - Scoped to EventCodes our generators actually produce (not the full 90+ from real TA)
+
+- **`local/tags.conf`** -- 23 new CIM tag stanzas:
+  - **Authentication**: 6 eventtypes -> `authentication` (+ `privileged` for 4672)
+  - **Change (Account Mgmt)**: 3 eventtypes -> `change`, `account`, `modify`/`lock`/`password`
+  - **Process**: 1 eventtype -> `process`, `execute`, `start`
+  - **CIM Composite**: 4 eventtypes -> `authentication`, `change`, `process`, `report`
+  - **Performance**: 4 eventtypes -> `performance`, `cpu`/`memory`/`disk`/`storage`/`report`
+  - **Sysmon**: 5 eventtypes -> `process`/`report`, `network`/`communicate`, `endpoint`/`filesystem`, `endpoint`/`registry`, `network`/`resolution`/`dns`
+
+### Not in Scope (Phase 2)
+
+- **Props/transforms**: Real TA has 348 transforms for XML parsing. Our generators produce KV format, so existing `KV_MODE=AUTO` + Sysmon REPORT extractions work fine.
+- **Lookups**: Real TA has 38 CSV files. We have `windows_severity_lookup.csv` and `windows_signature_lookup.csv`. Remaining 36 are for sourcetypes we don't generate.
+
+### Verification
+
+- Requires Splunk restart to pick up changes
+- Test: `index=fake_tshrt sourcetype="FAKE:WinEventLog" | stats count by eventtype`
+- Test: `index=fake_tshrt sourcetype="FAKE:WinEventLog:Sysmon" | stats count by eventtype`
+- Test: `index=fake_tshrt sourcetype="FAKE:Perfmon:*" | stats count by eventtype`
+- Phase 2 of Supporting TA Alignment project. Next: Phase 3 (AWS CloudTrail)
+
+---
+
 ## 2026-02-15 ~06:00 UTC -- Supporting TA Alignment Phase 1: Cisco ASA CIM
 
 ### Changed
