@@ -264,32 +264,32 @@ Event types group sourcetypes into logical categories. Tags map these to CIM dat
 
 | Event Type | Search | Tags |
 |------------|--------|------|
-| `demo_scenario_exfil` | `demo_id=exfil` | attack, exfiltration, apt |
-| `demo_scenario_ransomware_attempt` | `demo_id=ransomware_attempt` | attack, malware |
-| `demo_scenario_phishing_test` | `demo_id=phishing_test` | attack, phishing |
-| `demo_scenario_memory_leak` | `demo_id=memory_leak` | performance, operations |
-| `demo_scenario_cpu_runaway` | `demo_id=cpu_runaway` | performance, operations |
-| `demo_scenario_disk_filling` | `demo_id=disk_filling` | performance, operations |
-| `demo_scenario_dead_letter_pricing` | `demo_id=dead_letter_pricing` | performance, operations |
-| `demo_scenario_firewall_misconfig` | `demo_id=firewall_misconfig` | misconfiguration, network |
-| `demo_scenario_certificate_expiry` | `demo_id=certificate_expiry` | misconfiguration, network |
-| `demo_scenario_ddos_attack` | `demo_id=ddos_attack` | attack, network |
+| `fake_scenario_exfil` | `demo_id=exfil` | attack, exfiltration, apt |
+| `fake_scenario_ransomware_attempt` | `demo_id=ransomware_attempt` | attack, malware |
+| `fake_scenario_phishing_test` | `demo_id=phishing_test` | attack, phishing |
+| `fake_scenario_memory_leak` | `demo_id=memory_leak` | performance, operations |
+| `fake_scenario_cpu_runaway` | `demo_id=cpu_runaway` | performance, operations |
+| `fake_scenario_disk_filling` | `demo_id=disk_filling` | performance, operations |
+| `fake_scenario_dead_letter_pricing` | `demo_id=dead_letter_pricing` | performance, operations |
+| `fake_scenario_firewall_misconfig` | `demo_id=firewall_misconfig` | misconfiguration, network |
+| `fake_scenario_certificate_expiry` | `demo_id=certificate_expiry` | misconfiguration, network |
+| `fake_scenario_ddos_attack` | `demo_id=ddos_attack` | attack, network |
 
 ### CIM Event Types (11)
 
 | Event Type | Maps To | Tags |
 |------------|---------|------|
-| `demo_authentication` | Entra ID sign-in, WinEventLog 4624/4625, linux:auth | authentication |
-| `demo_network_traffic` | Cisco ASA, Meraki MX, Umbrella FW | network, communicate |
-| `demo_change` | Entra ID audit, CloudTrail, GCP, O365 audit | change |
-| `demo_malware` | ASA IDS/IPS events | malware, attack |
-| `demo_web` | Apache access logs | web |
-| `demo_email` | Exchange message trace | email |
-| `demo_dns` | Cisco Umbrella DNS | network, resolution, dns |
-| `demo_performance` | Perfmon, Linux metrics (cpu, vmstat, df, iostat, interfaces) | performance |
-| `demo_endpoint` | WinEventLog, Sysmon | endpoint |
-| `demo_intrusion_detection` | GuardDuty, Umbrella blocked, ASA deny | ids, attack |
-| `demo_database` | MSSQL error log | database |
+| `fake_authentication` | Entra ID sign-in, WinEventLog 4624/4625, linux:auth | authentication |
+| `fake_network_traffic` | Cisco ASA, Meraki MX, Umbrella FW | network, communicate |
+| `fake_change` | Entra ID audit, CloudTrail, GCP, O365 audit | change |
+| `fake_malware` | ASA IDS/IPS events | malware, attack |
+| `fake_web` | Apache access logs | web |
+| `fake_email` | Exchange message trace | email |
+| `fake_dns` | Cisco Umbrella DNS | network, resolution, dns |
+| `fake_performance` | Perfmon, Linux metrics (cpu, vmstat, df, iostat, interfaces) | performance |
+| `fake_endpoint` | WinEventLog, Sysmon | endpoint |
+| `fake_intrusion_detection` | GuardDuty, Umbrella blocked, ASA deny | ids, attack |
+| `fake_database` | MSSQL error log | database |
 
 ---
 

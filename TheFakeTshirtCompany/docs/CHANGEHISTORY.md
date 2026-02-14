@@ -4,6 +4,70 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~06:00 UTC -- Supporting TA Alignment Phase 1: Cisco ASA CIM
+
+### Changed
+
+- **`default/eventtypes.conf`** -- Renamed all `demo_` prefixed eventtype stanza names to `fake_` (34 stanzas). Search strings with `demo_id=` field references preserved unchanged.
+- **`default/tags.conf`** -- Renamed all `[eventtype=demo_*]` references to `[eventtype=fake_*]` (31 stanzas). Tag values unchanged.
+- **`default/README.md`** -- Updated eventtype name references in documentation tables from `demo_` to `fake_` prefix. Kept `demo_id=` field references in search examples.
+
+### Added
+
+- **`local/transforms.conf`** -- New file. Override for 2 ASA lookup definitions missing `match_type`:
+  - `[cisco_asa_change_analysis_lookup]` -- Added `match_type = WILDCARD(message_id)` (required for CSV wildcard matching)
+  - `[cisco_asa_vendor_class_lookup]` -- Added `match_type = WILDCARD(message_id)`
+  - Source: Splunk_TA_cisco-asa v6.0.0 (Splunkbase #1620)
+
+- **`local/eventtypes.conf`** -- New file. 16 ASA-specific CIM eventtypes copied from real Splunk_TA_cisco-asa v6.0.0:
+  - `fake_cisco_authentication` -- Authentication model (message_id: 109031, 605004, 605005, 716047, 772002-772004, etc.)
+  - `fake_cisco_authentication_privileged` -- Authentication privileged (message_id: 113021)
+  - `fake_cisco_connection` -- Network Traffic model (41 message_ids: 302013-302016, 305011-305013, 106023, etc.)
+  - `fake_cisco_intrusion` -- IDS model (message_id: 400032, 106016, 106017, 430001)
+  - `fake_cisco_vpn` -- VPN session (message_id: 722051, 713228)
+  - `fake_cisco_vpn_start` -- VPN session start (message_id: 113039, 716001, 722022, etc.)
+  - `fake_cisco_vpn_end` -- VPN session end (message_id: 113019, 716002, 722023, 602304)
+  - `fake_cisco_asa_network_sessions` -- Network session (message_id: 609001, 609002, 716058-716059, etc.)
+  - `fake_cisco_asa_configuration_change` -- Change model (change_class=* OR 505001-505009, 113003)
+  - `fake_cisco_asa_audit_change` -- Change audit (message_id: 771002, 111009, 111004, etc.)
+  - `fake_cisco_asa_endpoint_filesystem` -- Endpoint filesystem (message_id: 716015, 716014, 716016)
+  - `fake_cisco_asa_certificates` -- Certificate model (message_id: 717009, 717022, 717027-717029, 717037)
+  - `fake_cisco_asa_network_resolution` -- DNS resolution (message_id: 713154)
+  - `fake_cisco_asa_alert` -- Alert model (message_id: 110003, 405001, 212011)
+  - `fake_cisco_network_session_start` -- Network session start (message_id: 302022, 302024, 302026)
+  - `fake_cisco_network_session_end` -- Network session end (message_id: 302023, 302025)
+  - All searches use `sourcetype="FAKE:cisco:asa"` with exact message_id lists from real TA
+
+- **`local/tags.conf`** -- New file. 16 CIM tag stanzas mapping ASA eventtypes to data models:
+  - Network Traffic: `fake_cisco_connection` -> network, communicate
+  - Authentication: `fake_cisco_authentication` -> authentication; `fake_cisco_authentication_privileged` -> authentication, privileged
+  - VPN: `fake_cisco_vpn/vpn_start/vpn_end` -> vpn, network, session
+  - Network Session: `fake_cisco_asa_network_sessions` -> network, session
+  - Change: `fake_cisco_asa_configuration_change`, `fake_cisco_asa_audit_change` -> change
+  - Endpoint: `fake_cisco_asa_endpoint_filesystem` -> endpoint, filesystem
+  - Certificate: `fake_cisco_asa_certificates` -> certificate
+  - DNS: `fake_cisco_asa_network_resolution` -> network, resolution, dns
+  - IDS: `fake_cisco_intrusion` -> attack, ids
+  - Alert: `fake_cisco_asa_alert` -> alert
+  - Session Start/End: `fake_cisco_network_session_start` -> network, session, start; `fake_cisco_network_session_end` -> network, session, end
+
+### Strategy
+
+- All new CIM configurations placed in `local/` directory to keep `default/` stable
+- Splunk merges `default/` + `local/` automatically (local/ has precedence at attribute level)
+- Only NEW stanzas and attributes added in local/ -- no redefinition of existing default/ attributes
+- Can be promoted to `default/` after verification in Splunk
+
+### Verification
+
+- Requires Splunk restart to pick up new local/ files
+- Test eventtype matching: `index=fake_tshrt sourcetype="FAKE:cisco:asa" | stats count by eventtype`
+- Test CIM Network Traffic: `| datamodel Network_Traffic All_Traffic search | stats count by sourcetype`
+- Test lookup wildcard: `index=fake_tshrt sourcetype="FAKE:cisco:asa" message_id=505* | table message_id change_type object_category`
+- Phase 1 of Supporting TA Alignment project (Cisco ASA). Next: Phase 2 (Windows + Sysmon)
+
+---
+
 ## 2026-02-15 ~04:30 UTC -- Fix addon references in REFERENCES.md
 
 ### Fixed
