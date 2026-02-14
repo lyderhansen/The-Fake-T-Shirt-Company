@@ -4,6 +4,38 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~03:30 UTC -- Dynamic customer pool + tshirtcid in SAP
+
+### Fixed
+
+- **`bin/generators/generate_access.py`** -- Customer pool now scales dynamically:
+  - Previously hardcoded to 500 customers (CUST-00001 to CUST-00500), causing unrealistic ~408 orders/customer with high-volume configs
+  - `get_customer_id()` now takes `pool_total` and `pool_vip` parameters
+  - Pool calculated as `max(500, orders_per_day * days // 4)` for ~4 orders/customer average
+  - VIP segment = 5% of pool, drives 30% of traffic (Pareto distribution preserved)
+  - Examples: default 224/day x 14 days = 784 customers; 5000/day x 31 days = 38,750 customers
+  - Pool size printed to stderr during generation for visibility
+
+### Added
+
+- **`bin/generators/generate_sap.py`** -- tshirtcid correlation field:
+  - Reads `tshirtcid` (browser cookie UUID) from order_registry for each order
+  - Appended to VA01, VL01N, and VF01 event details as `tshirtcid=<uuid>`
+  - Enables cross-source correlation: access -> orders -> servicebus -> SAP
+
+- **`default/transforms.conf`** -- `[extract_sap_tshirtcid]`:
+  - New REGEX transform: `tshirtcid=([\w-]+)` extracts browser cookie from SAP details field
+
+- **`default/props.conf`** -- `[FAKE:sap:auditlog]`:
+  - Added `extract_sap_tshirtcid` to REPORT-sap_details extraction chain
+
+### Verification
+
+- Requires data regeneration (access + orders + servicebus + sap) to reflect new customer pool and tshirtcid
+- `customer_lookup.csv` unchanged (500 VIP rows) -- customers above CUST-00500 won't match lookup (by design: VIP enrichment use case)
+
+---
+
 ## 2026-02-15 ~02:30 UTC -- props.conf/transforms.conf audit and fixes
 
 ### Fixed

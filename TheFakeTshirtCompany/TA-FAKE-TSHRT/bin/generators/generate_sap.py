@@ -276,6 +276,7 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
         total = order.get("cart_total", 0)
         cust_id = order.get("customer_id", "CUST-00000")
         web_order_id = order.get("order_id", "")
+        tshirtcid = order.get("tshirtcid", "")
         demo_id = order.get("scenario")
 
         # Pick a Sales user for this order
@@ -286,7 +287,7 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
         second = random.randint(0, 59)
         ts_va01 = _fmt_ts(base_date, day, hour, minute, second)
         so_number = _next_doc_number("SO", year, doc_counter)
-        details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}"
+        details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}, tshirtcid={tshirtcid}"
         events.append(_sap_event(
             ts_va01, "DIA", username, "VA01", "S",
             "Create Sales Order", so_number, details, demo_id=demo_id
@@ -303,7 +304,7 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
             events.append(_sap_event(
                 ts_dl, "DIA", username, "VL01N", "S",
                 "Create Delivery", dl_number,
-                f"Delivery for {so_number}, shipping point BOS1, {items} items",
+                f"Delivery for {so_number}, shipping point BOS1, {items} items, tshirtcid={tshirtcid}",
                 demo_id=demo_id
             ))
 
@@ -316,7 +317,7 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
             events.append(_sap_event(
                 ts_inv, "DIA", username, "VF01", "S",
                 "Create Billing Document", inv_number,
-                f"Invoice for {so_number}, ${total:.2f}",
+                f"Invoice for {so_number}, ${total:.2f}, tshirtcid={tshirtcid}",
                 demo_id=demo_id
             ))
 

@@ -111,11 +111,15 @@ def get_user_agent() -> str:
     return random.choice(BOT_AGENTS)
 
 
-def get_customer_id() -> str:
-    """Get customer ID with Pareto distribution (30% top 50, 70% rest)."""
+def get_customer_id(pool_total: int = 10000, pool_vip: int = 500) -> str:
+    """Get customer ID with Pareto distribution (30% from top VIPs, 70% from rest).
+
+    Pool size scales dynamically with order volume to maintain ~4 orders/customer.
+    VIP customers (top 5%) drive 30% of traffic (Pareto distribution).
+    """
     if random.randint(1, 100) <= 30:
-        return f"CUST-{random.randint(1, 50):05d}"
-    return f"CUST-{random.randint(51, 500):05d}"
+        return f"CUST-{random.randint(1, pool_vip):05d}"
+    return f"CUST-{random.randint(pool_vip + 1, pool_total):05d}"
 
 
 def generate_session_id() -> str:
@@ -297,6 +301,8 @@ def generate_session(
     response_mult: int = 100,
     error_rate: int = 0,
     demo_id: Optional[str] = None,
+    pool_total: int = 10000,
+    pool_vip: int = 500,
 ) -> List[str]:
     """Generate a complete user session with full tracking."""
     global ORDER_SEQUENCE
@@ -327,7 +333,7 @@ def generate_session(
     # Customer ID for purchase/abandoned sessions
     customer_id = "-"
     if session_type in ("abandoned", "purchase"):
-        customer_id = get_customer_id()
+        customer_id = get_customer_id(pool_total, pool_vip)
 
     # Cart tracking
     cart_items = 0
@@ -631,6 +637,13 @@ def generate_access_logs(
     else:
         base_sessions_per_peak_hour = int(300 * scale)
 
+    # Dynamic customer pool: ~4 orders per customer (realistic for e-commerce)
+    total_orders_estimate = (orders_per_day or 224) * days
+    pool_total = max(500, total_orders_estimate // 4)
+    pool_vip = max(50, pool_total // 20)  # VIP = 5% of pool, drives 30% of traffic
+    if not quiet:
+        print(f"  Customer pool: {pool_total:,} customers ({pool_vip} VIP)", file=sys.stderr)
+
     # Parse scenarios
     active_scenarios = expand_scenarios(scenarios)
     include_cert_expiry = "certificate_expiry" in active_scenarios
@@ -773,7 +786,9 @@ def generate_access_logs(
                         start_date, day, hour, minute, second,
                         response_mult=response_mult,
                         error_rate=error_rate,
-                        demo_id=demo_id if error_rate > 0 else None
+                        demo_id=demo_id if error_rate > 0 else None,
+                        pool_total=pool_total,
+                        pool_vip=pool_vip,
                     ))
 
             # Health check probes from MON-ATL-01 (every 30s, all hours)
