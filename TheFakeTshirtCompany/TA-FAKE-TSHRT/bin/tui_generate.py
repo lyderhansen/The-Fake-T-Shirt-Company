@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from main_generate import GENERATORS, SOURCE_GROUPS
 from scenarios.registry import IMPLEMENTED_SCENARIOS, SCENARIOS
-from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE
+from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, GENERATOR_OUTPUT_FILES
 
 # ═══════════════════════════════════════════════════════════════════════
 # ASCII ART
@@ -676,14 +676,31 @@ class TUIApp:
 
         self.stdscr.refresh()
 
-    def _draw_status_line(self, row, w):
-        """Draw the status bar with mode, output path, and source count."""
-        is_test = self.config[0].selected
+    def _expand_selected_sources(self) -> set:
+        """Expand selected groups/sources into individual generator names (deduplicated)."""
         sources_str = self._get_sources_str()
         if sources_str == "all":
-            src_count = len(GENERATORS)
-        else:
-            src_count = len(sources_str.split(","))
+            return set(GENERATORS.keys())
+        expanded = set()
+        for part in sources_str.split(","):
+            part = part.strip()
+            if part in SOURCE_GROUPS:
+                expanded.update(SOURCE_GROUPS[part])
+            else:
+                expanded.add(part)
+        return expanded
+
+    def _count_output_files(self) -> int:
+        """Count total output files for selected generators."""
+        expanded = self._expand_selected_sources()
+        return sum(len(GENERATOR_OUTPUT_FILES.get(g, [])) for g in expanded)
+
+    def _draw_status_line(self, row, w):
+        """Draw the status bar with mode, output path, source count, and file count."""
+        is_test = self.config[0].selected
+        expanded = self._expand_selected_sources()
+        src_count = len(expanded)
+        file_count = sum(len(GENERATOR_OUTPUT_FILES.get(g, [])) for g in expanded)
 
         output_dir = "output/tmp/ only" if is_test else "tmp/ → output/"
         mode_str = "TEST" if is_test else "PROD"
@@ -703,11 +720,15 @@ class TUIApp:
         self.safe_addstr(row, col, f"{LINE_V} Sources: ", curses.A_DIM)
         col += 11
         self.safe_addstr(row, col, str(src_count), curses.color_pair(4))
+        col += len(str(src_count)) + 1
+        self.safe_addstr(row, col, f"{LINE_V} Files: ", curses.A_DIM)
+        col += 9
+        self.safe_addstr(row, col, str(file_count), curses.color_pair(4))
 
         # Meraki health volume
         mr_events, ms_events, total = self._calc_health_volume()
         if total > 0:
-            col += len(str(src_count)) + 1
+            col += len(str(file_count)) + 1
             self.safe_addstr(row, col, f"{LINE_V} Health: ", curses.A_DIM)
             col += 10
             vol_str = f"~{total:,}/day"

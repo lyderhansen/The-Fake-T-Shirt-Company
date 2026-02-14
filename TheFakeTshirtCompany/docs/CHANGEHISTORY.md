@@ -4,6 +4,72 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~02:30 UTC -- props.conf/transforms.conf audit and fixes
+
+### Fixed
+
+- **`default/props.conf`** -- `[FAKE:cisco:webex:events]`:
+  - TIME_FORMAT had `.%fZ` (microseconds) but generator produces `%Y-%m-%dT%H:%M:%SZ` (no fractional seconds). Fixed to match actual output.
+
+- **`default/props.conf`** -- `[FAKE:online:order]`:
+  - Added CIM field aliases: `orderId` -> `order_id`, `customerId` -> `user`, `status` -> `action`, `channel` -> `dest`
+  - Added `EVAL-vendor` and `EVAL-product` fields
+  - Wired up previously unused `customer_lookup` transform for customer enrichment (name, email, segment)
+
+### Added
+
+- **`default/transforms.conf`** -- 4 missing GCP CIM Change transforms:
+  - `gcp_change_updated_user1_demo` -- extracts user from IAM policy member field
+  - `gcp_change_updated_user2_demo` -- extracts user from principalEmail field
+  - `gcp_change_updated_value1_demo` -- extracts value from role field
+  - `gcp_change_updated_value2_demo` -- extracts value from action field (ADD/REMOVE)
+  - These were referenced in props.conf lines 700-701 and 1080-1081 but never defined
+
+### Removed
+
+- **`default/transforms.conf`** -- Removed stale `[host_from_demo]` transform (identical duplicate of `[host_from_demo_field]`, never referenced in props.conf)
+
+---
+
+## 2026-02-15 ~01:30 UTC -- Fix Entra ID props.conf field mappings
+
+### Fixed
+
+- **`default/props.conf`** -- `[FAKE:azure:aad:signin]` stanza:
+  - `EVAL-user_id` was mapping to `properties.userPrincipalName` (email) instead of `properties.userId` (UUID). Now correctly maps to the Azure AD object ID.
+  - Removed redundant `FIELDALIAS-user_for_signin` (was overridden by `EVAL-user` anyway)
+  - Removed redundant `FIELDALIAS-action_for_signin` (was overridden by `EVAL-action` anyway)
+
+### Added
+
+- **`default/props.conf`** -- `[FAKE:azure:aad:riskDetection]` stanza:
+  - `EVAL-action = "allowed"` -- CIM IDS/Alert action field
+  - `EVAL-result = 'properties.riskState'` -- Maps riskState (atRisk/confirmedSafe/remediated/dismissed)
+  - `EVAL-severity` -- Maps riskLevel to CIM severity (high->critical, medium->high, low->medium)
+  - `EVAL-user = lower('properties.userPrincipalName')` -- CIM user field (replaces redundant FIELDALIAS)
+  - `EVAL-user_id = lower('properties.userId')` -- Azure AD object ID
+  - Removed redundant `FIELDALIAS-user_for_risk` (replaced by EVAL-user)
+
+---
+
+## 2026-02-15 ~00:00 UTC -- Fix TUI source counting bug + add file counter to status line
+
+### Fixed
+
+- **`bin/tui_generate.py`** -- Source counting bug when selecting groups:
+  - **Bug**: Selecting a group like "network" showed `Sources: 1` instead of `Sources: 4` because `_get_sources_str()` returned the group name as-is and the status line counted comma-separated items
+  - **Fix**: New `_expand_selected_sources()` method expands group names via `SOURCE_GROUPS` dict and deduplicates with a set (handles overlapping groups like network+cisco correctly)
+
+### Added
+
+- **`bin/tui_generate.py`** -- File counter in status line:
+  - New `_count_output_files()` method counts output files using `GENERATOR_OUTPUT_FILES` from config.py
+  - Status line now shows: `Sources: 26 | Files: 59 | Health: ~45,696/day`
+  - Examples: network group = 4 sources/12 files, meraki alone = 1 source/7 files
+- **Import**: Added `GENERATOR_OUTPUT_FILES` to TUI imports from `shared.config`
+
+---
+
 ## 2026-02-14 ~23:15 UTC -- Phase 2 generator audit + TUI default changed to test mode
 
 ### Fixed
