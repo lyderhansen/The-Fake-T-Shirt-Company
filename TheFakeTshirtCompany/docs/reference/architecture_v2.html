@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The FAKE T-Shirt Company - Infrastructure Architecture v2</title>
+<style>
+  :root {
+    --bg: #0B0C10;
+    --bg-card: #1F2833;
+    --bg-card-hover: #2a3545;
+    --accent: #66FCF1;
+    --accent-dim: #45A29E;
+    --text: #C5C6C7;
+    --text-bright: #FFFFFF;
+    --border: #333;
+    --cisco: #FF6B35;
+    --threat: #FF4444;
+    --cloud: #4A90D9;
+    --server-win: #0078D4;
+    --server-linux: #E95420;
+    --meraki: #78BE20;
+    --webex: #00BCF2;
+    --data-flow: #FFD700;
+    --monitoring: #81B5A1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    line-height: 1.5;
+    padding: 20px;
+  }
+
+  h1 { text-align: center; color: var(--accent); font-size: 28px; margin-bottom: 5px; }
+  h2 { color: var(--accent); margin-bottom: 5px; }
+  .subtitle { text-align: center; color: var(--text); font-size: 14px; margin-bottom: 20px; }
+
+  /* Legend */
+  .legend { display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .legend-line { width: 30px; height: 0; display: inline-block; border-top: 2px solid; }
+  .legend-line.dashed { border-top-style: dashed; }
+
+  /* Tabs */
+  .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { padding: 8px 20px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text); cursor: pointer; border-radius: 6px; font-size: 13px; transition: all 0.2s; }
+  .tab:hover { border-color: var(--accent-dim); }
+  .tab.active { background: var(--accent-dim); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .diagram { max-width: 1440px; margin: 0 auto; }
+
+  /* Cards */
+  .section { margin-bottom: 30px; }
+  .section-title { font-size: 18px; color: var(--accent); border-bottom: 1px solid var(--accent-dim); padding-bottom: 5px; margin-bottom: 15px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 15px; transition: border-color 0.2s; }
+  .card:hover { border-color: var(--accent-dim); }
+  .card-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+  .badge-cisco { background: var(--cisco); color: #fff; }
+  .badge-existing { background: var(--accent-dim); color: var(--bg); }
+  .badge-cloud { background: var(--cloud); color: #fff; }
+  .badge-threat { background: var(--threat); color: #fff; }
+  .badge-attack { background: var(--threat); color: #fff; }
+  .badge-ops { background: var(--cloud); color: #fff; }
+  .badge-network { background: var(--cisco); color: #fff; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: var(--accent-dim); padding: 4px 8px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  td { padding: 4px 8px; border-bottom: 1px solid #222; color: var(--text); }
+  tr:hover td { background: rgba(102, 252, 241, 0.05); }
+  .os-win { color: var(--server-win); }
+  .os-linux { color: var(--server-linux); }
+
+  /* SVG */
+  svg text { font-family: 'Segoe UI', -apple-system, sans-serif; }
+  svg path, svg line { fill: none; }
+  .hoverable { cursor: pointer; }
+  .hoverable:hover rect, .hoverable:hover circle { filter: brightness(1.3); }
+  .hoverable:hover text { fill: #FFFFFF; }
+
+  /* Stats */
+  .stats-row { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; text-align: center; min-width: 120px; }
+  .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--text); margin-top: 2px; }
+
+  .note { font-size: 11px; color: #888; font-style: italic; margin-top: 5px; }
+
+  /* Tooltip */
+  #tooltip { position: fixed; display: none; z-index: 1000; pointer-events: none; background: #1F2833; border: 1px solid #66FCF1; border-radius: 8px; padding: 12px 16px; max-width: 380px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transition: opacity 0.15s; }
+  #tooltip .tt-title { color: #66FCF1; font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  #tooltip .tt-body { color: #C5C6C7; font-size: 12px; margin-top: 4px; line-height: 1.4; }
+  #tooltip .tt-detail { color: #888; font-size: 11px; margin-top: 6px; line-height: 1.4; }
+
+  /* Scenario timeline */
+  .timeline-bar { position: absolute; height: 24px; border-radius: 3px; opacity: 0.85; display: flex; align-items: center; padding: 0 6px; font-size: 10px; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; top: 2px; }
+  .timeline-row { position: relative; height: 28px; margin-bottom: 4px; display: flex; }
+  .timeline-row-label { width: 60px; flex-shrink: 0; font-size: 9px; font-weight: 600; line-height: 28px; color: #888; }
+  .timeline-row-bars { position: relative; flex: 1; }
+
+  /* Log generators */
+  .gen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; margin-top: 10px; }
+  .gen-item { font-size: 11px; padding: 4px 8px; background: rgba(69, 162, 158, 0.1); border: 1px solid rgba(69, 162, 158, 0.3); border-radius: 4px; color: var(--text); }
+  .gen-item .gen-name { color: var(--accent); font-weight: 600; }
+
+  /* Generator categories */
+  .gen-category { margin-bottom: 12px; }
+  .gen-category-title { font-size: 11px; font-weight: 600; margin-bottom: 6px; padding-left: 8px; border-left: 3px solid; }
+
+  /* Infrastructure badges */
+  .infra-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .infra-badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+  .infra-badge.win { background: rgba(0,120,212,0.2); color: var(--server-win); border: 1px solid rgba(0,120,212,0.4); }
+  .infra-badge.linux { background: rgba(233,84,32,0.2); color: var(--server-linux); border: 1px solid rgba(233,84,32,0.4); }
+  .infra-badge.user { background: rgba(255,68,68,0.2); color: var(--threat); border: 1px solid rgba(255,68,68,0.4); }
+  .infra-badge.net { background: rgba(255,107,53,0.2); color: var(--cisco); border: 1px solid rgba(255,107,53,0.4); }
+  .infra-badge.cloud-b { background: rgba(74,144,217,0.2); color: var(--cloud); border: 1px solid rgba(74,144,217,0.4); }
+
+  /* Key connections callout */
+  .key-connections { background: #111822; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+  .key-connections .kc-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+  .kc-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .kc-item { font-size: 11px; padding: 3px 8px; background: rgba(69,162,158,0.08); border: 1px solid rgba(69,162,158,0.2); border-radius: 4px; }
+  .kc-item .kc-label { color: var(--accent-dim); font-weight: 600; }
+  .kc-item .kc-port { color: var(--text); }
+
+  /* SPL snippets */
+  details { margin-top: 6px; }
+  details summary { font-size: 10px; color: var(--accent-dim); cursor: pointer; }
+  details pre { font-size: 10px; color: var(--accent); background: #111; padding: 4px 8px; border-radius: 4px; margin-top: 4px; overflow-x: auto; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .tab { padding: 6px 12px; font-size: 11px; }
+    .stats-row { gap: 8px; }
+    .stat { min-width: 80px; padding: 8px 12px; }
+    .stat-value { font-size: 18px; }
+    .card-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>The FAKE T-Shirt Company</h1>
+<p class="subtitle">Infrastructure Architecture v2 | 175 Employees | 3 Locations | January 2026</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--server-win)"></div> Windows</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--server-linux)"></div> Linux</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cisco)"></div> Cisco</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cloud)"></div> Cloud</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:var(--data-flow)"></div> Data Flow</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:var(--accent-dim)"></div> Network</div>
+  <div class="legend-item"><div class="legend-line dashed" style="border-color:var(--meraki)"></div> SD-WAN</div>
+  <div class="legend-item"><div class="legend-line dashed" style="border-color:var(--threat)"></div> Threat</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat"><div class="stat-value">175</div><div class="stat-label">Employees</div></div>
+  <div class="stat"><div class="stat-value">13</div><div class="stat-label">Servers</div></div>
+  <div class="stat"><div class="stat-value">79</div><div class="stat-label">Meraki Devices</div></div>
+  <div class="stat"><div class="stat-value">21</div><div class="stat-label">Webex Rooms</div></div>
+  <div class="stat"><div class="stat-value">24</div><div class="stat-label">Log Generators</div></div>
+  <div class="stat"><div class="stat-value">10</div><div class="stat-label">Scenarios</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">Network Overview</div>
+  <div class="tab" onclick="showTab('connections')">Server Connections</div>
+  <div class="tab" onclick="showTab('boston')">Boston HQ</div>
+  <div class="tab" onclick="showTab('atlanta')">Atlanta Hub</div>
+  <div class="tab" onclick="showTab('austin')">Austin Office</div>
+  <div class="tab" onclick="showTab('cloud')">Cloud &amp; SaaS</div>
+  <div class="tab" onclick="showTab('scenarios')">Scenarios</div>
+</div>
+
+<div id="tooltip">
+  <div class="tt-title"></div>
+  <div class="tt-body"></div>
+  <div class="tt-detail"></div>
+</div>
+
+<!-- ========== TAB 1: NETWORK OVERVIEW ========== -->
+<div id="tab-overview" class="tab-content active">
+<div class="diagram">
+<svg viewBox="0 0 1440 1120" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#45A29E"/></marker>
+    <marker id="arrow-threat" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FF4444"/></marker>
+    <marker id="arrow-mgmt" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FF6B35"/></marker>
+    <marker id="arrow-data" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FFD700"/></marker>
+  </defs>
+
+  <!-- ===== LAYER 1: INTERNET + THREAT (y=10-55) ===== -->
+  <g class="hoverable" data-tt-title="Internet" data-tt-body="Public Internet / WAN edge" data-tt-detail="All external traffic enters via FW-EDGE-01 (ASA 5525-X)|Public IPs: 203.0.113.10 (WEB-01), 203.0.113.11 (WEB-02)">
+    <rect x="560" y="10" width="320" height="42" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="1.5"/>
+    <text x="720" y="36" text-anchor="middle" fill="#C5C6C7" font-size="14" font-weight="600">INTERNET</text>
+  </g>
+  <g class="hoverable" data-tt-title="Threat Actor" data-tt-body="185.220.101.42 | Frankfurt, Germany" data-tt-detail="ASN: AS205100 (F3 Netze e.V.)|Active in exfil scenario (Days 1-14)|C2 channel over TCP/443|Phishing, lateral movement, data exfiltration">
+    <rect x="960" y="10" width="220" height="42" rx="6" fill="#331111" stroke="#FF4444" stroke-width="1.5"/>
+    <text x="1070" y="30" text-anchor="middle" fill="#FF4444" font-size="11" font-weight="700">THREAT ACTOR</text>
+    <text x="1070" y="44" text-anchor="middle" fill="#FF8888" font-size="9">185.220.101.42 | Frankfurt DE</text>
+  </g>
+  <path d="M 960,31 L 880,31" stroke="#FF4444" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-threat)" opacity="0.7"/>
+  <rect x="895" y="22" width="55" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="922" y="31" text-anchor="middle" fill="#FF4444" font-size="7">C2/TCP443</text>
+
+  <!-- ===== LAYER 2: CLOUD SERVICES (y=68-160) - 2 rows ===== -->
+  <rect x="40" y="68" width="1360" height="92" rx="8" fill="none" stroke="#4A90D9" stroke-width="1" stroke-dasharray="6,3" opacity="0.5"/>
+  <text x="60" y="82" fill="#4A90D9" font-size="10" font-weight="600" opacity="0.7">CLOUD SERVICES</text>
+
+  <!-- Row 1: Security & Identity -->
+  <g class="hoverable" data-tt-title="Cisco Secure Access" data-tt-body="Cloud-delivered security (DNS, SWG, CFFW)" data-tt-detail="175 users | 5 data centers (IAD, ORD, DFW, SJC, ATL)|DNS: 100K-120K queries/day | SWG: 25K-40K events/day|Ports: UDP/53 (DNS), TCP/443 (SWG Proxy)|Sourcetypes: cisco:umbrella:dns, proxy, firewall, audit">
+    <rect x="60" y="88" width="200" height="28" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="160" y="106" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Cisco Secure Access</text>
+  </g>
+  <g class="hoverable" data-tt-title="Entra ID / Microsoft 365" data-tt-body="Tenant: theFakeTshirtCompany.com" data-tt-detail="175 users + service accounts | 17 enterprise apps|MFA: Enabled | Licensing: M365 E3|Sourcetypes: azure:aad:signin, audit, o365:management:activity">
+    <rect x="280" y="88" width="200" height="28" rx="5" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="380" y="106" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Entra ID / M365</text>
+  </g>
+  <g class="hoverable" data-tt-title="Exchange Online" data-tt-body="Email service for all 175 employees" data-tt-detail="Sourcetype: ms:o365:reporting:messagetrace|Scenarios: exfil, phishing_test, ransomware_attempt">
+    <rect x="500" y="88" width="170" height="28" rx="5" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="585" y="106" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Exchange Online</text>
+  </g>
+  <g class="hoverable" data-tt-title="ServiceNow" data-tt-body="IT Service Management" data-tt-detail="Incident management for all scenarios|Auto-ticket creation on threshold alerts|Sourcetype: servicenow:incident">
+    <rect x="690" y="88" width="140" height="28" rx="5" fill="#1F2833" stroke="#81B5A1" stroke-width="1"/>
+    <text x="760" y="106" text-anchor="middle" fill="#81B5A1" font-size="10" font-weight="600">ServiceNow</text>
+  </g>
+
+  <!-- Row 2: Infrastructure & Collaboration -->
+  <g class="hoverable" data-tt-title="AWS CloudTrail" data-tt-body="Account: 123456789012 | us-east-1" data-tt-detail="Regions: us-east-1 (primary), us-west-2 (secondary)|Buckets: finance-data, backups-prod|Sourcetype: aws:cloudtrail">
+    <rect x="60" y="124" width="160" height="28" rx="5" fill="#1F2833" stroke="#FF9900" stroke-width="1"/>
+    <text x="140" y="142" text-anchor="middle" fill="#FF9900" font-size="10" font-weight="600">AWS</text>
+  </g>
+  <g class="hoverable" data-tt-title="GCP" data-tt-body="Project: faketshirtcompany-prod-01 | us-central1" data-tt-detail="Bucket: confidential-docs|Sourcetype: google:gcp:pubsub:message">
+    <rect x="240" y="124" width="160" height="28" rx="5" fill="#1F2833" stroke="#4285F4" stroke-width="1"/>
+    <text x="320" y="142" text-anchor="middle" fill="#4285F4" font-size="10" font-weight="600">GCP</text>
+  </g>
+  <g class="hoverable" data-tt-title="Azure ServiceBus" data-tt-body="Message queue for price updates" data-tt-detail="Namespace: faketshirtco-prod|Port: TCP/5671 (AMQP)|Scenario: dead_letter_pricing (Day 16)|Sourcetype: azure:servicebus">
+    <rect x="420" y="124" width="170" height="28" rx="5" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="505" y="142" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Azure ServiceBus</text>
+  </g>
+  <g class="hoverable" data-tt-title="Cisco Webex" data-tt-body="21 meeting rooms across 3 sites" data-tt-detail="Boston: 10 rooms | Atlanta: 7 rooms | Austin: 4 rooms|Problem rooms: Kirby (BOS), Cortana (ATL)|Sourcetypes: cisco:webex:events, meetings:history, API types">
+    <rect x="610" y="124" width="160" height="28" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="690" y="142" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">Cisco Webex</text>
+  </g>
+  <g class="hoverable" data-tt-title="Meraki Dashboard" data-tt-body="Cloud-managed network infrastructure" data-tt-detail="79 devices: 4 MX + 36 MR + 11 MS + 19 MV + 14 MT|Plus 21 door + 18 temp sensors in meeting rooms|Sourcetypes: meraki:mx, mr, ms, mv, mt">
+    <rect x="790" y="124" width="180" height="28" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="880" y="142" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Dashboard</text>
+  </g>
+  <g class="hoverable" data-tt-title="Catalyst Center" data-tt-body="CATCENTER-BOS-01 | 10.10.10.40" data-tt-detail="Network management and assurance platform|Manages: CAT-BOS-DIST-01/02, CAT-ATL-DIST-01|Port: TCP/443 (RESTCONF/NETCONF)|Sourcetypes: cisco:catalyst:devicehealth, networkhealth, clienthealth, issue">
+    <rect x="990" y="124" width="200" height="28" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="1090" y="142" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst Center</text>
+  </g>
+
+  <!-- Internet to ASA (split into 2 segments with gap through Cloud Services box) -->
+  <line x1="720" y1="52" x2="720" y2="66" stroke="#45A29E" stroke-width="1.5"/>
+  <line x1="720" y1="162" x2="720" y2="178" stroke="#45A29E" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="720" y1="68" x2="720" y2="160" stroke="#45A29E" stroke-width="1" stroke-dasharray="6,4" opacity="0.3"/>
+  <rect x="695" y="163" width="50" height="11" rx="2" fill="#0B0C10" opacity="0.9"/>
+  <text x="720" y="172" text-anchor="middle" fill="#888" font-size="8">TCP/443</text>
+
+  <!-- ===== LAYER 3: PERIMETER + DMZ (y=178-250) ===== -->
+  <g class="hoverable" data-tt-title="FW-EDGE-01" data-tt-body="Cisco ASA 5525-X | 203.0.113.1" data-tt-detail="Perimeter firewall for ALL external traffic|DMZ host: WEB-01/02 behind NAT|3-tier: dmz->inside (TCP/443,8443), inside->inside (TCP/1433)|Scenarios: exfil, ransomware, firewall_misconfig (Day 6), certificate_expiry (Day 13), ddos_attack (Days 18-19)">
+    <rect x="590" y="178" width="260" height="46" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="2"/>
+    <text x="720" y="198" text-anchor="middle" fill="#66FCF1" font-size="12" font-weight="700">FW-EDGE-01</text>
+    <text x="720" y="214" text-anchor="middle" fill="#C5C6C7" font-size="9">ASA 5525-X | 203.0.113.1</text>
+  </g>
+
+  <!-- DMZ box -->
+  <g class="hoverable" data-tt-title="DMZ Zone" data-tt-body="172.16.1.0/24 | Boston perimeter" data-tt-detail="WEB-01 (172.16.1.10) + WEB-02 (172.16.1.11)|Apache web servers behind NAT|Public: 203.0.113.10 / .11|3-tier flow: WEB -> APP-BOS-01 (TCP/443,8443) -> SQL-PROD-01 (TCP/1433)">
+    <rect x="180" y="178" width="280" height="46" rx="6" fill="#1F2833" stroke="#45A29E" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="210" y="194" fill="#45A29E" font-size="9" font-weight="600">DMZ 172.16.1.0/24</text>
+    <rect x="200" y="200" width="100" height="20" rx="3" fill="#2a1a10" stroke="#E95420" stroke-width="1"/>
+    <text x="250" y="214" text-anchor="middle" fill="#E95420" font-size="9">WEB-01</text>
+    <rect x="320" y="200" width="100" height="20" rx="3" fill="#2a1a10" stroke="#E95420" stroke-width="1"/>
+    <text x="370" y="214" text-anchor="middle" fill="#E95420" font-size="9">WEB-02</text>
+  </g>
+  <!-- ASA to DMZ -->
+  <path d="M 590,201 L 460,201" stroke="#45A29E" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="505" y="191" width="50" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="530" y="200" text-anchor="middle" fill="#45A29E" font-size="8">TCP/443</text>
+
+  <!-- ===== LAYER 4: SD-WAN BACKBONE (y=248-278) ===== -->
+  <rect x="40" y="248" width="1360" height="30" rx="4" fill="#0d1a0d" stroke="#78BE20" stroke-width="1" stroke-dasharray="6,3" opacity="0.6"/>
+  <text x="60" y="267" fill="#78BE20" font-size="10" font-weight="600" opacity="0.7">SD-WAN BACKBONE (AutoVPN Mesh) | UDP/4500</text>
+
+  <!-- ASA down to backbone -->
+  <line x1="720" y1="224" x2="720" y2="248" stroke="#45A29E" stroke-width="1.5"/>
+
+  <!-- Catalyst Center management lines -->
+  <path d="M 1090,152 L 1090,240 L 352,240 L 352,346" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" marker-end="url(#arrow-mgmt)"/>
+  <path d="M 1090,240 L 810,240 L 810,346" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" marker-end="url(#arrow-mgmt)"/>
+  <rect x="460" y="234" width="68" height="11" rx="2" fill="#0B0C10" opacity="0.9"/>
+  <text x="494" y="243" text-anchor="middle" fill="#FF6B35" font-size="7">TCP/443 (RESTCONF)</text>
+
+  <!-- ===== LAYER 5: THREE SITE COLUMNS (y=298-830) ===== -->
+
+  <!-- ---- BOSTON HQ ---- -->
+  <rect x="40" y="298" width="420" height="530" rx="8" fill="#111822" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="250" y="320" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">BOSTON HQ</text>
+  <text x="250" y="334" text-anchor="middle" fill="#888" font-size="10">10.10.x.x | 93 employees | 3 floors</text>
+
+  <!-- BOS: SD-WAN -->
+  <g class="hoverable" data-tt-title="MX-BOS-01/02 (HA Pair)" data-tt-body="Meraki MX450 | SD-WAN Hub" data-tt-detail="WAN: Comcast + AT&T|AutoVPN concentrator for ATL + AUS|HA pair: active/passive|Port: UDP/4500 (IPsec NAT-T)">
+    <rect x="60" y="346" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="152" y="364" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-BOS-01/02 (HA)</text>
+    <text x="152" y="378" text-anchor="middle" fill="#888" font-size="8">MX450 | SD-WAN Hub</text>
+  </g>
+
+  <!-- BOS: Catalyst Switches -->
+  <g class="hoverable" data-tt-title="Catalyst 9300 Switches" data-tt-body="CAT-BOS-DIST-01/02 | C9300-48UXM" data-tt-detail="IOS-XE 17.12.4 | Distribution layer|IPs: 10.10.10.30, 10.10.10.31|10 VLANs|Managed by Catalyst Center (TCP/443)">
+    <rect x="260" y="346" width="185" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="352" y="364" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst 9300 x2</text>
+    <text x="352" y="378" text-anchor="middle" fill="#888" font-size="8">C9300-48UXM | Distribution</text>
+  </g>
+
+  <!-- BOS: ACI Fabric -->
+  <g class="hoverable" data-tt-title="ACI Fabric (Boston Pod)" data-tt-body="APIC-BOS-01 | 2 Spines + 4 Leafs" data-tt-detail="APIC: 10.10.10.20 | Spine: N9K-C9336C-FX2|Leafs: N9K-C93180YC-FX (nodes 201-204)|5 EPGs: Servers, DBServers, WebDMZ, Management, Backup|Sourcetypes: cisco:aci:fault, event, audit">
+    <rect x="60" y="396" width="185" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="152" y="414" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">ACI Fabric</text>
+    <text x="152" y="428" text-anchor="middle" fill="#888" font-size="8">2 Spine + 4 Leaf | APIC</text>
+  </g>
+
+  <!-- BOS: Meraki Access -->
+  <g class="hoverable" data-tt-title="Meraki Access (Boston)" data-tt-body="16 MR46 APs | 5 MS Switches" data-tt-detail="APs: Floor 1 (5), Floor 2 (5), Floor 3 (6)|Switches: 2x MS425-32 (core) + 3x MS225-48 (access)|SSIDs: FakeTShirtCo-Corp, Guest, IoT|8 MV cameras + 5 MT sensors">
+    <rect x="260" y="396" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="352" y="414" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Access</text>
+    <text x="352" y="428" text-anchor="middle" fill="#888" font-size="8">16 AP | 5 SW | 8 CAM | 5 SNS</text>
+  </g>
+
+  <!-- ACI -> Servers connection -->
+  <line x1="152" y1="436" x2="152" y2="448" stroke="#FF6B35" stroke-width="1" opacity="0.5"/>
+  <text x="195" y="445" fill="#FF6B35" font-size="7" opacity="0.6">Leaf ports</text>
+
+  <!-- BOS: Servers -->
+  <rect x="60" y="448" width="385" height="200" rx="5" fill="#0d1117" stroke="#333" stroke-width="1"/>
+  <text x="72" y="466" fill="#66FCF1" font-size="11" font-weight="600">Servers (10)</text>
+
+  <g class="hoverable" data-tt-title="DC-BOS-01" data-tt-body="Domain Controller | 10.10.20.10" data-tt-detail="Windows Server | AD/DNS/DHCP primary|Ports: TCP/88,389,636|Scenarios: exfil (credential access)">
+    <rect x="72" y="474" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="115" y="492" text-anchor="middle" fill="#0078D4" font-size="9">DC-BOS-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="DC-BOS-02" data-tt-body="Domain Controller | 10.10.20.11" data-tt-detail="Windows Server | AD/DNS/DHCP secondary">
+    <rect x="166" y="474" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="209" y="492" text-anchor="middle" fill="#0078D4" font-size="9">DC-BOS-02</text>
+  </g>
+  <g class="hoverable" data-tt-title="FILE-BOS-01" data-tt-body="File Server | 10.10.20.20" data-tt-detail="Windows Server | SMB (TCP/445)|Exfil scenario: data staging target">
+    <rect x="260" y="474" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="303" y="492" text-anchor="middle" fill="#0078D4" font-size="9">FILE-BOS-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="SQL-PROD-01" data-tt-body="SQL Database | 10.10.20.30" data-tt-detail="Windows Server | MSSQL (TCP/1433)|Scenario: cpu_runaway (Days 11-12)|Backup to BACKUP-ATL-01 via SD-WAN">
+    <rect x="354" y="474" width="82" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1.5"/><text x="395" y="492" text-anchor="middle" fill="#0078D4" font-size="9">SQL-PROD-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="APP-BOS-01" data-tt-body="e-Commerce API | 10.10.20.40" data-tt-detail="Windows Server | IIS/.NET API|WEB -> APP (TCP/443,8443) -> SQL (TCP/1433)">
+    <rect x="72" y="510" width="86" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="115" y="528" text-anchor="middle" fill="#0078D4" font-size="9">APP-BOS-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="SAP-PROD-01" data-tt-body="SAP Application Server | 10.10.20.60" data-tt-detail="Linux (SUSE) | SAP S/4HANA|Port: TCP/30015 to SAP-DB-01">
+    <rect x="166" y="510" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="209" y="528" text-anchor="middle" fill="#E95420" font-size="9">SAP-PROD-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="SAP-DB-01" data-tt-body="SAP HANA Database | 10.10.20.61" data-tt-detail="Linux (SUSE) | In-memory HANA DB">
+    <rect x="260" y="510" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="303" y="528" text-anchor="middle" fill="#E95420" font-size="9">SAP-DB-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="BASTION-BOS-01" data-tt-body="Bastion Host | 10.10.10.10" data-tt-detail="Linux | SSH jump box (TCP/22)|RDP gateway (TCP/3389)">
+    <rect x="354" y="510" width="82" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="395" y="528" text-anchor="middle" fill="#E95420" font-size="8">BASTION-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="WEB-01 (DMZ)" data-tt-body="Web Server | 172.16.1.10" data-tt-detail="Linux (Ubuntu) | Apache httpd|Public: 203.0.113.10 (NAT)|Scenarios: memory_leak (Days 7-10), ddos_attack (Days 18-19)|Generators: access, linux, orders, servicebus">
+    <rect x="72" y="546" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/><text x="115" y="564" text-anchor="middle" fill="#E95420" font-size="9">WEB-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="WEB-02 (DMZ)" data-tt-body="Web Server | 172.16.1.11" data-tt-detail="Linux (Ubuntu) | Apache httpd|Public: 203.0.113.11 (NAT)">
+    <rect x="166" y="546" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="209" y="564" text-anchor="middle" fill="#E95420" font-size="9">WEB-02</text>
+  </g>
+
+  <text x="72" y="592" fill="#888" font-size="9">Windows: 6 | Linux: 4 | DMZ: WEB-01/02</text>
+
+  <!-- BOS: Webex -->
+  <g class="hoverable" data-tt-title="Webex Rooms (Boston)" data-tt-body="10 meeting rooms | Floors 1-3" data-tt-detail="Boardroom: Link (20p, Room Kit Pro + Board 85 Pro)|Conference: Zelda (12p), Mario (10p), Samus (8p), Luigi (8p)|Huddle: Yoshi (6p), Kirby (4p, PROBLEM ROOM)|Lab: Sonic (8p) | Visitor: Peach (6p), Toad (4p)">
+    <rect x="60" y="660" width="185" height="36" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="152" y="682" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">10 Webex Rooms</text>
+  </g>
+
+  <!-- BOS: Key Users -->
+  <g class="hoverable" data-tt-title="Key Users (Boston)" data-tt-body="alex.miller (target) | CEO, CFO, CTO" data-tt-detail="alex.miller: Sr. Financial Analyst, Floor 2 | 10.10.30.55|john.smith: CEO | sarah.wilson: CFO | mike.johnson: CTO|Primary exfil target: alex.miller">
+    <rect x="260" y="660" width="185" height="36" rx="5" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="352" y="678" text-anchor="middle" fill="#C5C6C7" font-size="10">alex.miller</text>
+    <text x="352" y="690" text-anchor="middle" fill="#FF8888" font-size="8">Primary Target (exfil)</text>
+  </g>
+
+  <!-- ---- ATLANTA HUB ---- -->
+  <rect x="540" y="298" width="360" height="530" rx="8" fill="#111822" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="720" y="320" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">ATLANTA HUB</text>
+  <text x="720" y="334" text-anchor="middle" fill="#888" font-size="10">10.20.x.x | 43 employees | 2 floors</text>
+
+  <g class="hoverable" data-tt-title="MX-ATL-01" data-tt-body="Meraki MX250 | SD-WAN Spoke" data-tt-detail="WAN: AT&T + Spectrum|AutoVPN to Boston hub|Port: UDP/4500 (IPsec NAT-T)">
+    <rect x="560" y="346" width="160" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="640" y="364" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-ATL-01</text>
+    <text x="640" y="378" text-anchor="middle" fill="#888" font-size="8">MX250 | SD-WAN Spoke</text>
+  </g>
+  <g class="hoverable" data-tt-title="Catalyst 9300 Switch" data-tt-body="CAT-ATL-DIST-01 | C9300-48UXM" data-tt-detail="IOS-XE 17.12.4 | Distribution|IP: 10.20.10.30|Managed by Catalyst Center (BOS, TCP/443)">
+    <rect x="735" y="346" width="150" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="810" y="364" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">Catalyst 9300</text>
+    <text x="810" y="378" text-anchor="middle" fill="#888" font-size="8">C9300-48UXM | Distribution</text>
+  </g>
+  <g class="hoverable" data-tt-title="ACI Mini-Pod (Atlanta)" data-tt-body="1 Spine + 2 Leafs | Multi-site" data-tt-detail="Managed by APIC-BOS-01 (multi-site)|3 EPGs: ATLServers, ATLBackup, ATLMonitor">
+    <rect x="560" y="396" width="160" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1"/>
+    <text x="640" y="414" text-anchor="middle" fill="#FF6B35" font-size="10" font-weight="600">ACI Mini-Pod</text>
+    <text x="640" y="428" text-anchor="middle" fill="#888" font-size="8">1 Spine + 2 Leaf</text>
+  </g>
+  <g class="hoverable" data-tt-title="Meraki Access (Atlanta)" data-tt-body="12 MR46 APs | 4 MS Switches" data-tt-detail="APs: Floor 1 (6), Floor 2 (6)|Switches: 2x MS425-32 (DC core) + 2x MS225-48 (access)|7 MV cameras + 7 MT sensors">
+    <rect x="735" y="396" width="150" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="810" y="414" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Access</text>
+    <text x="810" y="428" text-anchor="middle" fill="#888" font-size="8">12 AP | 4 SW | 7 CAM | 7 SNS</text>
+  </g>
+
+  <!-- ATL: Servers -->
+  <rect x="560" y="448" width="325" height="110" rx="5" fill="#0d1117" stroke="#333" stroke-width="1"/>
+  <text x="572" y="466" fill="#66FCF1" font-size="11" font-weight="600">Servers (3)</text>
+  <g class="hoverable" data-tt-title="DC-ATL-01" data-tt-body="Domain Controller | 10.20.20.10" data-tt-detail="Windows Server | AD/DNS for Atlanta|Replicates with DC-BOS-01/02 (TCP/389,3268)">
+    <rect x="572" y="474" width="93" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="618" y="492" text-anchor="middle" fill="#0078D4" font-size="9">DC-ATL-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="BACKUP-ATL-01" data-tt-body="Backup Server | 10.20.20.20" data-tt-detail="Windows Server | Veeam backup|SQL-PROD-01 backup via SD-WAN (TCP/1433)">
+    <rect x="672" y="474" width="100" height="28" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1"/><text x="722" y="492" text-anchor="middle" fill="#0078D4" font-size="8">BACKUP-ATL-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="MON-ATL-01" data-tt-body="Monitoring Server | 10.20.20.30" data-tt-detail="Linux | Nagios/Grafana monitoring|Ports: ICMP, TCP/5666 (NRPE), TCP/3000 (Grafana)|Scenario: disk_filling (Days 1-5), 45% -> 98%">
+    <rect x="780" y="474" width="93" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/><text x="826" y="492" text-anchor="middle" fill="#E95420" font-size="9">MON-ATL-01</text>
+  </g>
+  <text x="572" y="526" fill="#888" font-size="9">Windows: 2 | Linux: 1</text>
+
+  <!-- ATL: Webex -->
+  <g class="hoverable" data-tt-title="Webex Rooms (Atlanta)" data-tt-body="7 meeting rooms | Floors 1-2" data-tt-detail="Training: Cortana (16p, PROBLEM ROOM)|Conference: Chief (10p), Kratos (8p), Lara (8p)|Operations: Ryu (6p)|Huddle: Pikachu (4p), Megaman (4p)">
+    <rect x="560" y="570" width="160" height="36" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="640" y="592" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">7 Webex Rooms</text>
+  </g>
+  <g class="hoverable" data-tt-title="jessica.brown" data-tt-body="IT Administrator | Atlanta Floor 1" data-tt-detail="IP: 10.20.30.15 | ATL-WS-JBROWN01|Initial compromise in exfil scenario (Day 5)|Clicks phishing link -> credential theft">
+    <rect x="735" y="570" width="150" height="36" rx="5" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="810" y="588" text-anchor="middle" fill="#C5C6C7" font-size="10">jessica.brown</text>
+    <text x="810" y="600" text-anchor="middle" fill="#FF8888" font-size="8">Initial Compromise (exfil)</text>
+  </g>
+
+  <!-- ---- AUSTIN OFFICE ---- -->
+  <rect x="980" y="298" width="420" height="530" rx="8" fill="#111822" stroke="#45A29E" stroke-width="1.5"/>
+  <text x="1190" y="320" text-anchor="middle" fill="#66FCF1" font-size="14" font-weight="700">AUSTIN OFFICE</text>
+  <text x="1190" y="334" text-anchor="middle" fill="#888" font-size="10">10.30.x.x | 39 employees | 1 floor</text>
+
+  <g class="hoverable" data-tt-title="MX-AUS-01" data-tt-body="Meraki MX85 | SD-WAN Spoke" data-tt-detail="WAN: Verizon|AutoVPN to Boston hub|Port: UDP/4500 (IPsec NAT-T)|Smallest site, branch-only">
+    <rect x="1000" y="346" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="1092" y="364" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-AUS-01</text>
+    <text x="1092" y="378" text-anchor="middle" fill="#888" font-size="8">MX85 | SD-WAN Spoke</text>
+  </g>
+  <g class="hoverable" data-tt-title="Meraki Access (Austin)" data-tt-body="8 MR46 APs | 2 MS Switches" data-tt-detail="APs: 8 on Floor 1|Switches: 1x MS250-48 (core) + 1x MS225-24 (access)|4 MV cameras + 2 MT sensors|No Catalyst / No ACI (branch only)">
+    <rect x="1200" y="346" width="185" height="40" rx="5" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="1292" y="364" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Access</text>
+    <text x="1292" y="378" text-anchor="middle" fill="#888" font-size="8">8 AP | 2 SW | 4 CAM | 2 SNS</text>
+  </g>
+
+  <rect x="1000" y="410" width="385" height="60" rx="5" fill="#0d1117" stroke="#333" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="1192" y="432" text-anchor="middle" fill="#888" font-size="11">No Local Servers</text>
+  <text x="1192" y="448" text-anchor="middle" fill="#666" font-size="9">Auth: DC-BOS-01/02 via SD-WAN (TCP/88,389)</text>
+  <text x="1192" y="462" text-anchor="middle" fill="#666" font-size="8">~30% of DC-BOS auth events show 10.30.x.x source IPs</text>
+
+  <g class="hoverable" data-tt-title="Webex Rooms (Austin)" data-tt-body="4 meeting rooms | Floor 1" data-tt-detail="Conference: Doom (12p, sunny room +5C), Crash (8p)|Demo: Jett (8p)|Huddle: Fox (6p)">
+    <rect x="1000" y="490" width="185" height="36" rx="5" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="1092" y="512" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">4 Webex Rooms</text>
+  </g>
+  <g class="hoverable" data-tt-title="brooklyn.white" data-tt-body="Sales Engineer | Austin Floor 1" data-tt-detail="IP: 10.30.30.20|Ransomware target (Days 8-9)|Phishing email -> EDR blocks in 10 minutes">
+    <rect x="1200" y="490" width="185" height="36" rx="5" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="1292" y="508" text-anchor="middle" fill="#C5C6C7" font-size="10">brooklyn.white</text>
+    <text x="1292" y="520" text-anchor="middle" fill="#FF8888" font-size="8">Ransomware Target</text>
+  </g>
+
+  <text x="1192" y="560" text-anchor="middle" fill="#666" font-size="9" font-style="italic">No Catalyst switches or ACI (branch office)</text>
+
+  <!-- ===== CONNECTIONS ===== -->
+  <!-- Backbone to sites -->
+  <path d="M 250,278 L 250,298" stroke="#45A29E" stroke-width="1.5"/>
+  <path d="M 720,278 L 720,298" stroke="#45A29E" stroke-width="1.5"/>
+  <path d="M 1190,278 L 1190,298" stroke="#45A29E" stroke-width="1.5"/>
+
+  <!-- AutoVPN mesh lines -->
+  <line x1="250" y1="263" x2="720" y2="263" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+  <line x1="720" y1="263" x2="1190" y2="263" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+  <rect x="445" y="252" width="60" height="11" rx="2" fill="#0B0C10" opacity="0.9"/>
+  <text x="475" y="261" text-anchor="middle" fill="#78BE20" font-size="7">UDP/4500</text>
+  <rect x="925" y="252" width="60" height="11" rx="2" fill="#0B0C10" opacity="0.9"/>
+  <text x="955" y="261" text-anchor="middle" fill="#78BE20" font-size="7">UDP/4500</text>
+
+</svg>
+
+<!-- Log Generators -->
+<div style="margin-top:20px;">
+  <div class="section-title">24 Log Generators</div>
+
+  <div class="gen-category">
+    <div class="gen-category-title" style="border-color:var(--cisco); color:var(--cisco);">Network (6)</div>
+    <div class="gen-grid">
+      <div class="gen-item"><span class="gen-name">Cisco ASA</span> - cisco:asa</div>
+      <div class="gen-item"><span class="gen-name">Meraki MX/MR/MS/MV/MT</span> - meraki:*</div>
+      <div class="gen-item"><span class="gen-name">Cisco Catalyst</span> - cisco:ios</div>
+      <div class="gen-item"><span class="gen-name">Cisco ACI</span> - cisco:aci:*</div>
+      <div class="gen-item"><span class="gen-name">Cisco Secure Access</span> - cisco:umbrella:*</div>
+      <div class="gen-item"><span class="gen-name">Catalyst Center</span> - cisco:catalyst:*</div>
+    </div>
+  </div>
+
+  <div class="gen-category">
+    <div class="gen-category-title" style="border-color:var(--cloud); color:var(--cloud);">Cloud &amp; Collaboration (7)</div>
+    <div class="gen-grid">
+      <div class="gen-item"><span class="gen-name">AWS CloudTrail</span> - aws:cloudtrail</div>
+      <div class="gen-item"><span class="gen-name">GCP Audit</span> - google:gcp:pubsub:message</div>
+      <div class="gen-item"><span class="gen-name">Entra ID</span> - azure:aad:signin/audit</div>
+      <div class="gen-item"><span class="gen-name">Exchange Online</span> - ms:o365:*</div>
+      <div class="gen-item"><span class="gen-name">Office 365 Audit</span> - o365:management:activity</div>
+      <div class="gen-item"><span class="gen-name">Cisco Webex</span> - cisco:webex:* (3 generators)</div>
+    </div>
+  </div>
+
+  <div class="gen-category">
+    <div class="gen-category-title" style="border-color:var(--server-win); color:var(--server-win);">Infrastructure (5)</div>
+    <div class="gen-grid">
+      <div class="gen-item"><span class="gen-name">WinEventLog</span> - XmlWinEventLog</div>
+      <div class="gen-item"><span class="gen-name">Sysmon</span> - XmlWinEventLog:Sysmon</div>
+      <div class="gen-item"><span class="gen-name">Perfmon</span> - perfmon</div>
+      <div class="gen-item"><span class="gen-name">MSSQL</span> - mssql:errorlog</div>
+      <div class="gen-item"><span class="gen-name">Linux</span> - linux:* (vmstat/df/iostat/auth)</div>
+    </div>
+  </div>
+
+  <div class="gen-category">
+    <div class="gen-category-title" style="border-color:var(--data-flow); color:var(--data-flow);">Applications (4) <span style="font-size:9px; color:#888; font-weight:400;">-- orders, servicebus, sap depend on access (via order_registry.json)</span></div>
+    <div class="gen-grid">
+      <div class="gen-item"><span class="gen-name">Apache Access</span> - access_combined</div>
+      <div class="gen-item"><span class="gen-name">Orders</span> - retail:orders <span style="color:#666;">&#8592; access</span></div>
+      <div class="gen-item"><span class="gen-name">ServiceBus</span> - azure:servicebus <span style="color:#666;">&#8592; access</span></div>
+      <div class="gen-item"><span class="gen-name">SAP S/4HANA</span> - sap:auditlog <span style="color:#666;">&#8592; access</span></div>
+    </div>
+  </div>
+
+  <div class="gen-category">
+    <div class="gen-category-title" style="border-color:var(--monitoring); color:var(--monitoring);">ITSM (1)</div>
+    <div class="gen-grid">
+      <div class="gen-item"><span class="gen-name">ServiceNow</span> - servicenow:incident</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /diagram -->
+</div><!-- /tab-overview -->
+
+<!-- ========== TAB 2: SERVER CONNECTIONS ========== -->
+<div id="tab-connections" class="tab-content">
+<div class="diagram">
+<svg viewBox="0 0 1440 1020" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <marker id="c-arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#45A29E"/></marker>
+    <marker id="c-arrow-data" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FFD700"/></marker>
+    <marker id="c-arrow-win" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#0078D4"/></marker>
+    <marker id="c-arrow-linux" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#E95420"/></marker>
+    <marker id="c-arrow-mgmt" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#FF6B35"/></marker>
+    <marker id="c-arrow-mon" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#81B5A1"/></marker>
+    <marker id="c-arrow-cloud" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#4A90D9"/></marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="40" y="25" fill="#66FCF1" font-size="16" font-weight="700">Server Connections &amp; Data Flows</text>
+  <text x="40" y="42" fill="#888" font-size="10">Logical connections with protocols and ports. Hover elements for details.</text>
+
+  <!-- ===== INTERNET + PERIMETER (y=60-150) ===== -->
+  <rect x="540" y="60" width="280" height="36" rx="5" fill="#1F2833" stroke="#C5C6C7" stroke-width="1"/>
+  <text x="680" y="83" text-anchor="middle" fill="#C5C6C7" font-size="12" font-weight="600">INTERNET</text>
+
+  <!-- ASA -->
+  <g class="hoverable" data-tt-title="FW-EDGE-01" data-tt-body="Cisco ASA 5525-X | 203.0.113.1" data-tt-detail="Perimeter firewall for ALL external traffic|NAT: 203.0.113.10 -> WEB-01, 203.0.113.11 -> WEB-02|Ports: TCP/443,80 inbound | TCP/8443 to APP | TCP/1433 pass-through">
+    <rect x="540" y="110" width="280" height="40" rx="5" fill="#1F2833" stroke="#45A29E" stroke-width="2"/>
+    <text x="680" y="130" text-anchor="middle" fill="#66FCF1" font-size="12" font-weight="700">FW-EDGE-01</text>
+    <text x="680" y="144" text-anchor="middle" fill="#888" font-size="9">ASA 5525-X | Perimeter | 203.0.113.1</text>
+  </g>
+  <!-- Internet -> ASA -->
+  <line x1="680" y1="96" x2="680" y2="110" stroke="#45A29E" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+  <rect x="655" y="97" width="50" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="680" y="106" text-anchor="middle" fill="#888" font-size="8">TCP/443</text>
+
+  <!-- Cisco Secure Access -->
+  <g class="hoverable" data-tt-title="Cisco Secure Access" data-tt-body="Cloud-delivered security" data-tt-detail="DNS Security + SWG Proxy + Cloud Firewall|All user internet-bound traffic|Ports: UDP/53 (DNS), TCP/443 (SWG Proxy)">
+    <rect x="120" y="110" width="200" height="40" rx="5" fill="#2d1f15" stroke="#FF6B35" stroke-width="1.5"/>
+    <text x="220" y="130" text-anchor="middle" fill="#FF6B35" font-size="11" font-weight="600">Cisco Secure Access</text>
+    <text x="220" y="144" text-anchor="middle" fill="#888" font-size="9">DNS + SWG + CFFW</text>
+  </g>
+  <path d="M 320,130 L 540,130" stroke="#FF6B35" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+  <rect x="395" y="119" width="70" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="430" y="128" text-anchor="middle" fill="#FF6B35" font-size="7">UDP/53, TCP/443</text>
+
+  <!-- ===== 3-TIER E-COMMERCE FLOW (left column, y=170-420) ===== -->
+  <rect x="60" y="170" width="300" height="260" rx="8" fill="#111822" stroke="#FFD700" stroke-width="1" stroke-dasharray="6,3" opacity="0.7"/>
+  <text x="210" y="190" text-anchor="middle" fill="#FFD700" font-size="11" font-weight="700">3-Tier E-Commerce Flow</text>
+  <text x="210" y="204" text-anchor="middle" fill="#888" font-size="8">~2% of ASA baseline traffic (Built/Teardown events)</text>
+
+  <!-- WEB-01/02 (DMZ) -->
+  <g class="hoverable" data-tt-title="WEB-01 / WEB-02" data-tt-body="DMZ Web Servers | 172.16.1.10/.11" data-tt-detail="Linux (Ubuntu) | Apache httpd|Public: 203.0.113.10/.11 (NAT)|Scenarios: memory_leak (Days 7-10), ddos_attack (Days 18-19), dead_letter_pricing (Day 16)|Generators: access, linux, orders, servicebus">
+    <rect x="100" y="215" width="220" height="40" rx="5" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/>
+    <text x="210" y="233" text-anchor="middle" fill="#E95420" font-size="11" font-weight="600">WEB-01 / WEB-02</text>
+    <text x="210" y="247" text-anchor="middle" fill="#888" font-size="8">172.16.1.10/.11 | DMZ | Apache</text>
+  </g>
+
+  <!-- ASA -> WEB (DMZ) (offset x=400 to clear CORE box edge at x=420) -->
+  <path d="M 540,140 L 400,140 L 400,235 L 320,235" stroke="#45A29E" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+  <rect x="350" y="180" width="50" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="375" y="189" text-anchor="middle" fill="#45A29E" font-size="8">TCP/443</text>
+
+  <!-- WEB -> APP arrow -->
+  <line x1="210" y1="255" x2="210" y2="295" stroke="#FFD700" stroke-width="2" marker-end="url(#c-arrow-data)"/>
+  <rect x="173" y="268" width="74" height="12" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="210" y="278" text-anchor="middle" fill="#FFD700" font-size="8" font-weight="600">TCP/443, 8443</text>
+  <text x="300" y="278" fill="#666" font-size="7">ASA: dmz->inside</text>
+
+  <!-- APP-BOS-01 -->
+  <g class="hoverable" data-tt-title="APP-BOS-01" data-tt-body="e-Commerce API | 10.10.20.40" data-tt-detail="Windows Server | IIS/.NET API backend|Receives requests from WEB-01/02 on TCP/443,8443|Queries SQL-PROD-01 on TCP/1433|Reads files from FILE-BOS-01 on TCP/445">
+    <rect x="100" y="295" width="220" height="40" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="1.5"/>
+    <text x="210" y="313" text-anchor="middle" fill="#0078D4" font-size="11" font-weight="600">APP-BOS-01</text>
+    <text x="210" y="327" text-anchor="middle" fill="#888" font-size="8">10.10.20.40 | IIS/.NET API</text>
+  </g>
+
+  <!-- APP -> SQL arrow -->
+  <line x1="210" y1="335" x2="210" y2="375" stroke="#FFD700" stroke-width="2" marker-end="url(#c-arrow-data)"/>
+  <rect x="181" y="348" width="58" height="12" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="210" y="358" text-anchor="middle" fill="#FFD700" font-size="8" font-weight="600">TCP/1433</text>
+  <text x="300" y="358" fill="#666" font-size="7">ASA: inside->inside</text>
+
+  <!-- SQL-PROD-01 -->
+  <g class="hoverable" data-tt-title="SQL-PROD-01" data-tt-body="SQL Database | 10.10.20.30" data-tt-detail="Windows Server | MSSQL production DB|Scenario: cpu_runaway (Days 11-12) - backup job stuck at 100% CPU|Backup to BACKUP-ATL-01 via SD-WAN (TCP/1433)|Generator: generate_mssql.py">
+    <rect x="100" y="375" width="220" height="40" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="1.5"/>
+    <text x="210" y="393" text-anchor="middle" fill="#0078D4" font-size="11" font-weight="600">SQL-PROD-01</text>
+    <text x="210" y="407" text-anchor="middle" fill="#888" font-size="8">10.10.20.30 | MSSQL</text>
+  </g>
+
+  <!-- ===== AD AUTH BUS (y=462-476) ===== -->
+  <rect x="60" y="462" width="820" height="14" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1" opacity="0.6"/>
+  <text x="470" y="473" text-anchor="middle" fill="#0078D4" font-size="8" font-weight="600">AD / Kerberos / LDAP Authentication Bus</text>
+  <text x="470" y="495" text-anchor="middle" fill="#0078D4" font-size="7" opacity="0.6">TCP/88 (Kerberos) | TCP/389 (LDAP) | TCP/636 (LDAPS)</text>
+
+  <!-- ===== BOSTON CORE SERVERS (right side, y=170-480) ===== -->
+  <!-- Layout: Col A (x=440) DC boxes at bottom, Col B (x=640) FILE+SAP, Col C (x=820) BASTION -->
+  <!-- Col A is empty at y=210-335 so data-flow lines pass cleanly to Col B -->
+  <rect x="420" y="170" width="520" height="310" rx="6" fill="#111822" stroke="#333" stroke-width="1"/>
+  <text x="435" y="190" fill="#66FCF1" font-size="11" font-weight="600">BOSTON CORE (10.10.20.x)</text>
+
+  <!-- Col B Row 1: FILE-BOS-01 -->
+  <g class="hoverable" data-tt-title="FILE-BOS-01" data-tt-body="File Server | 10.10.20.20" data-tt-detail="Windows Server | SMB file shares|Exfil scenario: data staging target|Port: TCP/445 (SMB/CIFS)">
+    <rect x="640" y="210" width="160" height="45" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="1.5"/>
+    <text x="720" y="230" text-anchor="middle" fill="#0078D4" font-size="11" font-weight="600">FILE-BOS-01</text>
+    <text x="720" y="246" text-anchor="middle" fill="#888" font-size="8">10.10.20.20 | SMB</text>
+  </g>
+
+  <!-- Col B Row 2: SAP-PROD-01 -->
+  <g class="hoverable" data-tt-title="SAP-PROD-01" data-tt-body="SAP Application Server | 10.10.20.60" data-tt-detail="Linux (SUSE) | SAP S/4HANA application|Correlates with orders via order_registry.json|Ports: TCP/3200 (SAP GUI), TCP/8000 (HTTP)|Generator: generate_sap.py">
+    <rect x="640" y="275" width="160" height="45" rx="5" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/>
+    <text x="720" y="295" text-anchor="middle" fill="#E95420" font-size="11" font-weight="600">SAP-PROD-01</text>
+    <text x="720" y="311" text-anchor="middle" fill="#888" font-size="8">10.10.20.60 | S/4HANA</text>
+  </g>
+
+  <!-- Col B Row 3: SAP-DB-01 -->
+  <g class="hoverable" data-tt-title="SAP-DB-01" data-tt-body="SAP HANA Database | 10.10.20.61" data-tt-detail="Linux (SUSE) | In-memory HANA DB|Port: TCP/30015 (HANA protocol)">
+    <rect x="640" y="335" width="160" height="40" rx="5" fill="#1a0d05" stroke="#E95420" stroke-width="1"/>
+    <text x="720" y="355" text-anchor="middle" fill="#E95420" font-size="11" font-weight="600">SAP-DB-01</text>
+    <text x="720" y="369" text-anchor="middle" fill="#888" font-size="8">10.10.20.61 | HANA</text>
+  </g>
+  <!-- SAP-PROD -> SAP-DB -->
+  <line x1="720" y1="320" x2="720" y2="335" stroke="#FFD700" stroke-width="1.5" marker-end="url(#c-arrow-data)"/>
+  <rect x="730" y="322" width="64" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="762" y="331" text-anchor="middle" fill="#FFD700" font-size="8">TCP/30015</text>
+
+  <!-- Col A Row 3: DC-BOS-01 (moved down to y=335 to clear data-flow routing) -->
+  <g class="hoverable" data-tt-title="DC-BOS-01" data-tt-body="Domain Controller | 10.10.20.10" data-tt-detail="Windows Server | AD/DNS/DHCP primary|Kerberos auth for all domain-joined servers|Replication: DC-BOS-02, DC-ATL-01|Ports: TCP/88 (Kerberos), TCP/389 (LDAP), TCP/636 (LDAPS)">
+    <rect x="440" y="335" width="160" height="45" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="2"/>
+    <text x="520" y="355" text-anchor="middle" fill="#0078D4" font-size="11" font-weight="700">DC-BOS-01</text>
+    <text x="520" y="371" text-anchor="middle" fill="#888" font-size="8">10.10.20.10 | AD Primary</text>
+  </g>
+
+  <!-- Col A Row 4: DC-BOS-02 (moved down to y=390) -->
+  <g class="hoverable" data-tt-title="DC-BOS-02" data-tt-body="Domain Controller | 10.10.20.11" data-tt-detail="Windows Server | AD/DNS/DHCP secondary|Replication partner for DC-BOS-01">
+    <rect x="440" y="390" width="160" height="35" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="1"/>
+    <text x="520" y="412" text-anchor="middle" fill="#0078D4" font-size="10">DC-BOS-02 | 10.10.20.11</text>
+  </g>
+  <!-- DC replication (DC-01 bottom to DC-02 top) -->
+  <line x1="520" y1="380" x2="520" y2="390" stroke="#0078D4" stroke-width="1" stroke-dasharray="3,2"/>
+
+  <!-- Col C Row 1: BASTION-BOS-01 -->
+  <g class="hoverable" data-tt-title="BASTION-BOS-01" data-tt-body="Bastion Host | 10.10.10.10" data-tt-detail="Linux | Management subnet jump box|SSH gateway for all server access|Ports: TCP/22 (SSH to Linux), TCP/3389 (RDP to Windows)">
+    <rect x="820" y="210" width="105" height="45" rx="5" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/>
+    <text x="872" y="228" text-anchor="middle" fill="#E95420" font-size="10" font-weight="600">BASTION-01</text>
+    <text x="872" y="244" text-anchor="middle" fill="#888" font-size="8">10.10.10.10</text>
+  </g>
+
+  <!-- ASA -> Bastion (VPN/SSH) -->
+  <path d="M 820,130 L 920,130 L 920,210" stroke="#45A29E" stroke-width="1.5" marker-end="url(#c-arrow)"/>
+  <rect x="922" y="162" width="48" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="946" y="171" text-anchor="middle" fill="#45A29E" font-size="8">TCP/22</text>
+
+  <!-- APP -> FILE (TCP/445) -- routes through empty Col A space at y=235 -->
+  <path d="M 320,315 L 400,315 L 400,235 L 640,235" stroke="#FFD700" stroke-width="1.5" marker-end="url(#c-arrow-data)"/>
+  <rect x="500" y="224" width="58" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="529" y="233" text-anchor="middle" fill="#FFD700" font-size="8" font-weight="600">TCP/445</text>
+
+  <!-- order_registry (WEB -> SAP) -- routes through empty Col A space at y=295 -->
+  <path d="M 320,250 L 395,250 L 395,295 L 640,295" stroke="#FFD700" stroke-width="1" stroke-dasharray="5,3" opacity="0.5" marker-end="url(#c-arrow-data)"/>
+  <rect x="460" y="284" width="90" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="505" y="293" text-anchor="middle" fill="#FFD700" font-size="7" opacity="0.7">order_registry.json</text>
+
+  <!-- DC-BOS-01 auth stub (routed left at x=430, outside DC-BOS-02) -->
+  <path d="M 520,380 L 430,380 L 430,522" stroke="#0078D4" stroke-width="1.5" opacity="0.5" fill="none"/>
+
+  <!-- FILE auth stub (routed RIGHT at x=810, outside SAP column) -->
+  <path d="M 720,255 L 810,255 L 810,522" stroke="#0078D4" stroke-width="1" opacity="0.3" fill="none"/>
+
+  <!-- ===== SSH MANAGEMENT BUS (y=440) ===== -->
+  <rect x="440" y="440" width="490" height="12" rx="3" fill="#0a1628" stroke="#45A29E" stroke-width="1" opacity="0.4"/>
+  <text x="685" y="470" text-anchor="middle" fill="#45A29E" font-size="7" opacity="0.6">SSH Management Bus: TCP/22 (SSH) | TCP/3389 (RDP)</text>
+  <!-- Bastion feeds SSH bus -->
+  <line x1="872" y1="255" x2="872" y2="440" stroke="#45A29E" stroke-width="1.5" opacity="0.6"/>
+  <!-- SSH stub to SAP-DB-01 (x=720, up from bus to SAP-DB bottom) -->
+  <line x1="720" y1="440" x2="720" y2="375" stroke="#45A29E" stroke-width="1" stroke-dasharray="4,3" opacity="0.3"/>
+  <!-- SSH stub to DC area (x=430, down-ish from bus to DC-BOS-01 bottom) -->
+  <line x1="430" y1="440" x2="430" y2="380" stroke="#45A29E" stroke-width="1" stroke-dasharray="4,3" opacity="0.3"/>
+
+  <!-- ===== AD AUTH BUS (y=522) ===== -->
+  <rect x="60" y="522" width="820" height="14" rx="3" fill="#0a1628" stroke="#0078D4" stroke-width="1" opacity="0.6"/>
+  <text x="470" y="533" text-anchor="middle" fill="#0078D4" font-size="8" font-weight="600">AD / Kerberos / LDAP Authentication Bus</text>
+  <text x="470" y="555" text-anchor="middle" fill="#0078D4" font-size="7" opacity="0.6">TCP/88 (Kerberos) | TCP/389 (LDAP) | TCP/636 (LDAPS)</text>
+
+  <!-- ===== ATLANTA SECTION (y=590, shifted +60px) ===== -->
+  <rect x="60" y="590" width="540" height="130" rx="6" fill="#111822" stroke="#333" stroke-width="1"/>
+  <text x="75" y="610" fill="#66FCF1" font-size="11" font-weight="600">ATLANTA HUB (10.20.20.x)</text>
+
+  <g class="hoverable" data-tt-title="DC-ATL-01" data-tt-body="Domain Controller | 10.20.20.10" data-tt-detail="Windows Server | AD/DNS for Atlanta|Replicates with DC-BOS-01/02|Ports: TCP/389,3268 (AD Replication)">
+    <rect x="80" y="625" width="140" height="40" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="1"/>
+    <text x="150" y="645" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">DC-ATL-01</text>
+    <text x="150" y="659" text-anchor="middle" fill="#888" font-size="9">10.20.20.10</text>
+  </g>
+
+  <g class="hoverable" data-tt-title="BACKUP-ATL-01" data-tt-body="Backup Server | 10.20.20.20" data-tt-detail="Windows Server | Veeam backup target|Cross-site backup from SQL-PROD-01 (BOS)|Port: TCP/1433 over SD-WAN tunnel">
+    <rect x="240" y="625" width="140" height="40" rx="5" fill="#0a1628" stroke="#0078D4" stroke-width="1"/>
+    <text x="310" y="645" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">BACKUP-ATL-01</text>
+    <text x="310" y="659" text-anchor="middle" fill="#888" font-size="9">10.20.20.20</text>
+  </g>
+
+  <g class="hoverable" data-tt-title="MON-ATL-01" data-tt-body="Monitoring Server | 10.20.20.30" data-tt-detail="Linux | Nagios/Grafana monitoring|Scenario: disk_filling (Days 1-5), 45% -> 98%|Ports: ICMP (health checks), TCP/5666 (NRPE), TCP/3000 (Grafana)">
+    <rect x="400" y="625" width="140" height="40" rx="5" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/>
+    <text x="470" y="645" text-anchor="middle" fill="#E95420" font-size="10" font-weight="600">MON-ATL-01</text>
+    <text x="470" y="659" text-anchor="middle" fill="#888" font-size="9">10.20.20.30</text>
+  </g>
+
+  <!-- DC-ATL -> DC-BOS replication -->
+  <path d="M 150,625 L 150,580 L 520,580 L 520,536" stroke="#0078D4" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+  <rect x="290" y="570" width="90" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="335" y="579" text-anchor="middle" fill="#0078D4" font-size="8">TCP/389, 3268</text>
+  <text x="335" y="590" text-anchor="middle" fill="#0078D4" font-size="7" opacity="0.5">AD Replication</text>
+
+  <!-- BACKUP-ATL -> SQL-PROD (SQL backup) -->
+  <path d="M 310,625 L 310,570 L 210,570 L 210,415" stroke="#FFD700" stroke-width="1" stroke-dasharray="5,3" opacity="0.5" marker-end="url(#c-arrow-data)"/>
+  <rect x="220" y="560" width="85" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="262" y="569" text-anchor="middle" fill="#FFD700" font-size="7" opacity="0.7">TCP/1433 (SD-WAN)</text>
+  <text x="262" y="580" text-anchor="middle" fill="#FFD700" font-size="7" opacity="0.5">SQL Backup</text>
+
+  <!-- MON-ATL-01 monitoring connections -->
+  <path d="M 470,625 L 470,570 L 680,570 L 680,536" stroke="#81B5A1" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" marker-end="url(#c-arrow-mon)"/>
+  <rect x="535" y="560" width="100" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="585" y="569" text-anchor="middle" fill="#81B5A1" font-size="7">ICMP, TCP/5666 (NRPE)</text>
+  <text x="585" y="580" text-anchor="middle" fill="#81B5A1" font-size="7" opacity="0.5">Health Monitoring</text>
+
+  <!-- ===== SD-WAN MESH (y=590, shifted +60px) ===== -->
+  <rect x="640" y="590" width="300" height="130" rx="6" fill="#0d1a0d" stroke="#78BE20" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="655" y="610" fill="#78BE20" font-size="11" font-weight="600">SD-WAN / AutoVPN Mesh</text>
+  <text x="655" y="624" fill="#888" font-size="8">IPsec NAT-T | UDP/4500</text>
+
+  <g class="hoverable" data-tt-title="MX-BOS-01/02" data-tt-body="MX450 HA | Hub" data-tt-detail="AutoVPN concentrator|WAN: Comcast + AT&T|UDP/4500 (IPsec NAT-T)">
+    <rect x="660" y="635" width="110" height="36" rx="4" fill="#1F2833" stroke="#78BE20" stroke-width="1.5"/>
+    <text x="715" y="657" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">MX-BOS (HA)</text>
+  </g>
+  <g class="hoverable" data-tt-title="MX-ATL-01" data-tt-body="MX250 | Spoke" data-tt-detail="WAN: AT&T + Spectrum|AutoVPN to Boston hub">
+    <rect x="660" y="680" width="110" height="32" rx="4" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="715" y="700" text-anchor="middle" fill="#78BE20" font-size="10">MX-ATL-01</text>
+  </g>
+  <g class="hoverable" data-tt-title="MX-AUS-01" data-tt-body="MX85 | Spoke" data-tt-detail="WAN: Verizon|AutoVPN to Boston hub">
+    <rect x="800" y="635" width="110" height="36" rx="4" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="855" y="657" text-anchor="middle" fill="#78BE20" font-size="10">MX-AUS-01</text>
+  </g>
+  <!-- VPN mesh lines -->
+  <line x1="715" y1="671" x2="715" y2="680" stroke="#78BE20" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="770" y1="653" x2="800" y2="653" stroke="#78BE20" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <path d="M 770,696 L 855,696 L 855,671" stroke="#78BE20" stroke-width="1.5" stroke-dasharray="4,3" fill="none"/>
+
+  <!-- ===== AUSTIN (y=590, shifted +60px) ===== -->
+  <rect x="980" y="590" width="420" height="130" rx="6" fill="#111822" stroke="#333" stroke-width="1"/>
+  <text x="995" y="610" fill="#66FCF1" font-size="11" font-weight="600">AUSTIN OFFICE (No Local Servers)</text>
+  <text x="995" y="628" fill="#888" font-size="10">All services via SD-WAN tunnel to Boston/Atlanta</text>
+  <text x="995" y="644" fill="#888" font-size="9">Auth: DC-BOS-01/02 via SD-WAN (TCP/88,389) -- 10.30.x.x in WinEventLog</text>
+
+  <g class="hoverable" data-tt-title="brooklyn.white" data-tt-body="Sales Engineer | 10.30.30.20" data-tt-detail="Ransomware target (Days 8-9)|Phishing -> EDR blocks in 10 min">
+    <rect x="1000" y="660" width="180" height="30" rx="4" fill="#1F2833" stroke="#FF4444" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="1090" y="679" text-anchor="middle" fill="#FF8888" font-size="10">brooklyn.white (ransomware target)</text>
+  </g>
+
+  <!-- ===== CLOUD DEPENDENCIES (y=760, shifted +60px) ===== -->
+  <rect x="60" y="760" width="1340" height="120" rx="6" fill="none" stroke="#4A90D9" stroke-width="1" stroke-dasharray="6,3" opacity="0.5"/>
+  <text x="80" y="780" fill="#4A90D9" font-size="11" font-weight="600">Cloud Dependencies</text>
+
+  <g class="hoverable" data-tt-title="Entra ID / M365" data-tt-body="Identity + Office 365" data-tt-detail="175 users | SSO + MFA|Sourcetypes: azure:aad:signin, audit">
+    <rect x="80" y="795" width="160" height="35" rx="4" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="160" y="817" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Entra ID / M365</text>
+  </g>
+  <g class="hoverable" data-tt-title="AWS" data-tt-body="CloudTrail | us-east-1" data-tt-detail="Account: 123456789012|Buckets: finance-data, backups-prod">
+    <rect x="260" y="795" width="120" height="35" rx="4" fill="#1F2833" stroke="#FF9900" stroke-width="1"/>
+    <text x="320" y="817" text-anchor="middle" fill="#FF9900" font-size="10" font-weight="600">AWS</text>
+  </g>
+  <g class="hoverable" data-tt-title="GCP" data-tt-body="Audit Logs | us-central1" data-tt-detail="Project: faketshirtcompany-prod-01">
+    <rect x="400" y="795" width="120" height="35" rx="4" fill="#1F2833" stroke="#4285F4" stroke-width="1"/>
+    <text x="460" y="817" text-anchor="middle" fill="#4285F4" font-size="10" font-weight="600">GCP</text>
+  </g>
+  <g class="hoverable" data-tt-title="Azure ServiceBus" data-tt-body="Message Queue | AMQP" data-tt-detail="Namespace: faketshirtco-prod|Port: TCP/5671 (AMQP)|Queues: price-updates, inventory-sync|Scenario: dead_letter_pricing (Day 16)">
+    <rect x="540" y="795" width="140" height="35" rx="4" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="610" y="817" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Azure ServiceBus</text>
+  </g>
+  <g class="hoverable" data-tt-title="Exchange Online" data-tt-body="Email for 175 employees" data-tt-detail="Sourcetype: ms:o365:reporting:messagetrace">
+    <rect x="700" y="795" width="130" height="35" rx="4" fill="#1F2833" stroke="#0078D4" stroke-width="1"/>
+    <text x="765" y="817" text-anchor="middle" fill="#0078D4" font-size="10" font-weight="600">Exchange Online</text>
+  </g>
+  <g class="hoverable" data-tt-title="ServiceNow" data-tt-body="ITSM - Incident Management" data-tt-detail="Auto-ticket creation on alerts|Sourcetype: servicenow:incident">
+    <rect x="850" y="795" width="130" height="35" rx="4" fill="#1F2833" stroke="#81B5A1" stroke-width="1"/>
+    <text x="915" y="817" text-anchor="middle" fill="#81B5A1" font-size="10" font-weight="600">ServiceNow</text>
+  </g>
+  <g class="hoverable" data-tt-title="Cisco Webex" data-tt-body="21 rooms across 3 sites" data-tt-detail="Meetings, quality, device health|Problem rooms: Kirby (BOS), Cortana (ATL)">
+    <rect x="1000" y="795" width="130" height="35" rx="4" fill="#1F2833" stroke="#00BCF2" stroke-width="1"/>
+    <text x="1065" y="817" text-anchor="middle" fill="#00BCF2" font-size="10" font-weight="600">Cisco Webex</text>
+  </g>
+  <g class="hoverable" data-tt-title="Meraki Dashboard" data-tt-body="Cloud-managed network" data-tt-detail="79 devices across 3 sites">
+    <rect x="1150" y="795" width="130" height="35" rx="4" fill="#1F2833" stroke="#78BE20" stroke-width="1"/>
+    <text x="1215" y="817" text-anchor="middle" fill="#78BE20" font-size="10" font-weight="600">Meraki Dashboard</text>
+  </g>
+
+  <!-- WEB-01 -> Azure ServiceBus (routed outside 3-tier box at x=45) -->
+  <path d="M 100,250 L 45,250 L 45,812 L 540,812" stroke="#4A90D9" stroke-width="1" stroke-dasharray="5,3" opacity="0.5" marker-end="url(#c-arrow-cloud)"/>
+  <rect x="30" y="750" width="70" height="11" rx="2" fill="#111822" opacity="0.9"/>
+  <text x="65" y="759" text-anchor="middle" fill="#4A90D9" font-size="7">AMQP/5671</text>
+
+  <!-- ===== CONNECTION LEGEND (shifted +60px) ===== -->
+  <rect x="60" y="905" width="1340" height="75" rx="4" fill="#0d1117" stroke="#333" stroke-width="1"/>
+  <text x="80" y="925" fill="#888" font-size="10" font-weight="600">Connection Legend</text>
+  <line x1="80" y1="942" x2="120" y2="942" stroke="#0078D4" stroke-width="1.5"/><text x="130" y="946" fill="#0078D4" font-size="9">AD Auth (Kerberos/LDAP)</text>
+  <line x1="320" y1="942" x2="360" y2="942" stroke="#FFD700" stroke-width="1.5"/><text x="370" y="946" fill="#FFD700" font-size="9">Data Flow</text>
+  <line x1="480" y1="942" x2="520" y2="942" stroke="#78BE20" stroke-width="1.5" stroke-dasharray="5,3"/><text x="530" y="946" fill="#78BE20" font-size="9">SD-WAN / VPN</text>
+  <line x1="680" y1="942" x2="720" y2="942" stroke="#45A29E" stroke-width="1.5"/><text x="730" y="946" fill="#45A29E" font-size="9">Network / SSH</text>
+  <line x1="870" y1="942" x2="910" y2="942" stroke="#81B5A1" stroke-width="1.5" stroke-dasharray="4,3"/><text x="920" y="946" fill="#81B5A1" font-size="9">Monitoring</text>
+  <line x1="1040" y1="942" x2="1080" y2="942" stroke="#4A90D9" stroke-width="1.5" stroke-dasharray="5,3"/><text x="1090" y="946" fill="#4A90D9" font-size="9">Cloud / SaaS</text>
+  <line x1="1200" y1="942" x2="1240" y2="942" stroke="#FF6B35" stroke-width="1.5" stroke-dasharray="4,3"/><text x="1250" y="946" fill="#FF6B35" font-size="9">Management</text>
+
+  <!-- Port label example -->
+  <rect x="80" y="956" width="60" height="12" rx="2" fill="#111822" stroke="#888" stroke-width="0.5"/>
+  <text x="110" y="965" text-anchor="middle" fill="#888" font-size="8">TCP/443</text>
+  <text x="150" y="966" fill="#666" font-size="9">= Port label (protocol/number)</text>
+
+</svg>
+</div>
+</div>
+
+<!-- ========== TAB 3: BOSTON HQ ========== -->
+<div id="tab-boston" class="tab-content">
+  <h2>Boston HQ</h2>
+  <p style="color:var(--text); font-size:13px; margin-bottom:20px;">Headquarters | 10.10.x.x | 93 employees | 3 floors | 125 One Financial Center, Boston MA</p>
+
+  <div class="key-connections">
+    <div class="kc-title">Key Ports &amp; Connections</div>
+    <div class="kc-row">
+      <div class="kc-item"><span class="kc-label">Auth:</span> <span class="kc-port">DC-BOS-01/02 TCP/88, 389, 636</span></div>
+      <div class="kc-item"><span class="kc-label">File:</span> <span class="kc-port">FILE-BOS-01 TCP/445</span></div>
+      <div class="kc-item"><span class="kc-label">DB:</span> <span class="kc-port">SQL-PROD-01 TCP/1433</span></div>
+      <div class="kc-item"><span class="kc-label">API:</span> <span class="kc-port">APP-BOS-01 TCP/443, 8443</span></div>
+      <div class="kc-item"><span class="kc-label">SAP:</span> <span class="kc-port">SAP-PROD-01 TCP/30015, 3200</span></div>
+      <div class="kc-item"><span class="kc-label">SSH:</span> <span class="kc-port">BASTION-01 TCP/22 (Linux), TCP/3389 (Windows)</span></div>
+      <div class="kc-item"><span class="kc-label">SD-WAN:</span> <span class="kc-port">MX-BOS-01/02 UDP/4500 (AutoVPN Hub)</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Servers (10)</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">Windows Servers (6)</div>
+        <table>
+          <tr><th>Hostname</th><th>IP</th><th>Role</th><th>Key Ports</th></tr>
+          <tr><td><span class="os-win">DC-BOS-01</span></td><td>10.10.20.10</td><td>Domain Controller (Primary)</td><td>TCP/88, 389, 636</td></tr>
+          <tr><td><span class="os-win">DC-BOS-02</span></td><td>10.10.20.11</td><td>Domain Controller (Secondary)</td><td>TCP/88, 389, 636</td></tr>
+          <tr><td><span class="os-win">FILE-BOS-01</span></td><td>10.10.20.20</td><td>File Server (SMB)</td><td>TCP/445</td></tr>
+          <tr><td><span class="os-win">SQL-PROD-01</span></td><td>10.10.20.30</td><td>SQL Database (MSSQL)</td><td>TCP/1433</td></tr>
+          <tr><td><span class="os-win">APP-BOS-01</span></td><td>10.10.20.40</td><td>e-Commerce API (IIS/.NET)</td><td>TCP/443, 8443</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Linux Servers (4)</div>
+        <table>
+          <tr><th>Hostname</th><th>IP</th><th>Role</th><th>Key Ports</th></tr>
+          <tr><td><span class="os-linux">SAP-PROD-01</span></td><td>10.10.20.60</td><td>SAP Application Server</td><td>TCP/3200, 8000</td></tr>
+          <tr><td><span class="os-linux">SAP-DB-01</span></td><td>10.10.20.61</td><td>SAP HANA Database</td><td>TCP/30015</td></tr>
+          <tr><td><span class="os-linux">BASTION-BOS-01</span></td><td>10.10.10.10</td><td>Bastion Host (Mgmt subnet)</td><td>TCP/22</td></tr>
+          <tr><td><span class="os-linux">WEB-01</span></td><td>172.16.1.10</td><td>Web Server (DMZ)</td><td>TCP/443</td></tr>
+          <tr><td><span class="os-linux">WEB-02</span></td><td>172.16.1.11</td><td>Web Server (DMZ)</td><td>TCP/443</td></tr>
+        </table>
+        <p class="note">WEB-01/02 are in DMZ (172.16.1.0/24), NATted to 203.0.113.10/.11</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Cisco Infrastructure</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">ACI Fabric (Boston Pod) <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Component</th><th>Name</th><th>Model</th><th>Node</th></tr>
+          <tr><td>APIC</td><td>APIC-BOS-01</td><td>APIC Controller</td><td>10.10.10.20</td></tr>
+          <tr><td>Spine</td><td>SPINE-BOS-01/02</td><td>N9K-C9336C-FX2</td><td>101, 102</td></tr>
+          <tr><td>Leaf</td><td>LEAF-BOS-01..04</td><td>N9K-C93180YC-FX</td><td>201-204</td></tr>
+        </table>
+        <p class="note">5 EPGs: Servers, DBServers, WebDMZ, Management, Backup</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Catalyst Switches <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Hostname</th><th>Model</th><th>IP</th><th>Role</th></tr>
+          <tr><td>CAT-BOS-DIST-01</td><td>C9300-48UXM</td><td>10.10.10.30</td><td>Distribution Primary</td></tr>
+          <tr><td>CAT-BOS-DIST-02</td><td>C9300-48UXM</td><td>10.10.10.31</td><td>Distribution Secondary</td></tr>
+        </table>
+        <p class="note">IOS-XE 17.12.4 | 10 VLANs | Managed by Catalyst Center (TCP/443)</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Catalyst Center <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Hostname</td><td>CATCENTER-BOS-01</td></tr>
+          <tr><td>IP</td><td>10.10.10.40</td></tr>
+          <tr><td>Version</td><td>v2.3.7.9</td></tr>
+          <tr><td>Managed Devices</td><td>3 (CAT-BOS-DIST-01/02, CAT-ATL-DIST-01)</td></tr>
+          <tr><td>Management Port</td><td>TCP/443 (RESTCONF/NETCONF)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Meraki Devices</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">SD-WAN (MX) - HA Pair</div>
+        <table>
+          <tr><th>Device</th><th>Model</th><th>Role</th><th>WAN</th></tr>
+          <tr><td>MX-BOS-01</td><td>MX450</td><td>Primary</td><td>Comcast + AT&T</td></tr>
+          <tr><td>MX-BOS-02</td><td>MX450</td><td>Secondary</td><td>Comcast + AT&T</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Access Points (16 MR46)</div>
+        <table>
+          <tr><th>Floor</th><th>Count</th><th>Areas</th></tr>
+          <tr><td>Floor 1</td><td>5 APs</td><td>Reception, Lobby, Operations, Shipping, Break Room</td></tr>
+          <tr><td>Floor 2</td><td>5 APs</td><td>Finance East/West, Marketing, HR, Cafeteria</td></tr>
+          <tr><td>Floor 3</td><td>6 APs</td><td>Exec, CEO Office, Engineering E/W, Legal, Break Room</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Switches (5) | Cameras (8) &amp; Sensors (5)</div>
+        <table>
+          <tr><th>Type</th><th>Count</th><th>Details</th></tr>
+          <tr><td>MS425-32</td><td>2</td><td>Core Stack</td></tr>
+          <tr><td>MS225-48</td><td>3</td><td>Access (per floor IDF)</td></tr>
+          <tr><td>MV12/MV32/MV72</td><td>8</td><td>Lobby, Server Room, Boardroom, MDF, Parking</td></tr>
+          <tr><td>MT10/MT11/MT20</td><td>5</td><td>Server Room (temp, door), MDF (temp, humidity, door)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Webex Rooms (10)</div>
+    <div class="card-grid">
+      <div class="card" style="grid-column: span 2;">
+        <table>
+          <tr><th>Room</th><th>Floor</th><th>Device</th><th>Model</th><th>Cap</th><th>Type</th><th>Notes</th></tr>
+          <tr><td>Link</td><td>3</td><td>WEBEX-BOS-3F-LINK</td><td>Room Kit Pro + Board 85 Pro</td><td>20</td><td>Boardroom</td><td>Sunny room (+4C afternoon)</td></tr>
+          <tr><td>Zelda</td><td>2</td><td>WEBEX-BOS-2F-ZELDA</td><td>Room Kit + Board 55</td><td>12</td><td>Conference</td><td></td></tr>
+          <tr><td>Mario</td><td>2</td><td>WEBEX-BOS-2F-MARIO</td><td>Room Kit</td><td>10</td><td>Conference</td><td></td></tr>
+          <tr><td>Samus</td><td>2</td><td>WEBEX-BOS-2F-SAMUS</td><td>Room Kit</td><td>8</td><td>Conference</td><td></td></tr>
+          <tr><td>Luigi</td><td>3</td><td>WEBEX-BOS-3F-LUIGI</td><td>Room Kit</td><td>8</td><td>Conference</td><td></td></tr>
+          <tr><td>Sonic</td><td>3</td><td>WEBEX-BOS-3F-SONIC</td><td>Board 55</td><td>8</td><td>Lab</td><td></td></tr>
+          <tr><td>Yoshi</td><td>3</td><td>WEBEX-BOS-3F-YOSHI</td><td>Room Kit Mini</td><td>6</td><td>Huddle</td><td>After-hours activity</td></tr>
+          <tr><td>Peach</td><td>1</td><td>WEBEX-BOS-1F-PEACH</td><td>Desk Pro</td><td>6</td><td>Visitor</td><td></td></tr>
+          <tr><td style="color:var(--threat)">Kirby</td><td>3</td><td>WEBEX-BOS-3F-KIRBY</td><td>Desk Pro</td><td>4</td><td>Huddle</td><td style="color:var(--threat)">PROBLEM: WiFi congestion, old equipment</td></tr>
+          <tr><td>Toad</td><td>1</td><td>WEBEX-BOS-1F-TOAD</td><td>Room Kit Mini</td><td>4</td><td>Visitor</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 4: ATLANTA HUB ========== -->
+<div id="tab-atlanta" class="tab-content">
+  <h2>Atlanta Hub</h2>
+  <p style="color:var(--text); font-size:13px; margin-bottom:20px;">IT / Regional Hub | 10.20.x.x | 43 employees | 2 floors | 400 Peachtree Center, Atlanta GA</p>
+
+  <div class="key-connections">
+    <div class="kc-title">Key Ports &amp; Connections</div>
+    <div class="kc-row">
+      <div class="kc-item"><span class="kc-label">AD Replication:</span> <span class="kc-port">DC-ATL-01 -> DC-BOS-01/02 TCP/389, 3268</span></div>
+      <div class="kc-item"><span class="kc-label">SQL Backup:</span> <span class="kc-port">BACKUP-ATL-01 -> SQL-PROD-01 TCP/1433 (via SD-WAN)</span></div>
+      <div class="kc-item"><span class="kc-label">Monitoring:</span> <span class="kc-port">MON-ATL-01 ICMP, TCP/5666 (NRPE), TCP/3000 (Grafana)</span></div>
+      <div class="kc-item"><span class="kc-label">SD-WAN:</span> <span class="kc-port">MX-ATL-01 UDP/4500 (AutoVPN Spoke)</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Servers (3)</div>
+    <div class="card-grid">
+      <div class="card">
+        <table>
+          <tr><th>Hostname</th><th>IP</th><th>Role</th><th>OS</th><th>Key Ports</th></tr>
+          <tr><td><span class="os-win">DC-ATL-01</span></td><td>10.20.20.10</td><td>Domain Controller</td><td>Windows</td><td>TCP/88, 389</td></tr>
+          <tr><td><span class="os-win">BACKUP-ATL-01</span></td><td>10.20.20.20</td><td>Backup Server (Veeam)</td><td>Windows</td><td>TCP/1433</td></tr>
+          <tr><td><span class="os-linux">MON-ATL-01</span></td><td>10.20.20.30</td><td>Monitoring (Nagios/Grafana)</td><td>Linux</td><td>ICMP, TCP/5666, 3000</td></tr>
+        </table>
+        <p class="note">MON-ATL-01: disk_filling scenario target (Days 1-5, 45% -> 98%)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Cisco Infrastructure</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">ACI Mini-Pod <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Component</th><th>Name</th><th>Model</th><th>Node</th></tr>
+          <tr><td>Spine</td><td>SPINE-ATL-01</td><td>N9K-C9332C</td><td>301</td></tr>
+          <tr><td>Leaf</td><td>LEAF-ATL-01</td><td>N9K-C93180YC-FX</td><td>401</td></tr>
+          <tr><td>Leaf</td><td>LEAF-ATL-02</td><td>N9K-C93180YC-FX</td><td>402</td></tr>
+        </table>
+        <p class="note">3 EPGs: ATLServers, ATLBackup, ATLMonitor | Multi-site managed by APIC-BOS-01</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Catalyst Switch <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Hostname</th><th>Model</th><th>IP</th><th>Role</th></tr>
+          <tr><td>CAT-ATL-DIST-01</td><td>C9300-48UXM</td><td>10.20.10.30</td><td>Distribution</td></tr>
+        </table>
+        <p class="note">IOS-XE 17.12.4 | 8 VLANs | Managed by Catalyst Center BOS (TCP/443)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Meraki Devices</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">SD-WAN + Access</div>
+        <table>
+          <tr><th>Type</th><th>Count</th><th>Details</th></tr>
+          <tr><td>MX250</td><td>1</td><td>MX-ATL-01 | WAN: AT&T + Spectrum</td></tr>
+          <tr><td>MR46 APs</td><td>12</td><td>Floor 1: 6, Floor 2: 6</td></tr>
+          <tr><td>MS Switches</td><td>4</td><td>2x MS425-32 (DC Core) + 2x MS225-48 (Access)</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Cameras (7) &amp; Sensors (7)</div>
+        <table>
+          <tr><th>Type</th><th>Count</th><th>Coverage</th></tr>
+          <tr><td>MV12/MV32/MV72</td><td>7</td><td>Lobby, IDF, DC Row A/B, DC Entrance, Parking</td></tr>
+          <tr><td>MT10/MT11/MT20</td><td>7</td><td>DC Row A/B front/back (temp), DC Row A/B (humidity), DC Entrance (door)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Webex Rooms (7)</div>
+    <div class="card-grid">
+      <div class="card" style="grid-column: span 2;">
+        <table>
+          <tr><th>Room</th><th>Floor</th><th>Device</th><th>Model</th><th>Cap</th><th>Type</th><th>Notes</th></tr>
+          <tr><td style="color:var(--threat)">Cortana</td><td>2</td><td>WEBEX-ATL-2F-CORTANA</td><td>Room Kit Pro</td><td>16</td><td>Training</td><td style="color:var(--threat)">PROBLEM: Bandwidth limited, echo issues</td></tr>
+          <tr><td>Chief</td><td>2</td><td>WEBEX-ATL-2F-CHIEF</td><td>Room Kit + Board 55</td><td>10</td><td>Conference</td><td>Sunny room (+3.5C afternoon)</td></tr>
+          <tr><td>Kratos</td><td>1</td><td>WEBEX-ATL-1F-KRATOS</td><td>Room Kit</td><td>8</td><td>Conference</td><td></td></tr>
+          <tr><td>Lara</td><td>2</td><td>WEBEX-ATL-2F-LARA</td><td>Board 55</td><td>8</td><td>Lab</td><td></td></tr>
+          <tr><td>Ryu</td><td>1</td><td>WEBEX-ATL-1F-RYU</td><td>Room Kit</td><td>6</td><td>Operations</td><td></td></tr>
+          <tr><td>Pikachu</td><td>2</td><td>WEBEX-ATL-2F-PIKACHU</td><td>Desk Pro</td><td>4</td><td>Huddle</td><td>After-hours activity</td></tr>
+          <tr><td>Megaman</td><td>2</td><td>WEBEX-ATL-2F-MEGAMAN</td><td>Desk Pro</td><td>4</td><td>Huddle</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 5: AUSTIN OFFICE ========== -->
+<div id="tab-austin" class="tab-content">
+  <h2>Austin Office</h2>
+  <p style="color:var(--text); font-size:13px; margin-bottom:20px;">Sales / Engineering Office | 10.30.x.x | 39 employees | 1 floor | 200 Congress Ave, Austin TX</p>
+
+  <div class="key-connections">
+    <div class="kc-title">Key Ports &amp; Connections</div>
+    <div class="kc-row">
+      <div class="kc-item"><span class="kc-label">Auth (via SD-WAN):</span> <span class="kc-port">DC-BOS-01/02 TCP/88, 389</span></div>
+      <div class="kc-item"><span class="kc-label">SD-WAN:</span> <span class="kc-port">MX-AUS-01 UDP/4500 (AutoVPN Spoke)</span></div>
+      <div class="kc-item"><span class="kc-label">DNS:</span> <span class="kc-port">Cisco Secure Access UDP/53, TCP/443</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="background:#1a1a2e; border-color:var(--accent-dim); margin-bottom:20px; padding:15px;">
+    <div class="card-title" style="color:var(--accent);">&#9888; Austin Authentication Note</div>
+    <p style="color:var(--text); font-size:12px;">Austin has <strong>no local servers</strong>. All 39 Austin users authenticate against <strong>DC-BOS-01/02</strong> via the SD-WAN tunnel (MX-AUS-01 -> MX-BOS-01/02, UDP/4500). These authentication events appear in <strong>DC-BOS WinEventLog</strong> with <code style="color:var(--accent);">10.30.x.x</code> source IPs, accounting for approximately <strong>~30% of DC-BOS auth events</strong>.</p>
+    <details>
+      <summary>SPL query to find Austin auth events</summary>
+      <pre>index=fake_tshrt sourcetype="FAKE:XmlWinEventLog" demo_host="DC-BOS-*" src="10.30.*"
+| stats count by src, user, EventCode</pre>
+    </details>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Servers</div>
+    <div class="card">
+      <p style="color:#888; font-style:italic; text-align:center; padding:20px;">No local servers -- all services accessed via SD-WAN tunnel to Boston HQ and Atlanta Hub</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Meraki Devices</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">SD-WAN + Access</div>
+        <table>
+          <tr><th>Type</th><th>Count</th><th>Details</th></tr>
+          <tr><td>MX85</td><td>1</td><td>MX-AUS-01 | WAN: Verizon</td></tr>
+          <tr><td>MR46 APs</td><td>8</td><td>Floor 1: 8 APs</td></tr>
+          <tr><td>MS250-48</td><td>1</td><td>Core switch</td></tr>
+          <tr><td>MS225-24</td><td>1</td><td>Access switch</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Cameras (4) &amp; Sensors (2)</div>
+        <table>
+          <tr><th>Type</th><th>Count</th><th>Coverage</th></tr>
+          <tr><td>MV12 Indoor</td><td>2</td><td>Entrance, Server Room</td></tr>
+          <tr><td>MV72 Outdoor</td><td>2</td><td>Parking Front/Back</td></tr>
+          <tr><td>MT10 Temperature</td><td>1</td><td>Server Room</td></tr>
+          <tr><td>MT20 Door</td><td>1</td><td>Server Room</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Network Note</div>
+    <div class="card">
+      <p style="color:#888; font-style:italic;">No Catalyst switches or ACI fabric -- branch office uses Meraki-only network stack. All campus switching via Meraki MS, all security via Meraki MX + Cisco Secure Access (UDP/53, TCP/443).</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Webex Rooms (4)</div>
+    <div class="card-grid">
+      <div class="card" style="grid-column: span 2;">
+        <table>
+          <tr><th>Room</th><th>Floor</th><th>Device</th><th>Model</th><th>Cap</th><th>Type</th><th>Notes</th></tr>
+          <tr><td>Doom</td><td>1</td><td>WEBEX-AUS-1F-DOOM</td><td>Room Kit + Board 55</td><td>12</td><td>Conference</td><td>Sunny room (+5C afternoon)</td></tr>
+          <tr><td>Crash</td><td>1</td><td>WEBEX-AUS-1F-CRASH</td><td>Room Kit</td><td>8</td><td>Conference</td><td></td></tr>
+          <tr><td>Jett</td><td>1</td><td>WEBEX-AUS-1F-JETT</td><td>Room Kit</td><td>8</td><td>Demo</td><td></td></tr>
+          <tr><td>Fox</td><td>1</td><td>WEBEX-AUS-1F-FOX</td><td>Room Kit Mini</td><td>6</td><td>Huddle</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 6: CLOUD & SAAS ========== -->
+<div id="tab-cloud" class="tab-content">
+  <h2>Cloud &amp; SaaS Services</h2>
+  <p style="color:var(--text); font-size:13px; margin-bottom:20px;">Cloud infrastructure, identity, collaboration, and SaaS platforms</p>
+
+  <div class="section">
+    <div class="section-title">Identity &amp; Security</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">Cisco Secure Access <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Component</th><th>Details</th><th>Port</th></tr>
+          <tr><td>DNS Security</td><td>175 employees, 100K-120K queries/day</td><td>UDP/53</td></tr>
+          <tr><td>SWG Proxy</td><td>25K-40K events/day</td><td>TCP/443</td></tr>
+          <tr><td>Cloud Firewall</td><td>8K events/day</td><td>TCP/443</td></tr>
+          <tr><td>ZTNA/RAVPN</td><td>73 VPN users</td><td></td></tr>
+          <tr><td>Data Centers</td><td>IAD, ORD, DFW, SJC, ATL</td><td></td></tr>
+        </table>
+        <p class="note">Sourcetypes: cisco:umbrella:dns, proxy, firewall, audit</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Entra ID / Microsoft 365 <span class="badge badge-cloud">CLOUD</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Tenant</td><td>theFakeTshirtCompany.com</td></tr>
+          <tr><td>Users</td><td>175 + service accounts</td></tr>
+          <tr><td>Enterprise Apps</td><td>17 registered</td></tr>
+          <tr><td>MFA</td><td>Enabled (all users)</td></tr>
+          <tr><td>Licensing</td><td>Microsoft 365 E3</td></tr>
+        </table>
+        <p class="note">Sourcetypes: azure:aad:signin, azure:aad:audit, o365:management:activity</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Cloud Infrastructure</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">AWS <span class="badge badge-cloud">CLOUD</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Account ID</td><td>123456789012</td></tr>
+          <tr><td>Primary Region</td><td>us-east-1</td></tr>
+          <tr><td>Secondary Region</td><td>us-west-2</td></tr>
+          <tr><td>S3 Buckets</td><td>finance-data, backups-prod</td></tr>
+        </table>
+        <p class="note">Sourcetype: aws:cloudtrail</p>
+      </div>
+      <div class="card">
+        <div class="card-title">GCP <span class="badge badge-cloud">CLOUD</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Project</td><td>faketshirtcompany-prod-01</td></tr>
+          <tr><td>Region</td><td>us-central1</td></tr>
+          <tr><td>GCS Bucket</td><td>confidential-docs</td></tr>
+        </table>
+        <p class="note">Sourcetype: google:gcp:pubsub:message</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Azure ServiceBus <span class="badge badge-cloud">CLOUD</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Namespace</td><td>faketshirtco-prod</td></tr>
+          <tr><td>Protocol</td><td>AMQP (TCP/5671)</td></tr>
+          <tr><td>Queues</td><td>price-updates, inventory-sync</td></tr>
+          <tr><td>Consumer</td><td>WEB-01</td></tr>
+          <tr><td>Scenario</td><td>dead_letter_pricing (Day 16)</td></tr>
+        </table>
+        <p class="note">Sourcetype: azure:servicebus</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Collaboration</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">Cisco Webex <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Total Rooms</td><td>21 across 3 sites</td></tr>
+          <tr><td>Boston</td><td>10 rooms (4-20 capacity)</td></tr>
+          <tr><td>Atlanta</td><td>7 rooms (4-16 capacity)</td></tr>
+          <tr><td>Austin</td><td>4 rooms (6-12 capacity)</td></tr>
+          <tr><td>Problem Rooms</td><td>Kirby (BOS), Cortana (ATL)</td></tr>
+        </table>
+        <p class="note">Sourcetypes: cisco:webex:events, meetings:history, 5 API types</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Meraki Dashboard <span class="badge badge-cisco">CISCO</span></div>
+        <table>
+          <tr><th>Device Type</th><th>Total</th><th>Distribution</th></tr>
+          <tr><td>MX (SD-WAN)</td><td>4</td><td>BOS: 2 (HA), ATL: 1, AUS: 1</td></tr>
+          <tr><td>MR (APs)</td><td>36</td><td>BOS: 16, ATL: 12, AUS: 8</td></tr>
+          <tr><td>MS (Switches)</td><td>11</td><td>BOS: 5, ATL: 4, AUS: 2</td></tr>
+          <tr><td>MV (Cameras)</td><td>19</td><td>BOS: 8, ATL: 7, AUS: 4</td></tr>
+          <tr><td>MT (Sensors)</td><td>14</td><td>BOS: 5, ATL: 7, AUS: 2</td></tr>
+        </table>
+        <p class="note">Total: 79 physical devices + 21 door + 18 temp sensors in meeting rooms</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Exchange Online <span class="badge badge-cloud">CLOUD</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Users</td><td>175 mailboxes</td></tr>
+          <tr><td>Service</td><td>Microsoft Exchange Online</td></tr>
+        </table>
+        <p class="note">Sourcetype: ms:o365:reporting:messagetrace</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">ITSM</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">ServiceNow <span class="badge badge-existing">ITSM</span></div>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Module</td><td>Incident Management</td></tr>
+          <tr><td>Integration</td><td>Auto-ticket on threshold alerts</td></tr>
+        </table>
+        <p class="note">Sourcetype: servicenow:incident</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 7: SCENARIOS ========== -->
+<div id="tab-scenarios" class="tab-content">
+  <h2>Scenarios (10)</h2>
+  <p style="color:var(--text); font-size:13px; margin-bottom:20px;">Injected scenarios across 31 days of generated data. All events tagged with <code style="color:var(--accent)">demo_id</code> field for Splunk filtering.</p>
+
+  <!-- 31-day timeline -->
+  <div style="margin-bottom:30px;">
+    <div class="section-title">Scenario Timeline (31 Days)</div>
+    <div style="background:#111822; border-radius:8px; padding:15px 20px; border:1px solid var(--border);">
+      <div style="display:flex; font-size:9px; color:#666; margin-bottom:8px;">
+        <div style="width:60px; flex-shrink:0;"></div>
+        <div style="flex:1; display:flex; justify-content:space-between;">
+          <span>Day 1</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span><span>31</span>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-row-label" style="color:var(--threat);">Attack</div>
+        <div class="timeline-row-bars">
+          <div class="timeline-bar hoverable" data-tt-title="exfil" data-tt-body="Days 1-14 | APT data exfiltration" data-tt-detail="Target: alex.miller (BOS)|Vector: jessica.brown phishing (ATL)|19 data sources affected" style="left:0%; width:45.2%; background:var(--threat);">exfil (Days 1-14)</div>
+          <div class="timeline-bar hoverable" data-tt-title="ransomware_attempt" data-tt-body="Days 8-9 | Phishing + EDR block" data-tt-detail="Target: brooklyn.white (AUS)|Outcome: Blocked in 10 minutes" style="left:22.6%; width:6.5%; background:var(--threat); opacity:0.6;">ransom (8-9)</div>
+          <div class="timeline-bar hoverable" data-tt-title="phishing_test" data-tt-body="Days 21-23 | IT awareness campaign" data-tt-detail="Target: All 175 employees|Click rate: ~31% (55 users)" style="left:64.5%; width:9.7%; background:var(--threat);">phishing (21-23)</div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-row-label" style="color:var(--cloud);">Ops</div>
+        <div class="timeline-row-bars">
+          <div class="timeline-bar hoverable" data-tt-title="disk_filling" data-tt-body="Days 1-5 | MON-ATL-01 disk usage" data-tt-detail="45% -> 98% over 5 days|Target: MON-ATL-01 (monitoring server)|Cleanup at Day 5 10:00" style="left:0%; width:16.1%; background:var(--cloud);">disk (1-5)</div>
+          <div class="timeline-bar hoverable" data-tt-title="memory_leak" data-tt-body="Days 7-10 | WEB-01 OOM crash" data-tt-detail="Progressive memory exhaustion|OOM crash Day 10 at 14:00|Revenue drop: ~9% at worst" style="left:19.4%; width:12.9%; background:var(--cloud);">mem_leak (7-10)</div>
+          <div class="timeline-bar hoverable" data-tt-title="cpu_runaway" data-tt-body="Days 11-12 | SQL-PROD-01 100% CPU" data-tt-detail="Backup job stuck|Revenue drop: ~17% at worst|Fix: Day 12 10:30" style="left:32.3%; width:6.5%; background:var(--cloud);">cpu (11-12)</div>
+          <div class="timeline-bar hoverable" data-tt-title="dead_letter_pricing" data-tt-body="Day 16 | Wrong product prices" data-tt-detail="ServiceBus dead-letter queue|WEB-01, 4-6 hours|Revenue drop: ~40% at worst" style="left:48.4%; width:3.2%; background:var(--cloud);">pricing</div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-row-label" style="color:var(--cisco);">Network</div>
+        <div class="timeline-row-bars">
+          <div class="timeline-bar hoverable" data-tt-title="firewall_misconfig" data-tt-body="Day 6 | ACL misconfiguration" data-tt-detail="FW-EDGE-01 | 10:15-12:05|2-hour outage|Revenue drop: ~15% at worst" style="left:16.1%; width:3.2%; background:var(--cisco);">fw (6)</div>
+          <div class="timeline-bar hoverable" data-tt-title="certificate_expiry" data-tt-body="Day 13 | SSL cert expired" data-tt-detail="FW-EDGE-01 | 00:00-07:00|7-hour outage, 100% traffic block|Revenue: total blackout" style="left:38.7%; width:3.2%; background:var(--cisco);">cert (13)</div>
+          <div class="timeline-bar hoverable" data-tt-title="ddos_attack" data-tt-body="Days 18-19 | HTTP flood" data-tt-detail="50K req/s targeting WEB-01/02|Peak error rate: 80%|Revenue drop: ~17% at worst" style="left:54.8%; width:6.5%; background:var(--cisco);">ddos (18-19)</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:20px; margin-top:8px; font-size:10px; padding-left:60px;">
+        <span><span style="color:var(--threat);">&#9632;</span> Attack</span>
+        <span><span style="color:var(--cloud);">&#9632;</span> Ops</span>
+        <span><span style="color:var(--cisco);">&#9632;</span> Network</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario cards -->
+  <div class="section">
+    <div class="section-title">Attack Scenarios <span class="badge badge-attack">ATTACK</span></div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">exfil <span class="badge badge-attack">Days 1-14</span></div>
+        <p style="color:var(--text); font-size:12px; margin-bottom:8px;">APT-style data exfiltration over 14 days (phishing -> privilege abuse -> exfil)</p>
+        <table>
+          <tr><th>Phase</th><th>Days</th><th>Activity</th></tr>
+          <tr><td>Recon</td><td>1-4</td><td>Port scanning, phishing emails sent</td></tr>
+          <tr><td>Initial Access</td><td>5</td><td>jessica.brown clicks phishing link (ATL)</td></tr>
+          <tr><td>Lateral Movement</td><td>6-8</td><td>ATL to BOS credential pivot</td></tr>
+          <tr><td>Persistence</td><td>9-11</td><td>Backdoor, data staging (FILE-BOS-01)</td></tr>
+          <tr><td>Exfiltration</td><td>12-14</td><td>Cloud storage theft (alex.miller)</td></tr>
+        </table>
+        <div class="infra-badges">
+          <span class="infra-badge win">DC-BOS-01</span>
+          <span class="infra-badge win">FILE-BOS-01</span>
+          <span class="infra-badge win">SQL-PROD-01</span>
+          <span class="infra-badge user">alex.miller</span>
+          <span class="infra-badge user">jessica.brown</span>
+          <span class="infra-badge net">FW-EDGE-01</span>
+        </div>
+        <p class="note">Sources: asa, entraid, aws, gcp, perfmon, wineventlog, exchange, office_audit, servicenow, mssql, sysmon, secure_access, catalyst, aci</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=exfil | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">ransomware_attempt <span class="badge badge-attack">Days 8-9</span></div>
+        <p style="color:var(--text); font-size:12px; margin-bottom:8px;">Ransomware via phishing - detected and stopped by EDR in 10 minutes</p>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Target</td><td>brooklyn.white (Sales Engineer, Austin)</td></tr>
+          <tr><td>Vector</td><td>Phishing email with malicious attachment</td></tr>
+          <tr><td>Outcome</td><td>Blocked by EDR within 10 minutes</td></tr>
+        </table>
+        <div class="infra-badges">
+          <span class="infra-badge user">brooklyn.white</span>
+          <span class="infra-badge net">FW-EDGE-01</span>
+        </div>
+        <p class="note">Sources: asa, exchange, wineventlog, meraki, servicenow, office_audit, sysmon, secure_access, entraid</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=ransomware_attempt | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">phishing_test <span class="badge badge-attack">Days 21-23</span></div>
+        <p style="color:var(--text); font-size:12px; margin-bottom:8px;">IT-run phishing awareness campaign after exfil incident</p>
+        <table>
+          <tr><th>Property</th><th>Value</th></tr>
+          <tr><td>Target</td><td>All 175 employees</td></tr>
+          <tr><td>Emails Sent</td><td>175 simulated phishing</td></tr>
+          <tr><td>Click Rate</td><td>~31% (55 users)</td></tr>
+          <tr><td>Credential Submit</td><td>~10% (18 users)</td></tr>
+        </table>
+        <p class="note">Sources: exchange, entraid, wineventlog, office_audit, servicenow, secure_access</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=phishing_test | stats count by sourcetype | sort -count</pre></details>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ops Scenarios <span class="badge badge-ops">OPS</span></div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">disk_filling <span class="badge badge-ops">Days 1-5</span></div>
+        <p style="color:var(--text); font-size:12px;">Server disk gradually filling up (MON-ATL-01: 45% -> 98%)</p>
+        <div class="infra-badges"><span class="infra-badge linux">MON-ATL-01</span></div>
+        <p class="note">Sources: linux, servicenow</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=disk_filling | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">memory_leak <span class="badge badge-ops">Days 7-10</span></div>
+        <p style="color:var(--text); font-size:12px;">Application memory leak causing OOM crash Day 10 at 14:00 (WEB-01)</p>
+        <div class="infra-badges"><span class="infra-badge linux">WEB-01</span></div>
+        <p class="note">Sources: linux, asa, access, orders, sap, servicenow, catalyst_center</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=memory_leak | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">cpu_runaway <span class="badge badge-ops">Days 11-12</span></div>
+        <p style="color:var(--text); font-size:12px;">SQL backup job stuck at 100% CPU, cascading DB failures (SQL-PROD-01)</p>
+        <div class="infra-badges"><span class="infra-badge win">SQL-PROD-01</span></div>
+        <p class="note">Sources: perfmon, wineventlog, asa, access, servicenow, mssql, aci, catalyst_center</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=cpu_runaway | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">dead_letter_pricing <span class="badge badge-ops">Day 16</span></div>
+        <p style="color:var(--text); font-size:12px;">ServiceBus dead-letter queue causes wrong product prices (WEB-01, 4-6h)</p>
+        <div class="infra-badges">
+          <span class="infra-badge linux">WEB-01</span>
+          <span class="infra-badge cloud-b">Azure ServiceBus</span>
+        </div>
+        <p class="note">Sources: servicebus, orders, access, servicenow, sap</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=dead_letter_pricing | stats count by sourcetype | sort -count</pre></details>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Network Scenarios <span class="badge badge-network">NETWORK</span></div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">ddos_attack <span class="badge badge-network">Days 18-19</span></div>
+        <p style="color:var(--text); font-size:12px;">Volumetric HTTP flood targeting WEB-01/02 (50K req/s, peak 80% error rate)</p>
+        <div class="infra-badges">
+          <span class="infra-badge linux">WEB-01</span>
+          <span class="infra-badge linux">WEB-02</span>
+          <span class="infra-badge net">FW-EDGE-01</span>
+        </div>
+        <p class="note">Sources: asa, meraki, access, perfmon, linux, servicenow, catalyst, aci, catalyst_center</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=ddos_attack | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">firewall_misconfig <span class="badge badge-network">Day 6</span></div>
+        <p style="color:var(--text); font-size:12px;">ACL misconfiguration on FW-EDGE-01 causing 2-hour outage (10:15-12:05)</p>
+        <div class="infra-badges"><span class="infra-badge net">FW-EDGE-01</span></div>
+        <p class="note">Sources: asa, access, servicenow, catalyst</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=firewall_misconfig | stats count by sourcetype | sort -count</pre></details>
+      </div>
+      <div class="card">
+        <div class="card-title">certificate_expiry <span class="badge badge-network">Day 13</span></div>
+        <p style="color:var(--text); font-size:12px;">SSL certificate expires on FW-EDGE-01 causing 7-hour outage (00:00-07:00)</p>
+        <div class="infra-badges"><span class="infra-badge net">FW-EDGE-01</span></div>
+        <p class="note">Sources: asa, access, servicenow</p>
+        <details><summary>SPL Query</summary><pre>index=fake_tshrt demo_id=certificate_expiry | stats count by sourcetype | sort -count</pre></details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== JAVASCRIPT ========== -->
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  const tab = document.getElementById('tab-' + name);
+  if (tab) tab.classList.add('active');
+  document.querySelectorAll('.tab').forEach(el => {
+    if (el.textContent.toLowerCase().includes(name) || el.getAttribute('onclick').includes(name)) {
+      el.classList.add('active');
+    }
+  });
+  history.replaceState(null, null, '#' + name);
+}
+
+// URL hash support
+if (window.location.hash) {
+  const h = window.location.hash.replace('#', '');
+  if (document.getElementById('tab-' + h)) showTab(h);
+}
+
+// Tooltip system (works on both SVG and HTML .hoverable elements)
+const tooltip = document.getElementById('tooltip');
+document.addEventListener('mouseover', function(e) {
+  const el = e.target.closest('.hoverable');
+  if (!el) return;
+  const title = el.getAttribute('data-tt-title');
+  const body = el.getAttribute('data-tt-body');
+  const detail = el.getAttribute('data-tt-detail');
+  if (!title) return;
+  tooltip.querySelector('.tt-title').textContent = title;
+  tooltip.querySelector('.tt-body').textContent = body || '';
+  const detailEl = tooltip.querySelector('.tt-detail');
+  if (detail) {
+    detailEl.innerHTML = detail.split('|').join('<br>');
+  } else {
+    detailEl.textContent = '';
+  }
+  tooltip.style.display = 'block';
+});
+document.addEventListener('mousemove', function(e) {
+  if (tooltip.style.display !== 'block') return;
+  let x = e.clientX + 15;
+  let y = e.clientY + 10;
+  const r = tooltip.getBoundingClientRect();
+  if (x + r.width > window.innerWidth - 10) x = e.clientX - r.width - 15;
+  if (y + r.height > window.innerHeight - 10) y = e.clientY - r.height - 10;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+});
+document.addEventListener('mouseout', function(e) {
+  const el = e.target.closest('.hoverable');
+  if (el && !el.contains(e.relatedTarget)) {
+    tooltip.style.display = 'none';
+  }
+});
+</script>
+
+</body>
+</html>

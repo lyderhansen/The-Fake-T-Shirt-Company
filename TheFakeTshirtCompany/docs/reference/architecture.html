@@ -534,7 +534,7 @@
   <g class="hoverable" data-tt-title="BASTION-BOS-01" data-tt-body="Bastion Host | 10.10.10.10" data-tt-detail="Linux | Management subnet jump box|SSH gateway for all server access">
     <rect x="354" y="480" width="82" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1"/><text x="395" y="498" text-anchor="middle" fill="#E95420" font-size="8">BASTION-01</text>
   </g>
-  <g class="hoverable" data-tt-title="WEB-01 (DMZ)" data-tt-body="Web Server | 172.16.1.10" data-tt-detail="Linux (Ubuntu) | Apache httpd|Public: 203.0.113.10 (NAT)|Scenarios: memory_leak (Days 6-9), ddos_attack (Days 18-19)|Generator: generate_access.py, generate_linux.py">
+  <g class="hoverable" data-tt-title="WEB-01 (DMZ)" data-tt-body="Web Server | 172.16.1.10" data-tt-detail="Linux (Ubuntu) | Apache httpd|Public: 203.0.113.10 (NAT)|Scenarios: memory_leak (Days 7-10), ddos_attack (Days 18-19)|Generator: generate_access.py, generate_linux.py">
     <rect x="72" y="516" width="86" height="28" rx="3" fill="#1a0d05" stroke="#E95420" stroke-width="1.5"/><text x="115" y="534" text-anchor="middle" fill="#E95420" font-size="9">WEB-01</text>
   </g>
   <g class="hoverable" data-tt-title="WEB-02 (DMZ)" data-tt-body="Web Server | 172.16.1.11" data-tt-detail="Linux (Ubuntu) | Apache httpd|Public: 203.0.113.11 (NAT)|Secondary web server">
@@ -1395,7 +1395,7 @@
         <div class="timeline-row-label" style="color:var(--cloud);">Ops</div>
         <div class="timeline-row-bars">
           <div class="timeline-bar" style="left:0%; width:16.1%; background:var(--cloud);">disk (1-5)</div>
-          <div class="timeline-bar" style="left:16.1%; width:12.9%; background:var(--cloud);">mem_leak (6-9)</div>
+          <div class="timeline-bar" style="left:19.4%; width:12.9%; background:var(--cloud);">mem_leak (7-10)</div>
           <div class="timeline-bar" style="left:32.3%; width:6.5%; background:var(--cloud);">cpu (11-12)</div>
           <div class="timeline-bar" style="left:48.4%; width:3.2%; background:var(--cloud);">pricing</div>
         </div>
@@ -1404,8 +1404,8 @@
       <div class="timeline-row">
         <div class="timeline-row-label" style="color:var(--cisco);">Network</div>
         <div class="timeline-row-bars">
-          <div class="timeline-bar" style="left:19.4%; width:3.2%; background:var(--cisco);">fw (7)</div>
-          <div class="timeline-bar" style="left:35.5%; width:3.2%; background:var(--cisco);">cert (12)</div>
+          <div class="timeline-bar" style="left:16.1%; width:3.2%; background:var(--cisco);">fw (6)</div>
+          <div class="timeline-bar" style="left:38.7%; width:3.2%; background:var(--cisco);">cert (13)</div>
           <div class="timeline-bar" style="left:54.8%; width:6.5%; background:var(--cisco);">ddos (18-19)</div>
         </div>
       </div>
@@ -1467,12 +1467,12 @@
       <div class="card">
         <div class="card-title">disk_filling <span class="badge badge-ops">Days 1-5</span></div>
         <p style="color:var(--text); font-size:12px;">Server disk gradually filling up (MON-ATL-01: 45% -> 98%)</p>
-        <p class="note">Sources: linux, access, servicenow</p>
+        <p class="note">Sources: linux, servicenow</p>
       </div>
       <div class="card">
-        <div class="card-title">memory_leak <span class="badge badge-ops">Days 6-9</span></div>
-        <p style="color:var(--text); font-size:12px;">Application memory leak causing OOM crash Day 9 at 14:00 (WEB-01)</p>
-        <p class="note">Sources: linux, asa, access, servicenow, catalyst_center</p>
+        <div class="card-title">memory_leak <span class="badge badge-ops">Days 7-10</span></div>
+        <p style="color:var(--text); font-size:12px;">Application memory leak causing OOM crash Day 10 at 14:00 (WEB-01)</p>
+        <p class="note">Sources: linux, asa, access, orders, sap, servicenow, catalyst_center</p>
       </div>
       <div class="card">
         <div class="card-title">cpu_runaway <span class="badge badge-ops">Days 11-12</span></div>
@@ -1496,12 +1496,12 @@
         <p class="note">Sources: asa, meraki, access, perfmon, linux, servicenow, catalyst, aci, catalyst_center</p>
       </div>
       <div class="card">
-        <div class="card-title">firewall_misconfig <span class="badge badge-network">Day 7</span></div>
+        <div class="card-title">firewall_misconfig <span class="badge badge-network">Day 6</span></div>
         <p style="color:var(--text); font-size:12px;">ACL misconfiguration on FW-EDGE-01 causing 2-hour outage (10:15-12:05)</p>
         <p class="note">Sources: asa, access, servicenow, catalyst</p>
       </div>
       <div class="card">
-        <div class="card-title">certificate_expiry <span class="badge badge-network">Day 12</span></div>
+        <div class="card-title">certificate_expiry <span class="badge badge-network">Day 13</span></div>
         <p style="color:var(--text); font-size:12px;">SSL certificate expires on FW-EDGE-01 causing 7-hour outage (00:00-07:00)</p>
         <p class="note">Sources: asa, access, servicenow</p>
       </div>

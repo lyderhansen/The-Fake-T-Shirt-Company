@@ -253,9 +253,84 @@ def _next_doc_number(prefix: str, year: int, counter: dict) -> str:
 # EVENT CATEGORY GENERATORS
 # =============================================================================
 
+def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
+                                     doc_counter: dict, order_queue: list) -> List[str]:
+    """Generate SAP order lifecycle events for ALL orders from order_registry.
+
+    Each web order produces a complete SAP lifecycle:
+      1. VA01 (Create Sales Order) - at order time
+      2. VL01N (Create Delivery) - 15-45 min later
+      3. VF01 (Create Billing Document) - 1-3 hours later (same day, capped at 23:59)
+
+    This ensures 1:1 correlation between web orders and SAP sales orders.
+    """
+    events = []
+    if not order_queue:
+        return events
+
+    dt = date_add(base_date, day)
+    year = dt.year
+
+    for order in order_queue:
+        items = len(order.get("products", []))
+        total = order.get("cart_total", 0)
+        cust_id = order.get("customer_id", "CUST-00000")
+        web_order_id = order.get("order_id", "")
+        demo_id = order.get("scenario")
+
+        # Pick a Sales user for this order
+        username = _pick_sap_user("SD_USER")
+
+        # --- VA01: Create Sales Order ---
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts_va01 = _fmt_ts(base_date, day, hour, minute, second)
+        so_number = _next_doc_number("SO", year, doc_counter)
+        details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}"
+        events.append(_sap_event(
+            ts_va01, "DIA", username, "VA01", "S",
+            "Create Sales Order", so_number, details, demo_id=demo_id
+        ))
+
+        # --- VL01N: Create Delivery (15-45 min later) ---
+        dl_offset_min = random.randint(15, 45)
+        dl_minute = minute + dl_offset_min
+        dl_hour = hour + dl_minute // 60
+        dl_minute = dl_minute % 60
+        if dl_hour < 24:
+            ts_dl = _fmt_ts(base_date, day, dl_hour, dl_minute, random.randint(0, 59))
+            dl_number = _next_doc_number("DL", year, doc_counter)
+            events.append(_sap_event(
+                ts_dl, "DIA", username, "VL01N", "S",
+                "Create Delivery", dl_number,
+                f"Delivery for {so_number}, shipping point BOS1, {items} items",
+                demo_id=demo_id
+            ))
+
+        # --- VF01: Create Billing Document (1-3 hours later) ---
+        inv_offset_hr = random.randint(1, 3)
+        inv_hour = hour + inv_offset_hr
+        if inv_hour < 24:
+            ts_inv = _fmt_ts(base_date, day, inv_hour, random.randint(0, 59), random.randint(0, 59))
+            inv_number = _next_doc_number("INV", year, doc_counter)
+            events.append(_sap_event(
+                ts_inv, "DIA", username, "VF01", "S",
+                "Create Billing Document", inv_number,
+                f"Invoice for {so_number}, ${total:.2f}",
+                demo_id=demo_id
+            ))
+
+    return events
+
+
 def generate_tcode_events(base_date: str, day: int, hour: int,
-                          doc_counter: dict, order_queue: list) -> List[str]:
-    """Generate transaction execution events for one hour."""
+                          doc_counter: dict) -> List[str]:
+    """Generate random baseline transaction execution events for one hour.
+
+    Note: Order-correlated VA01 events are handled separately by
+    generate_order_lifecycle_events(). VA01 events here are generic
+    (manual sales order creation not tied to a web order).
+    """
     events = []
     dt = date_add(base_date, day)
     year = dt.year
@@ -269,7 +344,6 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
         ts = _fmt_ts(base_date, day, hour, minute, second)
-        demo_id = None  # Set from order_registry scenario tag if applicable
 
         # Pick user and one of their t-codes
         username = _pick_sap_user()
@@ -291,19 +365,13 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
             doc_number = _next_doc_number(doc_prefix, year, doc_counter)
 
         # Category-specific details
-        if tcode == "VA01" and order_queue:
-            # Correlate with order_registry
-            order = order_queue.pop(0)
+        if tcode == "VA01":
+            # Generic manual sales order (not from web order)
             doc_number = _next_doc_number("SO", year, doc_counter)
-            items = len(order.get("products", []))
-            total = order.get("cart_total", 0)
-            cust_id = order.get("customer_id", "CUST-00000")
-            web_order_id = order.get("order_id", "")
-            details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}"
-            # Carry scenario tag from order_registry (e.g. dead_letter_pricing)
-            order_scenario = order.get("scenario")
-            if order_scenario:
-                demo_id = order_scenario
+            cust_num = random.randint(10001, 10999)
+            items = random.randint(1, 5)
+            total = round(random.uniform(30, 500), 2)
+            details = f"Sales order for customer C-{cust_num}, {items} items, total ${total:.2f}"
         elif tcode == "VA02":
             details = random.choice([
                 "Changed delivery date", "Updated quantity",
@@ -399,7 +467,7 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
                 "Number range exhausted",
             ])
 
-        events.append(_sap_event(ts, dialog_type, username, tcode, status, desc, doc_number, details, demo_id=demo_id))
+        events.append(_sap_event(ts, dialog_type, username, tcode, status, desc, doc_number, details))
 
     return events
 
@@ -776,9 +844,14 @@ def generate_sap_logs(
                 hour_key = f"{day}-{hour}"
                 hour_orders = hourly_order_queues.get(hour_key, [])
 
-                # Transaction executions (correlated with orders)
-                all_events.extend(generate_tcode_events(
+                # Order lifecycle events (VA01→VL01N→VF01 for each web order)
+                all_events.extend(generate_order_lifecycle_events(
                     start_date, day, hour, doc_counter, hour_orders
+                ))
+
+                # Baseline transaction executions (random SAP activity)
+                all_events.extend(generate_tcode_events(
+                    start_date, day, hour, doc_counter
                 ))
 
                 # User activity

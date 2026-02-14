@@ -175,7 +175,7 @@ class TUIApp:
 
         # Configuration values (bottom-left)
         self.config = [
-            MenuItem("test_mode", "Output Mode", "", selected=False),  # True = TEST, False = PROD (default)
+            MenuItem("test_mode", "Output Mode", "", selected=True),  # True = TEST (default), False = PROD
             MenuItem("start_date", "Start Date", DEFAULT_START_DATE),
             MenuItem("days", "Days", str(DEFAULT_DAYS)),
             MenuItem("scale", "Scale", str(DEFAULT_SCALE)),
@@ -941,9 +941,9 @@ class TUIApp:
 
         preview = f"--sources={sources_str} --scenarios={scenarios_str} --days={days}"
 
-        # Test mode (only show --test since production is default)
-        if is_test:
-            preview += " --test"
+        # Production mode (only show --no-test since test is default)
+        if not is_test:
+            preview += " --no-test"
 
         # Configuration options (only show non-defaults)
         if scale != "1.0":

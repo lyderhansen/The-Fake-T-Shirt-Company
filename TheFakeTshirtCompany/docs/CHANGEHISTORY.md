@@ -4,6 +4,179 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-14 ~23:15 UTC -- Phase 2 generator audit + TUI default changed to test mode
+
+### Fixed
+
+- **`bin/tui_generate.py`** -- Changed default output mode from PROD to TEST:
+  - Line 178: `selected=True` (was `False`) -- TUI now defaults to test mode (output/tmp/) for safety
+  - Preview line updated: shows `--no-test` when toggled to prod instead of `--test` when toggled to test
+
+### Audit Results -- Phase 2 Generators (order_registry.json dependents)
+
+All three order-flow generators (orders, servicebus, sap) were audited for volume, format, logic:
+
+| Generator | Orders processed | Events generated | Status |
+|-----------|-----------------|-----------------|--------|
+| **orders** | 208,041 (all registry) | 1,008,354 (~4.8/order) | OK -- ~7% failure stops lifecycle early |
+| **servicebus** | 208,041 (all registry) | 1,041,321 (~5.0/order) | OK -- includes DLQ + retry events |
+| **sap** | 86,093 (14-day window) | 271,424 (~3.2/order) | OK -- processes 100% of orders within --days window |
+
+**Key findings:**
+- **orders**: Status distribution correct -- 208K created, ~197K delivered, ~8K payment_declined, ~1.6K fraud/address failures (~7% total)
+- **servicebus**: 5 events/order + ~3% transient retries + 0.5% DLQ. Status: 1,034K completed, 5.8K failed, 1.1K dead-lettered
+- **sap**: After fix (previous commit), 86,093 VA01 = 100% match with orders in 14-day window. Full lifecycle: VA01 -> VL01N (85,778) -> VF01 (83,150). Some VL01N/VF01 missing due to late-hour orders where delivery/billing would exceed midnight
+- **Pricing format consistent**: cart_total in whole USD (int) across all generators (access, orders, servicebus, sap)
+- **Correlation keys consistent**: order_id, customer_id, session_id, tshirtcid all match across generators
+
+### Audit Results -- Phase 2 Generators (meeting_schedule dependents)
+
+| Generator | Dependency | Status |
+|-----------|-----------|--------|
+| **meraki** | Reads `_meeting_schedule` for door/temp sensor correlation | OK -- walk-ins, ghosts, after-hours all working |
+| **webex_ta** | Reads `_meeting_schedule`, converts to TA format | OK -- skips ghosts/walk-ins correctly |
+| **exchange** | Imports `_meeting_schedule` | Partial -- imports but calendar invite correlation not fully implemented |
+| **webex_api** | Imports `_meeting_schedule` | Partial -- generates independent meetings, not fully correlated with device logs |
+
+**Known gaps (not blocking, enhancement only):**
+- exchange.py: Calendar invite emails not fully correlated with Webex meeting schedule
+- webex_api.py: REST API events generated independently from shared meeting schedule
+
+---
+
+## 2026-02-14 ~22:30 UTC -- Add docs/use-cases/ directory with order flow correlation doc
+
+### Added
+
+- **`docs/use-cases/`** -- New directory for use case documentation
+- **`docs/use-cases/order-flow-correlation.md`** -- Complete order flow documentation:
+  - Flow diagram showing data flow from web session through all 5 data sources
+  - Correlation keys table (order_id, customer_id, session_id, tshirtcid, product slug, demo_id)
+  - Detailed event timeline for each source with example log lines
+  - ID format reference table
+  - Scenario impact on order flow
+  - SPL queries for order correlation in Splunk
+
+---
+
+## 2026-02-14 ~22:00 UTC -- Fix SAP generator to process all web orders (was only processing ~0.5%)
+
+### Fixed
+
+- **`bin/generators/generate_sap.py`** -- Major order processing fix:
+  - **Root cause**: Orders from `order_registry.json` were only consumed when a randomly-selected t-code happened to be `VA01` (line 294: `if tcode == "VA01" and order_queue`). With Sales users being ~14% of SAP users and VA01 being 1 of 7 Sales t-codes, only ~2% of random events processed an order, resulting in ~1,030 SAP sales orders for 208,041 web orders.
+  - **Solution**: Created dedicated `generate_order_lifecycle_events()` function that processes EVERY order from the registry with a complete SAP lifecycle:
+    1. VA01 (Create Sales Order) - at order time
+    2. VL01N (Create Delivery) - 15-45 min later
+    3. VF01 (Create Billing Document) - 1-3 hours later
+  - Removed order consumption from random `generate_tcode_events()` -- VA01 events there are now generic manual sales orders
+  - Scenario `demo_id` tags propagate correctly through all 3 lifecycle events
+
+### Verified
+
+- **Before**: ~1,030 SAP sales orders for 208,041 web orders (0.5%)
+- **After**: 86,093 VA01 + 85,778 VL01N + 83,150 VF01 = 271,424 total events (14-day run)
+- 86,093 orders = 100% match with orders in the 14-day window (remaining 121,948 orders are days 14-30)
+- Order lifecycle chain verified: VA01 -> VL01N (~30 min) -> VF01 (~2 hours), same user, same SO number
+- Scenario tags (disk_filling, memory_leak, cpu_runaway, firewall_misconfig) carry through all lifecycle events
+
+---
+
+## 2026-02-14 ~20:30 UTC -- Redesign Tab 2 CORE layout to eliminate all arrow/box overlaps
+
+### Fixed
+
+- **`docs/reference/architecture_v2.html`** -- Major Tab 2 (Server Connections) layout redesign:
+  - **Root cause**: DC-BOS-01/02 in Column A (x=440-600) blocked all horizontal data-flow lines from 3-tier column to FILE/SAP in Column B (x=640+). Every line at y=210-300 had to cross Column A.
+  - **Solution**: Moved DC-BOS-01/02 down to y=335/y=390, leaving Column A empty at y=210-335. All horizontal data-flow lines now pass through empty space.
+  - FILE-BOS-01, SAP-PROD-01, SAP-DB-01 widened from 140px to 160px
+  - FILE auth stub re-routed RIGHT at x=810 (outside SAP column, was x=710 passing through SAP boxes)
+  - SSH Bus moved from y=395 to y=440, Auth Bus from y=462 to y=522
+  - All downstream sections (Atlanta, SD-WAN, Austin, Cloud, Legend) shifted +60px
+  - viewBox expanded from 960 to 1020
+- **Tab 1**: Internet to ASA line split into 2 solid + 1 faint dashed segment through Cloud Services box
+- **Tab 2**: WEB-01 to Azure ServiceBus path moved to x=45 (outside 3-tier box)
+- **Tab 2**: ASA to WEB path offset to x=400 (clear of CORE container edge)
+
+### Verified
+
+- SD-WAN port UDP/4500 (IPsec NAT-T) confirmed correct for Meraki AutoVPN -- no change needed
+- All connection paths verified against all box positions -- zero overlaps
+
+---
+
+## 2026-02-14 ~17:00 UTC -- Create architecture_v2.html with port labels, redesigned diagrams, and enhanced tabs
+
+### Added
+
+- **`docs/reference/architecture_v2.html`** -- Complete v2 redesign of architecture reference page (standalone HTML, 7 tabs). Major improvements:
+
+#### Tab 1: Network Overview
+- Port labels on all SVG connection lines (TCP/443, UDP/4500, C2/TCP443, RESTCONF/443)
+- Cloud services bar split into 2 rows (was 1 cramped row), added Azure ServiceBus and Catalyst Center
+- ACI Fabric -> Server block connection with "Leaf ports" label
+- Log generators categorized into 5 groups with colored borders (Network, Cloud & Collaboration, Infrastructure, Applications, ITSM) with dependency indicators
+
+#### Tab 2: Server Connections
+- 3-tier e-commerce flow redesigned as clear vertical stack (WEB-01/02 -> APP-BOS-01 -> SQL-PROD-01) in labeled box
+- All port numbers on connections (TCP/443,8443, TCP/1433, TCP/445, TCP/30015, etc.)
+- Auth Bus with port labels (TCP/88 Kerberos, TCP/389 LDAP, TCP/636 LDAPS)
+- SSH Management Bus with port labels (TCP/22 SSH, TCP/3389 RDP)
+- MON-ATL-01 monitoring connections (ICMP, TCP/5666 NRPE, TCP/3000 Grafana)
+- Azure ServiceBus in Cloud Dependencies (AMQP/5671)
+- SAP order_registry.json dependency line
+- Expanded connection legend with 7 connection types
+
+#### Tabs 3-5: Site Tabs
+- Key Connections callout card at top of each tab with all critical ports
+- Port columns added to server tables
+- Austin auth warning callout: 10.30.x.x source IPs appear in DC-BOS WinEventLog (~30% of auth events) with SPL query
+
+#### Tab 6: Cloud & SaaS
+- Cards grouped by category (Identity & Security, Cloud Infrastructure, Collaboration, ITSM)
+- New Azure ServiceBus card (AMQP/5671, queues: price-updates/inventory-sync, dead_letter_pricing scenario)
+- Port column added to Cisco Secure Access table
+
+#### Tab 7: Scenarios
+- Timeline bars with hoverable tooltips showing phase details and revenue impact
+- Infrastructure badges on each scenario card (colored mini-badges for affected servers/users)
+- SPL query snippets as collapsible details/summary elements
+- Correct day numbers verified from Python config dataclasses
+
+#### General UX
+- URL hash support (architecture_v2.html#scenarios for direct tab linking)
+- Responsive CSS for mobile widths (@media max-width: 768px)
+- Tooltip system works on both SVG and HTML .hoverable elements
+
+### Port Numbers (verified from generate_asa.py + company.py)
+
+All port labels cross-referenced against source code:
+- Internet -> ASA: TCP/443, 80 (WEB_PORTS)
+- WEB -> APP: TCP/443, 8443 (dmz->inside ACL)
+- APP -> SQL: TCP/1433 (inside->inside ACL)
+- Auth: TCP/88 (Kerberos), TCP/389 (LDAP), TCP/636 (LDAPS)
+- DC Replication: TCP/389, TCP/3268 (Global Catalog)
+- SMB: TCP/445, SAP HANA: TCP/30015, SSH: TCP/22, RDP: TCP/3389
+- AutoVPN: UDP/4500 (IPsec NAT-T)
+- Monitoring: ICMP, TCP/5666 (NRPE), TCP/3000 (Grafana)
+- ServiceBus: TCP/5671 (AMQP)
+
+---
+
+## 2026-02-14 ~15:30 UTC -- Fix scenario day numbers and source lists in architecture.html
+
+### Fixed
+
+- **`docs/reference/architecture.html`** -- Corrected 3 scenario day numbers that were wrong (compared against Python config dataclasses):
+  - `memory_leak`: Days 6-9 -> Days 7-10 (config: `start_day=5`, `oom_day=9`). Fixed tooltip, timeline bar position, card badge, and OOM crash description (Day 9 -> Day 10).
+  - `firewall_misconfig`: Day 7 -> Day 6 (config: `day=5`). Fixed timeline bar position and card badge.
+  - `certificate_expiry`: Day 12 -> Day 13 (config: `day=12`). Fixed timeline bar position and card badge.
+- **`docs/reference/architecture.html`** -- Fixed scenario source lists:
+  - `disk_filling`: Removed `access` from sources (MON-ATL-01 was removed from generate_access.py in previous change).
+  - `memory_leak`: Added `orders` and `sap` to sources (WEB-01 impacts orders via order_registry).
+
+---
+
 ## 2026-02-13 ~23:20 UTC -- Increase scenario revenue impact + remove disk_filling from access/orders
 
 ### Changed
