@@ -4,6 +4,39 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~02:00 UTC -- Supporting TA Alignment Phase 11: Cisco Secure Access (Umbrella) CIM
+
+### Added
+
+- **Phase 11** of Supporting TA Alignment project. Source: `TA-cisco-cloud-security-addon` (Splunkbase).
+- Aligns 4 sourcetypes: `FAKE:cisco:umbrella:dns`, `FAKE:cisco:umbrella:proxy`, `FAKE:cisco:umbrella:firewall`, `FAKE:cisco:umbrella:audit` with CIM data models.
+- Real TA uses `cisco:cloud_security:*` sourcetypes; our FAKE TA uses `cisco:umbrella:*`.
+
+**Note:** Only proxy data (349K events) is currently indexed. DNS, firewall, and audit stanzas added for completeness.
+
+**Configuration:**
+- `local/props.conf` -- 4 new stanzas:
+  - `[FAKE:cisco:umbrella:dns]`: vendor/product EVALs, src_ip FIELDALIAS, record_type/query_type normalization, reply_code_id mapping, message_type, action lowercase
+  - `[FAKE:cisco:umbrella:proxy]`: vendor/product EVALs, bytes total, action lowercase, http_user_agent_length, url_length
+  - `[FAKE:cisco:umbrella:firewall]`: vendor/product EVALs, action normalization (ALLOW->allowed, BLOCK->blocked), direction lowercase, bytes/packets FIELDALIASes and totals, transport/protocol/protocol_version, src_ip FIELDALIAS, dvc
+  - `[FAKE:cisco:umbrella:audit]`: vendor/product EVALs only (minimal fields)
+- `local/eventtypes.conf` -- 4 new eventtypes: fake_umbrella_dns, fake_umbrella_proxy, fake_umbrella_firewall, fake_umbrella_audit
+- `local/tags.conf` -- 4 new tag stanzas:
+  - DNS: dns, network, resolution (Network Resolution)
+  - Proxy: proxy, web (Web)
+  - Firewall: communicate, network (Network Traffic)
+  - Audit: change (Change)
+
+**CIM Models covered:**
+- DNS: Network Resolution (query, reply_code_id, record_type, message_type)
+- Proxy: Web (bytes total, action normalization, user agent/URL length)
+- Firewall: Network Traffic (action, direction, transport, protocol, protocol_version, bytes/packets)
+- Audit: Change (vendor/product only -- user/action already mapped in default/)
+
+**No new transforms or lookups needed.** All mappings are inline EVAL/FIELDALIAS. EVAL statements override existing FIELDALIASes from default/ where normalization is needed (lowercase action, transport name mapping, etc.).
+
+---
+
 ## 2026-02-16 ~01:00 UTC -- Supporting TA Alignment Phase 10: Catalyst IOS + ACI CIM
 
 ### Added
