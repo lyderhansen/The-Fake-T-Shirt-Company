@@ -1,0 +1,133 @@
+operationName,change_type,action,object_category
+Add application,AAA,created,application
+Add group,AAA,created,group
+Update group,AAA,modified,group
+Update Sign-In Risk Policy,AAA,modified,policy
+Update policy,AAA,modified,policy
+Update User Risk and MFA Registration Policy,AAA,modified,policy
+Add policy,AAA,modified,policy
+Add app role assignment to group,AAA,modified,group
+Add unverified domain,AAA,modified,Azure AD
+Bulk create users - started (bulk),AAA,modified,Azure AD
+Delete access review,AAA,deleted,access review
+Create access review,AAA,created,access review
+Create company settings,AAA,modified,Azure AD
+Update role,AAA,modified,role
+Add device,AAA,created,device
+Bulk restore deleted users - started (bulk),AAA,modified,Azure AD
+Update role setting in PIM,AAA,modified,role
+Update access review,AAA,modified,access review
+Update company settings,AAA,modified,Azure AD
+Create resource request,AAA,created,request
+Bulk delete users - finished (bulk),AAA,modified,Azure AD
+Bulk delete users - started (bulk),AAA,modified,Azure AD
+Bulk create users - finished (bulk),AAA,modified,Azure AD
+Bulk restore deleted users - finished (bulk),AAA,modified,Azure AD
+Register device,AAA,modified,device
+Add member to role,AAA,modified,user
+Add member to group,AAA,modified,user
+Add service principal,AAA,created,user
+Add owner to application,AAA,modified,user
+Update user,AAA,modified,user
+Invite external user,AAA,modified,user
+Reset user password,AAA,modified,user
+Restore user,AAA,modified,user
+Add member to role outside of PIM (permanent),AAA,modified,user
+Update service principal,AAA,modified,user
+Add eligible member to role,AAA,modified,user
+Remove eligible member from role,AAA,modified,user
+Remove member from group,AAA,modified,user
+Change user password,AAA,modified,user
+Redeem external user invite,AAA,created,user
+Delete external user,AAA,deleted,user
+Viral user creation,AAA,created,user
+Add member to role in PIM completed (permanent),AAA,modified,user
+Add member to role in PIM requested (permanent),AAA,modified,user
+Add member to role in PIM completed (timebound),AAA,modified,user
+Add member to role in PIM requested (timebound),AAA,modified,user
+Add eligible member to role in PIM completed (timebound),AAA,modified,user
+Add eligible member to role in PIM requested (timebound),AAA,modified,user
+Add eligible member to role in PIM completed (permanent),AAA,modified,user
+Add eligible member to role in PIM requested (permanent),AAA,modified,user
+Add member to role completed (PIM activation),AAA,modified,user
+Add member to role requested (PIM activation),AAA,modified,user
+Change password (self-service),AAA,modified,user
+Reset password (by admin),AAA,modified,user
+Provisioning activity,AAA,created,user
+Bulk remove group members - finished (bulk),AAA,modified,group
+Download group members - finished (bulk),AAA,read,group
+Bulk import group members - finished (bulk),AAA,modified,group
+Delete application,AAA,deleted,application
+Update application,AAA,modified,application
+Update application – Certificates and secrets management*,AAA,modified,application
+Add owner to service principal,AAA,modified,ServicePrincipal
+Download service principals - finished (bulk),AAA,read,ServicePrincipal
+Download groups - finished (bulk),AAA,read,group
+Add owner to group,AAA,modified,group
+Download devices - finished (bulk),AAA,read,device
+Hard Delete application,AAA,deleted,application
+Bulk invite users - finished (bulk),AAA,modified,
+Download users - finished (bulk),AAA,read,
+Delete group,AAA,deleted,group
+Remove owner from group,AAA,modified,group
+Update NotificationSettings,AAA,modified,NotificationSettings
+Set directory feature on tenant,AAA,modified,
+Consent to application,AAA,modified,application
+POST Tenant.CreateTenant,AAA,created,tenant
+Set Company Information,AAA,modified,
+Hard Delete group,AAA,deleted,group
+Remove unverified domain,AAA,modified,Directory
+Verify domain,AAA,modified,Directory
+Delete role definition,AAA,deleted,role
+Add role definition,AAA,created,role
+Restore application,AAA,created,application
+Get resource properties of a tenant,AAA,read,
+Initialize tenant,AAA,modified,
+Get tenant details,AAA,read,
+Update access package catalog,AAA,modified,AccessPackageCatalog
+Create connected organization,AAA,created,organization
+Delete conditional access policy,AAA,deleted,policy
+Delete policy,AAA,deleted,policy
+Update conditional access policy,AAA,modified,policy
+Add conditional access policy,AAA,created,policy
+Access review ended,AAA,modified,access review
+Finish applying group based license to users,AAA,modified,group
+Set group license,AAA,modified,group
+Update authorization policy,AAA,modified,policy
+Add role from template,AAA,created,role
+Add label,AAA,created,label
+Create access package catalog,AAA,created,AccessPackageCatalog
+Delete access package catalog,AAA,deleted,AccessPackageCatalog
+Create business flow,AAA,created,business flow
+Update business flow,AAA,modified,business flow
+Delete business flow,AAA,deleted,business flow
+Remove service principal,AAA,deleted,ServicePrincipal
+Hard delete service principal,AAA,deleted,ServicePrincipal
+Remove owner from application,AAA,modified,application
+Bulk remove group members - started (bulk),AAA,modified,group
+Download group members - started (bulk),AAA,read,group
+Bulk import group members - started (bulk),AAA,modified,group
+Download service principals - started (bulk),AAA,read,ServicePrincipal
+Download groups - started (bulk),AAA,read,group
+Download devices - started (bulk),AAA,read,device
+Bulk invite users - started (bulk),AAA,modified,
+Download users - started (bulk),AAA,read,
+Remove eligible member from role in PIM completed (permanent),AAA,modified,user
+Remove app role assignment from user,AAA,modified,user
+Add app role assignment grant to user,AAA,modified,user
+Add user,AAA,created,user
+Delete user,AAA,deleted,user
+Remove eligible member from role in PIM completed (timebound),AAA,modified,user
+Remove member from role in PIM completed (timebound),AAA,modified,user
+Remove member from role,AAA,modified,user
+Remove member from role in PIM requested (timebound),AAA,modified,user
+Remove member from role in PIM completed (permanent),AAA,modified,user
+Remove member from role in PIM requested (permanent),AAA,modified,user
+Clear block on user,AAA,cleared,user
+Add blocked user,AAA,modified,user
+User registered all required security info,AAA,modified,user
+User registered security info,AAA,modified,user
+Set user manager,AAA,modified,user
+Enable account,AAA,modified,user
+Disable account,AAA,modified,user
+Hard Delete user,AAA,deleted,user

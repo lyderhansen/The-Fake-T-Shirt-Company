@@ -279,12 +279,23 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
         tshirtcid = order.get("tshirtcid", "")
         demo_id = order.get("scenario")
 
+        # Parse actual order timestamp for precise timing
+        # Fixes bug where random minute/second caused SAP events before web checkout
+        order_ts = order.get("timestamp", "")
+        if order_ts:
+            odt = datetime.strptime(order_ts, "%Y-%m-%dT%H:%M:%SZ")
+            order_minute = odt.minute
+            order_second = odt.second
+        else:
+            order_minute = random.randint(0, 59)
+            order_second = random.randint(0, 59)
+
         # Pick a Sales user for this order
         username = _pick_sap_user("SD_USER")
 
         # --- VA01: Create Sales Order ---
-        minute = random.randint(0, 59)
-        second = random.randint(0, 59)
+        minute = order_minute
+        second = order_second
         ts_va01 = _fmt_ts(base_date, day, hour, minute, second)
         so_number = _next_doc_number("SO", year, doc_counter)
         details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}, tshirtcid={tshirtcid}"
@@ -312,7 +323,7 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
         inv_offset_hr = random.randint(1, 3)
         inv_hour = hour + inv_offset_hr
         if inv_hour < 24:
-            ts_inv = _fmt_ts(base_date, day, inv_hour, random.randint(0, 59), random.randint(0, 59))
+            ts_inv = _fmt_ts(base_date, day, inv_hour, order_minute, random.randint(0, 59))
             inv_number = _next_doc_number("INV", year, doc_counter)
             events.append(_sap_event(
                 ts_inv, "DIA", username, "VF01", "S",

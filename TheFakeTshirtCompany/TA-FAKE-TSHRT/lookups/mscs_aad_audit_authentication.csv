@@ -1,0 +1,141 @@
+operationName,category,dataset_name
+Update group,AuditLogs,all_changes
+Invite external user,AuditLogs,account_management
+Update user,AuditLogs,account_management
+Add group,AuditLogs,all_changes
+Add application,AuditLogs,all_changes
+Add owner to application,AuditLogs,account_management
+Add service principal,AuditLogs,account_management
+Add member to group,AuditLogs,account_management
+Add member to role,AuditLogs,account_management
+User Risk Detection,UserRiskEvents,alerts
+Risky user,RiskyUsers,alerts
+Sign-in activity,ManagedIdentitySignInLogs,authentication
+Sign-in activity,SignInLogs,authentication
+Sign-in activity,NonInteractiveUserSignInLogs,authentication
+Sign-in activity,ServicePrincipalSignInLogs,authentication
+Add device,AuditLogs,all_changes
+Update role,AuditLogs,all_changes
+Create company settings,AuditLogs,all_changes
+Create access review,AuditLogs,all_changes
+Delete access review,AuditLogs,all_changes
+Bulk create users - started (bulk),AuditLogs,all_changes
+Restore user,AuditLogs,account_management
+Add unverified domain,AuditLogs,all_changes
+Add app role assignment to group,AuditLogs,all_changes
+Add policy,AuditLogs,all_changes
+Reset user password,AuditLogs,account_management
+Update User Risk and MFA Registration Policy,AuditLogs,all_changes
+Update policy,AuditLogs,all_changes
+Update Sign-In Risk Policy,AuditLogs,all_changes
+Add member to role in PIM completed (permanent),AuditLogs,account_management
+Viral user creation,AuditLogs,account_management
+Delete external user,AuditLogs,account_management
+Redeem external user invite,AuditLogs,account_management
+Create resource request,AuditLogs,all_changes
+Update company settings,AuditLogs,all_changes
+Change user password,AuditLogs,account_management
+Remove member from group,AuditLogs,account_management
+Remove eligible member from role,AuditLogs,account_management
+Add eligible member to role,AuditLogs,account_management
+Update service principal,AuditLogs,account_management
+Update access review,AuditLogs,all_changes
+Update role setting in PIM,AuditLogs,all_changes
+Add member to role outside of PIM (permanent),AuditLogs,account_management
+Bulk restore deleted users - started (bulk),AuditLogs,all_changes
+Bulk restore deleted users - finished (bulk),AuditLogs,all_changes
+Bulk create users - finished (bulk),AuditLogs,all_changes
+Bulk delete users - started (bulk),AuditLogs,all_changes
+Bulk delete users - finished (bulk),AuditLogs,all_changes
+Reset password (by admin),AuditLogs,account_management
+Change password (self-service),AuditLogs,account_management
+Add member to role requested (PIM activation),AuditLogs,account_management
+Add member to role completed (PIM activation),AuditLogs,account_management
+Add eligible member to role in PIM requested (permanent),AuditLogs,account_management
+Add eligible member to role in PIM completed (permanent),AuditLogs,account_management
+Add eligible member to role in PIM requested (timebound),AuditLogs,account_management
+Add eligible member to role in PIM completed (timebound),AuditLogs,account_management
+Add member to role in PIM requested (timebound),AuditLogs,account_management
+Add member to role in PIM completed (timebound),AuditLogs,account_management
+Add member to role in PIM requested (permanent),AuditLogs,account_management
+Sign-in activity,NonInteractiveUserSignInLogs,authentication
+Sign-in activity,SignInLogs,authentication
+Register device,AuditLogs,all_changes
+Provisioning activity,ProvisioningLogs,account_management
+Bulk remove group members - finished (bulk),AuditLogs,all_changes
+Download group members - finished (bulk),AuditLogs,all_changes
+Bulk import group members - finished (bulk),AuditLogs,all_changes
+Delete application,AuditLogs,all_changes
+Update application,AuditLogs,all_changes
+Update application – Certificates and secrets management*,AuditLogs,all_changes
+Add owner to service principal,AuditLogs,all_changes
+Download service principals - finished (bulk),AuditLogs,all_changes
+Download groups - finished (bulk),AuditLogs,all_changes
+Add owner to group,AuditLogs,all_changes
+Download devices - finished (bulk),AuditLogs,all_changes
+Hard Delete application,AuditLogs,all_changes
+Bulk invite users - finished (bulk),AuditLogs,all_changes
+Download users - finished (bulk),AuditLogs,all_changes
+Delete group,AuditLogs,all_changes
+Remove owner from group,AuditLogs,all_changes
+Update NotificationSettings,AuditLogs,all_changes
+Set directory feature on tenant,AuditLogs,all_changes
+Consent to application,AuditLogs,all_changes
+POST Tenant.CreateTenant,AuditLogs,all_changes
+Set Company Information,AuditLogs,all_changes
+Hard Delete group,AuditLogs,all_changes
+Remove unverified domain,AuditLogs,all_changes
+Verify domain,AuditLogs,all_changes
+Delete role definition,AuditLogs,all_changes
+Add role definition,AuditLogs,all_changes
+Restore application,AuditLogs,all_changes
+Get resource properties of a tenant,AuditLogs,all_changes
+Initialize tenant,AuditLogs,all_changes
+Get tenant details,AuditLogs,all_changes
+Update access package catalog,AuditLogs,all_changes
+Create connected organization,AuditLogs,all_changes
+Delete conditional access policy,AuditLogs,all_changes
+Delete policy,AuditLogs,all_changes
+Update conditional access policy,AuditLogs,all_changes
+Add conditional access policy,AuditLogs,all_changes
+Access review ended,AuditLogs,all_changes
+Finish applying group based license to users,AuditLogs,all_changes
+Set group license,AuditLogs,all_changes
+Update authorization policy,AuditLogs,all_changes
+Add role from template,AuditLogs,all_changes
+Add label,AuditLogs,all_changes
+Create access package catalog,AuditLogs,all_changes
+Delete access package catalog,AuditLogs,all_changes
+Create business flow,AuditLogs,all_changes
+Update business flow,AuditLogs,all_changes
+Delete business flow,AuditLogs,all_changes
+Remove service principal,AuditLogs,all_changes
+Hard delete service principal,AuditLogs,all_changes
+Remove owner from application,AuditLogs,all_changes
+Bulk remove group members - started (bulk),AuditLogs,all_changes
+Download group members - started (bulk),AuditLogs,all_changes
+Bulk import group members - started (bulk),AuditLogs,all_changes
+Download service principals - started (bulk),AuditLogs,all_changes
+Download groups - started (bulk),AuditLogs,all_changes
+Download devices - started (bulk),AuditLogs,all_changes
+Bulk invite users - started (bulk),AuditLogs,all_changes
+Download users - started (bulk),AuditLogs,all_changes
+Remove eligible member from role in PIM completed (permanent),AuditLogs,account_management
+Remove app role assignment from user,AuditLogs,account_management
+Add app role assignment grant to user,AuditLogs,account_management
+Add user,AuditLogs,account_management
+Delete user,AuditLogs,account_management
+Remove eligible member from role in PIM completed (timebound),AuditLogs,account_management
+Remove member from role in PIM completed (timebound),AuditLogs,account_management
+Remove member from role,AuditLogs,account_management
+Remove member from role in PIM requested (timebound),AuditLogs,account_management
+Remove member from role in PIM completed (permanent),AuditLogs,account_management
+Remove member from role in PIM requested (permanent),AuditLogs,account_management
+Clear block on user,AuditLogs,account_management
+Add blocked user,AuditLogs,account_management
+User registered all required security info,AuditLogs,account_management
+User registered security info,AuditLogs,account_management
+Set user manager,AuditLogs,account_management
+Enable account,AuditLogs,account_management
+Disable account,AuditLogs,account_management
+Hard Delete user,AuditLogs,account_management

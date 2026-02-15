@@ -4,6 +4,68 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~16:30 UTC -- Reduce lunch dip in weekday activity curve
+
+### Changed
+
+- **`bin/shared/config.py`** -- `HOUR_ACTIVITY_WEEKDAY` hour 12: changed from 60 to 85.
+  - The 40% drop (100→60) at noon created an unrealistically sharp dip visible in e-commerce order volume charts. Now a mild 15% dip (100→85) which is more realistic for a web store where customers shop during lunch breaks.
+  - Affects all generators using the weekday activity curve.
+  - **Impact:** Requires full data regeneration to take effect.
+
+---
+
+## 2026-02-15 ~16:00 UTC -- Fix SAP order timing bug (VA01/VL01N before web checkout)
+
+### Fixed
+
+- **`bin/generators/generate_sap.py`** -- `generate_order_lifecycle_events()`:
+  - **Bug:** SAP VA01 (Create Sales Order) and VL01N (Create Delivery) events were generated with random minute/second values within the order's hour, ignoring the actual timestamp from `order_registry.json`. This caused SAP events to appear 5-55 minutes BEFORE the web checkout that triggered them (~50% of orders affected).
+  - **Root cause:** Lines 286-287 used `random.randint(0, 59)` for minute/second instead of parsing the actual values from `order["timestamp"]`.
+  - **Fix:** Parse `order["timestamp"]` to extract actual minute/second. VA01 now uses exact order time, VL01N is offset 15-45 min from actual time, VF01 uses actual minute with 1-3 hour offset.
+  - **Impact:** Requires data regeneration (`--sources=sap`) to fix existing data.
+
+---
+
+## 2026-02-15 ~15:00 UTC -- Supporting TA Alignment Phase 4: Entra ID (Azure AD) CIM
+
+### Added
+
+- **`local/eventtypes.conf`** -- 10 new Entra ID eventtypes:
+  - **Sign-in / Authentication** (4): `fake_entra_signin` (all sign-ins), `fake_entra_signin_success` (resultType=0), `fake_entra_signin_failure` (resultType!=0), `fake_entra_signin_mfa` (multiFactorAuthentication required)
+  - **Audit / Change** (4): `fake_entra_audit` (all audit), `fake_entra_audit_account_mgmt` (UserManagement+GroupManagement), `fake_entra_audit_app_mgmt` (ApplicationManagement), `fake_entra_audit_role_mgmt` (RoleManagement)
+  - **Risk / Alert** (2): `fake_entra_risk_detection` (all risk events), `fake_entra_risk_high` (riskLevel=high)
+  - Source: Splunk_TA_microsoft-cloudservices v5.x (Splunkbase #3110)
+
+- **`local/tags.conf`** -- 10 new CIM tag stanzas:
+  - `authentication`, `cloud` for sign-in events (+ `multifactor` for MFA)
+  - `change`, `cloud` for audit events (+ `account` for account management)
+  - `alert`, `cloud` for risk detection events
+
+- **`local/props.conf`** -- 3 new Entra ID stanzas with CIM field enrichment:
+  - **`[FAKE:azure:aad:signin]`**: 5 FIELDALIAS (src_ip, signature, reason, authentication_service, vendor_account), 11 EVAL (authentication_method, dest_type, status, user_agent, user_name, signature_id, src_user, user_type, dvc, response_time), 2 LOOKUP (dataset, severity_type)
+  - **`[FAKE:azure:aad:audit]`**: 5 FIELDALIAS (src_ip, signature, command, dest, vendor_account), 11 EVAL (dest_type, status, dvc, object, object_id, object_category, object_attrs, src_user, src_user_name, src_user_type, user_name), 1 LOOKUP (change_analysis)
+  - **`[FAKE:azure:aad:riskDetection]`**: 4 FIELDALIAS (src_ip, signature, dest, vendor_account), 5 EVAL (dest_type, dvc, description, signature_id, user_name, type)
+  - Note: Only NEW fields added in local/ -- default/ EVAL/FIELDALIAS preserved via Splunk merge
+
+- **`local/transforms.conf`** -- 3 new lookup definitions:
+  - `[mscs_aad_audit_authentication_lookup]` -- operationName+category to dataset_name (141 rows)
+  - `[mscs_aad_change_analysis_lookup]` -- operationName to change_type+action+object_category (133 rows)
+  - `[mscs_aad_severity_type_lookup]` -- properties.riskLevel to severity+type (6 rows)
+
+- **`lookups/mscs_aad_audit_authentication.csv`** -- New file. Full copy from real TA (141 rows)
+- **`lookups/mscs_aad_change_analysis.csv`** -- New file. Full copy from real TA (133 rows)
+- **`lookups/mscs_aad_severity_type.csv`** -- New file. Full copy from real TA (6 rows)
+
+### Design Notes
+
+- Real TA uses single sourcetype `azure:monitor:aad` with 100+ operationName CASE conditions
+- Our FAKE TA uses 3 separate sourcetypes (`FAKE:azure:aad:signin/audit/riskDetection`), simplifying per-stanza logic
+- Lookup CSVs are full copies from real TA for future extensibility
+- For audit events: `src_user` = who initiated, `user_name`/`object` = target resource (CIM Change model)
+
+---
+
 ## 2026-02-15 ~09:00 UTC -- Supporting TA Alignment Phase 3: AWS CloudTrail CIM
 
 ### Added

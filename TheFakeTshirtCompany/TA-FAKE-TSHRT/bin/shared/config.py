@@ -227,7 +227,7 @@ HOUR_ACTIVITY_WEEKDAY = {
     7: 40,                                       # Morning ramp-up
     8: 70,                                       # Work starts
     9: 100, 10: 100, 11: 100,                   # Peak morning
-    12: 60,                                      # Lunch dip
+    12: 85,                                      # Lunch dip (mild)
     13: 90, 14: 90, 15: 90,                     # Afternoon peak
     16: 70,                                      # Wind down
     17: 50,                                      # End of day
