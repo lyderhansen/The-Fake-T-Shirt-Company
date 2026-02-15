@@ -10,8 +10,9 @@ Timeline (Days 18-19, 0-indexed 17-18):
     Day 18, 10:00: Emergency ACL blocks top attack subnets (wave 1)
     Day 18, 12:00: Attacker adapts -- wave 2 from new IPs
     Day 18, 14:00: ISP-level DDoS filtering activated
-    Day 18, 15:00: Attack volume drops to ~20% of peak
-    Day 18, 18:00: Attack mostly subsided, residual traffic
+    Day 18, 15:00: Attack volume drops but infrastructure still stressed (~60%)
+    Day 18, 18:00: Evening second wave from attacker (~30% intensity)
+    Day 18, 20:00: Second wave trailing off
     Day 19, 00:00-05:00: Low-level residual traffic
     Day 19, 06:00: Attack fully stopped
     Day 19, 08:00: Full recovery, post-incident review
@@ -141,6 +142,9 @@ class DdosAttackScenario:
 
         This drives all generators -- higher intensity means more events,
         more errors, higher CPU/network impact.
+
+        Updated timeline: Extended attack duration with slower recovery and
+        a second wave in the evening, creating sustained revenue impact.
         """
         if day == self.cfg.start_day:
             if hour < self.cfg.probe_start_hour:
@@ -156,11 +160,15 @@ class DdosAttackScenario:
             elif hour < self.cfg.isp_filter_hour:
                 return 0.8   # Wave 2
             elif hour < self.cfg.subsiding_hour:
-                return 0.4   # ISP filtering active
+                return 0.6   # ISP filtering active (was 0.4 -- still significant)
             elif hour < self.cfg.residual_hour:
-                return 0.2   # Subsiding
+                return 0.4   # Subsiding slowly (was 0.2 -- infrastructure stressed)
+            elif hour < 20:
+                return 0.3   # Evening second wave -- attacker tries again
+            elif hour < 22:
+                return 0.15  # Late evening -- trailing off
             else:
-                return 0.1   # Residual
+                return 0.1   # Overnight residual
 
         elif day == self.cfg.end_day:
             if hour < self.cfg.attack_end_hour:
@@ -451,6 +459,9 @@ class DdosAttackScenario:
         - Full attack (80%): 30% sessions, ~6% orders (near-total loss)
         - Wave 2 (70%):      30% sessions, ~9% orders
         - Partial mitig (50%): 30% sessions, ~15% orders
+        - ISP filtering (60%): 30% sessions, ~12% orders (still severe)
+        - Subsiding (40%):   30% sessions, ~21% orders
+        - Eve 2nd wave (30%): 50% sessions, ~35% orders
         - Ramping (30%):     50% sessions, ~35% orders
         - Probing (8%):      75% sessions, ~69% orders
         """

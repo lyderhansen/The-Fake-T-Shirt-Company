@@ -4,6 +4,63 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~23:30 UTC -- Make scenario revenue impact more visible in order data
+
+### Problem
+
+Revenue timecharts (`timechart span=1h sum(pricing.total)`) did not clearly show revenue drops during several operational scenarios. Root causes:
+1. **Post-recovery compensation spike** -- When a scenario ends, sessions instantly returned to 100% baseline. On high-traffic hours (e.g., Saturday evening for memory_leak OOM, Monday morning for cpu_runaway fix), this created massive spikes (2-3x baseline) that washed out the revenue dip.
+2. **Dead letter pricing too subtle** -- 60% of products affected with only 15-50% price variation over 4 hours was almost invisible in daily revenue totals.
+
+### Changes
+
+**`bin/generators/generate_access.py`** -- Post-recovery ramp-up logic
+- Added recovery state tracking across hours within each day
+- After severe outage (error_rate >= 40 -> < 8): 4-hour ramp at 30% -> 50% -> 70% -> 85% of baseline
+- After moderate outage (error_rate >= 20 -> < 8): 3-hour ramp at 50% -> 70% -> 85%
+- Prevents instant return to full sessions, simulating real-world user behavior (users slowly return, caches refill, word spreads that site is back)
+- Affects: memory_leak (Jan 10 post-OOM), cpu_runaway (Jan 12 post-fix), ddos_attack (Jan 18 post-ISP-filter)
+
+**`bin/scenarios/ops/dead_letter_pricing.py`** -- Increased price distortion severity
+- `affected_product_pct`: 0.60 -> 0.80 (80% of products now have wrong prices)
+- New error type: `price_reset_to_zero` (factor 0.01-0.05, essentially free items)
+- `double_discount_applied` factor: 0.50-0.65 -> 0.20-0.40 (60-80% discount)
+- `stale_discount_not_removed` factor: 0.70-0.85 -> 0.50-0.70 (30-50% cheaper)
+- Error rates increased: hour 8: 8% -> 15%, hours 9-10: 20% -> 35-40%, hour 11: 12% -> 30%, hour 12: 5% -> 15%, added hour 13 at 5%
+- DLQ failure rates increased: hour 8: 0.15 -> 0.25, hours 9-10: 0.40 -> 0.60, hour 11: 0.30 -> 0.45, hour 12: 0.10 -> 0.20
+- `full_recovery_hour` extended: 13 -> 14
+
+**`bin/scenarios/network/ddos_attack.py`** -- Extended attack duration with slower recovery
+- ISP filtering phase (hour 14): intensity 0.4 -> 0.6 (still significant)
+- Subsiding phase (hours 15-17): intensity 0.2 -> 0.4 (infrastructure stressed)
+- Added evening second wave (hours 18-19): intensity 0.3 (attacker tries again)
+- Late evening (hours 20-21): intensity 0.15 (trailing off)
+- Result: sustained revenue impact through entire day instead of quick afternoon recovery
+
+**`bin/scenarios/ops/memory_leak.py`** -- Steeper pre-OOM error rate progression
+- Day 7: error_rate 5% -> 12%, response_mult 1.5x -> 2.0x
+- Day 8: error_rate 15% -> 25%, response_mult 2.5x -> 3.5x
+- Day 9: error_rate 30% -> 40%, response_mult 4.0x -> 5.0x
+- Day 10 pre-OOM: error_rate starting at 35% -> 50%, response_mult 6.0x -> 7.0x
+
+### Expected Revenue Impact (after data regeneration)
+
+| Scenario | Day(s) | Before | After (est.) | Visibility |
+|----------|--------|--------|-------------|------------|
+| memory_leak | Jan 7 (Wed) | $868K (-0%) | ~$650K (-25%) | Clear dip |
+| memory_leak | Jan 8 (Thu) | $534K (-29%) | ~$375K (-50%) | Very clear |
+| memory_leak | Jan 9 (Fri) | $312K (-54%) | ~$200K (-71%) | Even clearer |
+| memory_leak OOM | Jan 10 (Sat) | $650K (-34%) | ~$400K (-59%) | No spike |
+| cpu_runaway fix | Jan 12 (Mon) | $682K (-16%) | ~$550K (-32%) | Clear dip |
+| dead_letter | Jan 16 (Fri) | $597K (-12%) | ~$350K (-49%) | Clear crater |
+| ddos_attack | Jan 18 (Sun) | $508K (-30%) | ~$300K (-59%) | Sustained |
+
+### Verification
+
+Requires data regeneration: `python3 bin/main_generate.py --all --scenarios=all --days=31 --no-test`
+
+---
+
 ## 2026-02-15 ~22:00 UTC -- Supporting TA Alignment Phase 9: GCP (Splunk_TA_google-cloudplatform) CIM
 
 ### Added

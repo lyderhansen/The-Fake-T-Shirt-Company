@@ -15,9 +15,9 @@ Timeline (Day 16 = 0-indexed day 15, single day):
     13:00  DLQ fully drained, normal operations resume
     13:30  Post-incident review ticket created
 
-Price errors are deterministic per product (seeded random). ~60% of products
+Price errors are deterministic per product (seeded random). ~80% of products
 are affected with varied error types: stale discounts, missed price increases,
-rounding errors, and double discounts.
+rounding errors, double discounts, and price resets to near-zero.
 """
 
 import random
@@ -43,13 +43,13 @@ class DeadLetterPricingConfig:
     detection_hour: int = 9        # 09:00 - DLQ alert threshold
     investigation_hour: int = 11   # 11:00 - IT finds the problem
     resolution_hour: int = 12      # 12:00 - consumer restarted
-    full_recovery_hour: int = 13   # 13:00 - DLQ fully drained
+    full_recovery_hour: int = 14   # 14:00 - DLQ fully drained, errors cleared
 
     # Price error seed for deterministic wrong prices per product
     price_error_seed: int = 20260116
 
     # Percentage of products affected by stale prices
-    affected_product_pct: float = 0.60
+    affected_product_pct: float = 0.80
 
 
 class DeadLetterPricingScenario:
@@ -62,21 +62,23 @@ class DeadLetterPricingScenario:
     others too expensive (customer complaints).
 
     Timeline (Day 16):
-        08:00-09:00  Building up: DLQ count rising, 5% checkout errors
-        09:00-11:00  Peak impact: 15% errors, 40% DLQ failure rate
-        11:00-12:00  Investigation: 10% errors, 30% DLQ rate
-        12:00-13:00  Recovery: consumer restarted, DLQ draining
-        13:00+       Normal operations
+        08:00-09:00  Building up: DLQ count rising, 15% checkout errors
+        09:00-11:00  Peak impact: 35-40% errors, 60% DLQ failure rate
+        11:00-12:00  Investigation: 30% errors, 45% DLQ rate
+        12:00-13:00  Recovery: consumer restarted, DLQ draining, 15% errors
+        13:00-14:00  Tail: 5% residual errors
+        14:00+       Normal operations
     """
 
     # Price error types with probabilities and price change ranges
     ERROR_TYPES = [
         # (error_type, weight, min_factor, max_factor, direction)
         # direction: "down" = price too low (revenue loss), "up" = price too high (complaints)
-        ("stale_discount_not_removed", 40, 0.70, 0.85, "down"),
-        ("stale_price_increase_not_applied", 30, 0.80, 0.90, "down"),
-        ("currency_rounding_error", 20, 1.05, 1.15, "up"),
-        ("double_discount_applied", 10, 0.50, 0.65, "down"),
+        ("stale_discount_not_removed", 30, 0.50, 0.70, "down"),
+        ("stale_price_increase_not_applied", 25, 0.60, 0.80, "down"),
+        ("currency_rounding_error", 15, 1.05, 1.15, "up"),
+        ("double_discount_applied", 20, 0.20, 0.40, "down"),
+        ("price_reset_to_zero", 10, 0.01, 0.05, "down"),
     ]
 
     def __init__(self, config: Optional[DeadLetterPricingConfig] = None,
@@ -90,21 +92,21 @@ class DeadLetterPricingScenario:
 
         # DLQ rate progression by hour (hour -> failure_rate as fraction 0.0-1.0)
         self._dlq_rates = {
-            8: 0.15,    # 08:00-09:00: building up
-            9: 0.40,    # 09:00-10:00: peak
-            10: 0.40,   # 10:00-11:00: peak continues
-            11: 0.30,   # 11:00-12:00: partial mitigation
-            12: 0.10,   # 12:00-13:00: recovery (consumer restarted, draining)
+            8: 0.25,    # 08:00-09:00: building up rapidly
+            9: 0.60,    # 09:00-10:00: peak (consumer fully dead)
+            10: 0.60,   # 10:00-11:00: peak continues
+            11: 0.45,   # 11:00-12:00: partial mitigation
+            12: 0.20,   # 12:00-13:00: recovery (consumer restarted, draining)
         }
 
         # Accumulated DLQ counts by hour (approximate for metric events)
         self._dlq_counts = {
-            8: 85,      # ~85 messages dead-lettered in first hour
-            9: 280,     # Accumulated
-            10: 480,    # Peak accumulation
-            11: 620,    # Still growing (slower)
-            12: 350,    # Draining (consumer replaying)
-            13: 50,     # Almost drained
+            8: 150,     # ~150 messages dead-lettered in first hour
+            9: 520,     # Accumulated rapidly
+            10: 920,    # Peak accumulation
+            11: 1200,   # Still growing (slower)
+            12: 680,    # Draining (consumer replaying)
+            13: 150,    # Almost drained
         }
 
     def _build_price_errors(self):
@@ -281,28 +283,35 @@ class DeadLetterPricingScenario:
         revenue volume issue (fewer successful checkouts).
 
         Revenue impact (via generate_access.py session reduction):
-        - Hour 8 (8%):   75% sessions, ~69% orders
-        - Hours 9-10 (20%): 50% sessions, ~40% orders (visible notch)
-        - Hour 11 (12%): 75% sessions, ~66% orders
-        - Hour 12 (5%):  100% sessions, ~95% orders (recovery)
+        - Hour 8 (15%):    75% sessions, ~64% orders
+        - Hours 9-10 (35-40%): 30% sessions, ~20-21% orders (severe crater)
+        - Hour 11 (30%):   50% sessions, ~35% orders
+        - Hour 12 (15%):   75% sessions, ~64% orders (recovery)
+        - Hour 13 (5%):    100% sessions, ~95% orders (tail)
 
         Timeline for WEB-01:
-            08:00-09:00: 8% error rate, 1.3x response time (building up)
-            09:00-11:00: 20% error rate, 1.8x response time (peak)
-            11:00-12:00: 12% error rate, 1.5x response time (investigation)
-            12:00-13:00: 5% error rate, 1.2x response time (recovery)
-            13:00+:      0% error rate, 1.0x response time (normal)
+            08:00-09:00: 15% error rate, 1.5x response time (building up fast)
+            09:00-10:00: 35% error rate, 3.0x response time (peak - pricing broken)
+            10:00-11:00: 40% error rate, 4.0x response time (peak continues)
+            11:00-12:00: 30% error rate, 2.5x response time (investigation)
+            12:00-13:00: 15% error rate, 1.5x response time (recovery, draining)
+            13:00-14:00: 5% error rate, 1.2x response time (tail end)
+            14:00+:      0% error rate, 1.0x response time (normal)
         """
         if day != self.cfg.start_day:
             return (False, 0, 1.0)
 
         if hour == 8:
-            return (True, 8, 1.3)
-        elif 9 <= hour <= 10:
-            return (True, 20, 1.8)
+            return (True, 15, 1.5)
+        elif hour == 9:
+            return (True, 35, 3.0)
+        elif hour == 10:
+            return (True, 40, 4.0)
         elif hour == 11:
-            return (True, 12, 1.5)
+            return (True, 30, 2.5)
         elif hour == 12:
+            return (True, 15, 1.5)
+        elif hour == 13:
             return (True, 5, 1.2)
         else:
             return (False, 0, 1.0)
