@@ -4,6 +4,42 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~22:00 UTC -- Supporting TA Alignment Phase 12: Cisco Webex CIM
+
+### Added
+
+- **Phase 12** of Supporting TA Alignment project. Both Supporting TAs (`ta-cisco-webex-meetings-add-on-for-splunk`, `ta_cisco_webex_add_on_for_splunk`) have **zero CIM alignment** -- no eventtypes, tags, or field aliases. All CIM mappings in this phase are custom, based on actual event field structure verified via Splunk queries.
+- Aligns 8 sourcetypes (~92K events total) with CIM data models.
+
+**Configuration:**
+- `local/props.conf` -- 8 new stanzas:
+  - `[FAKE:cisco:webex:events]`: dvc, dvc_type, status, description, severity (case from overall_status), src_ip (nested), cpu_load_percent (nested)
+  - `[FAKE:cisco:webex:meetings:history:meetingusagehistory]`: user, user_name, session_id, signature FIELDALIASes; dest, session_duration, participant_count EVALs
+  - `[FAKE:cisco:webex:meetings:history:meetingattendeehistory]`: user_name, src_ip, session_id, signature FIELDALIASes; dest, app, session_duration EVALs (user already in default/)
+  - `[FAKE:cisco:webex:meetings]`: user, user_name, session_id, signature FIELDALIASes; dest, app EVALs
+  - `[FAKE:cisco:webex:admin:audit:events]`: object, object_category, description, src_user, status, change_type EVALs (user/action already in default/)
+  - `[FAKE:cisco:webex:security:audit:events]`: user, user_name, src_ip, action, app, http_user_agent, signature EVALs; status/action_name case logic for login success/failure
+  - `[FAKE:cisco:webex:meeting:qualities]`: user, user_name, src_ip, session_id FIELDALIASes; app, os, dvc EVALs (nested QoS arrays kept minimal)
+  - `[FAKE:cisco:webex:call:detailed_history]`: user, src_user, dest_user, src, dest, direction, duration, session_id, status, result, app, signature EVALs (JSON keys with spaces)
+- `local/eventtypes.conf` -- 8 new eventtypes: fake_webex_events, fake_webex_meetings_usage, fake_webex_meetings_attendee, fake_webex_meetings_api, fake_webex_admin_audit, fake_webex_security_audit, fake_webex_qualities, fake_webex_calling_history
+- `local/tags.conf` -- 8 new tag stanzas:
+  - Device events: inventory, network (Inventory)
+  - Meetings usage/attendee/API/calling: network, session, communicate (Network Sessions)
+  - Admin audit: change, audit (Change)
+  - Security audit: authentication (Authentication)
+  - Meeting qualities: performance, network (Performance)
+
+**CIM Models covered:**
+- Inventory: device health (dvc, dvc_type, status, severity)
+- Network Sessions: meetings + calling (user, session_id, signature, duration, src/dest)
+- Change: admin audit (object, description, change_type, src_user)
+- Authentication: security audit (user, src_ip, action, status, http_user_agent)
+- Performance: meeting quality (user, src_ip, session_id, app, os, dvc)
+
+**No new transforms or lookups needed.** All mappings are inline EVAL/FIELDALIAS.
+
+---
+
 ## 2026-02-16 ~02:00 UTC -- Supporting TA Alignment Phase 11: Cisco Secure Access (Umbrella) CIM
 
 ### Added
