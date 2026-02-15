@@ -4,6 +4,49 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~01:00 UTC -- Supporting TA Alignment Phase 10: Catalyst IOS + ACI CIM
+
+### Added
+
+- **Phase 10** of Supporting TA Alignment project. Source: `TA_cisco_catalyst` (Splunkbase).
+- Aligns 4 sourcetypes: `FAKE:cisco:ios` (Catalyst IOS-XE), `FAKE:cisco:aci:fault`, `FAKE:cisco:aci:event`, `FAKE:cisco:aci:audit` with CIM data models.
+
+**Key fix:** Catalyst events previously had ZERO extracted fields (no `facility`, `severity_id`, `mnemonic`) because the REPORT transform was missing from `default/props.conf`. The existing `FIELDALIAS-action_for_catalyst = mnemonic AS action` was dead since `mnemonic` never existed.
+
+**Configuration:**
+- `local/transforms.conf` -- 4 new entries:
+  - REPORT: `extract_fake_cisco_ios_general` (regex extracts facility, severity_id, mnemonic, message_text from IOS syslog)
+  - Lookups: `fake_cisco_ios_severity_lookup`, `fake_cisco_ios_actions_lookup`, `fake_cisco_ios_aci_fault_codes_lookup`
+- `local/props.conf` -- 4 new stanzas:
+  - `[FAKE:cisco:ios]`: KV_MODE=none, REPORT, 2 LOOKUPs, 5 EVALs (vendor, product, dvc, vendor_action, dest)
+  - `[FAKE:cisco:aci:fault]`: 10 EVALs (severity mapping, signature, description, object, cause, etc.), 1 LOOKUP (fault codes)
+  - `[FAKE:cisco:aci:event]`: 8 EVALs (severity, description, object, cause, action, change_type, user)
+  - `[FAKE:cisco:aci:audit]`: 10 EVALs (user, object, description, action, change_type, src_user, severity, status)
+- `local/eventtypes.conf` -- 17 new eventtypes:
+  - Catalyst (12): fake_catalyst_all, port_down/up, login_success/failed, ssh_login, dot1x, config_change, reload, restart, interface_admin_change, acl_log
+  - ACI (5): fake_aci_fault_all, fault_critical, event_all, event_contract_match, audit_all
+- `local/tags.conf` -- 16 new tag stanzas:
+  - Catalyst (11): network, problem, authentication (4), change (4), communicate
+  - ACI (5): alert (2), network (2), change+audit
+- `lookups/` -- 3 CSV files copied from Supporting TA:
+  - `cisco_ios_severity.csv` (9 rows): severity_id -> CIM severity
+  - `cisco_ios_actions.csv` (65 rows): vendor_action -> CIM action
+  - `cisco_ios_aci_fault_codes.csv` (~500 rows): fault_code -> vendor explanation
+
+**CIM Models covered:**
+- Catalyst: Authentication (login, SSH, 802.1X/MAB), Change (config, reload, restart, interface admin), Network Traffic (ACL logs)
+- ACI Fault: Alert (severity mapping, fault code enrichment)
+- ACI Event: Change (action/change_type), Network (contract matches)
+- ACI Audit: Change (user actions, object tracking)
+
+**Not included (out of scope):**
+- `cisco_ios_interface_name.csv` -- Interface prefix normalization (GigabitEthernet -> Gi). Our generator already uses full names.
+- `cisco_ios_icmp_code.csv` -- ICMP code lookup. Generator doesn't produce ACL events with ICMP codes.
+- `cisco_ios_acl_excluded_ips.csv` -- ACL exclusion list. Not applicable to generated data.
+- Numerous specific mnemonic-based REPORT transforms from real TA (dot1x_auth, mab_auth, authmgr_*, sessionmgr_*, epm_*, dhcp_snooping, etc.) -- would extract MAC addresses, interface names, session IDs. Generator message_text doesn't match these specific patterns precisely enough for reliable extraction.
+
+---
+
 ## 2026-02-15 ~23:30 UTC -- Make scenario revenue impact more visible in order data
 
 ### Problem
