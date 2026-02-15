@@ -4,6 +4,38 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~01:30 UTC -- Supporting TA Alignment Phase 17+18: Final 8 Sourcetypes (100% CIM)
+
+### Added
+
+- **Phase 17+18** of Supporting TA Alignment project. Final phase -- achieves 100% CIM coverage across all 62 sourcetypes (~13.2M events).
+- 6 sourcetypes needed new eventtypes/tags; 2 (ServiceNow change/cmdb) already complete from Phase 8.
+
+**Configuration:**
+- `local/props.conf` -- 2 new stanzas:
+  - `[FAKE:access_combined]`: CIM Web model FIELDALIASes (src_ip, http_referrer, http_user_agent, http_content_length)
+  - `[FAKE:azure:servicebus]`: vendor/product split, practical FIELDALIASes (message_id, queue, topic, event_type, order_id, customer_id), EVALs (response_time, severity)
+- `local/eventtypes.conf` -- 6 new eventtypes: fake_mssql_all, fake_web_access, fake_retail_orders, fake_retail_registry, fake_servicebus_all, fake_sap_all
+- `local/tags.conf` -- 6 new tag stanzas:
+  - MSSQL: database
+  - Apache: web
+  - Orders + Registry: sales
+  - ServiceBus: cloud
+  - SAP: application
+
+**CIM Models covered:**
+- Database: MSSQL errorlog
+- Web: Apache access (combined format)
+- Sales: Retail orders + order registry
+- Cloud: Azure ServiceBus (messaging queue)
+- Application: SAP S/4HANA audit log
+
+**ServiceNow change/cmdb: already fully covered by Phase 8 (ticketing + inventory tags).**
+
+**Verification:** All 8 sourcetypes confirmed with raw field queries against Splunk index. Total event counts: access_combined (10.5M), servicebus (977K), orders (928K), sap (620K), registry (197K), mssql (3K), servicenow:change (624), servicenow:cmdb (37).
+
+---
+
 ## 2026-02-16 ~01:00 UTC -- Supporting TA Alignment Phase 16: Entra ID riskDetection Eventtypes
 
 ### Added
