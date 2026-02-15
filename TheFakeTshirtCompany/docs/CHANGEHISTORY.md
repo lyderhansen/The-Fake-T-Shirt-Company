@@ -4,6 +4,31 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~00:30 UTC -- Supporting TA Alignment Phase 15: AWS Billing CUR + GuardDuty CIM
+
+### Added
+
+- **Phase 15** of Supporting TA Alignment project. Source: `Splunk_TA_aws` (Splunkbase). Billing has no CIM in real TA; GuardDuty adapted from `guard_duty_events*` eventtypes/tags.
+- Aligns 2 sourcetypes (706 events total) with CIM data models.
+
+**Configuration:**
+- `local/props.conf` -- 2 new stanzas:
+  - `[FAKE:aws:billing:cur]`: vendor/product EVALs, 8 FIELDALIASes (service, cost, usage, operation, service_name, region, resource_name, account_id from CUR CSV column names with `/` -> `_`)
+  - `[FAKE:aws:cloudwatch:guardduty]`: vendor/product EVALs, action (normalized from actionType), src_ip (coalesce across API/network/portprobe paths), user (coalesce userName/instanceId), dest (coalesce instanceId/accessKeyId), body, alert_id, finding_type
+- `local/eventtypes.conf` -- 4 new eventtypes: fake_aws_billing, fake_aws_guardduty, fake_aws_guardduty_alert (API-based), fake_aws_guardduty_ids (network-based)
+- `local/tags.conf` -- 4 new tag stanzas:
+  - Billing: cloud
+  - GuardDuty: cloud (all), alert (API threats), ids + attack (network threats)
+
+**CIM Models covered:**
+- Cloud: billing + all GuardDuty findings
+- Alert: GuardDuty API-based threats (AWS_API_CALL, KUBERNETES_API_CALL, RDS_LOGIN_ATTEMPT)
+- IDS: GuardDuty network-based threats (NETWORK_CONNECTION, DNS_REQUEST, PORT_PROBE)
+
+**No new transforms or lookups needed.** All mappings are inline EVAL/FIELDALIAS.
+
+---
+
 ## 2026-02-16 ~00:00 UTC -- Supporting TA Alignment Phase 14: Meraki Health / IoT CIM
 
 ### Added
