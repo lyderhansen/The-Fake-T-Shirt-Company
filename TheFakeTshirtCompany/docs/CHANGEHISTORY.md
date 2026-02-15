@@ -4,6 +4,36 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~00:00 UTC -- Supporting TA Alignment Phase 14: Meraki Health / IoT CIM
+
+### Added
+
+- **Phase 14** of Supporting TA Alignment project. The official Splunk_TA_cisco_meraki has **no CIM alignment** for health metrics, sensor readings, or camera analytics. All mappings are custom.
+- Aligns 4 sourcetypes (~1.7M events total) with CIM data models.
+
+**Configuration:**
+- `local/props.conf` -- 4 new stanzas:
+  - `[FAKE:meraki:switches:health]`: dvc, dvc_type, interface (portId), status (Connected->up, Disconnected->down), speed, duplex, description
+  - `[FAKE:meraki:accesspoints:health]`: dvc, dvc_type, rssi, snr, channel_utilization, health_score, client_count, dest (area), description
+  - `[FAKE:meraki:sensors]`: dvc, dvc_type (sensor.model), location (sensor.name), action (normalized from type), metric_name, temperature, humidity, description
+  - `[FAKE:meraki:cameras]`: dvc, dvc_type, action (type), zone, people_count, status (health_status->status, motion/person->detected, analytics->reporting), description
+- `local/eventtypes.conf`:
+  - **Fixed** `fake_meraki_sensors` -- removed `type="sensor_reading"` filter to include door_open, door_close, water events (was 250K, now 292K events)
+  - **New** eventtypes: fake_meraki_switches_health, fake_meraki_ap_health, fake_meraki_sensors_door, fake_meraki_cameras_health
+- `local/tags.conf`:
+  - **Updated** `fake_meraki_sensors` -- added network, inventory tags (was change only)
+  - **New** tag stanzas: switches_health (performance, inventory, network), ap_health (performance, network), sensors_door (physical, change), cameras_health (inventory, network)
+
+**CIM Models covered:**
+- Performance: switch port status, AP wireless metrics (rssi, snr, channel utilization, health score)
+- Inventory: device identity (dvc, dvc_type) for all 4 sourcetypes + camera health
+- Change/IoT: sensor readings and state changes (door, water, temperature, humidity)
+- Physical Security: door open/close events, camera motion/person detection
+
+**No new transforms or lookups needed.** All mappings are inline EVAL/FIELDALIAS.
+
+---
+
 ## 2026-02-15 ~23:00 UTC -- Supporting TA Alignment Phase 13: Cisco Catalyst Center CIM
 
 ### Added
