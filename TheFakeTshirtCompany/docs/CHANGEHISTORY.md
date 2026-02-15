@@ -4,6 +4,30 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~22:00 UTC -- Supporting TA Alignment Phase 9: GCP (Splunk_TA_google-cloudplatform) CIM
+
+### Added
+
+- **Phase 9** of Supporting TA Alignment project. Source: `Splunk_TA_google-cloudplatform` v4.4.0 (Splunkbase #3088).
+- Aligns 2 GCP sub-sourcetypes (`FAKE:google:gcp:pubsub:audit:admin_activity`, `FAKE:google:gcp:pubsub:audit:data_access`) with CIM data models.
+
+**Configuration:**
+- `local/eventtypes.conf` -- 7 new eventtypes:
+  - Auth (1): `fake_gcp_audit_auth` (data_access events)
+  - Change (5): `fake_gcp_audit_change` (all admin_activity), `fake_gcp_audit_change_instances` (compute), `fake_gcp_audit_change_storage` (storage), `fake_gcp_audit_change_iam` (IAM policy), `fake_gcp_audit_change_service_accounts` (SA key creation)
+  - Catch-all (1): `fake_gcp_audit_all` (all GCP audit events)
+- `local/tags.conf` -- 7 new tag stanzas mapping to CIM: Authentication, Change (with instance/account sub-tags), Cloud
+
+**CIM Models covered:** Authentication (data_access), Change (admin_activity with instance/storage/IAM/service account sub-types)
+
+**Props/Transforms:** No changes needed -- `default/props.conf` already has comprehensive CIM field mappings (command, dvc, dest, object, object_id, object_path, result, src, src_ip, action, change_type, object_category, status, user, vendor_product, etc.) copied from the real TA.
+
+**Not included (out of scope):**
+- 6 lookup CSVs from real TA -- object_category handled by inline EVAL, others for sourcetypes we don't generate (VPC flow, security alerts, bucket access logs)
+- 13 additional eventtypes from real TA -- for methods/sourcetypes our generator doesn't produce (disks, firewalls, user settings, subscriptions, publisher, roles, storage IAM, login service, GSuite, VPC flow, security alerts, compute instance, bucket access logs)
+
+---
+
 ## 2026-02-15 ~21:00 UTC -- Supporting TA Alignment Phase 8: ServiceNow (Splunk_TA_snow) CIM
 
 ### Added

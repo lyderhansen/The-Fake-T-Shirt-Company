@@ -18,7 +18,7 @@ docker run -d \
 -v fake-tshrt-etc:/opt/splunk/etc \
 -v fake-tshrt-var:/opt/splunk/var \
 -v fake-tshrt-data:/opt/splunk/var/lib/splunk \
--v "/Users/joehanse/Library/CloudStorage/OneDrive-Cisco/Documents/03\ Funny\ Projects/GIT\ -\ TA-FAKE-TSHRT/The-Fake-T-Shirt-Company/TA-FAKE-TSHRT/TA-FAKE-TSHRT":/opt/splunk/etc/apps/TA-FAKE-TSHRT \
+-v "<LOCAL_PATH>":/opt/splunk/etc/apps/TA-FAKE-TSHRT \
 -e SPLUNK_PASSWORD='adminadmin' \
 -e SPLUNK_START_ARGS='--accept-license --answer-yes' \
 -e SPLUNK_GENERAL_TERMS='--accept-sgt-current-at-splunk-com' \
