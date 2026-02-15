@@ -4,6 +4,26 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~01:00 UTC -- Supporting TA Alignment Phase 16: Entra ID riskDetection Eventtypes
+
+### Added
+
+- **Phase 16** of Supporting TA Alignment project. Source: `Splunk_TA_microsoft-cloudservices` v5.x (Splunkbase #3110).
+- Completes CIM alignment for `FAKE:azure:aad:riskDetection` (96 events). Phase 4 added props.conf CIM fields + tag stanzas but no eventtypes -- this phase adds the missing eventtypes so tags activate.
+
+**Configuration:**
+- `local/eventtypes.conf` -- 2 new eventtypes:
+  - `fake_entra_risk_detection`: all riskDetection events
+  - `fake_entra_risk_high`: high-severity risk detections only (properties.riskLevel="high")
+- `local/tags.conf` -- no changes needed (stanzas already existed from Phase 4, lines 300-306)
+- `local/props.conf` -- no changes needed (default/props.conf already has EVAL-user, EVAL-severity, EVAL-action)
+
+**CIM Models covered:** Alert (all risk detections + high-severity subset)
+
+**Verification:** 96 events across 7 risk types (passwordSpray, impossibleTravel, leakedCredentials, maliciousIPAddress, unfamiliarFeatures, anonymizedIPAddress, suspiciousBrowser), 3 risk levels (low: 40, medium: 37, high: 19).
+
+---
+
 ## 2026-02-16 ~00:30 UTC -- Supporting TA Alignment Phase 15: AWS Billing CUR + GuardDuty CIM
 
 ### Added
