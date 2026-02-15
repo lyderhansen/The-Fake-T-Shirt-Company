@@ -4,6 +4,35 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~23:00 UTC -- Supporting TA Alignment Phase 13: Cisco Catalyst Center CIM
+
+### Added
+
+- **Phase 13** of Supporting TA Alignment project. **No Supporting TA exists** for Cisco Catalyst Center (DNA Center). All CIM mappings are custom based on actual Catalyst Center API field structure.
+- Aligns 4 sourcetypes (~46K events total) with CIM data models.
+
+**Configuration:**
+- `local/props.conf` -- 4 new stanzas:
+  - `[FAKE:cisco:catalyst:devicehealth]`: vendor/product EVALs, dvc/dvc_type/src_ip FIELDALIASes, os (IOS-XE concat), status (from reachabilityHealth + overallHealth), severity (from overallHealth)
+  - `[FAKE:cisco:catalyst:networkhealth]`: vendor/product EVALs, status/severity (from healthScore thresholds)
+  - `[FAKE:cisco:catalyst:clienthealth]`: vendor/product EVALs, dest (siteId)
+  - `[FAKE:cisco:catalyst:issue]`: vendor/product EVALs, type (issueCategory), id (issueId), urgency (from issuePriority P1-P4), dest (issueEntityValue), body (issueSummary)
+- `local/eventtypes.conf` -- 4 new eventtypes: fake_catcenter_devicehealth, fake_catcenter_networkhealth, fake_catcenter_clienthealth, fake_catcenter_issue
+- `local/tags.conf` -- 4 new tag stanzas:
+  - Device health: inventory, network, performance, report (Inventory/Performance)
+  - Network health: performance, network, report (Performance)
+  - Client health: performance, network, report (Performance)
+  - Issues: alert (Alert)
+
+**CIM Models covered:**
+- Inventory: device identity (dvc, dvc_type, src_ip, os)
+- Performance: health scores (status, severity from overallHealth/healthScore thresholds)
+- Alert: issues (type, urgency, id, dest, body)
+
+**No new transforms or lookups needed.** All mappings are inline EVAL/FIELDALIAS.
+
+---
+
 ## 2026-02-15 ~22:00 UTC -- Supporting TA Alignment Phase 12: Cisco Webex CIM
 
 ### Added
