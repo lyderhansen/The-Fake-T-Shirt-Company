@@ -4,6 +4,30 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~19:00 UTC -- Supporting TA Alignment Phase 6: Cisco Meraki CIM
+
+### Added
+
+- **Phase 6** of Supporting TA Alignment project. Source: `Splunk_TA_cisco_meraki` v3.2.0 (Splunkbase).
+- Lightweight phase -- only eventtypes + tags needed. All 11 lookup CSVs, 11 transform definitions, and 7 props.conf stanzas with 30+ CIM fields per sourcetype were already present in `default/`.
+
+**Configuration:**
+- `local/eventtypes.conf` -- 12 new eventtypes covering 5 Meraki product families:
+  - MX Security Appliances (5): `fake_meraki_securityappliances_alerts`, `_authentication`, `_change`, `_network`, `_networksessions`
+  - MR Access Points (3): `fake_meraki_accesspoints_alerts`, `_authentication`, `_change`
+  - MS Switches (1): `fake_meraki_switches_change`
+  - MV Cameras (1): `fake_meraki_cameras`
+  - MT Sensors (1): `fake_meraki_sensors`
+- `local/tags.conf` -- 12 new tag stanzas mapping to CIM: Alert, Authentication, Change, Network Traffic, Network Sessions
+
+**CIM Models covered:** Alert, Authentication, Change, Network Traffic, Network Sessions
+
+**Not included (out of scope):**
+- Health metric sourcetypes (`FAKE:meraki:accesspoints:health`, `FAKE:meraki:switches:health`) -- performance metrics, no CIM eventtype/tag needed
+- API/audit sourcetypes (`meraki:audit`, `meraki:organizationsecurity`) -- generators don't produce these
+
+---
+
 ## 2026-02-15 ~18:00 UTC -- Supporting TA Alignment Phase 5: Microsoft 365 / O365 CIM
 
 ### Added
