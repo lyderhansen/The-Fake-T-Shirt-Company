@@ -1,0 +1,10 @@
+Status,action
+Delivered,delivered
+Resolved,blocked
+FilteredAsSpam,blocked
+GettingStatus,blocked
+Expanded,blocked
+Failed,blocked
+Pending,blocked
+Quarantined,quarantined
+None,blocked

@@ -1,0 +1,44 @@
+RecordType,record_type,RecordTypeDescription
+1,ExchangeAdmin,Events from the Exchange admin audit log.
+2,ExchangeItem,"Events from an Exchange mailbox audit log for actions that are performed on a single item, such as creating or receiving an email message."
+3,ExchangeItemGroup,"Events from an Exchange mailbox audit log for actions that can be performed on multiple items, such as moving or deleted one or more email messages."
+4,SharePoint,SharePoint events.
+6,SharePointFileOperation,SharePoint file operation events.
+8,AzureActiveDirectory,Azure Active Directory events.
+9,AzureActiveDirectoryAccountLogon,Azure Active Directory OrgId logon events (deprecating).
+10,DataCenterSecurityCmdlet,Data Center security cmdlet events.
+11,ComplianceDLPSharePoint,Data loss protection (DLP) events in SharePoint and OneDrive for Business.
+12,Sway,Events from the Sway service and clients.
+13,ComplianceDLPExchange,"Data loss protection (DLP) events in Exchange, when configured via Unified DLP Policy. DLP events based on Exchange Transport Rules are not supported."
+14,SharePointSharingOperation,SharePoint sharing events.
+15,AzureActiveDirectoryStsLogon,Secure Token Service (STS) logon events in Azure Active Directory.
+18,SecurityComplianceCenterEOPCmdlet,Admin actions from the Security & Compliance Center.
+20,PowerBIAudit,Power BI events.
+21,CRM,Microsoft CRM events.
+22,Yammer,Yammer events.
+23,SkypeForBusinessCmdlets,Skype for Business events.
+24,Discovery,Events for eDiscovery activities performed by running content searches and managing eDiscovery cases in the Security & Compliance Center.
+25,MicrosoftTeams,Events from Microsoft Teams.
+28,ThreatIntelligence,Phishing and malware events from Exchange Online Protection and Office 365 Advanced Threat Protection.
+29,MailSubmission,Submission events from Exchange Online Protection and Office 365 Advanced Threat Protection.
+30,MicrosoftFlow,Microsoft Power Automate (formerly called Microsoft Flow) events.
+31,AeD,Advanced eDiscovery events.
+32,MicrosoftStream,Microsoft Stream events.
+33,ComplianceDLPSharePointClassification,Events related to DLP classification in SharePoint.
+35,Project,Microsoft Project events.
+36,SharePointListOperation,SharePoint List events.
+38,DataGovernance,Events related to retention policies and retention labels in the Security & Compliance Center
+40,SecurityComplianceAlerts,Security and compliance alert signals.
+41,ThreatIntelligenceUrl,Safe links time-of-block and block override events from Office 365 Advanced Threat Protection.
+42,SecurityComplianceInsights,Events related to insights and reports in the Office 365 security and compliance center.
+44,WorkplaceAnalytics,Workplace Analytics events.
+45,PowerAppsApp,Power Apps events.
+47,ThreatIntelligenceAtpContent,"Phishing and malware events for files in SharePoint, OneDrive for Business, and Microsoft Teams from Office 365 Advanced Threat Protection."
+49,TeamsHealthcare,Events related to the Patients application in Microsoft Teams for Healthcare.
+52,DataInsightsRestApiAudit,Data Insights REST API events.
+54,SharePointListItemOperation,SharePoint list item events.
+55,SharePointContentTypeOperation,SharePoint list content type events.
+56,SharePointFieldOperation,SharePoint list field events.
+64,AirInvestigation,Automated incident response (AIR) events.
+65,Quarantine,Quarantine events.
+66,MicrosoftForms,Microsoft Forms events.

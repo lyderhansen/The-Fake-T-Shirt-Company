@@ -1,0 +1,6 @@
+ResultStatus,dataset_name,action
+Succeeded,authentication,success
+Success,authentication,success
+Partially Succeeded,authentication,success
+Failed,authentication,failure
+Failure,authentication,failure

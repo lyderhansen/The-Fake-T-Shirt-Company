@@ -1,0 +1,5 @@
+Workload,Operation,dataset_name
+SecurityComplianceCenter,AlertEntityGenerated,alerts
+SecurityComplianceCenter,AlertTriggered,alerts
+SecurityComplianceCenter,InsightGenerated,alerts
+SecurityComplianceCenter,AlertUpdated,alerts

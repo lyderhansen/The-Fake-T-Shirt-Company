@@ -4,6 +4,39 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~18:00 UTC -- Supporting TA Alignment Phase 5: Microsoft 365 / O365 CIM
+
+### Added
+
+- **Phase 5** of Supporting TA Alignment project. Source: `splunk_ta_o365` v5.1.0 (Splunkbase).
+- Aligns `FAKE:o365:management:activity` (M365 Unified Audit Log) and `FAKE:ms:o365:reporting:messagetrace` (Exchange Message Trace) with CIM data models.
+
+**Lookups (7 CSVs):**
+- `splunk_ta_o365_cim_change_analysis_3_1_0.csv` (212 rows) -- Workload+Operation to dataset_name/action/change_type/object_category
+- `splunk_ta_o365_cim_data_access_3_1_0.csv` (102 rows) -- SharePoint/OneDrive/Teams data access classification
+- `splunk_ta_o365_cim_authentication_3_1_0.csv` (9 rows) -- AzureAD/Exchange auth dataset classification
+- `splunk_ta_o365_cim_authentication_ResultStatus.csv` (5 rows) -- ResultStatus to CIM action (success/failure)
+- `splunk_ta_o365_cim_authentication_RecordType.csv` (44 rows) -- RecordType code to name/description
+- `splunk_ta_o365_cim_alerts.csv` (4 rows) -- SecurityComplianceCenter alert classification
+- `splunk_ta_o365_cim_email_action_messagetrace.csv` (10 rows) -- replaces existing 7-row version with fuller real TA version
+
+**Configuration:**
+- `local/transforms.conf` -- 6 new lookup definitions (change_analysis, data_access, authentication, ResultStatus, RecordType, alerts)
+- `local/eventtypes.conf` -- 7 new eventtypes: `fake_o365_change`, `fake_o365_endpoint_changes`, `fake_o365_data_access`, `fake_o365_authentication`, `fake_o365_account_management`, `fake_o365_alerts`, `fake_o365_reporting_messagetrace`
+- `local/tags.conf` -- 7 new tag stanzas mapping to CIM: Change, Data Access, Authentication, Alert, Email, Endpoint
+- `local/props.conf` -- 2 new stanzas:
+  - `[FAKE:o365:management:activity]`: 6 LOOKUPs (dataset classification), 3 FIELDALIAS (vendor_account, command, src_name), 12 EVAL (dest, dest_name, src_user, user_type, status, result, object_id, object_attrs, signature, signature_id, category, dvc, file_size)
+  - `[FAKE:ms:o365:reporting:messagetrace]`: 1 FIELDALIAS (vendor_account), 6 EVAL (src_user_name, orig_src, file_size, orig_recipient, status, dvc)
+
+**CIM Models covered:** Change, Data Access, Authentication, Alert, Email
+
+**Not included (out of scope):**
+- DLP incident / email filtering lookups (generators don't produce these events)
+- Authentication Reason lookup (766 rows -- O365 auth handled via Entra ID sourcetype)
+- REGEX transforms (our generators produce flat JSON, not nested ExtendedProperties)
+
+---
+
 ## 2026-02-15 ~16:30 UTC -- Reduce lunch dip in weekday activity curve
 
 ### Changed
