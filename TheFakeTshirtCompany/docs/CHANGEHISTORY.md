@@ -4,6 +4,30 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~21:00 UTC -- Supporting TA Alignment Phase 8: ServiceNow (Splunk_TA_snow) CIM
+
+### Added
+
+- **Phase 8** of Supporting TA Alignment project. Source: `Splunk_TA_snow` (Splunkbase).
+- Aligns 3 ServiceNow sourcetypes (`FAKE:servicenow:incident`, `FAKE:servicenow:change`, `FAKE:servicenow:cmdb`) with CIM data models.
+
+**Configuration:**
+- `local/props.conf` -- 3 new stanzas with ~24 CIM field additions:
+  - `[FAKE:servicenow:incident]`: 7 FIELDALIAS (incident, severity_id, assignment_group_name, incident_state_name, affect_dest, assignment_user_name, name), 4 EVAL (dest, src_user, time_submitted, severity_name)
+  - `[FAKE:servicenow:change]`: 6 FIELDALIAS (description, change, assignment_group_name, user, affect_dest, change_state_name), 3 EVAL (dest, src_user, time_submitted)
+  - `[FAKE:servicenow:cmdb]`: 4 FIELDALIAS (dest, ip, serial, dns)
+- `local/eventtypes.conf` -- 3 new eventtypes: `fake_snow_incident`, `fake_snow_change_request`, `fake_snow_cmdb_ci_list`
+- `local/tags.conf` -- 3 new tag stanzas mapping to CIM: Ticket Management (ticketing, incident), Inventory
+
+**CIM Models covered:** Ticket Management (Incident, Change), Inventory (CMDB)
+
+**Not included (out of scope):**
+- `snow_severities.csv` / `snow_change_states.csv` / `snow_problem_states.csv` lookups -- numbering doesn't match our generator output (inline EVAL-severity_name used instead)
+- KVStore lookups (15 in real TA) -- require live ServiceNow connection
+- `snow:problem` / `snow:sysevent` / `snow:em_event` eventtypes -- generator does not produce these
+
+---
+
 ## 2026-02-15 ~20:00 UTC -- Supporting TA Alignment Phase 7: Linux (Splunk_TA_nix) CIM
 
 ### Added
