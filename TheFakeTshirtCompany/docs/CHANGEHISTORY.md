@@ -4,6 +4,36 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-15 ~20:00 UTC -- Supporting TA Alignment Phase 7: Linux (Splunk_TA_nix) CIM
+
+### Added
+
+- **Phase 7** of Supporting TA Alignment project. Source: `Splunk_TA_nix` (Splunkbase #833).
+- Aligns 6 Linux sourcetypes (`FAKE:cpu`, `FAKE:vmstat`, `FAKE:df`, `FAKE:iostat`, `FAKE:interfaces`, `FAKE:linux:auth`) with CIM data models.
+
+**Configuration:**
+- `local/props.conf` -- 6 new stanzas with ~40 CIM field additions:
+  - `[FAKE:cpu]`: FIELDALIAS-src, EVAL PercentIdleTime/PercentUserTime/PercentSystemTime/PercentWaitTime/cpu_user_percent
+  - `[FAKE:vmstat]`: FIELDALIAS-src, EVAL mem/mem_free/mem_used/mem_free_percent + legacy FreeMBytes/UsedMBytes/TotalMBytes/UsedBytes
+  - `[FAKE:df]`: FIELDALIAS-src, EVAL storage/storage_free/storage_used/storage_free_percent + legacy FreeMBytes/TotalMBytes/UsedMBytes/PercentUsedSpace/PercentFreeSpace
+  - `[FAKE:iostat]`: FIELDALIAS-src, EVAL mount/read_ops/write_ops/latency/total_ops
+  - `[FAKE:interfaces]`: EVAL enabled/speed
+  - `[FAKE:linux:auth]`: FIELDALIAS-dvc, EVAL dest/app/action/status/authentication_method/object_category/user_role
+- `local/eventtypes.conf` -- 12 new eventtypes:
+  - Metrics (5): `fake_cpu`, `fake_vmstat`, `fake_df`, `fake_iostat`, `fake_interfaces`
+  - Auth (7): `fake_nix_sshd_authentication`, `fake_nix_sshd_session_start`, `fake_nix_sshd_session_end`, `fake_nix_su_authentication`, `fake_nix_failed_login`, `fake_nix_cron`, `fake_nix_privileged_session`
+- `local/tags.conf` -- 12 new tag stanzas mapping to CIM: Performance (OS, CPU, Memory, Storage), Inventory (Network), Authentication, Network Sessions
+
+**CIM Models covered:** Performance (CPU, Memory, Storage, I/O), Inventory (Network Interfaces), Authentication, Network Sessions
+
+**Not included (out of scope):**
+- `nix_vendor_actions.csv` lookup -- CIM action mapping handled directly via EVAL-action case() (6 known event patterns)
+- useradd/userdel/groupadd/password-change eventtypes -- generator does not produce these events
+- Cross-platform coalesce chains (AIX, Solaris, OSX) -- generator is Linux-only
+- Linux audit (`linux_audit`) stanza -- generator does not produce auditd events
+
+---
+
 ## 2026-02-15 ~19:00 UTC -- Supporting TA Alignment Phase 6: Cisco Meraki CIM
 
 ### Added
