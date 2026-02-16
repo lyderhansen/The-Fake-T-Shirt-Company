@@ -130,8 +130,56 @@ INTERNAL_DNS_SERVERS = {
     "AUS": ["10.10.20.10"],                   # No local DC — forwards to BOS
 }
 
-# US-based residential IP prefixes (for remote workers)
+# US-based residential IP prefixes (for remote workers / VPN)
 US_IP_PFX = ["73.158.42", "107.77.195", "108.28.163", "174.63.88", "68.105.12", "71.222.45"]
+
+# International customer/visitor IP pools (for webshop traffic)
+# IP prefixes chosen to resolve correctly with Splunk iplocation (MaxMind GeoLite2)
+CUSTOMER_IP_POOLS = {
+    # North America (~55% of browse traffic)
+    "US": ["73.158.42", "107.77.195", "108.28.163", "174.63.88", "68.105.12", "71.222.45",
+           "98.148.55", "75.134.201", "24.18.96", "76.169.44"],
+    "CA": ["70.53.128", "99.225.16"],
+
+    # Nordics (~9% of browse traffic)
+    "NO": ["185.47.68", "178.164.192", "84.208.33", "89.10.54"],
+    "SE": ["83.255.33", "78.72.201"],
+    "DK": ["87.54.128", "80.197.33"],
+    "FI": ["91.152.128", "83.102.201"],
+
+    # Western Europe (~20% of browse traffic)
+    "UK": ["86.131.54", "81.174.162", "90.255.133", "82.45.201"],
+    "DE": ["91.64.112", "87.123.45", "95.90.201", "46.5.33"],
+    "FR": ["90.76.128", "78.201.33", "86.195.54", "109.190.201"],
+    "NL": ["84.241.201", "82.73.54", "94.208.33"],
+    "BE": ["81.246.128", "91.182.54"],
+    "CH": ["77.56.128", "178.197.201"],
+    "AT": ["77.119.128", "91.118.54"],
+    "IE": ["86.44.128", "89.101.33"],
+    "ES": ["83.44.128", "88.3.201"],
+    "IT": ["79.17.128", "87.1.201"],
+    "PT": ["85.244.128"],
+    "PL": ["83.27.128", "89.64.54"],
+
+    # Asia/Pacific (~6% of browse traffic)
+    "JP": ["126.72.128", "153.156.201"],
+    "AU": ["101.164.128", "120.17.201"],
+    "SG": ["116.86.128"],
+    "IN": ["106.51.128", "122.171.201"],
+    "KR": ["175.195.128"],
+}
+
+# Weighted region distribution for random browse traffic (no customer_id)
+BROWSE_REGION_WEIGHTS = {
+    "US": 55, "UK": 8, "DE": 6, "FR": 4, "NL": 2, "NO": 5,
+    "CA": 3, "SE": 2, "DK": 1, "FI": 1, "BE": 1, "CH": 1,
+    "AT": 1, "IE": 1, "ES": 2, "IT": 2, "PL": 1, "PT": 1,
+    "JP": 2, "AU": 2, "SG": 1, "IN": 1, "KR": 1,
+}
+
+# Pre-computed lists for get_visitor_ip()
+_BROWSE_REGIONS = list(BROWSE_REGION_WEIGHTS.keys())
+_BROWSE_WEIGHTS = list(BROWSE_REGION_WEIGHTS.values())
 
 # External service IPs
 EXT_SERVICE_IPS = [
@@ -1586,6 +1634,55 @@ def get_world_ip() -> str:
     return f"{prefix}.{random.randint(1, 254)}.{random.randint(1, 254)}"
 
 
+def get_customer_region(customer_id: str) -> str:
+    """Deterministic region from customer_id hash. Matches customer_lookup.csv distribution.
+
+    Distribution: US 70%, UK 8%, DE 6%, FR 4%, NL 2%, NO 10%
+    Same customer_id always returns the same region.
+    """
+    nums = ''.join(filter(str.isdigit, customer_id))
+    seed = int(nums[-6:]) if len(nums) >= 6 else int(nums) if nums else 1
+    roll = seed % 100
+    if roll < 70:
+        return "US"
+    elif roll < 78:
+        return "UK"
+    elif roll < 84:
+        return "DE"
+    elif roll < 88:
+        return "FR"
+    elif roll < 90:
+        return "NL"
+    else:
+        return "NO"
+
+
+def get_customer_ip(customer_id: str) -> str:
+    """Deterministic customer IP from customer_id hash.
+
+    Same customer_id always maps to same IP. Uses SHA256 hash (same pattern as vpn_ip).
+    Region is determined by get_customer_region() so IP country matches customer data.
+    """
+    region = get_customer_region(customer_id)
+    pool = CUSTOMER_IP_POOLS.get(region, CUSTOMER_IP_POOLS["US"])
+    h = hashlib.sha256(f"customer-ip:{customer_id}".encode()).digest()
+    prefix_idx = h[0] % len(pool)
+    last_octet = (h[1] << 8 | h[2]) % 254 + 1
+    return f"{pool[prefix_idx]}.{last_octet}"
+
+
+def get_visitor_ip() -> str:
+    """Random international visitor IP from weighted country pool.
+
+    For non-customer browse traffic (sessions without a customer_id).
+    Country distribution weighted to match international customer base.
+    """
+    region = random.choices(_BROWSE_REGIONS, weights=_BROWSE_WEIGHTS, k=1)[0]
+    pool = CUSTOMER_IP_POOLS[region]
+    prefix = random.choice(pool)
+    return f"{prefix}.{random.randint(1, 254)}"
+
+
 def get_users_by_location(location: str) -> List[User]:
     """Get all users at a specific location."""
     return [u for u in USERS.values() if u.location == location]
@@ -1942,6 +2039,15 @@ class Company:
 
     def get_world_ip(self) -> str:
         return get_world_ip()
+
+    def get_customer_region(self, customer_id: str) -> str:
+        return get_customer_region(customer_id)
+
+    def get_customer_ip(self, customer_id: str) -> str:
+        return get_customer_ip(customer_id)
+
+    def get_visitor_ip(self) -> str:
+        return get_visitor_ip()
 
     def get_random_user(self, location=None, department: str = None) -> User:
         return get_random_user(location, department)

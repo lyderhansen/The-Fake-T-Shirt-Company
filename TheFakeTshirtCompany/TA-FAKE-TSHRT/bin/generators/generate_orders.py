@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
 from shared.time_utils import date_add
 from shared.products import PRODUCTS, get_random_product
+from shared.company import get_customer_region
 from scenarios.registry import expand_scenarios
 from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
 
@@ -141,26 +142,8 @@ NO_STREETS = ["Storgata", "Kirkegata", "Hovedveien", "Parkveien", "Fjordgata", "
 # CUSTOMER GENERATION
 # =============================================================================
 
-def get_customer_region(customer_id: str) -> str:
-    """Determine region based on customer ID (deterministic)."""
-    # Extract numeric part from customer_id
-    nums = ''.join(filter(str.isdigit, customer_id))
-    seed = int(nums[-6:]) if len(nums) >= 6 else int(nums) if nums else 1
-
-    roll = seed % 100
-
-    if roll < 70:
-        return "US"
-    elif roll < 78:
-        return "UK"
-    elif roll < 84:
-        return "DE"
-    elif roll < 88:
-        return "FR"
-    elif roll < 90:
-        return "NL"
-    else:
-        return "NO"
+# NOTE: get_customer_region() is now imported from shared.company
+# (identical logic, shared between access, orders, and ASA generators)
 
 
 def get_customer_data(customer_id: str, region: str) -> Dict:

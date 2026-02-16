@@ -42,10 +42,11 @@ Usage:
 """
 
 import argparse
+import json
 import random
 import sys
 from pathlib import Path
-from typing import List, TextIO
+from typing import List, Dict, TextIO
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -939,11 +940,107 @@ def generate_day_events(base_date: str, day: int) -> List[str]:
     return events
 
 
-def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int) -> List[str]:
+# =============================================================================
+# WEB SESSION REGISTRY (1:1 correlation with access logs)
+# =============================================================================
+
+def load_web_session_registry() -> List[Dict]:
+    """Load web sessions created by access generator.
+
+    The access generator writes web_session_registry.json (NDJSON) with every
+    web session's IP, timestamps, bytes, and destination server. ASA uses this
+    to generate matching Built/Teardown events with the SAME source IP.
+
+    Returns empty list if file doesn't exist (access not generated yet).
+    Uses get_output_path() which respects --test mode automatically.
+    """
+    registry_path = get_output_path("web", "web_session_registry.json")
+    sessions = []
+    if registry_path.exists():
+        with open(registry_path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    sessions.append(json.loads(line))
+    return sessions
+
+
+def _parse_registry_hour(ts_str: str) -> int:
+    """Extract hour from ISO 8601 timestamp string."""
+    # Format: "2026-01-05T14:23:45Z"
+    return int(ts_str[11:13])
+
+
+def _parse_registry_day(ts_str: str, start_date: str) -> int:
+    """Extract day offset from ISO 8601 timestamp string relative to start_date."""
+    # Format: "2026-01-05T14:23:45Z"
+    from datetime import datetime
+    event_date = datetime.strptime(ts_str[:10], "%Y-%m-%d")
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    return (event_date - start).days
+
+
+def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
+    """Generate Built+Teardown from access session registry entry.
+
+    Creates ASA firewall events that match EXACTLY with the access log session:
+    same source IP, same destination web server, same timestamps.
+    """
+    events = []
+
+    src = session["ip"]
+    dst = session["dst"]
+    dp = session["dst_port"]
+    bytes_val = session.get("bytes", 5000)
+
+    # Parse timestamps
+    start_ts_str = session["start_ts"]
+    end_ts_str = session["end_ts"]
+
+    # Extract time components from start timestamp
+    start_hour = int(start_ts_str[11:13])
+    start_min = int(start_ts_str[14:16])
+    start_sec = int(start_ts_str[17:19])
+
+    # Extract time components from end timestamp
+    end_hour = int(end_ts_str[11:13])
+    end_min = int(end_ts_str[14:16])
+    end_sec = int(end_ts_str[17:19])
+
+    # Calculate duration
+    start_total_sec = start_hour * 3600 + start_min * 60 + start_sec
+    end_total_sec = end_hour * 3600 + end_min * 60 + end_sec
+    duration_secs = max(1, end_total_sec - start_total_sec)
+    dur_mins = duration_secs // 60
+    dur_secs = duration_secs % 60
+    dur = f"0:{dur_mins}:{dur_secs}"
+
+    # Extract day from start timestamp to generate correct date
+    day = _parse_registry_day(start_ts_str, base_date)
+
+    # Connection ID and source port
+    cid = random.randint(100000, 999999)
+    sp = random.randint(49152, 65535)
+
+    # Format ASA timestamps
+    built_ts = ts_syslog(base_date, day, start_hour, start_min, start_sec)
+    teardown_ts = ts_syslog(base_date, day, end_hour, end_min, end_sec)
+
+    reason = random.choice(ASA_TEARDOWN_REASONS)
+    pri6 = asa_pri(6)
+
+    events.append(f"{pri6}{built_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for outside:{src}/{sp} ({src}/{sp}) to dmz:{dst}/{dp} ({dst}/{dp})")
+    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{src}/{sp} to dmz:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
+
+    return events
+
+
+def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
+                           registry_sessions: List[Dict] = None) -> List[str]:
     """Generate baseline events for one hour.
 
     Event distribution (updated for perimeter + internal traffic):
-    - 25% Web sessions (inbound to DMZ) - correlates with access logs
+    - 25% Web sessions (inbound to DMZ) - NOW registry-driven for 1:1 access correlation
     - 16% Outbound TCP sessions (users browsing)
     - 12% DNS queries (external)
     - 10% DC traffic (Kerberos, LDAP, DNS, SMB) — AD backbone
@@ -957,17 +1054,45 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     - 2% HTTP inspection events
     - 1% Admin commands
     - 1% Internal ACL denies
+
+    When registry_sessions is provided, web sessions are generated from the registry
+    (1:1 match with access logs) instead of random generation. The remaining 75%
+    of event_count is filled with non-web traffic types.
     """
     events = []
 
-    for _ in range(event_count):
+    # --- Phase 1: Registry-driven web sessions (if available) ---
+    registry_web_events = 0
+    if registry_sessions:
+        # Find sessions that start in this hour on this day
+        hour_sessions = [s for s in registry_sessions
+                         if _parse_registry_hour(s["start_ts"]) == hour
+                         and _parse_registry_day(s["start_ts"], base_date) == day]
+        for sess in hour_sessions:
+            events.extend(asa_web_session_from_registry(base_date, sess))
+            registry_web_events += 1  # Each produces 2 events (Built+Teardown)
+
+    # --- Phase 2: Non-web baseline events ---
+    # Calculate remaining events: total minus registry web events (2 events each)
+    # The 25% web allocation is now handled by the registry, so we generate
+    # the remaining 75% of event_count as non-web traffic.
+    remaining_events = max(0, event_count - registry_web_events)
+
+    # If no registry available, fall back to original behavior (including random web sessions)
+    use_random_web = not registry_sessions
+
+    for _ in range(remaining_events):
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
         event_type = random.randint(1, 100)
 
         if event_type <= 25:
-            # Web sessions to DMZ (WEB-01/02)
-            events.extend(asa_web_session(base_date, day, hour, minute, second))
+            if use_random_web:
+                # Fallback: random web sessions when no registry available
+                events.extend(asa_web_session(base_date, day, hour, minute, second))
+            else:
+                # Registry handles web sessions; redistribute to outbound TCP
+                events.extend(asa_tcp_session(base_date, day, hour, minute, second))
         elif event_type <= 41:
             # Outbound TCP sessions
             events.extend(asa_tcp_session(base_date, day, hour, minute, second))
@@ -1093,6 +1218,13 @@ def generate_asa_logs(
     include_ddos_attack = "ddos_attack" in active_scenarios
     include_cpu_runaway = "cpu_runaway" in active_scenarios
 
+    # Load web session registry (for 1:1 correlation with access logs)
+    # Registry is written by generate_access.py — if not available, ASA falls
+    # back to generating random web sessions (original behavior).
+    registry_sessions = load_web_session_registry()
+    if not quiet and registry_sessions:
+        print(f"  Loaded {len(registry_sessions):,} web sessions from access registry", file=sys.stderr)
+
     # Scale base events
     # 10x increase from 200 to 2000 to better reflect perimeter traffic
     # ASA sees ALL external traffic including web servers (WEB-01/02), VPN, etc.
@@ -1122,8 +1254,9 @@ def generate_asa_logs(
             # Calculate events for this hour using natural variation
             hour_events = calc_natural_events(base_events_per_peak_hour, start_date, day, hour, "firewall")
 
-            # Generate baseline
-            all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events))
+            # Generate baseline (with registry-driven web sessions if available)
+            all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events,
+                                                     registry_sessions=registry_sessions))
 
             # Nightly backup traffic (BACKUP-ATL-01 -> FILE-BOS-01, 22:00-04:00)
             all_events.extend(asa_backup_traffic(start_date, day, hour))

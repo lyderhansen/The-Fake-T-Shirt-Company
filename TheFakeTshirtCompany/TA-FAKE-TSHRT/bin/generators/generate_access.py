@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
 from shared.time_utils import date_add, calc_natural_events
-from shared.company import US_IP_PFX
+from shared.company import US_IP_PFX, get_customer_ip, get_visitor_ip
 from shared.products import PRODUCTS, PRODUCT_CATEGORIES
 from scenarios.network import CertificateExpiryScenario
 from scenarios.network.firewall_misconfig import FirewallMisconfigScenario
@@ -93,15 +93,16 @@ QTY_WEIGHTS = [80, 20]
 ORDER_SEQUENCE = 0
 ORDER_REGISTRY: List[Dict] = []
 
+# Web session registry for ASA 1:1 correlation
+WEB_SESSION_REGISTRY: List[Dict] = []
+
 
 # =============================================================================
 # HELPERS
 # =============================================================================
 
-def get_visitor_ip() -> str:
-    """Get a random visitor IP."""
-    prefix = random.choice(US_IP_PFX)
-    return f"{prefix}.{random.randint(1, 254)}"
+# NOTE: get_visitor_ip() is now imported from shared.company (international IP pools)
+# NOTE: get_customer_ip() is now imported from shared.company (deterministic per customer_id)
 
 
 def get_user_agent() -> str:
@@ -312,7 +313,6 @@ def generate_session(
     # Session identifiers
     session_id = generate_session_id()
     tshirtcid = generate_tshirtcid()
-    ip = get_visitor_ip()
     ua = get_user_agent()
 
     # Pick session type
@@ -330,10 +330,16 @@ def generate_session(
 
     page_count = random.randint(*page_range)
 
-    # Customer ID for purchase/abandoned sessions
+    # Customer ID for purchase/abandoned sessions (assigned BEFORE IP for deterministic mapping)
     customer_id = "-"
     if session_type in ("abandoned", "purchase"):
         customer_id = get_customer_id(pool_total, pool_vip)
+
+    # IP assignment: deterministic for customers, random international for visitors
+    if customer_id != "-":
+        ip = get_customer_ip(customer_id)
+    else:
+        ip = get_visitor_ip()
 
     # Cart tracking
     cart_items = 0
@@ -353,9 +359,14 @@ def generate_session(
             planned_cart.append((slug, qty))
     planned_cart_index = 0  # Track which planned item we're adding next
 
+    # Web server for this session (consistent throughout)
+    web_server = random.choice(["172.16.1.10", "172.16.1.11"])
+    web_port = random.choice([80, 443])
+
     # Time tracking
     dt = date_add(base_date, day)
     current_sec = start_hour * 3600 + start_min * 60 + start_sec
+    first_event_sec = current_sec  # Track for session registry
 
     # Landing page selection
     landing_roll = random.randint(1, 100)
@@ -549,6 +560,42 @@ def generate_session(
             else:
                 current_url = f"/products/{random.choice(PRODUCT_SLUGS)}"
 
+    # Record session in web session registry for ASA 1:1 correlation
+    if events:
+        last_event_sec = current_sec  # Last page timestamp
+        # Sum response bytes from access log lines (format: ... "METHOD /path HTTP/1.1" STATUS BYTES ...)
+        total_bytes = 0
+        for e in events:
+            try:
+                # After closing quote of request: status and bytes
+                after_req = e.split('" ')[1]
+                total_bytes += int(after_req.split(' ')[1])
+            except (IndexError, ValueError):
+                total_bytes += 5000  # Fallback estimate
+
+        # Format timestamps as ISO 8601
+        start_dt = dt.replace(
+            hour=min(23, first_event_sec // 3600),
+            minute=min(59, (first_event_sec % 3600) // 60),
+            second=min(59, first_event_sec % 60),
+        )
+        end_dt = dt.replace(
+            hour=min(23, last_event_sec // 3600),
+            minute=min(59, (last_event_sec % 3600) // 60),
+            second=min(59, last_event_sec % 60),
+        )
+
+        WEB_SESSION_REGISTRY.append({
+            "ip": ip,
+            "start_ts": start_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end_ts": end_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "bytes": total_bytes,
+            "dst": web_server,
+            "dst_port": web_port,
+            "session_id": session_id,
+            "pages": len(events),
+        })
+
     return events
 
 
@@ -564,8 +611,8 @@ def generate_ssl_error_event(
     dt = date_add(base_date, day).replace(hour=hour, minute=minute, second=second)
     ts = format_apache_time(dt)
 
-    # Random customer IP
-    ip = f"{random.choice(US_IP_PFX)}.{random.randint(1, 254)}"
+    # Random visitor IP (international)
+    ip = get_visitor_ip()
 
     # Paths that would fail
     paths = ["/", "/products", "/cart", "/checkout", "/api/v1/products", "/api/v1/cart"]
@@ -611,7 +658,7 @@ def generate_access_logs(
                         Default (~224/day with base 300) can be increased to e.g. 3000/day
                         for high-volume demos with more revenue impact.
     """
-    global ORDER_SEQUENCE, ORDER_REGISTRY
+    global ORDER_SEQUENCE, ORDER_REGISTRY, WEB_SESSION_REGISTRY
 
     if output_file:
         output_path = Path(output_file)
@@ -623,9 +670,13 @@ def generate_access_logs(
     # Order registry path
     registry_path = output_path.parent / "order_registry.json"
 
+    # Web session registry path (for ASA 1:1 correlation)
+    session_registry_path = output_path.parent / "web_session_registry.json"
+
     # Reset order tracking
     ORDER_SEQUENCE = 0
     ORDER_REGISTRY = []
+    WEB_SESSION_REGISTRY = []
 
     # Calculate base sessions per peak hour
     # Default: 300 sessions/peak hour -> ~224 orders/day
@@ -849,8 +900,13 @@ def generate_access_logs(
         for entry in ORDER_REGISTRY:
             f.write(json.dumps(entry) + "\n")
 
+    # Write web session registry as JSONL (for ASA 1:1 correlation)
+    with open(session_registry_path, "w") as f:
+        for entry in WEB_SESSION_REGISTRY:
+            f.write(json.dumps(entry) + "\n")
+
     if not quiet:
-        print(f"  [Access] Complete! {len(all_events):,} events, {len(ORDER_REGISTRY)} orders", file=sys.stderr)
+        print(f"  [Access] Complete! {len(all_events):,} events, {len(ORDER_REGISTRY)} orders, {len(WEB_SESSION_REGISTRY):,} web sessions", file=sys.stderr)
 
     return len(all_events)
 

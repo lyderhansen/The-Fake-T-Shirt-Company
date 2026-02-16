@@ -125,6 +125,7 @@ SOURCE_GROUPS = {
 GENERATOR_DEPENDENCIES = {
     "orders": ["access"],
     "servicebus": ["access"],
+    "asa": ["access"],        # ASA reads web_session_registry.json for 1:1 correlation
     "meraki": ["webex"],      # Meraki door sensors use Webex meeting schedule
     "exchange": ["webex"],    # Exchange calendar emails use Webex meeting schedule
     "webex_ta": ["webex"],    # Webex TA reads shared meeting schedule

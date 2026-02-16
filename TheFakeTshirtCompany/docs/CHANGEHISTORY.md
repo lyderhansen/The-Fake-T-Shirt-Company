@@ -4,6 +4,44 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~10:30 UTC -- International Customer IPs + Access-ASA 1:1 Correlation
+
+### Context
+
+Customer IP addresses in access logs and ASA firewall logs were all US-only (6 hardcoded US prefixes), despite `customer_lookup.csv` having international customers. Additionally, ASA web session events used random IPs with zero correlation to access log sessions.
+
+### Added
+
+**International IP pools (23 countries):**
+- `bin/shared/company.py` -- Added `CUSTOMER_IP_POOLS` (60 IP prefixes across 23 countries: US, CA, NO, SE, DK, FI, UK, DE, FR, NL, BE, CH, AT, IE, ES, IT, PT, PL, JP, AU, SG, IN, KR), `BROWSE_REGION_WEIGHTS` (weighted country distribution for random browse traffic), pre-computed `_BROWSE_REGIONS`/`_BROWSE_WEIGHTS` lists
+
+**Deterministic IP functions:**
+- `bin/shared/company.py` -- Added `get_customer_region(customer_id)` (moved from generate_orders.py), `get_customer_ip(customer_id)` (SHA256 hash-based, same pattern as vpn_ip), `get_visitor_ip()` (random international visitor IP from weighted pools). Added all three to NetworkHelper class.
+
+**Web session registry (new NDJSON file):**
+- `bin/generators/generate_access.py` -- Added `WEB_SESSION_REGISTRY` that captures every web session (IP, timestamps, bytes, web server, port, session_id, page count). Written to `web_session_registry.json` alongside `order_registry.json`.
+
+**ASA 1:1 correlation:**
+- `bin/generators/generate_asa.py` -- Added `load_web_session_registry()`, `asa_web_session_from_registry()`, `_parse_registry_hour()`, `_parse_registry_day()`. Modified `generate_baseline_hour()` to accept `registry_sessions` parameter. Registry-driven web sessions replace random 25% web sessions; falls back to original behavior if registry not available.
+
+### Changed
+
+- `bin/generators/generate_access.py` -- Import `get_customer_ip`, `get_visitor_ip` from company.py instead of local US-only implementation. Reordered customer_id assignment BEFORE IP assignment for deterministic mapping. Updated `generate_ssl_error_event()` to use international `get_visitor_ip()`.
+- `bin/generators/generate_orders.py` -- Import `get_customer_region` from `shared.company` instead of local definition (identical logic).
+- `bin/main_generate.py` -- Added `"asa": ["access"]` to `GENERATOR_DEPENDENCIES` (ASA now runs in Phase 2 after access).
+
+### Verification
+
+- Generators run: access (24,342 events), asa (32,465 events) -- 3-day test at scale 0.3
+- Web session registry: 3,216 sessions captured
+- **1:1 correlation: 3,216/3,216 (100%) web sessions found in ASA log**
+- International distribution: 23 countries represented (US 58.6%, UK 7.6%, DE 5.9%, NO 5.8%, FR 3.9%, etc.)
+- Deterministic: same customer_id always maps to same IP
+- Orders generator: verified working with new import path
+- All non-web ASA traffic (employee outbound, DNS, VPN, DC, site-to-site) unchanged
+
+---
+
 ## 2026-02-16 ~01:30 UTC -- Supporting TA Alignment Phase 17+18: Final 8 Sourcetypes (100% CIM)
 
 ### Added
