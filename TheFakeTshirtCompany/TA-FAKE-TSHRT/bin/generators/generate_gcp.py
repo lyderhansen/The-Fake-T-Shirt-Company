@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path, Config
 from shared.time_utils import ts_gcp, date_add, calc_natural_events, TimeUtils
-from shared.company import GCP_PROJECT, GCP_REGION, ORG_NAME_LOWER, get_internal_ip, USERS, get_random_user, Company
+from shared.company import GCP_PROJECT, GCP_REGION, ORG_NAME_LOWER, get_internal_ip, USERS, get_random_user, Company, TENANT
 from scenarios.registry import expand_scenarios
 
 # Log types
@@ -230,7 +230,7 @@ def gcp_compute_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -252,7 +252,7 @@ def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list 
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -275,7 +275,7 @@ def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: li
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -298,7 +298,7 @@ def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -318,7 +318,7 @@ def gcp_compute_start_stop(base_date: str, day: int, hour: int) -> Dict[str, Any
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -339,7 +339,7 @@ def gcp_iam_sa_key_create(base_date: str, day: int, hour: int) -> Dict[str, Any]
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -359,7 +359,7 @@ def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -383,7 +383,7 @@ def gcp_logging_write(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -411,7 +411,7 @@ def gcp_logging_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -442,7 +442,7 @@ def gcp_storage_delete(base_date: str, day: int, hour: int,
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -467,7 +467,7 @@ def gcp_storage_bucket_get(base_date: str, day: int, hour: int) -> Dict[str, Any
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -486,7 +486,7 @@ def gcp_bigquery_tabledata_list(base_date: str, day: int, hour: int) -> Dict[str
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -510,7 +510,7 @@ def gcp_iam_set_policy(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute, second = random.randint(0, 59), random.randint(0, 59)
     if random.random() < 0.5:
         user = _pick_gcp_user()
-        principal = f"{user.username}@theTshirtCompany.com"
+        principal = f"{user.username}@{TENANT}"
         caller_ip = user.ip_address
     else:
         principal = random.choice(GCP_SERVICE_ACCOUNTS)
@@ -714,7 +714,7 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
             minute, second = random.randint(0, 59), random.randint(0, 59)
             if random.random() < 0.5:
                 _user = _pick_gcp_user()
-                principal = f"{_user.username}@theTshirtCompany.com"
+                principal = f"{_user.username}@{TENANT}"
                 _caller_ip = _user.ip_address
             else:
                 principal = random.choice(GCP_SERVICE_ACCOUNTS)

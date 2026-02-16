@@ -1282,7 +1282,7 @@ def generate_asa_logs(
     all_events = []
 
     for day in range(days):
-        init_cid_allocator(day)  # Reset connection ID counter for each day
+        init_cid_allocator(day)  # First call initializes; subsequent calls are no-ops (counter is global)
         if progress_callback:
             progress_callback("asa", day + 1, days)
         dt = date_add(start_date, day)

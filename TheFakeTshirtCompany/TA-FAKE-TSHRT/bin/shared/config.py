@@ -386,29 +386,43 @@ def move_output_to_production(quiet: bool = False) -> dict:
 import random as _random
 
 _cid_counter = 0
-_cid_base = 100000
+_cid_initialized = False
 
 def init_cid_allocator(day_seed: int = 0):
-    """Reset the connection ID allocator with a deterministic starting point.
+    """Initialize the connection ID allocator (call once per generation run).
 
-    Called once per day of generation. The starting point is derived from
-    the day number so that different days produce different ID ranges,
-    mimicking a real ASA whose connection counter wraps around over time.
+    Sets a deterministic starting point based on the seed. Subsequent calls
+    with different day_seed are intentionally no-ops -- the counter is global
+    and monotonically increasing across all days, just like a real ASA whose
+    connection counter never resets.
+
+    The first call (day_seed=0 typically) sets the starting offset.
+    All subsequent calls are ignored so the counter keeps climbing.
     """
-    global _cid_counter, _cid_base
+    global _cid_counter, _cid_initialized
+    if _cid_initialized:
+        return  # Already initialized -- keep counting from where we left off
+    _cid_initialized = True
     _cid_counter = 0
-    # Deterministic base per day: spread across the 100000-999999 range
-    rng = _random.Random(42 + day_seed)
-    _cid_base = rng.randint(100000, 500000)
 
 def next_cid() -> int:
     """Return the next unique ASA connection ID.
 
-    Monotonically increasing within a day. Wraps within 100000-999999 range.
+    Monotonically increasing across the entire generation run (all days).
+    Wraps within the 100000-999999 range (900,000 unique IDs).
+    With typical runs of 31 days * ~17,500 events/day = ~540K events,
+    this guarantees zero collisions.
     """
     global _cid_counter
     _cid_counter += 1
-    return 100000 + (_cid_base - 100000 + _cid_counter) % 900000
+    return 100000 + (_cid_counter % 900000)
+
+
+def reset_cid_allocator():
+    """Reset the CID allocator for testing purposes only."""
+    global _cid_counter, _cid_initialized
+    _cid_counter = 0
+    _cid_initialized = False
 
 
 # =============================================================================

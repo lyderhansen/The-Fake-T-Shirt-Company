@@ -398,9 +398,9 @@ CLIENT_APP_PROFILES = [
             {"dst_ip": "52.96.166.130", "dst_port": 443, "protocol": "tcp"},
             {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
         ],
-        "dns": ["outlook.office365.com", "graph.microsoft.com", "login.microsoftonline.com", "autodiscover.theTshirtCompany.com"],
+        "dns": ["outlook.office365.com", "graph.microsoft.com", "login.microsoftonline.com", f"autodiscover.{TENANT}"],
         "files": [
-            "C:\\Users\\{user}\\AppData\\Local\\Microsoft\\Outlook\\{user}@theTshirtCompany.com.ost",
+            f"C:\\Users\\{{user}}\\AppData\\Local\\Microsoft\\Outlook\\{{user}}@{TENANT}.ost",
             "C:\\Users\\{user}\\AppData\\Local\\Temp\\Outlook Temp\\~tmp{rand}.tmp",
         ],
         "dlls": [

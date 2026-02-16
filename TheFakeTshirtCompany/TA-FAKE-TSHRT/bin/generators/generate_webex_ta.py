@@ -306,12 +306,13 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
     # Host as first attendee
     host_join = scheduled_meeting.start_time - timedelta(minutes=random.randint(1, 5))
     host_leave = scheduled_meeting.end_time + timedelta(minutes=random.randint(0, 2))
+    host_user = _lookup_user_by_email(host_email)
     attendees.append(AttendeeRecord(
         name=host_name,
         email=host_email,
         join_time=host_join,
         leave_time=host_leave,
-        ip_address=get_user_ip(location),
+        ip_address=host_user.ip_address if host_user else get_user_ip(location),
         client_type=random.choice(CLIENT_TYPES[:4]),
         client_os=random.choice(CLIENT_OS[:4]),
         is_external=False,
@@ -328,7 +329,7 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
 
         if user:
             name = user.display_name
-            ip_address = get_user_ip(user.location)
+            ip_address = user.ip_address
         else:
             # External participant
             name = p_email.split("@")[0].replace(".", " ").title()
@@ -533,7 +534,7 @@ def generate_attendees(
         email=f"{host.username}@{TENANT}",
         join_time=host_join,
         leave_time=host_leave,
-        ip_address=get_user_ip(location),
+        ip_address=host.ip_address,
         client_type=random.choice(CLIENT_TYPES[:4]),  # Desktop/web for host
         client_os=random.choice(CLIENT_OS[:4]),
         is_external=False,
@@ -564,7 +565,7 @@ def generate_attendees(
         else:
             name = attendee.display_name
             email = f"{attendee.username}@{TENANT}"
-            ip_address = get_user_ip(location)
+            ip_address = attendee.ip_address
 
         # Join time (most join on time or slightly late)
         join_offset = random.choice([

@@ -4,6 +4,77 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~20:00 UTC -- Logical Correlation Verification (120 checks, 21 categories)
+
+### Context
+
+Systematic verification of all logical correlations between 24 log generators, 10 scenarios, and shared data structures. 120 checks across 21 categories were tested against a 14-day generated dataset (3.2M events).
+
+### Bugs Fixed
+
+- **`bin/generators/generate_gcp.py`** -- Fixed email domain: all 14 `principalEmail` references used hardcoded `@theTshirtCompany.com` instead of `@theFakeTshirtCompany.com`. Now imports and uses `TENANT` constant from company.py. Affected ~8,375 events per 14-day run.
+- **`bin/generators/generate_sysmon.py`** -- Fixed 2 hardcoded domain references in Outlook process template: `autodiscover.theTshirtCompany.com` and `.ost` filename. Now uses f-string with `TENANT` constant.
+- **`bin/generators/generate_webex_ta.py`** -- Fixed attendee IP assignment: all 4 calls to `get_user_ip(location)` (which generated random subnet IPs) replaced with deterministic `user.ip_address` / `host.ip_address` from company.py. All 175 employees now get consistent IPs across Webex TA and other generators.
+
+### Verification Summary (120 checks)
+
+| Category | Checks | Pass | Partial | Fail | Gap |
+|----------|--------|------|---------|------|-----|
+| 1. ASA Network Flow Logic | 10 | 9 | 0 | 0 | 1 |
+| 2. E-Commerce Pipeline | 9 | 9 | 0 | 0 | 0 |
+| 3. VPN & Remote Access | 7 | 5 | 0 | 0 | 2 |
+| 4. Authentication Chain | 8 | 7 | 0 | 0 | 1 |
+| 5. Exchange + O365 | 7 | 7 | 0 | 0 | 0 |
+| 6. Meraki Multi-Device | 10 | 10 | 0 | 0 | 0 |
+| 7. Meeting Room Correlation | 8 | 7 | 0 | 0 | 1 |
+| 8. DNS & Secure Access | 6 | 6 | 0 | 0 | 0 |
+| 9. ACI Data Center | 5 | 3 | 1 | 0 | 1 |
+| 10. Catalyst & Catalyst Center | 5 | 5 | 0 | 0 | 0 |
+| 11. Windows Metrics | 6 | 6 | 0 | 0 | 0 |
+| 12. Linux Metrics + Access | 5 | 5 | 0 | 0 | 0 |
+| 13. ServiceNow Incidents | 5 | 5 | 0 | 0 | 0 |
+| 14. AWS + GCP Cloud | 6 | 6 | 0 | 0 | 0 |
+| 15. Timestamps & Timezone | 4 | 4 | 0 | 0 | 0 |
+| 16. Volume & Business Hours | 6 | 6 | 0 | 0 | 0 |
+| 17. User-Device-IP Binding | 5 | 3 | 0 | 0 | 2 |
+| 18. Scenario demo_id Tagging | 4 | 4 | 0 | 0 | 0 |
+| 19. Dependency Chain | 4 | 4 | 0 | 0 | 0 |
+| 20. Physical Impossibility | 4 | 4 | 0 | 0 | 0 |
+| 21. Edge Cases | 3 | 3 | 0 | 0 | 0 |
+| **TOTAL** | **120** | **112** | **1** | **0** | **8** |
+
+### Known Gaps (not fixed, documented for future consideration)
+
+1. **VPN IP hash collisions (minor)**: 26 of 90 VPN IPs shared by 2-4 users due to SHA256 mapping into 200-address pool. Each user is deterministic but not unique.
+2. **EntraID missing VPN IPs**: VPN users show site-local IPs instead of 10.250.0.x in EntraID sign-ins.
+3. **Ransomware scenario missing from EntraID**: CLAUDE.md lists `entraid` as affected source for ransomware_attempt, but no EntraID events carry demo_id=ransomware_attempt.
+4. **Ghost meetings lack explicit tag**: ~15% ghost meetings per spec, but no explicit `ghost: true` field -- must be inferred from missing participant_joined events.
+5. **ACI contract-match missing WEB->APP traffic**: APP->DB (22 events) present, but WebDMZ EPG events use random server IPs instead of DMZ 172.16.1.x.
+6. **ACI not tagged for memory_leak**: ACI is not listed as affected source for memory_leak in CLAUDE.md (by design).
+7. **Catalyst Center/ACI include empty demo_id key**: Baseline events have `"demo_id": ""` instead of omitting the key (cosmetic).
+
+---
+
+## 2026-02-17 ~18:00 UTC -- ASA CID Allocator Fix: Cross-Day Collisions
+
+### Context
+
+The previous CID allocator fix (same session) used per-day random base offsets with `init_cid_allocator(day)` resetting the counter each day. With 31 days and random bases in a 400K range, day ranges overlapped -- session_id 412720 appeared on 9 different days with different src/dst. Root cause: `_cid_base = rng.randint(100000, 500000)` per day with ~17,500 events/day = ranges overlap.
+
+### Changes
+
+- **`bin/shared/config.py`** -- Rewrote CID allocator to use a single global monotonic counter that NEVER resets across days. `init_cid_allocator()` now initializes once (first call only); subsequent calls are no-ops. Added `reset_cid_allocator()` for testing. Counter wraps within 100000-999999 range (900K unique IDs, sufficient for 31 days * ~17,500/day = ~540K events).
+- **`bin/generators/generate_asa.py`** -- Updated comment on `init_cid_allocator(day)` call to reflect new no-op behavior.
+
+### Verification
+
+- Generated 31-day dataset with all scenarios: 1,034,191 events, 517,521 unique CIDs
+- Zero cross-day collisions (previously ~2,000+ per day)
+- Zero same-day duplicates
+- CID range: 100001 to 617521 (well within 900K limit)
+
+---
+
 ## 2026-02-17 ~16:00 UTC -- Project Audit: Splunk Config Cleanup
 
 ### Context
