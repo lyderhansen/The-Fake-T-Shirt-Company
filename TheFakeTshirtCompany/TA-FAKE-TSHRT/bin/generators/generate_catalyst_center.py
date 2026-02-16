@@ -577,6 +577,7 @@ def generate_catalyst_center_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Cisco Catalyst Center logs (device/network/client health + issues).
@@ -617,6 +618,8 @@ def generate_catalyst_center_logs(
     poll_minutes = list(range(0, 60, 5))  # [0, 5, 10, ..., 55]
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("catalyst_center", day + 1, days)
         day_date = date_add(start_date, day)
         date_str = day_date.strftime("%Y-%m-%d")
 

@@ -554,6 +554,7 @@ def generate_aws_guardduty_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate AWS GuardDuty findings.
@@ -587,6 +588,8 @@ def generate_aws_guardduty_logs(
     all_findings: List[Dict[str, Any]] = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("aws_guardduty", day + 1, days)
         if not quiet:
             dt = date_add(start_date, day)
             print(f"  [GuardDuty] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")

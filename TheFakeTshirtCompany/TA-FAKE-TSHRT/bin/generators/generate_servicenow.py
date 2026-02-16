@@ -1791,6 +1791,7 @@ def generate_servicenow_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """
@@ -1851,6 +1852,8 @@ def generate_servicenow_logs(
     all_incidents = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("servicenow", day + 1, days)
         current_date = base_date + timedelta(days=day)
         weekday = current_date.weekday()
 

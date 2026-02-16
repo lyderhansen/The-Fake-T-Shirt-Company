@@ -507,6 +507,7 @@ def generate_orders(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate retail orders from order_registry.json.

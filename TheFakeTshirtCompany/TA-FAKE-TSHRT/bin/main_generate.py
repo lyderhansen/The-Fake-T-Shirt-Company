@@ -13,6 +13,7 @@ import argparse
 import os
 import sys
 import time
+import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Callable
@@ -28,6 +29,47 @@ if sys.stdout.isatty() and os.environ.get("NO_COLOR") is None:
     _C_YELLOW = "\033[33m"
 else:
     _C_RESET = _C_DIM = _C_CYAN = _C_GREEN = _C_YELLOW = ""
+
+# =============================================================================
+# LIVE PROGRESS TRACKING
+# =============================================================================
+
+_progress_lock = threading.Lock()
+_progress = {}          # {name: {"day": N, "days": N, "status": str, "start": float}}
+_progress_stop = False  # Signal to stop the display thread
+
+
+def _report_progress(name, day, days):
+    """Called by generators to report current day progress (thread-safe)."""
+    with _progress_lock:
+        if name in _progress:
+            _progress[name]["day"] = day
+
+
+def _progress_display_thread(phase_total):
+    """Background thread that refreshes a compact progress line every 0.5s."""
+    global _progress_stop
+    while not _progress_stop:
+        with _progress_lock:
+            running = [(n, p) for n, p in _progress.items() if p["status"] == "running"]
+            done_count = sum(1 for p in _progress.values() if p["status"] == "done")
+
+        if running:
+            # Show only generators that have started their day loop (day > 0)
+            active = [(n, p) for n, p in running if p["day"] > 0]
+            queued = len(running) - len(active)
+            parts = []
+            for name, p in sorted(active):
+                parts.append(f"{name} {p['day']}/{p['days']}")
+            status = f"  {_C_DIM}[{done_count}/{phase_total}]{_C_RESET} "
+            if parts:
+                status += f" {_C_DIM}|{_C_RESET} ".join(parts)
+            if queued > 0:
+                status += f"  {_C_DIM}(+{queued} queued){_C_RESET}"
+            print(f"\r{status: <120}", end="", flush=True)
+
+        time.sleep(0.5)
+
 
 from shared.config import (
     DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE,
@@ -458,7 +500,7 @@ Output Directories:
             print(f"  Sources:     {', '.join(phase1_sources)}")
         print(f"  Output:      {current_output_base}/")
         print("=" * 70)
-        print()
+        print(flush=True)
 
     # Prepare generator kwargs
     base_kwargs = {
@@ -467,6 +509,7 @@ Output Directories:
         "scale": args.scale,
         "scenarios": args.scenarios,
         "quiet": True,  # Always quiet for parallel execution
+        "progress_callback": _report_progress if not args.quiet else None,
     }
 
     # Perfmon-specific kwargs
@@ -509,12 +552,28 @@ Output Directories:
 
     def run_phase(phase_sources: List[str], phase_name: str = None):
         """Run a phase of generators."""
+        global _progress_stop
         phase_results = []
 
         if phase_name and not args.quiet:
             print(f"\n  === {phase_name} ===")
 
         if args.parallel > 1 and len(phase_sources) > 1:
+            # Register generators in progress tracker and start display thread
+            display_thread = None
+            if not args.quiet:
+                with _progress_lock:
+                    _progress.clear()
+                    for name in phase_sources:
+                        _progress[name] = {
+                            "day": 0, "days": args.days,
+                            "status": "running", "start": time.time(),
+                        }
+                _progress_stop = False
+                display_thread = threading.Thread(
+                    target=_progress_display_thread, args=(len(phase_sources),), daemon=True)
+                display_thread.start()
+
             # Parallel execution
             with ThreadPoolExecutor(max_workers=args.parallel) as executor:
                 futures = {}
@@ -527,7 +586,15 @@ Output Directories:
                 for future in as_completed(futures):
                     result = future.result()
                     phase_results.append(result)
+
+                    # Mark as done in progress tracker
+                    with _progress_lock:
+                        if result["name"] in _progress:
+                            _progress[result["name"]]["status"] = "done"
+
                     if not args.quiet:
+                        # Clear the progress line before printing completion
+                        print(f"\r{' ' * 120}\r", end="", flush=True)
                         count = result.get("count", 0)
                         dur = result["duration"]
                         if result["success"]:
@@ -536,6 +603,13 @@ Output Directories:
                             print(f"  [✗] {result['name']:{_GEN_NAME_WIDTH}} {count:>10,} events  ({dur:.1f}s)")
                         if args.show_files:
                             _print_file_counts(result, current_output_base, output_label)
+
+            # Stop display thread
+            if display_thread:
+                _progress_stop = True
+                display_thread.join(timeout=2)
+                print(f"\r{' ' * 120}\r", end="", flush=True)
+
         else:
             # Sequential execution
             for name in phase_sources:

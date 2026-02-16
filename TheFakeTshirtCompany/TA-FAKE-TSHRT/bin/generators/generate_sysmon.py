@@ -1366,6 +1366,7 @@ def generate_sysmon_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_dir: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Sysmon operational log events.
@@ -1402,6 +1403,8 @@ def generate_sysmon_logs(
     all_events = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("sysmon", day + 1, days)
         day_events = []
 
         # Select workstations for this day

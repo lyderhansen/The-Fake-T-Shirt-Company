@@ -614,6 +614,7 @@ def generate_webex_ta_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Webex TA-compatible logs.
@@ -656,6 +657,8 @@ def generate_webex_ta_logs(
     attendee_records = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("webex_ta", day + 1, days)
         dt = date_add(start_date, day)
 
         if not quiet:

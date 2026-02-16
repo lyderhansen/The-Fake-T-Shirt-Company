@@ -1082,6 +1082,7 @@ def generate_webex_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Webex collaboration device logs."""

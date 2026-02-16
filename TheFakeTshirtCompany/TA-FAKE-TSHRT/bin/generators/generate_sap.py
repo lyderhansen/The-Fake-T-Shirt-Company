@@ -806,6 +806,7 @@ def generate_sap_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_dir: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """
@@ -849,6 +850,8 @@ def generate_sap_logs(
 
     with open(output_path, "w") as f:
         for day in range(days):
+            if progress_callback:
+                progress_callback("sap", day + 1, days)
             for hour in range(24):
                 all_events = []
 

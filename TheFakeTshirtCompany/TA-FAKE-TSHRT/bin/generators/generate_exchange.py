@@ -757,6 +757,7 @@ def generate_exchange_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Exchange message tracking logs in JSON format."""
@@ -810,6 +811,8 @@ def generate_exchange_logs(
     all_usernames = [u.username for u in USERS.values()]
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("exchange", day + 1, days)
         if not quiet:
             dt = date_add(start_date, day)
             print(f"  [Exchange] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")

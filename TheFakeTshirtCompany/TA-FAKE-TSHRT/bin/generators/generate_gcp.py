@@ -179,12 +179,19 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
     ts = ts_gcp(base_date, day, hour, minute, second)
 
     # receiveTimestamp = event time + small pipeline delay (50-500ms)
-    try:
+    # Fast path: string manipulation instead of strptime+strftime round-trip
+    # ts format: "2026-01-05T14:23:45.123456Z" (always 27 chars with 6-digit microseconds)
+    delay_us = random.randint(50000, 500000)  # 50-500ms in microseconds
+    base_us = int(ts[20:26])                  # extract 6-digit microseconds
+    total_us = base_us + delay_us
+    if total_us < 1000000:
+        # Common case (~75%): no second overflow, just swap microseconds
+        receive_ts = ts[:20] + f"{total_us:06d}Z"
+    else:
+        # Rare overflow into next second: fall back to datetime arithmetic
         dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
-    except ValueError:
-        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
-    receive_dt = dt + timedelta(milliseconds=random.randint(50, 500))
-    receive_ts = receive_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        receive_dt = dt + timedelta(microseconds=delay_us)
+        receive_ts = receive_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     return {
         "protoPayload": {
@@ -737,6 +744,7 @@ def generate_gcp_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate GCP audit logs.
@@ -782,6 +790,8 @@ def generate_gcp_logs(
     all_events = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("gcp", day + 1, days)
         if not quiet:
             dt = date_add(start_date, day)
             print(f"  [GCP] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")

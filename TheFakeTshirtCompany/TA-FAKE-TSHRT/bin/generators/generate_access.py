@@ -649,6 +649,7 @@ def generate_access_logs(
     scenarios: str = "none",
     output_file: str = None,
     orders_per_day: int = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate web access logs with full session tracking.
@@ -744,6 +745,8 @@ def generate_access_logs(
     all_events = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("access", day + 1, days)
         if not quiet:
             dt = date_add(start_date, day)
             print(f"  [Access] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")

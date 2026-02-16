@@ -530,6 +530,7 @@ def generate_linux_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_dir: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Linux system metrics."""
@@ -590,6 +591,8 @@ def generate_linux_logs(
     auth_events = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("linux", day + 1, days)
         dt = date_add(start_date, day)
         is_wknd = is_weekend(dt)
 

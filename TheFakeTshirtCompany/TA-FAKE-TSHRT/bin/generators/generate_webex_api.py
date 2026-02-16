@@ -674,6 +674,7 @@ def generate_webex_api_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Webex REST API logs.
@@ -718,6 +719,8 @@ def generate_webex_api_logs(
     all_call_histories = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("webex_api", day + 1, days)
         dt = date_add(start_date, day)
 
         if not quiet:

@@ -1066,6 +1066,7 @@ def generate_secure_access_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Cisco Secure Access (Umbrella) logs.
@@ -1124,6 +1125,8 @@ def generate_secure_access_logs(
 
     # Main generation loop
     for day in range(days):
+        if progress_callback:
+            progress_callback("secure_access", day + 1, days)
         day_date = date_add(start_date, day)
         date_str = day_date.strftime("%Y-%m-%d")
 

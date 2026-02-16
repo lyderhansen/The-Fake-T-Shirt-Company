@@ -583,6 +583,7 @@ def generate_mssql_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_dir: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Microsoft SQL Server Error Log.
@@ -641,6 +642,8 @@ def generate_mssql_logs(
 
     # Per-day generation
     for day in range(days):
+        if progress_callback:
+            progress_callback("mssql", day + 1, days)
         # Nightly backup
         all_events.extend(generate_backup_event(base_date, day, cpu_runaway_active))
 

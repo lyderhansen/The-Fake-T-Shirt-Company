@@ -751,6 +751,7 @@ def generate_office_audit_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Microsoft 365 Unified Audit Log events.
@@ -805,6 +806,8 @@ def generate_office_audit_logs(
 
     # Main generation loop
     for day in range(days):
+        if progress_callback:
+            progress_callback("office_audit", day + 1, days)
         day_date = date_add(start_date, day)
         date_str = day_date.strftime("%Y-%m-%d")
 

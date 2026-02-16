@@ -788,6 +788,15 @@ USER_KEYS = list(USERS.keys())
 # VPN-enabled users (filtered list for convenience)
 VPN_USERS = [u for u, user in USERS.items() if user.vpn_enabled]
 
+# Pre-computed caches for get_random_user() performance.
+# Built once at module load; eliminates per-call list allocation.
+_USERS_LIST = list(USERS.values())
+_USERS_BY_LOCATION = {}
+_USERS_BY_DEPARTMENT = {}
+for _u in _USERS_LIST:
+    _USERS_BY_LOCATION.setdefault(_u.location, []).append(_u)
+    _USERS_BY_DEPARTMENT.setdefault(_u.department, []).append(_u)
+
 # =============================================================================
 # SERVER INVENTORY
 # =============================================================================
@@ -1601,20 +1610,43 @@ def get_dmz_ip() -> str:
 def get_random_user(location=None, department: str = None) -> User:
     """Get a random user, optionally filtered by location(s) or department.
 
+    Uses pre-computed caches (_USERS_LIST, _USERS_BY_LOCATION, _USERS_BY_DEPARTMENT)
+    to avoid allocating a new list on every call. The unfiltered fast path (no args)
+    is a single random.choice() with zero allocation.
+
     Args:
         location: str or list of str. E.g. "BOS" or ["BOS", "AUS"].
         department: str filter for department name.
     """
-    filtered = list(USERS.values())
-    if location:
+    # Fast path: no filters (most common — ~80% of call sites)
+    if location is None and department is None:
+        return random.choice(_USERS_LIST)
+
+    # Location-only filter
+    if location is not None and department is None:
         if isinstance(location, str):
-            location = [location]
-        filtered = [u for u in filtered if u.location in location]
-    if department:
-        filtered = [u for u in filtered if u.department == department]
-    if not filtered:
-        filtered = list(USERS.values())
-    return random.choice(filtered)
+            pool = _USERS_BY_LOCATION.get(location, _USERS_LIST)
+        else:
+            pool = []
+            for loc in location:
+                pool.extend(_USERS_BY_LOCATION.get(loc, []))
+            if not pool:
+                pool = _USERS_LIST
+        return random.choice(pool)
+
+    # Department-only filter
+    if location is None and department is not None:
+        pool = _USERS_BY_DEPARTMENT.get(department, _USERS_LIST)
+        return random.choice(pool)
+
+    # Both filters (rare)
+    if isinstance(location, str):
+        location = [location]
+    pool = [u for u in _USERS_LIST
+            if u.location in location and u.department == department]
+    if not pool:
+        pool = _USERS_LIST
+    return random.choice(pool)
 
 
 def get_random_vpn_user() -> User:
@@ -1685,12 +1717,12 @@ def get_visitor_ip() -> str:
 
 def get_users_by_location(location: str) -> List[User]:
     """Get all users at a specific location."""
-    return [u for u in USERS.values() if u.location == location]
+    return _USERS_BY_LOCATION.get(location, [])
 
 
 def get_users_by_department(department: str) -> List[User]:
     """Get all users in a specific department."""
-    return [u for u in USERS.values() if u.department == department]
+    return _USERS_BY_DEPARTMENT.get(department, [])
 
 
 def get_vip_users() -> List[User]:

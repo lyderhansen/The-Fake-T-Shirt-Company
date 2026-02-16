@@ -547,6 +547,7 @@ def generate_aci_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Cisco ACI logs (fault, event, audit).
@@ -586,6 +587,8 @@ def generate_aci_logs(
     event_base = int(150 * scale)
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("aci", day + 1, days)
         day_date = date_add(start_date, day)
         date_str = day_date.strftime("%Y-%m-%d")
 

@@ -204,6 +204,7 @@ def generate_aws_billing_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate AWS Cost & Usage Report (CUR) billing data.
@@ -238,6 +239,8 @@ def generate_aws_billing_logs(
     total_scenario_cost = 0.0
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("aws_billing", day + 1, days)
         dt = date_add(start_date, day)
         day_str = dt.strftime("%Y-%m-%d")
         next_day_str = (dt + timedelta(days=1)).strftime("%Y-%m-%d")

@@ -2771,10 +2771,11 @@ def generate_meraki_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
-    quiet: bool = False,
     health_interval: int = 15,
     mr_health_enabled: bool = True,
     ms_health_enabled: bool = True,
+    progress_callback=None,
+    quiet: bool = False,
 ) -> int:
     """Generate Cisco Meraki logs for all locations.
 
@@ -2873,6 +2874,8 @@ def generate_meraki_logs(
     mt_events = []         # MT sensor
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("meraki", day + 1, days)
         dt = date_add(start_date, day)
         is_wknd = is_weekend(dt)
 

@@ -267,7 +267,7 @@ def get_mfa_details() -> Dict[str, Any]:
 # =============================================================================
 
 def signin_success(base_date: str, day: int, hour: int, minute: int = None, second: int = None,
-                   active_scenarios: list = None) -> str:
+                   active_scenarios: list = None) -> Dict[str, Any]:
     """Generate successful sign-in event with MFA details."""
     if minute is None:
         minute = random.randint(0, 59)
@@ -339,10 +339,10 @@ def signin_success(base_date: str, day: int, hour: int, minute: int = None, seco
     if active_scenarios and should_tag_signin_exfil(user.username, day, active_scenarios):
         event["demo_id"] = "exfil"
 
-    return json.dumps(event)
+    return event
 
 
-def signin_failed(base_date: str, day: int, hour: int, minute: int = None, second: int = None) -> str:
+def signin_failed(base_date: str, day: int, hour: int, minute: int = None, second: int = None) -> Dict[str, Any]:
     """Generate failed sign-in event."""
     if minute is None:
         minute = random.randint(0, 59)
@@ -403,14 +403,14 @@ def signin_failed(base_date: str, day: int, hour: int, minute: int = None, secon
         }
     }
 
-    return json.dumps(event)
+    return event
 
 
 def signin_blocked_by_ca(base_date: str, day: int, hour: int, minute: int = None,
                          username: str = None, client_ip: str = None,
                          app_name: str = "Microsoft Office",
                          policy_name: str = "Block legacy authentication",
-                         demo_id: str = None) -> str:
+                         demo_id: str = None) -> Dict[str, Any]:
     """Generate Conditional Access blocked signin event."""
     minute = minute if minute is not None else random.randint(0, 59)
     second = random.randint(0, 59)
@@ -479,13 +479,13 @@ def signin_blocked_by_ca(base_date: str, day: int, hour: int, minute: int = None
     if demo_id:
         event["demo_id"] = demo_id
 
-    return json.dumps(event)
+    return event
 
 
 def signin_from_threat_ip(base_date: str, day: int, hour: int, minute: int,
                           username: str, threat_ip: str,
                           success: bool = False,
-                          demo_id: str = None) -> str:
+                          demo_id: str = None) -> Dict[str, Any]:
     """Generate signin event from known threat IP."""
     second = random.randint(0, 59)
     ts = ts_iso(base_date, day, hour, minute, second)
@@ -542,10 +542,10 @@ def signin_from_threat_ip(base_date: str, day: int, hour: int, minute: int,
     if demo_id:
         event["demo_id"] = demo_id
 
-    return json.dumps(event)
+    return event
 
 
-def signin_spray_noise(base_date: str, day: int, hour: int) -> str:
+def signin_spray_noise(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate background spray noise from random world IPs."""
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
@@ -595,11 +595,11 @@ def signin_spray_noise(base_date: str, day: int, hour: int) -> str:
         }
     }
 
-    return json.dumps(event)
+    return event
 
 
 def generate_signin_hour(base_date: str, day: int, hour: int, event_count: int,
-                        active_scenarios: list = None) -> List[str]:
+                        active_scenarios: list = None) -> List[Dict[str, Any]]:
     """Generate sign-in events for one hour (interactive + service principal)."""
     events = []
 
@@ -681,7 +681,7 @@ SP_ERROR_CODES = [
 ]
 
 
-def signin_service_principal(base_date: str, day: int, hour: int) -> str:
+def signin_service_principal(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate service principal (non-interactive) sign-in event.
 
     Service principals sign in constantly — automated jobs, API calls,
@@ -741,7 +741,7 @@ def signin_service_principal(base_date: str, day: int, hour: int) -> str:
     if not success:
         event["resultDescription"] = error_msg
 
-    return json.dumps(event)
+    return event
 
 
 # =============================================================================
@@ -750,7 +750,7 @@ def signin_service_principal(base_date: str, day: int, hour: int) -> str:
 
 def audit_base(ts: str, category: str, activity: str, admin_key: str, target_json: Dict,
                target_username: str = None, day: int = None,
-               active_scenarios: list = None) -> str:
+               active_scenarios: list = None) -> Dict[str, Any]:
     """Generate base audit event."""
     admin_id, admin_name, admin_ip = _resolve_admin(admin_key)
     audit_id = f"audit-{random.randint(10000, 99999)}"
@@ -791,7 +791,7 @@ def audit_base(ts: str, category: str, activity: str, admin_key: str, target_jso
         if should_tag_signin_exfil(target_username, day, active_scenarios):
             event["demo_id"] = "exfil"
 
-    return json.dumps(event)
+    return event
 
 
 # =============================================================================
@@ -801,7 +801,7 @@ def audit_base(ts: str, category: str, activity: str, admin_key: str, target_jso
 def audit_add_member_to_group(base_date: str, day: int, hour: int, minute: int = None,
                                target_user=None, group_name: str = None,
                                admin_key: str = None, demo_id: str = None,
-                               active_scenarios: list = None) -> str:
+                               active_scenarios: list = None) -> Dict[str, Any]:
     """Add user to Entra security group — with real group name and user details."""
     if minute is None:
         minute = random.randint(0, 59)
@@ -828,20 +828,18 @@ def audit_add_member_to_group(base_date: str, day: int, hour: int, minute: int =
             {"displayName": "Group.ObjectID", "newValue": f'"{group_id}"'},
         ]
     }
-    event_str = audit_base(ts, "GroupManagement", "Add member to group", admin_key, target,
-                           target_username=target_user.username, day=day,
-                           active_scenarios=active_scenarios)
+    event = audit_base(ts, "GroupManagement", "Add member to group", admin_key, target,
+                       target_username=target_user.username, day=day,
+                       active_scenarios=active_scenarios)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_remove_member_from_group(base_date: str, day: int, hour: int, minute: int = None,
                                     target_user=None, group_name: str = None,
                                     admin_key: str = None, demo_id: str = None,
-                                    active_scenarios: list = None) -> str:
+                                    active_scenarios: list = None) -> Dict[str, Any]:
     """Remove user from Entra security group — with real group name and user details."""
     if minute is None:
         minute = random.randint(0, 59)
@@ -866,21 +864,19 @@ def audit_remove_member_from_group(base_date: str, day: int, hour: int, minute: 
             {"displayName": "Group.ObjectID", "oldValue": f'"{group_id}"'},
         ]
     }
-    event_str = audit_base(ts, "GroupManagement", "Remove member from group", admin_key, target,
-                           target_username=target_user.username, day=day,
-                           active_scenarios=active_scenarios)
+    event = audit_base(ts, "GroupManagement", "Remove member from group", admin_key, target,
+                       target_username=target_user.username, day=day,
+                       active_scenarios=active_scenarios)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_update_user(base_date: str, day: int, hour: int, minute: int = None,
                       target_user=None, attribute: str = None,
                       old_value: str = None, new_value: str = None,
                       admin_key: str = None, demo_id: str = None,
-                      active_scenarios: list = None) -> str:
+                      active_scenarios: list = None) -> Dict[str, Any]:
     """Update user attribute in Entra ID — with modifiedProperties old→new values."""
     if minute is None:
         minute = random.randint(0, 59)
@@ -917,20 +913,18 @@ def audit_update_user(base_date: str, day: int, hour: int, minute: int = None,
             {"displayName": attribute, "oldValue": f'"{old_value}"', "newValue": f'"{new_value}"'},
         ]
     }
-    event_str = audit_base(ts, "UserManagement", "Update user", admin_key, target,
-                           target_username=target_user.username, day=day,
-                           active_scenarios=active_scenarios)
+    event = audit_base(ts, "UserManagement", "Update user", admin_key, target,
+                       target_username=target_user.username, day=day,
+                       active_scenarios=active_scenarios)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_assign_license(base_date: str, day: int, hour: int, minute: int = None,
                          target_user=None, app_name: str = None,
                          admin_key: str = None, demo_id: str = None,
-                         active_scenarios: list = None) -> str:
+                         active_scenarios: list = None) -> Dict[str, Any]:
     """Assign application license/role to user — with real app name from catalog."""
     if minute is None:
         minute = random.randint(0, 59)
@@ -960,19 +954,17 @@ def audit_assign_license(base_date: str, day: int, hour: int, minute: int = None
             {"displayName": "Application.ObjectID", "newValue": f'"{app_id}"'},
         ]
     }
-    event_str = audit_base(ts, "ApplicationManagement", "Add app role assignment to user", admin_key, target,
-                           target_username=target_user.username, day=day,
-                           active_scenarios=active_scenarios)
+    event = audit_base(ts, "ApplicationManagement", "Add app role assignment to user", admin_key, target,
+                       target_username=target_user.username, day=day,
+                       active_scenarios=active_scenarios)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 # Legacy function kept for backward compatibility (scenarios may call it)
 def audit_user_management(base_date: str, day: int, hour: int,
-                          active_scenarios: list = None) -> str:
+                          active_scenarios: list = None) -> Dict[str, Any]:
     """Generate random user management audit event (legacy wrapper)."""
     # Delegate to specific enriched functions
     event_type = random.choices(
@@ -994,7 +986,7 @@ def audit_user_management(base_date: str, day: int, hour: int,
 # OPERATIONAL EVENTS (scheduled/routine)
 # =============================================================================
 
-def audit_ca_policy(base_date: str, day: int) -> str:
+def audit_ca_policy(base_date: str, day: int) -> Dict[str, Any]:
     """Generate Conditional Access policy update."""
     ts = ts_iso(base_date, day, 10, random.randint(0, 30), random.randint(0, 59))
     target = {
@@ -1009,7 +1001,7 @@ def audit_ca_policy(base_date: str, day: int) -> str:
 
 
 def audit_password_reset(base_date: str, day: int,
-                         active_scenarios: list = None) -> str:
+                         active_scenarios: list = None) -> Dict[str, Any]:
     """Generate password reset event."""
     ts = ts_iso(base_date, day, 14, random.randint(0, 30), random.randint(0, 59))
     user = get_random_user()
@@ -1027,7 +1019,7 @@ def audit_password_reset(base_date: str, day: int,
                       active_scenarios=active_scenarios)
 
 
-def audit_cert_update(base_date: str, day: int) -> str:
+def audit_cert_update(base_date: str, day: int) -> Dict[str, Any]:
     """Generate certificate update event."""
     ts = ts_iso(base_date, day, 9, random.randint(0, 30), random.randint(0, 59))
     target = {
@@ -1048,7 +1040,7 @@ def audit_cert_update(base_date: str, day: int) -> str:
 def audit_add_application(base_date: str, day: int, hour: int, minute: int,
                           app_name: str = "DataSync Service",
                           admin_key: str = "it.admin",
-                          demo_id: str = None) -> str:
+                          demo_id: str = None) -> Dict[str, Any]:
     """Generate Add application event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     app_id = rand_uuid()
@@ -1061,18 +1053,16 @@ def audit_add_application(base_date: str, day: int, hour: int, minute: int,
             {"displayName": "DisplayName", "newValue": app_name}
         ]
     }
-    event_str = audit_base(ts, "ApplicationManagement", "Add application", admin_key, target)
+    event = audit_base(ts, "ApplicationManagement", "Add application", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_add_service_principal_credentials(base_date: str, day: int, hour: int, minute: int,
                                             app_name: str = "DataSync Service",
                                             admin_key: str = "it.admin",
-                                            demo_id: str = None) -> str:
+                                            demo_id: str = None) -> Dict[str, Any]:
     """Generate Add service principal credentials event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     sp_id = rand_uuid()
@@ -1085,19 +1075,17 @@ def audit_add_service_principal_credentials(base_date: str, day: int, hour: int,
             {"displayName": "KeyType", "newValue": "AsymmetricX509Cert"}
         ]
     }
-    event_str = audit_base(ts, "ApplicationManagement", "Add service principal credentials", admin_key, target)
+    event = audit_base(ts, "ApplicationManagement", "Add service principal credentials", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_add_member_to_role(base_date: str, day: int, hour: int, minute: int,
                              target_user: str = "svc-datasync",
                              role_name: str = "Application Administrator",
                              admin_key: str = "sec.admin",
-                             demo_id: str = None) -> str:
+                             demo_id: str = None) -> Dict[str, Any]:
     """Generate Add member to role event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     target = {
@@ -1110,19 +1098,17 @@ def audit_add_member_to_role(base_date: str, day: int, hour: int, minute: int,
             {"displayName": "Role.WellKnownObject", "newValue": "DirectoryRole"}
         ]
     }
-    event_str = audit_base(ts, "RoleManagement", "Add member to role", admin_key, target)
+    event = audit_base(ts, "RoleManagement", "Add member to role", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_remove_member_from_role(base_date: str, day: int, hour: int, minute: int,
                                   target_user: str = None,
                                   role_name: str = "Global Administrator",
                                   admin_key: str = "sec.admin",
-                                  demo_id: str = None) -> str:
+                                  demo_id: str = None) -> Dict[str, Any]:
     """Generate Remove member from role event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     user = get_random_user() if not target_user else None
@@ -1135,19 +1121,17 @@ def audit_remove_member_from_role(base_date: str, day: int, hour: int, minute: i
             {"displayName": "Role.WellKnownObject", "oldValue": "DirectoryRole"}
         ]
     }
-    event_str = audit_base(ts, "RoleManagement", "Remove member from role", admin_key, target)
+    event = audit_base(ts, "RoleManagement", "Remove member from role", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_consent_to_application(base_date: str, day: int, hour: int, minute: int,
                                  app_name: str = "DataSync Service",
                                  user_email: str = None,
                                  admin_key: str = "sec.admin",
-                                 demo_id: str = None) -> str:
+                                 demo_id: str = None) -> Dict[str, Any]:
     """Generate Consent to application event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     target = {
@@ -1159,18 +1143,16 @@ def audit_consent_to_application(base_date: str, day: int, hour: int, minute: in
             {"displayName": "DelegatedPermissions", "newValue": "User.Read Mail.Read Files.Read.All"}
         ]
     }
-    event_str = audit_base(ts, "ApplicationManagement", "Consent to application", admin_key, target)
+    event = audit_base(ts, "ApplicationManagement", "Consent to application", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_revoke_signin_sessions(base_date: str, day: int, hour: int, minute: int,
                                  target_user: str = None,
                                  admin_key: str = "sec.admin",
-                                 demo_id: str = None) -> str:
+                                 demo_id: str = None) -> Dict[str, Any]:
     """Generate Revoke sign in sessions event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     user = get_random_user() if not target_user else None
@@ -1182,18 +1164,16 @@ def audit_revoke_signin_sessions(base_date: str, day: int, hour: int, minute: in
         "type": "User",
         "userPrincipalName": user_email
     }
-    event_str = audit_base(ts, "UserManagement", "Revoke sign in sessions", admin_key, target)
+    event = audit_base(ts, "UserManagement", "Revoke sign in sessions", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_user_registered_security_info(base_date: str, day: int, hour: int, minute: int,
                                         target_user: str = None,
                                         method: str = "Authenticator App",
-                                        demo_id: str = None) -> str:
+                                        demo_id: str = None) -> Dict[str, Any]:
     """Generate User registered security info event."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     user = get_random_user() if not target_user else None
@@ -1239,14 +1219,14 @@ def audit_user_registered_security_info(base_date: str, day: int, hour: int, min
     }
     if demo_id:
         event["demo_id"] = demo_id
-    return json.dumps(event)
+    return event
 
 
 def audit_delete_authentication_method(base_date: str, day: int, hour: int, minute: int,
                                        target_user: str,
                                        method: str = "Authenticator App",
                                        admin_key: str = "helpdesk",
-                                       demo_id: str = None) -> str:
+                                       demo_id: str = None) -> Dict[str, Any]:
     """Generate Admin deleted authentication method for user (MFA reset).
 
     Logged when an admin removes an authentication method (e.g., Authenticator App)
@@ -1263,19 +1243,17 @@ def audit_delete_authentication_method(base_date: str, day: int, hour: int, minu
             {"displayName": "StrongAuthenticationPhoneAppDetail", "oldValue": "[Redacted]", "newValue": ""}
         ]
     }
-    event_str = audit_base(ts, "UserManagement", "Admin deleted authentication method for user",
-                           admin_key, target)
+    event = audit_base(ts, "UserManagement", "Admin deleted authentication method for user",
+                       admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_confirm_user_compromised(base_date: str, day: int, hour: int, minute: int,
                                    target_user: str,
                                    admin_key: str = "sec.admin",
-                                   demo_id: str = None) -> str:
+                                   demo_id: str = None) -> Dict[str, Any]:
     """Generate Confirm user compromised event (Identity Protection)."""
     ts = ts_iso(base_date, day, hour, minute, random.randint(0, 59))
     target = {
@@ -1288,19 +1266,17 @@ def audit_confirm_user_compromised(base_date: str, day: int, hour: int, minute: 
             {"displayName": "RiskLevel", "newValue": "high"}
         ]
     }
-    event_str = audit_base(ts, "UserManagement", "Confirm user compromised", admin_key, target)
+    event = audit_base(ts, "UserManagement", "Confirm user compromised", admin_key, target)
     if demo_id:
-        event = json.loads(event_str)
         event["demo_id"] = demo_id
-        return json.dumps(event)
-    return event_str
+    return event
 
 
 def audit_sspr_flow(base_date: str, day: int, hour: int, minute: int = None,
                     target_user: str = None,
                     step: str = None,
                     success: bool = True,
-                    demo_id: str = None) -> str:
+                    demo_id: str = None) -> Dict[str, Any]:
     """Generate Self-service password reset flow activity progress event.
 
     This audit event tracks the progress of a user through the SSPR flow,
@@ -1368,12 +1344,12 @@ def audit_sspr_flow(base_date: str, day: int, hour: int, minute: int = None,
     if demo_id:
         event["demo_id"] = demo_id
 
-    return json.dumps(event)
+    return event
 
 
 def audit_sspr_reset(base_date: str, day: int, hour: int, minute: int = None,
                      target_user: str = None,
-                     demo_id: str = None) -> str:
+                     demo_id: str = None) -> Dict[str, Any]:
     """Generate Reset password (self-service) event.
 
     This audit event is generated when a user successfully completes
@@ -1430,7 +1406,7 @@ def audit_sspr_reset(base_date: str, day: int, hour: int, minute: int = None,
     if demo_id:
         event["demo_id"] = demo_id
 
-    return json.dumps(event)
+    return event
 
 
 # =============================================================================
@@ -1444,7 +1420,7 @@ def risk_detection(base_date: str, day: int, hour: int, minute: int = None,
                    risk_state: str = "atRisk",
                    detection_timing: str = "realtime",
                    source_ip: str = None,
-                   demo_id: str = None) -> str:
+                   demo_id: str = None) -> Dict[str, Any]:
     """Generate Identity Protection risk detection event.
 
     This event is generated when Azure Identity Protection detects
@@ -1520,10 +1496,10 @@ def risk_detection(base_date: str, day: int, hour: int, minute: int = None,
     if demo_id:
         event["demo_id"] = demo_id
 
-    return json.dumps(event)
+    return event
 
 
-def signin_lockout(base_date: str, day: int) -> List[str]:
+def signin_lockout(base_date: str, day: int) -> List[Dict[str, Any]]:
     """Generate account lockout events (legitimate user)."""
     events = []
     user = get_random_user()
@@ -1571,13 +1547,13 @@ def signin_lockout(base_date: str, day: int) -> List[str]:
                 }
             }
         }
-        events.append(json.dumps(event))
+        events.append(event)
 
     return events
 
 
 def generate_audit_day(base_date: str, day: int, base_count: int,
-                       active_scenarios: list = None) -> List[str]:
+                       active_scenarios: list = None) -> List[Dict[str, Any]]:
     """Generate enriched audit events for one day.
 
     base_count scales all event categories proportionally (default 200 at scale=1.0).
@@ -1700,7 +1676,7 @@ def generate_audit_day(base_date: str, day: int, base_count: int,
     return events
 
 
-def generate_risk_detection_day(base_date: str, day: int, active_scenarios: list = None) -> List[str]:
+def generate_risk_detection_day(base_date: str, day: int, active_scenarios: list = None) -> List[Dict[str, Any]]:
     """Generate risk detection events for one day."""
     events = []
 
@@ -1719,7 +1695,7 @@ def generate_risk_detection_day(base_date: str, day: int, active_scenarios: list
     return events
 
 
-def generate_signin_day_events(base_date: str, day: int) -> List[str]:
+def generate_signin_day_events(base_date: str, day: int) -> List[Dict[str, Any]]:
     """Generate day-specific sign-in events."""
     events = []
 
@@ -1734,6 +1710,13 @@ def generate_signin_day_events(base_date: str, day: int) -> List[str]:
 # MAIN GENERATOR
 # =============================================================================
 
+def _sort_key(event):
+    """Sort key for events that may be dicts or strings (from scenario hooks)."""
+    if isinstance(event, dict):
+        return event.get("time", "")
+    return event  # string events sort lexicographically (they start with {"time":"...)
+
+
 def generate_entraid_logs(
     start_date: str = DEFAULT_START_DATE,
     days: int = DEFAULT_DAYS,
@@ -1742,6 +1725,7 @@ def generate_entraid_logs(
     output_signin: str = None,
     output_audit: str = None,
     output_risk: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Entra ID logs.
@@ -1804,6 +1788,8 @@ def generate_entraid_logs(
     risk_events = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("entraid", day + 1, days)
         if not quiet:
             dt = date_add(start_date, day)
             print(f"  [Entra] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")
@@ -1815,21 +1801,11 @@ def generate_entraid_logs(
 
             # Exfil scenario signin events (failed logins from threat IP, CA blocks, etc.)
             if exfil_scenario:
-                exfil_signin = exfil_scenario.entraid_signin_hour(day, hour)
-                for e in exfil_signin:
-                    if isinstance(e, str):
-                        signin_events.append(e)
-                    else:
-                        signin_events.append(json.dumps(e))
+                signin_events.extend(exfil_scenario.entraid_signin_hour(day, hour))
 
             # Phishing test scenario signin events (credential submitters on sim platform)
             if phishing_test_scenario:
-                pt_signin = phishing_test_scenario.entraid_signin_hour(day, hour)
-                for e in pt_signin:
-                    if isinstance(e, str):
-                        signin_events.append(e)
-                    else:
-                        signin_events.append(json.dumps(e))
+                signin_events.extend(phishing_test_scenario.entraid_signin_hour(day, hour))
 
         # Day-specific sign-in events
         signin_events.extend(generate_signin_day_events(start_date, day))
@@ -1843,43 +1819,42 @@ def generate_entraid_logs(
         # Exfil scenario risk detection events (phase-specific: spray, impossible travel, etc.)
         if exfil_scenario:
             for hour in range(24):
-                exfil_risk = exfil_scenario.entraid_risk_hour(day, hour)
-                for e in exfil_risk:
-                    if isinstance(e, str):
-                        risk_events.append(e)
-                    else:
-                        risk_events.append(json.dumps(e))
+                risk_events.extend(exfil_scenario.entraid_risk_hour(day, hour))
 
         # Exfil scenario audit events (app creation, role assignment, consent, etc.)
         if exfil_scenario:
             for hour in range(24):
-                exfil_audit = exfil_scenario.entraid_audit_hour(day, hour)
-                for e in exfil_audit:
-                    if isinstance(e, str):
-                        audit_events.append(e)
-                    else:
-                        audit_events.append(json.dumps(e))
+                audit_events.extend(exfil_scenario.entraid_audit_hour(day, hour))
 
         if not quiet:
             print(f"  [Entra] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
 
-    # Sort events
-    signin_events.sort()
-    audit_events.sort()
-    risk_events.sort()
+    # Sort events by time (events are dicts; scenario hooks may inject strings)
+    signin_events.sort(key=_sort_key)
+    audit_events.sort(key=_sort_key)
+    risk_events.sort(key=_sort_key)
 
-    # Write output
+    # Write output — serialize dicts to JSON at write time
     with open(signin_path, "w") as f:
         for event in signin_events:
-            f.write(event + "\n")
+            if isinstance(event, dict):
+                f.write(json.dumps(event) + "\n")
+            else:
+                f.write(event + "\n")
 
     with open(audit_path, "w") as f:
         for event in audit_events:
-            f.write(event + "\n")
+            if isinstance(event, dict):
+                f.write(json.dumps(event) + "\n")
+            else:
+                f.write(event + "\n")
 
     with open(risk_path, "w") as f:
         for event in risk_events:
-            f.write(event + "\n")
+            if isinstance(event, dict):
+                f.write(json.dumps(event) + "\n")
+            else:
+                f.write(event + "\n")
 
     total = len(signin_events) + len(audit_events) + len(risk_events)
     file_counts = {
@@ -1889,10 +1864,14 @@ def generate_entraid_logs(
     }
 
     if not quiet:
-        # Count exfil events
-        exfil_signin = sum(1 for e in signin_events if '"demo_id": "exfil"' in e or '"demo_id":"exfil"' in e)
-        exfil_audit = sum(1 for e in audit_events if '"demo_id": "exfil"' in e or '"demo_id":"exfil"' in e)
-        exfil_risk = sum(1 for e in risk_events if '"demo_id": "exfil"' in e or '"demo_id":"exfil"' in e)
+        # Count exfil events (events are dicts or strings from scenario hooks)
+        def _has_exfil(e):
+            if isinstance(e, dict):
+                return e.get("demo_id") == "exfil"
+            return '"demo_id": "exfil"' in e or '"demo_id":"exfil"' in e
+        exfil_signin = sum(1 for e in signin_events if _has_exfil(e))
+        exfil_audit = sum(1 for e in audit_events if _has_exfil(e))
+        exfil_risk = sum(1 for e in risk_events if _has_exfil(e))
         print(f"  [Entra] Complete! {total:,} events ({len(signin_events):,} signin, {len(audit_events):,} audit, {len(risk_events):,} risk)", file=sys.stderr)
         if exfil_signin or exfil_audit or exfil_risk:
             print(f"          exfil events: {exfil_signin} signin, {exfil_audit} audit, {exfil_risk} risk", file=sys.stderr)

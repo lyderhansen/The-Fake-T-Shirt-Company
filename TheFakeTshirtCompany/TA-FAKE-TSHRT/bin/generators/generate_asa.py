@@ -975,13 +975,48 @@ def _parse_registry_hour(ts_str: str) -> int:
     return int(ts_str[11:13])
 
 
+_PARSE_DAY_CACHE = {}  # Cache for start_date datetime parsing
+
+
 def _parse_registry_day(ts_str: str, start_date: str) -> int:
     """Extract day offset from ISO 8601 timestamp string relative to start_date."""
     # Format: "2026-01-05T14:23:45Z"
     from datetime import datetime
     event_date = datetime.strptime(ts_str[:10], "%Y-%m-%d")
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    return (event_date - start).days
+    if start_date not in _PARSE_DAY_CACHE:
+        _PARSE_DAY_CACHE[start_date] = datetime.strptime(start_date, "%Y-%m-%d")
+    return (event_date - _PARSE_DAY_CACHE[start_date]).days
+
+
+def _index_registry_sessions(sessions: List[Dict], start_date: str) -> Dict[tuple, List[Dict]]:
+    """Pre-index registry sessions by (day, hour) for O(1) lookup.
+
+    Processes each session's timestamp ONCE and buckets it into a dict keyed
+    by (day_offset, hour). This replaces the O(N*H) linear scan with O(N)
+    indexing + O(1) per-hour lookup.
+
+    With 2.18M sessions and 744 hours, this reduces comparisons from
+    ~1.62 billion to ~2.18 million (one pass).
+    """
+    from datetime import datetime
+
+    indexed: Dict[tuple, List[Dict]] = {}
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+
+    for session in sessions:
+        ts_str = session["start_ts"]
+        # Parse date portion once per session
+        event_date = datetime.strptime(ts_str[:10], "%Y-%m-%d")
+        day = (event_date - start_dt).days
+        # Extract hour via string slice (fast)
+        hour = int(ts_str[11:13])
+
+        key = (day, hour)
+        if key not in indexed:
+            indexed[key] = []
+        indexed[key].append(session)
+
+    return indexed
 
 
 def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
@@ -1040,7 +1075,7 @@ def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
 
 
 def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
-                           registry_sessions: List[Dict] = None) -> List[str]:
+                           registry_index: Dict = None) -> List[str]:
     """Generate baseline events for one hour.
 
     Event distribution (updated for perimeter + internal traffic):
@@ -1059,19 +1094,18 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     - 1% Admin commands
     - 1% Internal ACL denies
 
-    When registry_sessions is provided, web sessions are generated from the registry
-    (1:1 match with access logs) instead of random generation. The remaining 75%
-    of event_count is filled with non-web traffic types.
+    When registry_index is provided (pre-indexed by (day, hour)), web sessions
+    are generated from the registry (1:1 match with access logs) instead of
+    random generation. The remaining 75% of event_count is filled with non-web
+    traffic types.
     """
     events = []
 
     # --- Phase 1: Registry-driven web sessions (if available) ---
     registry_web_events = 0
-    if registry_sessions:
-        # Find sessions that start in this hour on this day
-        hour_sessions = [s for s in registry_sessions
-                         if _parse_registry_hour(s["start_ts"]) == hour
-                         and _parse_registry_day(s["start_ts"], base_date) == day]
+    if registry_index:
+        # O(1) dict lookup replaces O(N) linear scan of all sessions
+        hour_sessions = registry_index.get((day, hour), [])
         for sess in hour_sessions:
             events.extend(asa_web_session_from_registry(base_date, sess))
             registry_web_events += 1  # Each produces 2 events (Built+Teardown)
@@ -1083,7 +1117,7 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     remaining_events = max(0, event_count - registry_web_events)
 
     # If no registry available, fall back to original behavior (including random web sessions)
-    use_random_web = not registry_sessions
+    use_random_web = not registry_index
 
     for _ in range(remaining_events):
         minute = random.randint(0, 59)
@@ -1191,6 +1225,7 @@ def generate_asa_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "exfil",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate ASA firewall logs."""
@@ -1225,9 +1260,11 @@ def generate_asa_logs(
     # Load web session registry (for 1:1 correlation with access logs)
     # Registry is written by generate_access.py — if not available, ASA falls
     # back to generating random web sessions (original behavior).
-    registry_sessions = load_web_session_registry()
-    if not quiet and registry_sessions:
-        print(f"  Loaded {len(registry_sessions):,} web sessions from access registry", file=sys.stderr)
+    # Pre-index by (day, hour) for O(1) lookup instead of O(N) linear scan.
+    raw_registry = load_web_session_registry()
+    registry_index = _index_registry_sessions(raw_registry, start_date) if raw_registry else {}
+    if not quiet and raw_registry:
+        print(f"  Loaded {len(raw_registry):,} web sessions from access registry (indexed by hour)", file=sys.stderr)
 
     # Scale base events
     # 10x increase from 200 to 2000 to better reflect perimeter traffic
@@ -1245,6 +1282,8 @@ def generate_asa_logs(
     all_events = []
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("asa", day + 1, days)
         dt = date_add(start_date, day)
         date_str = dt.strftime("%Y-%m-%d")
 
@@ -1260,7 +1299,7 @@ def generate_asa_logs(
 
             # Generate baseline (with registry-driven web sessions if available)
             all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events,
-                                                     registry_sessions=registry_sessions))
+                                                     registry_index=registry_index))
 
             # Nightly backup traffic (BACKUP-ATL-01 -> FILE-BOS-01, 22:00-04:00)
             all_events.extend(asa_backup_traffic(start_date, day, hour))

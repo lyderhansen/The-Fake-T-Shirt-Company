@@ -1437,6 +1437,7 @@ def generate_wineventlog(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_dir: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Windows Event Logs.
@@ -1513,6 +1514,8 @@ def generate_wineventlog(
     system_events.extend(generate_day0_boot_events(start_date))
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("wineventlog", day + 1, days)
         if not quiet:
             dt = date_add(start_date, day)
             print(f"  [WinEvent] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")

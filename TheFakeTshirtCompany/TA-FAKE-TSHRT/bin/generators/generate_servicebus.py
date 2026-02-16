@@ -466,6 +466,7 @@ def generate_servicebus_logs(
     scale: float = DEFAULT_SCALE,
     scenarios: str = "none",
     output_file: str = None,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate ServiceBus events from order_registry.json.

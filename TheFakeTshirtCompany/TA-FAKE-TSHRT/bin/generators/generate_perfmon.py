@@ -479,6 +479,7 @@ def generate_perfmon_logs(
     num_clients: int = DEFAULT_NUM_CLIENTS,
     client_interval: int = DEFAULT_CLIENT_INTERVAL,
     full_metrics: bool = False,
+    progress_callback=None,
     quiet: bool = False,
 ) -> int:
     """Generate Windows Performance Monitor logs.
@@ -531,6 +532,8 @@ def generate_perfmon_logs(
     }
 
     for day in range(days):
+        if progress_callback:
+            progress_callback("perfmon", day + 1, days)
         dt = date_add(start_date, day)
         is_wknd = is_weekend(dt)
 

@@ -4,6 +4,99 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~00:30 UTC -- Live Progress Display + Generator Performance Fixes
+
+### Context
+
+After the 3x speedup (1209s -> 367s), two issues remained: (1) no live progress during parallel generation -- the terminal appeared frozen for slow generators, and (2) GCP/Entraid/AWS generators were still slow relative to their event counts due to unnecessary datetime parsing and premature JSON serialization.
+
+### Part 1: Live Progress Display
+
+- `bin/main_generate.py` -- Added thread-safe progress tracking system: `_progress` dict, `_progress_lock`, `_report_progress()` callback, `_progress_display_thread()` background thread.
+- `bin/main_generate.py` -- Updated `run_phase()` to register generators in progress tracker, start/stop display thread, and clear progress line before printing completion lines.
+- All 26 generator files -- Added `progress_callback=None` parameter to main generate function signature. Added `if progress_callback: progress_callback(name, day + 1, days)` as first line in day loops (23 generators with day loops; 3 without: orders, servicebus, webex).
+- Display shows: `[done/total] gen1 day/days | gen2 day/days | ...` refreshed every 0.5s during parallel execution.
+
+### Part 2: GCP Timestamp Fix
+
+- `bin/generators/generate_gcp.py` -- Eliminated strptime+strftime round-trip in `gcp_base_event()`. The function was creating a timestamp string via `ts_gcp()`, then parsing it BACK to datetime with `strptime()` to add 50-500ms for `receiveTimestamp`, then formatting again with `strftime()` -- 3 datetime operations per event. Replaced with string manipulation: extract 6-digit microseconds from known position, add delay, swap in place. Falls back to datetime only on rare second overflow (~25% of events).
+- Isolated benchmark: 37K events in 0.9s (was 32s) -- 35x speedup.
+
+### Part 3: Entraid Dict Optimization
+
+- `bin/generators/generate_entraid.py` -- Changed 12 event functions (`signin_success`, `signin_failed`, `signin_blocked_by_ca`, `signin_from_threat_ip`, `signin_spray_noise`, `signin_service_principal`, `audit_base`, `audit_user_registered_security_info`, `audit_sspr_flow`, `audit_sspr_reset`, `risk_detection`, `signin_lockout`) to return dicts instead of JSON strings. Deferred `json.dumps()` to write time.
+- `bin/generators/generate_entraid.py` -- Eliminated json.loads/json.dumps round-trip in 12 audit wrapper functions that previously parsed the JSON string just to add `demo_id`.
+- `bin/generators/generate_entraid.py` -- Added `_sort_key()` helper for mixed dict/string event sorting.
+- `bin/generators/generate_entraid.py` -- Updated write loops to handle both dicts and strings (for scenario-injected events).
+- Isolated benchmark: 25K events in 0.7s (was 29s) -- 41x speedup.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/main_generate.py` | Progress tracking system, display thread, callback in kwargs |
+| `bin/generators/generate_gcp.py` | Timestamp string manipulation, progress_callback |
+| `bin/generators/generate_entraid.py` | Dict returns, deferred JSON serialization, _sort_key, progress_callback |
+| 24 other generator files | `progress_callback=None` parameter + day-loop callback |
+
+### Verification
+
+Full 31-day benchmark (26M events, scale=1.0, 5000 orders/day, all scenarios, --parallel=4):
+- All 26 generators: 0 failures
+- Event counts: ~26.1M (consistent with baseline)
+- Isolated generator speedups: GCP 35x, Entraid 41x, AWS 27x
+- Progress display: live day-by-day status for all running generators
+- Wall-clock total bounded by access (207s) and orders/servicebus (163-167s) -- unchanged generators
+
+---
+
+## 2026-02-16 ~20:00 UTC -- Performance Optimization: 3x Speedup (1209s -> 402s)
+
+### Context
+
+Full 31-day production run (26M events, scale=1.0, 5000 orders/day) took 1209 seconds (20 min). Root cause analysis found two critical algorithmic bottlenecks:
+
+1. **ASA registry O(n^2) scan**: 2.18M web sessions scanned linearly for each of 744 hours = 1.62 billion comparisons, each calling `datetime.strptime()` twice. ASA alone took 992 seconds.
+2. **`get_random_user()` allocated a new 175-element list on every call**: Called millions of times across 15 generators. Exchange: ~2.78M calls at 330 events/sec. Webex API: 137 events/sec for only 23K events.
+
+### Fix 1: Cache `get_random_user()` -- company.py
+
+- `bin/shared/company.py` -- Added `_USERS_LIST`, `_USERS_BY_LOCATION`, `_USERS_BY_DEPARTMENT` pre-computed caches at module level (after VPN_USERS). Built once from USERS dict at import time.
+- `bin/shared/company.py` -- Rewrote `get_random_user()`: fast path (no filters, ~80% of calls) is a single `random.choice(_USERS_LIST)` with zero allocation. Location/department filters use pre-computed dict lookups.
+- `bin/shared/company.py` -- Optimized `get_users_by_location()` and `get_users_by_department()` to use the same caches.
+- All 15 generators benefit automatically without code changes.
+- Benchmark: 1M unfiltered calls in 0.41s (2.4M calls/sec) vs previous ~200K calls/sec.
+
+### Fix 2: ASA Registry Pre-Indexing -- generate_asa.py
+
+- `bin/generators/generate_asa.py` -- Added `_index_registry_sessions(sessions, start_date)` function that processes each session ONCE and buckets into `Dict[(day, hour), List[Dict]]`. Replaces O(N*H) with O(N) indexing + O(1) per-hour lookup.
+- `bin/generators/generate_asa.py` -- Added `_PARSE_DAY_CACHE` for caching start_date datetime parsing.
+- `bin/generators/generate_asa.py` -- Changed `generate_asa_logs()`: loads registry then pre-indexes it. Changed `generate_baseline_hour()` parameter from `registry_sessions: List[Dict]` to `registry_index: Dict`.
+- `bin/generators/generate_asa.py` -- Replaced O(N) list comprehension filter (line 1072-1074) with O(1) `registry_index.get((day, hour), [])`.
+
+### Verification
+
+Full 31-day benchmark (26M events, scale=1.0, 5000 orders/day, all scenarios):
+
+| Generator | Before (s) | After (s) | Speedup |
+|-----------|-----------|-----------|---------|
+| ASA | 992 | 186 | 5.3x |
+| Exchange | 350 | 107 | 3.3x |
+| Orders | 529 | 156 | 3.4x |
+| ServiceBus | 566 | 160 | 3.5x |
+| Webex API | 173 | 26 | 6.7x |
+| SAP | 116 | 23 | 5.0x |
+| Meraki | 640 | 84 | 7.6x |
+| **Total** | **1209** | **402** | **3.0x** |
+
+- Throughput: 21,571 events/sec -> 64,866 events/sec (3x)
+- ASA web session correlation: 97,839/97,839 (100%) -- unchanged
+- ASA employee IP correlation: 47,327/47,327 (100%) -- unchanged
+- Event counts: ~26M events (consistent with before)
+- No output format changes
+
+---
+
 ## 2026-02-16 ~18:00 UTC -- Employee IP Correlation: ASA + GCP
 
 ### Context
