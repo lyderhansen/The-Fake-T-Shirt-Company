@@ -4,6 +4,49 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~03:00 UTC -- Progress Display Alignment Fix + Pre-Run Estimation
+
+### Context
+
+Two issues with the progress display from the previous session: (1) `--show-files` file paths (`->` lines) appeared misaligned because the background progress display thread printed between the `[checkmark]` completion line and its file paths, and (2) no pre-run estimation of event count or execution time, especially important when `--orders-per-day` and `--clients` significantly change volume.
+
+### Part 1: Fix Progress Line Interleaving
+
+- `bin/main_generate.py` -- Added `_progress_pause` (`threading.Event`) at module level. The display thread checks `_progress_pause.is_set()` at top of loop and skips printing when paused.
+- `bin/main_generate.py` -- In `as_completed()` loop: completion output (checkmark + file paths) is now wrapped in `_progress_pause.set()` ... `_progress_pause.clear()` with a 50ms sleep to let the display thread finish its current cycle before printing.
+- `bin/main_generate.py` -- Added `_progress_pause.clear()` at phase start to ensure clean state.
+
+### Part 2: Pre-Run Volume and Time Estimation
+
+- `bin/main_generate.py` -- Added `_EVENTS_PER_DAY` dict with calibrated per-day event counts for all 26 generators (scale=1.0, 14-day average, default settings).
+- `bin/main_generate.py` -- Added `_THROUGHPUT_EPS` dict with events/sec throughput per generator (single-thread reference).
+- `bin/main_generate.py` -- Added `_estimate_run()` function that returns (total_events, estimated_seconds, per_gen_events) with generator-specific scaling for:
+  - `access/orders/servicebus/sap`: linear with `--orders-per-day` (default 224)
+  - `perfmon`: base 37,776/day + ~340/extra client (no full-metrics) or ~610/extra client (full-metrics), scales with `--client-interval`
+  - `meraki`: base 12,348/day + health polling at MR 3,456 + MS 42,240 at 15-min, scales with `--meraki-health-interval`
+  - Time estimation uses parallel phase simulation with 1.8x GIL/IO contention factor
+- `bin/main_generate.py` -- Added estimation display in banner (before the closing `=` separator): `Estimated: ~3.3M events, ~48s`. Shows notes for non-default settings: `(orders=3000 (13.4x), clients=40, full-metrics)`.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/main_generate.py` | `_progress_pause` Event, pause/resume in display thread + completion loop, `_EVENTS_PER_DAY`, `_THROUGHPUT_EPS`, `_estimate_run()`, banner estimation display |
+
+### Verification
+
+14-day test (26 generators, all scenarios, scale=1.0):
+- Estimated: ~3.3M events, ~48s
+- Actual: 3,263,353 events, 41.0s (event accuracy ~1%, time accuracy ~17% conservative)
+- All 26 generators: 0 failures
+- File path alignment: `->` lines correctly grouped under their `[checkmark]` lines
+
+Estimation accuracy with non-default settings tested:
+- `--orders-per-day=3000 --clients=40 --full-metrics --days=31`: ~19.0M events, ~4.8 min
+- `--sources=asa,entraid,aws --days=14`: ~848K events, ~12s
+
+---
+
 ## 2026-02-17 ~00:30 UTC -- Live Progress Display + Generator Performance Fixes
 
 ### Context

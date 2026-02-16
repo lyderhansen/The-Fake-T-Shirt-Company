@@ -37,6 +37,7 @@ else:
 _progress_lock = threading.Lock()
 _progress = {}          # {name: {"day": N, "days": N, "status": str, "start": float}}
 _progress_stop = False  # Signal to stop the display thread
+_progress_pause = threading.Event()  # Set when main thread is printing completion output
 
 
 def _report_progress(name, day, days):
@@ -50,6 +51,11 @@ def _progress_display_thread(phase_total):
     """Background thread that refreshes a compact progress line every 0.5s."""
     global _progress_stop
     while not _progress_stop:
+        # If main thread is printing completion output, skip this cycle
+        if _progress_pause.is_set():
+            time.sleep(0.1)
+            continue
+
         with _progress_lock:
             running = [(n, p) for n, p in _progress.items() if p["status"] == "running"]
             done_count = sum(1 for p in _progress.values() if p["status"] == "done")
@@ -174,6 +180,173 @@ GENERATOR_DEPENDENCIES = {
     "webex_api": ["webex"],   # Webex API reads shared meeting schedule
     "sap": ["access"],        # SAP reads order_registry.json for sales order correlation
 }
+
+# =============================================================================
+# PRE-RUN VOLUME AND TIME ESTIMATION
+# =============================================================================
+# Calibrated from 14-day run (scale=1.0, 5 clients, 30-min interval, no full-metrics,
+# default orders ~224/day, scenarios=none). Values are per-day averages.
+# Perfmon/sysmon counts are GENERATOR-REPORTED event counts (not file line counts).
+
+_EVENTS_PER_DAY = {
+    # Network
+    "asa":              37_954,
+    "meraki":           57_711,
+    "catalyst":          1_003,
+    "aci":               1_494,
+    # Cloud/Security
+    "aws":               1_627,
+    "aws_guardduty":         6,
+    "aws_billing":          17,
+    "gcp":               1_215,
+    "entraid":             800,
+    "secure_access":    50_488,
+    "catalyst_center":   1_476,
+    "office_audit":      1_373,
+    # Collaboration
+    "exchange":          3_729,
+    "webex":             1_829,
+    "webex_ta":            372,
+    "webex_api":           736,
+    # Windows
+    "perfmon":          37_776,    # 5 clients, 30-min interval, no full-metrics
+    "wineventlog":         434,
+    "sysmon":            2_304,
+    "mssql":                96,
+    # Linux
+    "linux":             9_420,
+    # Web/Retail
+    "access":           20_155,    # ~224 orders/day default
+    "orders":            1_643,    # depends on access
+    "servicebus":        1_714,    # depends on access
+    # ITSM / ERP
+    "servicenow":          106,
+    "sap":               2_319,    # depends on access
+}
+
+# Events/sec throughput per generator (single-thread, 14-day run on reference hardware).
+# Used for time estimation. Conservative values to account for I/O contention.
+_THROUGHPUT_EPS = {
+    "asa":             100_000,
+    "meraki":           90_000,
+    "catalyst":         35_000,
+    "aci":              35_000,
+    "aws":              30_000,
+    "aws_guardduty":     5_000,
+    "aws_billing":       5_000,
+    "gcp":              40_000,
+    "entraid":          35_000,
+    "secure_access":    60_000,
+    "catalyst_center":  35_000,
+    "office_audit":     45_000,
+    "exchange":         45_000,
+    "webex":           120_000,
+    "webex_ta":         50_000,
+    "webex_api":        10_000,
+    "perfmon":         700_000,
+    "wineventlog":      60_000,
+    "sysmon":           40_000,
+    "mssql":            60_000,
+    "linux":           300_000,
+    "access":           80_000,
+    "orders":           75_000,
+    "servicebus":       75_000,
+    "servicenow":       70_000,
+    "sap":              80_000,
+}
+
+
+def _estimate_run(sources, days, scale, orders_per_day, num_clients,
+                  client_interval, full_metrics, health_interval,
+                  mr_health, ms_health, parallel):
+    """Estimate total events and execution time before running generators.
+
+    Returns (total_events, estimated_seconds, per_gen_events).
+    """
+    per_gen = {}
+
+    for gen in sources:
+        base_per_day = _EVENTS_PER_DAY.get(gen, 1_000)
+        est = base_per_day * days * scale
+
+        # Generator-specific scaling
+        if gen == "access" and orders_per_day:
+            est = base_per_day * (orders_per_day / 224) * days * scale
+
+        elif gen == "orders":
+            if orders_per_day:
+                est = base_per_day * (orders_per_day / 224) * days * scale
+            # else use default base_per_day * days * scale
+
+        elif gen == "servicebus":
+            if orders_per_day:
+                est = base_per_day * (orders_per_day / 224) * days * scale
+
+        elif gen == "sap":
+            if orders_per_day:
+                # SAP has baseline + order-proportional events
+                # At 224 orders/day: ~2319/day. Order lifecycle is ~3 events/order.
+                baseline_per_day = 2_319 - (224 * 3)  # ~1647
+                order_events = (orders_per_day * 3)
+                est = (baseline_per_day + order_events) * days * scale
+
+        elif gen == "asa":
+            if orders_per_day:
+                # ASA traffic partly driven by web traffic volume
+                # ~38K/day at 224 orders. Web-driven portion is ~10%
+                web_ratio = orders_per_day / 224
+                est = base_per_day * (0.9 + 0.1 * web_ratio) * days * scale
+
+        elif gen == "perfmon":
+            # Perfmon: calibrated base includes servers + 5 default clients
+            # Extra clients add ~340/day (no full-metrics) or ~610/day (full-metrics)
+            # Scales linearly with 1/client_interval (default 30-min)
+            interval_factor = 30 / max(client_interval or 30, 1)
+            extra = max(0, num_clients - 5)
+            if full_metrics:
+                est = (base_per_day + 6_000 + extra * 610) * interval_factor * days * scale
+            else:
+                est = (base_per_day + extra * 340) * interval_factor * days * scale
+
+        elif gen == "meraki":
+            # Meraki = event-driven base (12,348/day) + health polling
+            # Health at 15-min: MR=3,456/day, MS=42,240/day
+            # Scales linearly with 15/interval (e.g., 5-min = 3x)
+            hi = health_interval or 15
+            health_factor = 15 / max(hi, 1)
+            event_base = 12_348
+            mr_health_day = int(3_456 * health_factor) if mr_health else 0
+            ms_health_day = int(42_240 * health_factor) if ms_health else 0
+            est = (event_base + mr_health_day + ms_health_day) * days * scale
+
+        per_gen[gen] = int(est)
+
+    total_events = sum(per_gen.values())
+
+    # Time estimation: simulate parallel execution per phase
+    phase1 = [g for g in sources if g not in GENERATOR_DEPENDENCIES]
+    phase2 = [g for g in sources if g in GENERATOR_DEPENDENCIES]
+
+    def _phase_time(phase_gens):
+        if not phase_gens:
+            return 0.0
+        gen_times = []
+        for g in phase_gens:
+            events = per_gen.get(g, 0)
+            throughput = _THROUGHPUT_EPS.get(g, 50_000)
+            gen_times.append(events / max(throughput, 1))
+        gen_times.sort(reverse=True)
+        if len(gen_times) <= 1 or parallel <= 1:
+            return sum(gen_times)
+        # Longest generator + remaining distributed across (workers - 1)
+        # Apply GIL/IO contention factor: parallel threads are ~2x slower than
+        # single-thread due to Python GIL contention and disk I/O pressure
+        contention = 1.8
+        return gen_times[0] * contention + sum(gen_times[1:]) * contention / max(1, parallel - 1)
+
+    est_seconds = _phase_time(phase1) + _phase_time(phase2)
+
+    return total_events, est_seconds, per_gen
 
 
 def parse_sources(sources_str: str) -> List[str]:
@@ -499,6 +672,61 @@ Output Directories:
         else:
             print(f"  Sources:     {', '.join(phase1_sources)}")
         print(f"  Output:      {current_output_base}/")
+
+        # Pre-run estimation
+        all_sources = phase1_sources + phase2_sources
+        mr_health = not args.no_meraki_health and not args.no_mr_health
+        ms_health = not args.no_meraki_health and not args.no_ms_health
+        est_events, est_seconds, _ = _estimate_run(
+            sources=all_sources,
+            days=args.days,
+            scale=args.scale,
+            orders_per_day=args.orders_per_day,
+            num_clients=args.clients,
+            client_interval=args.client_interval,
+            full_metrics=args.full_metrics,
+            health_interval=args.meraki_health_interval,
+            mr_health=mr_health,
+            ms_health=ms_health,
+            parallel=args.parallel,
+        )
+
+        # Format event count
+        if est_events >= 1_000_000:
+            evt_str = f"~{est_events / 1_000_000:.1f}M events"
+        elif est_events >= 10_000:
+            evt_str = f"~{est_events / 1_000:.0f}K events"
+        else:
+            evt_str = f"~{est_events:,} events"
+
+        # Format time
+        if est_seconds < 60:
+            time_str = f"~{est_seconds:.0f}s"
+        elif est_seconds < 3600:
+            time_str = f"~{est_seconds / 60:.1f} min"
+        else:
+            time_str = f"~{est_seconds / 3600:.1f} hr"
+
+        est_line = f"  Estimated:   {evt_str}, {time_str}"
+
+        # Show notes for non-default settings that significantly affect volume
+        notes = []
+        if args.orders_per_day and args.orders_per_day != 224:
+            ratio = args.orders_per_day / 224
+            notes.append(f"orders={args.orders_per_day} ({ratio:.1f}x)")
+        if args.clients > 5:
+            notes.append(f"clients={args.clients}")
+        if args.full_metrics:
+            notes.append("full-metrics")
+        if args.meraki_health_interval != 15:
+            notes.append(f"health-interval={args.meraki_health_interval}m")
+        if args.scale != 1.0:
+            notes.append(f"scale={args.scale}")
+
+        if notes:
+            est_line += f"  ({', '.join(notes)})"
+
+        print(est_line)
         print("=" * 70)
         print(flush=True)
 
@@ -570,6 +798,7 @@ Output Directories:
                             "status": "running", "start": time.time(),
                         }
                 _progress_stop = False
+                _progress_pause.clear()
                 display_thread = threading.Thread(
                     target=_progress_display_thread, args=(len(phase_sources),), daemon=True)
                 display_thread.start()
@@ -593,6 +822,9 @@ Output Directories:
                             _progress[result["name"]]["status"] = "done"
 
                     if not args.quiet:
+                        # Pause display thread to prevent interleaving with file paths
+                        _progress_pause.set()
+                        time.sleep(0.05)  # Let display thread see the flag
                         # Clear the progress line before printing completion
                         print(f"\r{' ' * 120}\r", end="", flush=True)
                         count = result.get("count", 0)
@@ -603,6 +835,8 @@ Output Directories:
                             print(f"  [✗] {result['name']:{_GEN_NAME_WIDTH}} {count:>10,} events  ({dur:.1f}s)")
                         if args.show_files:
                             _print_file_counts(result, current_output_base, output_label)
+                        # Resume display thread
+                        _progress_pause.clear()
 
             # Stop display thread
             if display_thread:
