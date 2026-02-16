@@ -303,6 +303,15 @@ def _estimate_run(sources, days, scale, orders_per_day, num_clients,
             client_events = max(0, num_clients) * 37
             est = (base_per_day + client_events) * days * scale
 
+        elif gen == "sysmon":
+            # Sysmon base: 2,304/day (servers + 20 sampled workstations)
+            # With --clients>0: server-only base (~990/day) + ~18 events/client/day
+            if num_clients > 0:
+                server_base = 990
+                client_events = num_clients * 18
+                est = (server_base + client_events) * days * scale
+            # else: use default base_per_day (2,304) which includes legacy 20 samples
+
         elif gen == "perfmon":
             # Perfmon: calibrated base includes servers + 5 default clients
             # Extra clients add ~340/day (no full-metrics) or ~610/day (full-metrics)
@@ -766,6 +775,12 @@ Output Directories:
         "num_clients": args.clients,
     }
 
+    # Sysmon-specific kwargs
+    sysmon_kwargs = {
+        **base_kwargs,
+        "num_clients": args.clients,
+    }
+
     # Meraki-specific kwargs
     mr_health = not args.no_meraki_health and not args.no_mr_health
     ms_health = not args.no_meraki_health and not args.no_ms_health
@@ -786,6 +801,8 @@ Output Directories:
             return perfmon_kwargs
         if name == "wineventlog":
             return wineventlog_kwargs
+        if name == "sysmon":
+            return sysmon_kwargs
         if name == "access":
             return access_kwargs
         if name == "meraki":

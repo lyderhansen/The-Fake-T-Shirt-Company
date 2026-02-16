@@ -4,6 +4,75 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~10:00 UTC -- Sysmon Client Workstation Scaling
+
+### Context
+
+The Sysmon generator had a fixed 20-workstation sample per day (deterministic seed, not configurable via `--clients`). After the WinEventLog client expansion, Sysmon was inconsistent -- WinEventLog scaled with `--clients=N` but Sysmon used random 20-workstation samples that didn't correlate with WinEventLog hostnames. A user running `--clients=40` would get 40 workstations in WinEventLog but random 20 in Sysmon.
+
+### Changes
+
+- `bin/generators/generate_sysmon.py` -- Added `num_clients` parameter to `generate_sysmon_logs()` (default 0 = legacy 20-sample behavior).
+- `bin/generators/generate_sysmon.py` -- Added 8 `CLIENT_APP_PROFILES` with weighted application profiles (chrome, outlook, teams, edge, office, onedrive, system_background, misc_user). Each profile defines correlated process trees, network targets, DNS queries, file paths, and DLLs for realistic per-application event clusters.
+- `bin/generators/generate_sysmon.py` -- Added `CLIENT_EID_WEIGHTS` for client workstation EID distribution (no EID 8/10 in baseline -- attack indicators only).
+- `bin/generators/generate_sysmon.py` -- Added `_pick_app_profile()`, `_resolve_template()` helper functions.
+- `bin/generators/generate_sysmon.py` -- Added 7 client sub-generator functions:
+  - `_client_process_create()` -- EID 1 with parent-child process trees (30% child spawn chance)
+  - `_client_network_connect()` -- EID 3 matching profile network targets
+  - `_client_process_terminate()` -- EID 5 matching profile app
+  - `_client_image_loaded()` -- EID 7 with profile-specific and common DLLs
+  - `_client_file_create()` -- EID 11 with profile-specific cache/temp/doc files
+  - `_client_registry_set()` -- EID 13 with workstation registry paths
+  - `_client_dns_query()` -- EID 22 with profile-specific domains
+- `bin/generators/generate_sysmon.py` -- Added `generate_client_sysmon_hour()` orchestrator with work-hour gating (7-18 weekdays, 10% weekend overtime), weighted EID selection.
+- `bin/generators/generate_sysmon.py` -- Modified main loop: when `num_clients > 0`, uses `build_wineventlog_client_list()` (imported from WinEventLog) instead of legacy `select_sampled_workstations()`. Ensures same hostnames in both generators.
+- `bin/generators/generate_sysmon.py` -- Updated standalone CLI with `--clients` argument.
+- `bin/main_generate.py` -- Added `sysmon_kwargs` dict passing `num_clients` from `args.clients`.
+- `bin/main_generate.py` -- Updated `get_kwargs_for_generator()` to return `sysmon_kwargs` for sysmon.
+- `bin/main_generate.py` -- Added `_estimate_run()` sysmon block: server base 990/day + 18 events/client/day.
+
+### Volume Impact
+
+| --clients | Server events/day | Client events/day | Total/day | 14-day total |
+|-----------|-------------------|-------------------|-----------|-------------|
+| 0 (legacy) | ~990 | ~1,314 (20 random) | ~2,304 | ~15,067 |
+| 5 | ~990 | 88 | ~1,076 | ~15,058 |
+| 40 | ~990 | 698 | ~1,687 | ~23,614 |
+| 175 | ~990 | 3,063 | ~4,053 | ~56,742 (est) |
+
+~18 events/client/day (14-day average, scale=1.0).
+
+### Client EID Distribution
+
+| EID | Event Type | Percentage |
+|-----|-----------|------------|
+| 1 | ProcessCreate | 27% |
+| 3 | NetworkConnect | 18% |
+| 7 | ImageLoaded | 14% |
+| 5 | ProcessTerminate | 11% |
+| 11 | FileCreate | 10% |
+| 22 | DNSQuery | 9% |
+| 13 | RegistryValueSet | 8% |
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/generators/generate_sysmon.py` | Added `num_clients` param, 8 app profiles, `CLIENT_EID_WEIGHTS`, 7 sub-generators, orchestrator, modified main loop, CLI update |
+| `bin/main_generate.py` | Added `sysmon_kwargs`, updated `get_kwargs_for_generator()`, added `_estimate_run()` sysmon block |
+
+### Verification
+
+- Syntax check: both files pass
+- 0 clients (legacy): 15,067 events / 14 days (no regression)
+- 5 clients, 14 days: 15,058 events (estimation: 15,120, error 0.4%)
+- 40 clients, 14 days: 23,614 events (estimation: 23,940, error 1.4%)
+- Scenarios (exfil + ransomware, 5 clients): 15,125 events (+67 scenario events, no interference)
+- Hostname correlation: identical 5 hosts in both Sysmon and WinEventLog (`BOS-WS-AMILLER01`, `ATL-WS-JBROWN01`, `AUS-WS-BWHITE01`, `BOS-WS-JSMITH01`, `BOS-WS-SWILSON01`)
+- Sample event format verified (correct KV structure, parent-child trees, profile-driven content)
+
+---
+
 ## 2026-02-17 ~08:00 UTC -- WinEventLog Baseline Client Workstation Events
 
 ### Context

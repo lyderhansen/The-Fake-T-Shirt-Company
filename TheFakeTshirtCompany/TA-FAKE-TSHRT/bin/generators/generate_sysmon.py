@@ -340,9 +340,211 @@ PROCESS_ACCESS_TARGETS_WS = [
 SERVER_EID_WEIGHTS = {1: 22, 3: 20, 5: 12, 7: 15, 8: 1, 10: 5, 11: 10, 13: 8, 22: 7}
 WORKSTATION_EID_WEIGHTS = {1: 25, 3: 20, 5: 12, 7: 15, 8: 0, 10: 3, 11: 10, 13: 5, 22: 10}
 
+# Client EID distribution (profile-driven, no EID 8/10 for workstations)
+CLIENT_EID_WEIGHTS = {1: 25, 3: 20, 5: 12, 7: 15, 11: 10, 13: 8, 22: 10}
+
 # Base events per peak hour (scale=1.0)
 SERVER_BASE_EVENTS_PER_HOUR = 18  # Per server, ~125/day at peak
 WORKSTATION_BASE_EVENTS_PER_HOUR = 8  # Per workstation, ~48/day sampled
+CLIENT_SYSMON_EVENTS_PER_HOUR = 3  # Per client workstation at peak
+
+
+# =============================================================================
+# CLIENT APPLICATION PROFILES
+# =============================================================================
+# Each profile defines a realistic application session with correlated
+# process, network, DNS, file, and DLL activity.
+
+CLIENT_APP_PROFILES = [
+    {
+        "name": "chrome_browsing",
+        "weight": 25,
+        "proc": {
+            "image": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "name": "chrome.exe",
+            "cmd": '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --no-first-run',
+            "children": [
+                {"image": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                 "cmd": '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --type=renderer --field-trial-handle=1234'},
+                {"image": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                 "cmd": '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --type=gpu-process'},
+            ],
+        },
+        "network": [
+            {"dst_ip": "172.217.14.78", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "140.82.121.4", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "151.101.1.69", "dst_port": 443, "protocol": "tcp"},
+        ],
+        "dns": ["www.google.com", "github.com", "stackoverflow.com", "cdn.jsdelivr.net", "fonts.googleapis.com"],
+        "files": [
+            "C:\\Users\\{user}\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache\\data_{rand}",
+            "C:\\Users\\{user}\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Sessions\\Session_{rand}",
+        ],
+        "dlls": [
+            "C:\\Program Files\\Google\\Chrome\\Application\\123.0.6312.122\\chrome_elf.dll",
+            "C:\\Program Files\\Google\\Chrome\\Application\\123.0.6312.122\\v8_context_snapshot.bin",
+        ],
+    },
+    {
+        "name": "outlook_email",
+        "weight": 20,
+        "proc": {
+            "image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE",
+            "name": "OUTLOOK.EXE",
+            "cmd": '"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE"',
+            "children": [],
+        },
+        "network": [
+            {"dst_ip": "52.96.166.130", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
+        ],
+        "dns": ["outlook.office365.com", "graph.microsoft.com", "login.microsoftonline.com", "autodiscover.theTshirtCompany.com"],
+        "files": [
+            "C:\\Users\\{user}\\AppData\\Local\\Microsoft\\Outlook\\{user}@theTshirtCompany.com.ost",
+            "C:\\Users\\{user}\\AppData\\Local\\Temp\\Outlook Temp\\~tmp{rand}.tmp",
+        ],
+        "dlls": [
+            "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\AppvIsvSubsystems64.dll",
+            "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\C2R64.dll",
+        ],
+    },
+    {
+        "name": "teams_collab",
+        "weight": 15,
+        "proc": {
+            "image": "C:\\Program Files\\WindowsApps\\Microsoft.Teams_24.1.100\\ms-teams.exe",
+            "name": "Teams.exe",
+            "cmd": '"C:\\Program Files\\WindowsApps\\Microsoft.Teams_24.1.100\\ms-teams.exe" --system-initiated',
+            "children": [
+                {"image": "C:\\Program Files\\WindowsApps\\Microsoft.Teams_24.1.100\\ms-teams.exe",
+                 "cmd": '"C:\\Program Files\\WindowsApps\\Microsoft.Teams_24.1.100\\ms-teams.exe" --type=renderer'},
+            ],
+        },
+        "network": [
+            {"dst_ip": "52.112.0.31", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
+        ],
+        "dns": ["teams.microsoft.com", "teams.events.data.microsoft.com", "statics.teams.cdn.office.net"],
+        "files": [
+            "C:\\Users\\{user}\\AppData\\Local\\Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\Logs\\MSTeams_{rand}.log",
+        ],
+        "dlls": [
+            "C:\\Program Files\\WindowsApps\\Microsoft.Teams_24.1.100\\msedgewebview2.dll",
+        ],
+    },
+    {
+        "name": "edge_browsing",
+        "weight": 10,
+        "proc": {
+            "image": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+            "name": "msedge.exe",
+            "cmd": '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --no-startup-window',
+            "children": [
+                {"image": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                 "cmd": '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --type=renderer'},
+            ],
+        },
+        "network": [
+            {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "204.79.197.200", "dst_port": 443, "protocol": "tcp"},
+        ],
+        "dns": ["www.bing.com", "edge.microsoft.com", "ntp.msn.com", "login.live.com"],
+        "files": [
+            "C:\\Users\\{user}\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Cache\\data_{rand}",
+        ],
+        "dlls": [
+            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\123.0.2420.81\\msedge_elf.dll",
+        ],
+    },
+    {
+        "name": "office_work",
+        "weight": 10,
+        "proc": {
+            "image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+            "name": "EXCEL.EXE",
+            "cmd": '"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE" "C:\\Users\\{user}\\Documents\\budget.xlsx"',
+            "children": [],
+        },
+        "network": [
+            {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "10.10.20.20", "dst_port": 445, "protocol": "tcp"},
+        ],
+        "dns": ["office.microsoft.com", "graph.microsoft.com"],
+        "files": [
+            "C:\\Users\\{user}\\Documents\\~$budget.xlsx",
+            "C:\\Users\\{user}\\AppData\\Local\\Temp\\~DF{rand}.tmp",
+        ],
+        "dlls": [
+            "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\AppvIsvSubsystems64.dll",
+        ],
+    },
+    {
+        "name": "onedrive_sync",
+        "weight": 8,
+        "proc": {
+            "image": "C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe",
+            "name": "OneDrive.exe",
+            "cmd": '"C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe" /background',
+            "children": [],
+        },
+        "network": [
+            {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
+        ],
+        "dns": ["onedrive.live.com", "skyapi.onedrive.live.com", "storage.live.com"],
+        "files": [
+            "C:\\Users\\{user}\\OneDrive - The FAKE T-Shirt Company\\Documents\\{rand}.docx",
+        ],
+        "dlls": [
+            "C:\\Program Files\\Microsoft OneDrive\\FileSyncShell64.dll",
+        ],
+    },
+    {
+        "name": "system_background",
+        "weight": 7,
+        "proc": {
+            "image": "C:\\Windows\\System32\\svchost.exe",
+            "name": "svchost.exe",
+            "cmd": "C:\\Windows\\System32\\svchost.exe -k netsvcs -p",
+            "children": [],
+        },
+        "network": [
+            {"dst_ip": "13.107.42.14", "dst_port": 443, "protocol": "tcp"},
+            {"dst_ip": "10.10.20.10", "dst_port": 53, "protocol": "udp"},
+        ],
+        "dns": ["update.microsoft.com", "ctldl.windowsupdate.com", "clientconfig.microsoftonline-p.net"],
+        "files": [
+            "C:\\Windows\\Temp\\tmp{rand}.tmp",
+            "C:\\Windows\\SoftwareDistribution\\Download\\{rand}",
+        ],
+        "dlls": [
+            "C:\\Windows\\System32\\wuaueng.dll",
+            "C:\\Windows\\System32\\WinTypes.dll",
+        ],
+    },
+    {
+        "name": "misc_user",
+        "weight": 5,
+        "proc": {
+            "image": "C:\\Windows\\System32\\notepad.exe",
+            "name": "notepad.exe",
+            "cmd": "C:\\Windows\\System32\\notepad.exe",
+            "children": [],
+        },
+        "network": [],
+        "dns": [],
+        "files": [
+            "C:\\Users\\{user}\\Desktop\\notes.txt",
+            "C:\\Users\\{user}\\Documents\\todo.txt",
+        ],
+        "dlls": [
+            "C:\\Windows\\System32\\uxtheme.dll",
+            "C:\\Windows\\System32\\TextShaping.dll",
+        ],
+    },
+]
+
+# Pre-computed cumulative weights for profile selection
+_PROFILE_WEIGHTS = [p["weight"] for p in CLIENT_APP_PROFILES]
 
 
 # =============================================================================
@@ -953,6 +1155,205 @@ def generate_baseline_workstation_hour(base_date: str, day: int, hour: int,
 
 
 # =============================================================================
+# CLIENT WORKSTATION EVENTS (configurable via --clients)
+# =============================================================================
+# When num_clients > 0, these replace the legacy 20-workstation sampling.
+# Each client generates profile-driven Sysmon events with correlated
+# process trees, network connections, DNS queries, file creates, and DLLs.
+
+def _pick_app_profile() -> dict:
+    """Pick a random application profile weighted by frequency."""
+    return random.choices(CLIENT_APP_PROFILES, weights=_PROFILE_WEIGHTS, k=1)[0]
+
+
+def _resolve_template(template: str, username: str) -> str:
+    """Replace {user} and {rand} placeholders in file/cmd templates."""
+    result = template.replace("{user}", username)
+    result = result.replace("{rand}", f"{random.randint(10000, 99999):05X}")
+    return result
+
+
+def _client_process_create(ts: datetime, client, profile: dict) -> List[str]:
+    """EID 1 -- Process creation from app profile.
+
+    Creates the main process and optionally a child process (30% chance
+    for profiles with children defined).
+    """
+    events = []
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+    proc = profile["proc"]
+
+    cmd = _resolve_template(proc["cmd"], client.username)
+    events.append(sysmon_eid1(ts, computer, user_str, proc["image"], cmd))
+
+    # Child process (30% chance if profile has children)
+    if proc.get("children") and random.random() < 0.30:
+        child = random.choice(proc["children"])
+        child_ts = ts.replace(second=min(59, ts.second + random.randint(1, 3)),
+                              microsecond=random.randint(0, 999999))
+        child_cmd = _resolve_template(child["cmd"], client.username)
+        events.append(sysmon_eid1(
+            child_ts, computer, user_str, child["image"], child_cmd,
+            parent_image=proc["image"], parent_command_line=cmd
+        ))
+
+    return events
+
+
+def _client_network_connect(ts: datetime, client, profile: dict) -> List[str]:
+    """EID 3 -- Network connection from app profile targets."""
+    events = []
+    if not profile["network"]:
+        return events
+
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+    proc = profile["proc"]
+    target = random.choice(profile["network"])
+    src_port = random.randint(49152, 65535)
+
+    events.append(sysmon_eid3(
+        ts, computer, user_str, proc["image"], target["protocol"],
+        client.ip_address, src_port, target["dst_ip"], target["dst_port"]
+    ))
+    return events
+
+
+def _client_process_terminate(ts: datetime, client, profile: dict) -> List[str]:
+    """EID 5 -- Process termination matching profile app."""
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+    return [sysmon_eid5(ts, computer, user_str, profile["proc"]["image"])]
+
+
+def _client_image_loaded(ts: datetime, client, profile: dict) -> List[str]:
+    """EID 7 -- DLL load from profile-specific and common DLLs."""
+    events = []
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+    proc = profile["proc"]
+
+    # Use profile-specific DLLs if available, fallback to common workstation DLLs
+    dll_pool = profile.get("dlls", []) + WORKSTATION_DLLS[:4]
+    dll = random.choice(dll_pool)
+    events.append(sysmon_eid7(ts, computer, user_str, proc["image"], dll))
+    return events
+
+
+def _client_file_create(ts: datetime, client, profile: dict) -> List[str]:
+    """EID 11 -- File creation from profile activity (cache, temp, docs)."""
+    events = []
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+    proc = profile["proc"]
+
+    # Use profile-specific files if available, fallback to generic temp
+    file_pool = profile.get("files", [])
+    if not file_pool:
+        file_pool = WORKSTATION_FILE_TARGETS
+    template = random.choice(file_pool)
+    filename = _resolve_template(template, client.username)
+    events.append(sysmon_eid11(ts, computer, user_str, proc["image"], filename))
+    return events
+
+
+def _client_registry_set(ts: datetime, client) -> List[str]:
+    """EID 13 -- Registry value set from app settings and user preferences."""
+    events = []
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+
+    reg_path = random.choice(WORKSTATION_REGISTRY_PATHS)
+    # Pick a plausible process for registry writes
+    reg_proc = random.choice([
+        "C:\\Windows\\System32\\svchost.exe",
+        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE",
+        "C:\\Windows\\explorer.exe",
+    ])
+    events.append(sysmon_eid13(
+        ts, computer, user_str, reg_proc, "SetValue", reg_path,
+        f"DWORD (0x{random.randint(0, 0xFF):08x})"
+    ))
+    return events
+
+
+def _client_dns_query(ts: datetime, client, profile: dict) -> List[str]:
+    """EID 22 -- DNS queries matching profile domains."""
+    events = []
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+
+    # Use profile-specific DNS if available, fallback to common external DNS
+    dns_pool = profile.get("dns", [])
+    if not dns_pool:
+        dns_pool = DNS_EXTERNAL
+    query = random.choice(dns_pool)
+    result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
+    dns_image = "C:\\Windows\\System32\\svchost.exe"
+    events.append(sysmon_eid22(ts, computer, user_str, dns_image, query,
+                               query_results=result))
+    return events
+
+
+def generate_client_sysmon_hour(base_date: str, day: int, hour: int,
+                                client, scale: float) -> List[str]:
+    """Generate all Sysmon events for one client workstation for one hour.
+
+    Work-hour gating: 7-18 weekdays, minimal off-hours/weekend.
+    Each event picks a weighted app profile and generates a correlated
+    cluster of events matching that application.
+
+    Volume target: ~20-30 events/client/day (lower than WinEventLog).
+    """
+    events = []
+    dt = date_add(base_date, day)
+    is_weekend = dt.weekday() >= 5
+
+    # Work-hour gating
+    if hour < 7 or hour > 18:
+        return events
+    if is_weekend and random.random() > 0.10:
+        return events
+
+    # Calculate events for this hour using natural volume curves
+    count = calc_natural_events(
+        int(CLIENT_SYSMON_EVENTS_PER_HOUR * scale),
+        base_date, day, hour, "windows"
+    )
+
+    base_dt = dt.replace(hour=hour)
+
+    for _ in range(count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        micro = random.randint(0, 999999)
+        ts = base_dt.replace(minute=minute, second=second, microsecond=micro)
+
+        # Pick app profile and EID
+        profile = _pick_app_profile()
+        eid = _pick_eid(CLIENT_EID_WEIGHTS)
+
+        if eid == 1:
+            events.extend(_client_process_create(ts, client, profile))
+        elif eid == 3:
+            events.extend(_client_network_connect(ts, client, profile))
+        elif eid == 5:
+            events.extend(_client_process_terminate(ts, client, profile))
+        elif eid == 7:
+            events.extend(_client_image_loaded(ts, client, profile))
+        elif eid == 11:
+            events.extend(_client_file_create(ts, client, profile))
+        elif eid == 13:
+            events.extend(_client_registry_set(ts, client))
+        elif eid == 22:
+            events.extend(_client_dns_query(ts, client, profile))
+
+    return events
+
+
+# =============================================================================
 # SCENARIO: EXFIL (Day 4-13)
 # =============================================================================
 
@@ -1368,6 +1769,7 @@ def generate_sysmon_logs(
     output_dir: str = None,
     progress_callback=None,
     quiet: bool = False,
+    num_clients: int = 0,
 ) -> int:
     """Generate Sysmon operational log events.
 
@@ -1378,6 +1780,7 @@ def generate_sysmon_logs(
         scenarios: Scenario spec ("none", "all", "exfil", etc.)
         output_dir: Override output directory
         quiet: Suppress progress output
+        num_clients: Number of client workstations (0=legacy 20-sample)
 
     Returns:
         Total event count
@@ -1395,8 +1798,16 @@ def generate_sysmon_logs(
     run_exfil = "exfil" in active_scenarios
     run_ransomware = "ransomware_attempt" in active_scenarios
 
+    # Build client list (replaces sampled workstations when num_clients > 0)
+    if num_clients > 0:
+        from generators.generate_wineventlog import build_wineventlog_client_list
+        clients = build_wineventlog_client_list(num_clients)
+    else:
+        clients = None  # Use legacy sampled workstations
+
     if not quiet:
-        print(f"[sysmon] Generating {days} days from {start_date} (scale={scale})")
+        client_info = f", clients={num_clients}" if num_clients > 0 else ""
+        print(f"[sysmon] Generating {days} days from {start_date} (scale={scale}{client_info})")
         if active_scenarios:
             print(f"[sysmon] Active scenarios: {', '.join(active_scenarios)}")
 
@@ -1407,8 +1818,9 @@ def generate_sysmon_logs(
             progress_callback("sysmon", day + 1, days)
         day_events = []
 
-        # Select workstations for this day
-        workstations = select_sampled_workstations(day, count=20)
+        # Select legacy workstations if no explicit client list
+        if clients is None:
+            workstations = select_sampled_workstations(day, count=20)
 
         for hour in range(24):
             # Calculate events per server for this hour
@@ -1424,18 +1836,25 @@ def generate_sysmon_logs(
                 )
                 day_events.extend(srv_events)
 
-            # Calculate events per workstation for this hour
-            ws_count = calc_natural_events(
-                int(WORKSTATION_BASE_EVENTS_PER_HOUR * scale),
-                start_date, day, hour, "windows"
-            )
-
-            # Generate workstation baseline
-            for user_obj in workstations:
-                ws_events = generate_baseline_workstation_hour(
-                    start_date, day, hour, user_obj, ws_count
+            # ===== CLIENT WORKSTATION EVENTS =====
+            if clients is not None:
+                # Configurable client scaling (--clients=N)
+                for client in clients:
+                    client_events = generate_client_sysmon_hour(
+                        start_date, day, hour, client, scale
+                    )
+                    day_events.extend(client_events)
+            else:
+                # Legacy: fixed 20-workstation sampling
+                ws_count = calc_natural_events(
+                    int(WORKSTATION_BASE_EVENTS_PER_HOUR * scale),
+                    start_date, day, hour, "windows"
                 )
-                day_events.extend(ws_events)
+                for user_obj in workstations:
+                    ws_events = generate_baseline_workstation_hour(
+                        start_date, day, hour, user_obj, ws_count
+                    )
+                    day_events.extend(ws_events)
 
             # Scenario events
             if run_exfil and 4 <= day <= 13:
@@ -1494,6 +1913,8 @@ if __name__ == "__main__":
     parser.add_argument("--scenarios", default="none")
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--clients", type=int, default=0,
+                        help="Number of client workstations (0=legacy 20-sample, max 175)")
     args = parser.parse_args()
 
     count = generate_sysmon_logs(
@@ -1503,5 +1924,6 @@ if __name__ == "__main__":
         scenarios=args.scenarios,
         output_dir=args.output_dir,
         quiet=args.quiet,
+        num_clients=args.clients,
     )
     print(f"\nGenerated {count:,} Sysmon events")
