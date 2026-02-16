@@ -4,6 +4,71 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~08:00 UTC -- WinEventLog Baseline Client Workstation Events
+
+### Context
+
+WinEventLog generator only produced events for 13 Windows servers. Client workstations (`*WS-*`) had ~96 scenario-only events vs ~13K server events over 14 days. Splunk query `index=fake_tshrt sourcetype=FAKE:WinEventLog host=*WS-*` returned almost nothing. The `--clients` parameter only affected Perfmon. A real enterprise would have significant WinEventLog telemetry from endpoints.
+
+### Changes
+
+- `bin/generators/generate_wineventlog.py` -- Added `num_clients` parameter to `generate_wineventlog()` signature (default 0 for backward compatibility).
+- `bin/generators/generate_wineventlog.py` -- Added client constants: `WORKSTATION_PROCESSES` (12 processes), `CLIENT_SERVICES` (13 services), `CLIENT_APP_CRASH_SOURCES` (7 crash sources).
+- `bin/generators/generate_wineventlog.py` -- Added `build_wineventlog_client_list(num_clients)`: prioritizes scenario users (alex.miller, jessica.brown, brooklyn.white), fills remaining from USER_KEYS. Returns User objects.
+- `bin/generators/generate_wineventlog.py` -- Added `_dc_for_client(client)`: location-aware DC selection (ATL -> DC-ATL-01, BOS/AUS -> random DC-BOS-01/02) matching network architecture.
+- `bin/generators/generate_wineventlog.py` -- Added 2 new event templates: `event_4634()` (logoff, TaskCategory=Logoff) and `event_4689()` (process termination, TaskCategory=Process Termination).
+- `bin/generators/generate_wineventlog.py` -- Added 10 client event generator functions:
+  - `generate_client_logon()` -- EventCode 4624 type 2 (interactive), morning 7-8 AM
+  - `generate_client_logoff()` -- EventCode 4634 type 2, evening 17-18
+  - `generate_client_network_logons()` -- EventCode 4624 type 3 to FILE-BOS-01, 1-3/work hour
+  - `generate_client_process_events()` -- EventCode 4688/4689 pairs, 4-6/work hour (scaled)
+  - `generate_client_service_events()` -- EventCode 7036, 2-3 services/boot + occasional during day
+  - `generate_client_system_events()` -- EventCodes 37 (time sync), 10016 (DCOM), 1014 (DNS)
+  - `generate_client_failed_logon()` -- EventCode 4625, ~2% chance morning hours
+  - `generate_client_special_logon()` -- EventCode 4672, morning logon with admin privs
+  - `generate_client_app_events()` -- EventCodes 1000/1001/1026, ~3% chance per work hour
+  - `generate_client_hour()` -- Orchestrator dispatching all client generators, returns security/system/application dict
+- `bin/generators/generate_wineventlog.py` -- Work-hour gating: most events 7-18 weekdays only, 10% weekend overtime chance, minimal service events off-hours.
+- `bin/generators/generate_wineventlog.py` -- Integrated client generation into main day/hour loop (after server baseline, before scenarios).
+- `bin/generators/generate_wineventlog.py` -- Fixed WER (Windows Error Reporting) EventCode 1001 message: Application Name now shows actual crashing app (chrome.exe, Teams.exe, etc.) instead of "Windows Error Reporting".
+- `bin/main_generate.py` -- Added `wineventlog_kwargs` dict passing `num_clients` from `args.clients`.
+- `bin/main_generate.py` -- Updated `get_kwargs_for_generator()` to return `wineventlog_kwargs` for wineventlog.
+- `bin/main_generate.py` -- Updated `_estimate_run()` with wineventlog client scaling: `client_events = max(0, num_clients) * 37` per day.
+- `bin/tui_generate.py` -- Renamed "Perfmon Clients (5-175)" to "Clients (5-175)" since the parameter now drives both Perfmon and WinEventLog.
+
+### Volume Impact
+
+| --clients | Events/day (14d avg) | 14-day total | vs baseline |
+|-----------|---------------------|--------------|-------------|
+| 0 | ~434 (servers only) | ~6,054 | baseline |
+| 5 (default) | ~620 | ~8,672 | +43% |
+| 40 | ~1,797 | ~25,164 | +316% |
+| 175 | ~6,909 | ~96,726 | +1,497% |
+
+~37 events/client/day (14-day average, scale=1.0).
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/generators/generate_wineventlog.py` | Added `num_clients` param, client constants, DC selection, 2 event templates, 10 generator functions, orchestrator, main loop integration, WER fix |
+| `bin/main_generate.py` | Added `wineventlog_kwargs`, updated `get_kwargs_for_generator()`, updated `_estimate_run()` |
+| `bin/tui_generate.py` | Renamed "Perfmon Clients" to "Clients" label |
+
+### Verification
+
+- Syntax check: all 3 files pass
+- 0 clients, 1 day: 603 events (servers only, no regression)
+- 5 clients, 1 day: 844 events (241 client events)
+- 40 clients, 1 day: 2,515 events
+- 5 clients, 14 days: 8,672 events (estimation predicted 8,666, ~0.1% error)
+- Exfil scenario + 5 clients, 14 days: 8,732 events (scenarios still work alongside client baseline)
+- Event type distribution verified: 4624, 4625, 4634, 4672, 4688, 4689, 7036, 37, 10016, 1014, 1000, 1001, 1026
+- WER Application Name verified: chrome.exe, Teams.exe, EXCEL.EXE, explorer.exe (no more "Windows Error Reporting")
+- Sample events match existing XML format patterns
+
+---
+
 ## 2026-02-17 ~05:30 UTC -- TUI Source Selection UX: Mutual Exclusion, Dependency Highlighting, Group Estimation Fix
 
 ### Context

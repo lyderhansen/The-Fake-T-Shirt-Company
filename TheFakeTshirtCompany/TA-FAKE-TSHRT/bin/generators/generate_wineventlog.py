@@ -274,6 +274,104 @@ DCOM_COMPONENTS = [
     ("{316CDED5-E4AE-4B15-9113-7055D84DCC97}", "AppXDeploymentClient"),
 ]
 
+# =============================================================================
+# CLIENT WORKSTATION CONFIGURATION
+# =============================================================================
+
+MAX_CLIENTS = 175
+
+# Scenario-relevant users (always included first in client list)
+_SCENARIO_USERS_ORDERED = ["alex.miller", "jessica.brown", "brooklyn.white"]
+
+# Common workstation processes (matches Sysmon generator for correlation)
+WORKSTATION_PROCESSES = [
+    ("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "chrome.exe"),
+    ("C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", "msedge.exe"),
+    ("C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE", "OUTLOOK.EXE"),
+    ("C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "WINWORD.EXE"),
+    ("C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE", "EXCEL.EXE"),
+    ("C:\\Program Files\\WindowsApps\\Microsoft.Teams_24.1\\ms-teams.exe", "Teams.exe"),
+    ("C:\\Windows\\explorer.exe", "explorer.exe"),
+    ("C:\\Windows\\System32\\notepad.exe", "notepad.exe"),
+    ("C:\\Windows\\System32\\taskmgr.exe", "taskmgr.exe"),
+    ("C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe", "OneDrive.exe"),
+    ("C:\\Windows\\System32\\SearchIndexer.exe", "SearchIndexer.exe"),
+    ("C:\\Windows\\System32\\spoolsv.exe", "spoolsv.exe"),
+]
+
+# Services commonly starting/stopping on client workstations
+CLIENT_SERVICES = [
+    "Windows Defender Antivirus Service",
+    "Windows Update",
+    "Background Intelligent Transfer Service",
+    "Windows Search",
+    "Print Spooler",
+    "OneDrive Updater Service",
+    "Microsoft Teams Auto-Updater",
+    "Windows Audio",
+    "Bluetooth Support Service",
+    "WLAN AutoConfig",
+    "Windows Firewall",
+    "Task Scheduler",
+    "Windows Management Instrumentation",
+]
+
+# Application crash sources for clients
+CLIENT_APP_CRASH_SOURCES = [
+    ("chrome.exe", "Application Error"),
+    ("Teams.exe", "Application Error"),
+    ("OUTLOOK.EXE", "Application Error"),
+    ("EXCEL.EXE", "Application Error"),
+    ("explorer.exe", "Application Error"),
+    (".NET Runtime", ".NET Runtime"),
+    ("WerFault.exe", "Windows Error Reporting"),
+]
+
+
+def build_wineventlog_client_list(num_clients: int) -> list:
+    """Build list of client workstation User objects for WinEventLog generation.
+
+    Scenario users (alex.miller, jessica.brown, brooklyn.white) are prioritized.
+    Returns list of User objects from company.py.
+    """
+    if num_clients <= 0:
+        return []
+
+    num_clients = min(num_clients, MAX_CLIENTS)
+    clients = []
+    seen = set()
+
+    # Add scenario users first
+    for username in _SCENARIO_USERS_ORDERED:
+        if len(clients) >= num_clients:
+            break
+        if username in USERS and username not in seen:
+            clients.append(USERS[username])
+            seen.add(username)
+
+    # Fill remaining from USER_KEYS order
+    for username in USER_KEYS:
+        if len(clients) >= num_clients:
+            break
+        if username not in seen:
+            clients.append(USERS[username])
+            seen.add(username)
+
+    return clients
+
+
+def _dc_for_client(client) -> str:
+    """Select the domain controller for a client workstation based on location.
+
+    BOS and AUS clients authenticate against DC-BOS-01 or DC-BOS-02.
+    ATL clients authenticate against DC-ATL-01.
+    """
+    loc = client.location
+    if loc == "ATL":
+        return "DC-ATL-01"
+    # BOS and AUS both use Boston DCs (AUS has no local DC, uses SD-WAN)
+    return random.choice(["DC-BOS-01", "DC-BOS-02"])
+
 
 def event_7036_service_state(ts: str, computer: str, service: str, state: str) -> str:
     """Generate service state change event (7036) - most common System event."""
@@ -465,6 +563,66 @@ Process Information:
     if demo_id:
         event = _insert_demo_id(event, demo_id)
     return event
+
+
+def event_4634(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, user: str, logon_type: int = 2) -> str:
+    """Generate logoff event (4634)."""
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+
+    return f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4634
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=Logoff
+RecordNumber={record}
+Keywords=Audit Success
+Message=An account was logged off.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Logon Type:\t\t{logon_type}
+"""
+
+
+def event_4689(base_date: str, day: int, hour: int, minute: int, second: int,
+               computer: str, user: str, process_name: str) -> str:
+    """Generate process termination event (4689)."""
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    record = get_record_number()
+    process_id = random.randint(1000, 65535)
+
+    return f"""{ts}
+LogName=Security
+SourceName=Microsoft-Windows-Security-Auditing
+EventCode=4689
+EventType=0
+Type=Information
+ComputerName={computer}.theFakeTshirtCompany.com
+TaskCategory=Process Termination
+RecordNumber={record}
+Keywords=Audit Success
+Message=A process has exited.
+
+Subject:
+\tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
+\tAccount Name:\t\t{user}
+\tAccount Domain:\t\tFAKETSHIRTCO
+\tLogon ID:\t\t0x{random.randint(100000, 999999):X}
+
+Process Information:
+\tProcess ID:\t0x{process_id:X}
+\tProcess Name:\t{process_name}
+\tExit Status:\t0x0
+"""
 
 
 def event_4728(base_date: str, day: int, hour: int, minute: int, second: int,
@@ -1428,6 +1586,378 @@ def generate_baseline_defender_events(base_date: str, day: int, hour: int) -> Li
 
 
 # =============================================================================
+# CLIENT WORKSTATION BASELINE EVENTS
+# =============================================================================
+
+def generate_client_logon(base_date: str, day: int, hour: int, client) -> list:
+    """Generate interactive logon event (4624 type 2) for a client workstation.
+
+    Called during morning hours (7-8) - one logon per workday.
+    The logon is recorded on the client machine, but the auth happens at the DC.
+    """
+    events = []
+    dt = date_add(base_date, day)
+    is_weekend = dt.weekday() >= 5
+
+    # No logon on weekends for most users (10% chance for overtime workers)
+    if is_weekend and random.random() > 0.10:
+        return events
+
+    # Only during login hours (7-8 AM)
+    if hour not in (7, 8):
+        return events
+
+    # 70% of logins at 7, 30% at 8 (early birds vs normal)
+    if hour == 7 and random.random() > 0.70:
+        return events
+    if hour == 8 and random.random() > 0.30:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    computer = client.device_name
+
+    # Interactive logon (type 2) on the client workstation
+    events.append(event_4624(
+        base_date, day, hour, minute, second,
+        computer, client.username, logon_type=2,
+        source_ip="127.0.0.1"  # Interactive logon = local
+    ))
+
+    return events
+
+
+def generate_client_logoff(base_date: str, day: int, hour: int, client) -> list:
+    """Generate logoff event (4634) for a client workstation.
+
+    Called during evening hours (17-18) - one logoff per workday.
+    """
+    events = []
+    dt = date_add(base_date, day)
+    is_weekend = dt.weekday() >= 5
+
+    if is_weekend:
+        return events
+
+    # Only during logout hours
+    if hour not in (17, 18):
+        return events
+
+    # 40% at 17, 60% at 18
+    if hour == 17 and random.random() > 0.40:
+        return events
+    if hour == 18 and random.random() > 0.60:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    computer = client.device_name
+
+    events.append(event_4634(
+        base_date, day, hour, minute, second,
+        computer, client.username, logon_type=2
+    ))
+
+    return events
+
+
+def generate_client_network_logons(base_date: str, day: int, hour: int, client) -> list:
+    """Generate network logon events (4624 type 3) for file server access.
+
+    Users access FILE-BOS-01 during business hours for shared files.
+    ATL/AUS users also generate type 3 logons when accessing through SD-WAN.
+    """
+    events = []
+
+    # Only during business hours
+    if hour < 8 or hour > 17:
+        return events
+
+    dt = date_add(base_date, day)
+    if dt.weekday() >= 5:
+        return events
+
+    # 20% chance per hour during business hours (~2 per day)
+    if random.random() > 0.20:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+
+    # Network logon recorded on FILE-BOS-01 (or DC for mapped drives)
+    target_server = random.choice(["FILE-BOS-01", _dc_for_client(client)])
+    events.append(event_4624(
+        base_date, day, hour, minute, second,
+        target_server, client.username, logon_type=3,
+        source_ip=client.ip_address
+    ))
+
+    return events
+
+
+def generate_client_process_events(base_date: str, day: int, hour: int, client, scale: float) -> list:
+    """Generate process creation (4688) and exit (4689) events for client workstations.
+
+    Workstations run office apps, browsers, etc. Peak during work hours.
+    """
+    events = []
+
+    # Minimal off-hours activity
+    if hour < 7 or hour > 18:
+        return events
+
+    dt = date_add(base_date, day)
+    is_weekend = dt.weekday() >= 5
+    if is_weekend:
+        return events
+
+    # Volume: 1-2 process events per peak hour, scaled
+    # Peak hours (9-11, 13-15) get more, off-peak gets less
+    if 9 <= hour <= 11 or 13 <= hour <= 15:
+        base_count = max(1, int(2 * scale))
+    elif 8 <= hour <= 17:
+        base_count = max(1, int(1 * scale))
+    else:
+        base_count = 0
+
+    if base_count == 0:
+        return events
+
+    # Apply small random variation
+    count = max(0, base_count + random.randint(-1, 1))
+
+    for _ in range(count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        process_path, process_name = random.choice(WORKSTATION_PROCESSES)
+        computer = client.device_name
+
+        # Process creation (4688)
+        events.append(event_4688(
+            base_date, day, hour, minute, second,
+            computer, client.username, process_path, process_path
+        ))
+
+        # Corresponding process exit (4689) a few seconds to minutes later
+        exit_second = min(59, second + random.randint(2, 30))
+        events.append(event_4689(
+            base_date, day, hour, minute, exit_second,
+            computer, client.username, process_path
+        ))
+
+    return events
+
+
+def generate_client_service_events(base_date: str, day: int, hour: int, client) -> list:
+    """Generate service state change events (7036) for client workstations.
+
+    Client services start/stop throughout the day: updates, defender scans, etc.
+    """
+    events = []
+
+    # Services run 24/7 but more active during work hours
+    dt = date_add(base_date, day)
+    is_work_hour = 7 <= hour <= 18 and dt.weekday() < 5
+
+    # ~30% chance per hour during work hours, ~5% off-hours
+    # Results in about 4-5 service events per workday
+    chance = 0.30 if is_work_hour else 0.05
+    if random.random() > chance:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    ts = ts_winevent(base_date, day, hour, minute, second)
+    computer = client.device_name
+    service = random.choice(CLIENT_SERVICES)
+    state = random.choice(["running", "stopped"])
+
+    events.append(event_7036_service_state(ts, computer, service, state))
+
+    return events
+
+
+def generate_client_system_events(base_date: str, day: int, hour: int, client) -> list:
+    """Generate system events (37 time sync, 10016 DCOM, 1014 DNS) for clients.
+
+    These events happen on all Windows machines. Time sync every ~4 hours,
+    DCOM and DNS errors occasionally.
+    """
+    events = []
+    computer = client.device_name
+
+    # Time sync (event 37) every ~4 hours = 25% chance per hour
+    if random.random() < 0.25:
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts = ts_winevent(base_date, day, hour, minute, second)
+        dc = _dc_for_client(client)
+        events.append(event_37_time_sync(
+            ts, computer, f"{dc}.theFakeTshirtCompany.com"
+        ))
+
+    # DCOM permission error (event 10016) ~10% chance during work hours
+    dt = date_add(base_date, day)
+    is_work_hour = 8 <= hour <= 17 and dt.weekday() < 5
+    if is_work_hour and random.random() < 0.10:
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts = ts_winevent(base_date, day, hour, minute, second)
+        clsid, appname = random.choice(DCOM_COMPONENTS)
+        events.append(event_10016_dcom(ts, computer, clsid, appname))
+
+    # DNS resolution timeout (event 1014) ~3% chance per hour
+    if random.random() < 0.03:
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts = ts_winevent(base_date, day, hour, minute, second)
+        domain = random.choice([
+            "wpad.theFakeTshirtCompany.com",
+            "isatap.theFakeTshirtCompany.com",
+            "teredo.ipv6.microsoft.com",
+        ])
+        events.append(event_1014_dns_timeout(ts, computer, domain))
+
+    return events
+
+
+def generate_client_failed_logon(base_date: str, day: int, hour: int, client) -> list:
+    """Generate occasional failed logon (4625) on client workstations.
+
+    Wrong passwords, locked accounts - rare but realistic.
+    ~2-3% chance per business hour.
+    """
+    events = []
+
+    dt = date_add(base_date, day)
+    is_work_hour = 7 <= hour <= 18 and dt.weekday() < 5
+    if not is_work_hour:
+        return events
+
+    # 3% chance per work hour
+    if random.random() > 0.03:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    computer = client.device_name
+
+    reason = random.choice([
+        "Unknown user name or bad password.",
+        "The user has not been granted the requested logon type at this machine.",
+        "The referenced account is currently locked out and may not be logged on to.",
+    ])
+
+    events.append(event_4625(
+        base_date, day, hour, minute, second,
+        computer, client.username, client.ip_address, reason
+    ))
+
+    return events
+
+
+def generate_client_special_logon(base_date: str, day: int, hour: int, client) -> list:
+    """Generate special privileges (4672) for IT department users only.
+
+    IT users get admin logons on their workstations.
+    """
+    events = []
+
+    # Only IT/Engineering department users
+    if client.department not in ("IT", "Engineering"):
+        return events
+
+    dt = date_add(base_date, day)
+    is_work_hour = 8 <= hour <= 17 and dt.weekday() < 5
+    if not is_work_hour:
+        return events
+
+    # ~8% chance per work hour for IT users
+    if random.random() > 0.08:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    computer = client.device_name
+
+    events.append(event_4672(
+        base_date, day, hour, minute, second,
+        computer, client.username
+    ))
+
+    return events
+
+
+def generate_client_app_events(base_date: str, day: int, hour: int, client) -> list:
+    """Generate application error/crash events for client workstations.
+
+    Occasional app crashes (chrome, teams, outlook) during work hours.
+    """
+    events = []
+
+    dt = date_add(base_date, day)
+    is_work_hour = 8 <= hour <= 17 and dt.weekday() < 5
+    if not is_work_hour:
+        return events
+
+    # ~3% chance per work hour
+    if random.random() > 0.03:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    computer = client.device_name
+    app_name, source = random.choice(CLIENT_APP_CRASH_SOURCES)
+
+    if source == ".NET Runtime":
+        message = f"Application: {app_name}\\nFramework Version: v4.0.30319\\nDescription: The process was terminated due to an unhandled exception.\\nException Info: System.OutOfMemoryException"
+        event_id = 1026
+    elif source == "Windows Error Reporting":
+        # WER reports the crashing app — pick a realistic one
+        wer_crash_app = random.choice(["chrome.exe", "Teams.exe", "OUTLOOK.EXE", "EXCEL.EXE", "explorer.exe"])
+        message = f"Fault bucket , type 0\\nEvent Name: AppCrash\\nResponse: Not available\\nApplication Name: {wer_crash_app}"
+        event_id = 1001
+    else:
+        message = f"Faulting application name: {app_name}, version: 1.0.0.0, faulting module name: ntdll.dll, exception code: 0xc0000005"
+        event_id = 1000
+
+    events.append(event_application(
+        base_date, day, hour, minute, second,
+        computer, source, event_id, "Error", message
+    ))
+
+    return events
+
+
+def generate_client_hour(base_date: str, day: int, hour: int, client, scale: float) -> dict:
+    """Generate all WinEventLog events for one client workstation for one hour.
+
+    Returns dict with keys: security, system, application.
+    Work-hour gating is handled by each sub-generator.
+    """
+    security = []
+    system = []
+    application = []
+
+    # Security events
+    security.extend(generate_client_logon(base_date, day, hour, client))
+    security.extend(generate_client_logoff(base_date, day, hour, client))
+    security.extend(generate_client_network_logons(base_date, day, hour, client))
+    security.extend(generate_client_process_events(base_date, day, hour, client, scale))
+    security.extend(generate_client_failed_logon(base_date, day, hour, client))
+    security.extend(generate_client_special_logon(base_date, day, hour, client))
+
+    # System events
+    system.extend(generate_client_service_events(base_date, day, hour, client))
+    system.extend(generate_client_system_events(base_date, day, hour, client))
+
+    # Application events
+    application.extend(generate_client_app_events(base_date, day, hour, client))
+
+    return {"security": security, "system": system, "application": application}
+
+
+# =============================================================================
 # MAIN GENERATOR
 # =============================================================================
 
@@ -1439,10 +1969,12 @@ def generate_wineventlog(
     output_dir: str = None,
     progress_callback=None,
     quiet: bool = False,
+    num_clients: int = 0,
 ) -> int:
     """Generate Windows Event Logs.
 
-    Generates Security, System, and Application event logs.
+    Generates Security, System, and Application event logs for servers and
+    optionally for client workstations (controlled by num_clients).
     Integrates ransomware_attempt, exfil, and cpu_runaway scenarios.
     """
 
@@ -1500,8 +2032,12 @@ def generate_wineventlog(
         print(f"  Windows Event Log Generator (Python)", file=sys.stderr)
         print(f"  Start: {start_date} | Days: {days} | Scale: {scale}", file=sys.stderr)
         print(f"  Scenarios: {', '.join(active_scenarios) if active_scenarios else 'none'}", file=sys.stderr)
+        print(f"  Clients: {num_clients} workstations", file=sys.stderr)
         print(f"  Output: {out_dir}/", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
+
+    # Build client workstation list
+    clients = build_wineventlog_client_list(num_clients)
 
     security_events = []
     system_events = []
@@ -1548,6 +2084,13 @@ def generate_wineventlog(
             application_events.extend(generate_baseline_sql_events(start_date, day, hour))
             application_events.extend(generate_baseline_iis_events(start_date, day, hour))
             application_events.extend(generate_baseline_app_info_events(start_date, day, hour))
+
+            # ===== CLIENT WORKSTATION EVENTS =====
+            for client in clients:
+                client_events = generate_client_hour(start_date, day, hour, client, scale)
+                security_events.extend(client_events["security"])
+                system_events.extend(client_events["system"])
+                application_events.extend(client_events["application"])
 
             # ===== SCENARIO EVENTS =====
 
@@ -1719,12 +2262,15 @@ def main():
     parser.add_argument("--scale", type=float, default=DEFAULT_SCALE)
     parser.add_argument("--scenarios", default="none")
     parser.add_argument("--output-dir")
+    parser.add_argument("--clients", type=int, default=0,
+                        help="Number of client workstations (0=servers only, max 175)")
     parser.add_argument("--quiet", "-q", action="store_true")
 
     args = parser.parse_args()
     count = generate_wineventlog(
         start_date=args.start_date, days=args.days, scale=args.scale,
         scenarios=args.scenarios, output_dir=args.output_dir, quiet=args.quiet,
+        num_clients=args.clients,
     )
     print(count)
 

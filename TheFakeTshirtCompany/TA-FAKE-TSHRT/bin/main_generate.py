@@ -297,6 +297,12 @@ def _estimate_run(sources, days, scale, orders_per_day, num_clients,
                 web_ratio = orders_per_day / 224
                 est = base_per_day * (0.9 + 0.1 * web_ratio) * days * scale
 
+        elif gen == "wineventlog":
+            # WinEventLog: calibrated base is servers-only (434/day)
+            # Each client workstation adds ~37 events/day (14-day average)
+            client_events = max(0, num_clients) * 37
+            est = (base_per_day + client_events) * days * scale
+
         elif gen == "perfmon":
             # Perfmon: calibrated base includes servers + 5 default clients
             # Extra clients add ~340/day (no full-metrics) or ~610/day (full-metrics)
@@ -754,6 +760,12 @@ Output Directories:
         "orders_per_day": args.orders_per_day,
     }
 
+    # WinEventLog-specific kwargs
+    wineventlog_kwargs = {
+        **base_kwargs,
+        "num_clients": args.clients,
+    }
+
     # Meraki-specific kwargs
     mr_health = not args.no_meraki_health and not args.no_mr_health
     ms_health = not args.no_meraki_health and not args.no_ms_health
@@ -772,6 +784,8 @@ Output Directories:
         """Get the appropriate kwargs for a generator."""
         if name == "perfmon":
             return perfmon_kwargs
+        if name == "wineventlog":
+            return wineventlog_kwargs
         if name == "access":
             return access_kwargs
         if name == "meraki":

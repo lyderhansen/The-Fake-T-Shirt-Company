@@ -181,7 +181,7 @@ class TUIApp:
             MenuItem("start_date", "Start Date", DEFAULT_START_DATE),
             MenuItem("days", "Days", str(DEFAULT_DAYS)),
             MenuItem("scale", "Scale", str(DEFAULT_SCALE)),
-            MenuItem("clients", "Perfmon Clients (5-175)", "5"),
+            MenuItem("clients", "Clients (5-175)", "5"),
             MenuItem("client_interval", "Client Interval (5-60)", "30"),
             MenuItem("orders_per_day", "Orders/Day (1-10000)", "224"),
             MenuItem("full_metrics", "Full Metrics", "", selected=False),
