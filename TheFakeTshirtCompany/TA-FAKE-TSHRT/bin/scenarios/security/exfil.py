@@ -23,7 +23,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from shared.config import Config
+from shared.config import Config, next_cid
 from shared.company import Company
 from shared.time_utils import TimeUtils
 from scenarios.registry import get_phase
@@ -235,7 +235,7 @@ class ExfilScenario:
         pri6 = self._asa_pri(6)  # info
 
         ts = self.time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
-        cid = random.randint(100000, 999999)
+        cid = next_cid()
         sp = random.randint(44000, 54000)
 
         events.append(
@@ -259,7 +259,7 @@ class ExfilScenario:
         pri6 = self._asa_pri(6)  # info
 
         ts = self.time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
-        cid = random.randint(100000, 999999)
+        cid = next_cid()
         sp = random.randint(49000, 54000)
         target = random.choice(self.lateral_targets)
         port = random.choice(self.lateral_ports)
@@ -295,7 +295,7 @@ class ExfilScenario:
         pri6 = self._asa_pri(6)  # info
 
         ts = self.time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
-        cid = random.randint(100000, 999999)
+        cid = next_cid()
         sp = random.randint(50000, 55000)
         cloud = random.choice(self.cloud_ips)
 
@@ -314,7 +314,7 @@ class ExfilScenario:
         sessions = random.randint(3, 4)
 
         for s in range(sessions):
-            cid = random.randint(100000, 999999)
+            cid = next_cid()
             sp = random.randint(54000, 59000) + s
 
             # Session size: 500 MB - 2.5 GB
@@ -396,7 +396,7 @@ class ExfilScenario:
         pri6 = self._asa_pri(6)
 
         ts = self.time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
-        cid = random.randint(100000, 999999)
+        cid = next_cid()
         sp = random.randint(49152, 65535)
 
         # Short session: 200-800 bytes (check-in, not data transfer)

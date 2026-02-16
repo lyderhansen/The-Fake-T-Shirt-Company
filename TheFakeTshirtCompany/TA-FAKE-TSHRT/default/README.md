@@ -207,7 +207,7 @@ Most sourcetypes extract the `host` field from inside the log data using transfo
 | `set_host_from_asa_syslog_fake` | Cisco ASA | Hostname after syslog header |
 | `set_host_from_wineventlog` | WinEventLog | `ComputerName=` field |
 | `set_host_from_sysmon` | Sysmon | `<Computer>` XML element |
-| `host_from_demo_field` | Perfmon | `demo_host=` field |
+| `perfmon_set_host_from_event` | Perfmon | `demo_host=` field |
 | `set_host_from_linux_fake` | Linux metrics | `host=` field after timestamp |
 | `set_host_from_gcp_project` | GCP | `project_id` JSON field |
 | `set_meraki_host_from_devicename` | All Meraki types | `deviceName` JSON field |

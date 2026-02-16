@@ -12,6 +12,8 @@ import random
 from typing import Tuple, List, Optional
 from dataclasses import dataclass
 
+from shared.config import next_cid
+
 
 @dataclass
 class CpuRunawayConfig:
@@ -364,7 +366,7 @@ class CpuRunawayScenario:
                 ts = time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
                 src_ip = f"10.10.30.{random.randint(20, 50)}"  # Boston user VLAN
                 src_port = random.randint(40000, 60000)
-                conn_id = random.randint(100000, 999999)
+                conn_id = next_cid()
 
                 events.append(
                     f'{pri6}{ts} FW-EDGE-01 %ASA-6-302014: Teardown TCP connection {conn_id} '

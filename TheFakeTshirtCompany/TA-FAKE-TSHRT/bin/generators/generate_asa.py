@@ -51,7 +51,7 @@ from typing import List, Dict, TextIO
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from shared.config import Config, DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path
+from shared.config import Config, DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path, init_cid_allocator, next_cid
 from shared.time_utils import TimeUtils, ts_syslog, date_add, calc_natural_events
 from shared.company import Company, ASA_PERIMETER, DNS_SERVERS, THREAT_IP, TENANT
 from shared.company import (
@@ -122,7 +122,7 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     """Generate a complete TCP session (Built + Teardown with same connection ID)."""
     events = []
 
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
     employee = get_random_user()
     src = employee.ip_address  # Deterministic employee IP for cross-generator correlation
     sp = random.randint(49152, 65535)
@@ -181,7 +181,7 @@ def asa_dns_query(base_date: str, day: int, hour: int, minute: int, second: int)
     """Generate DNS query (UDP Built + Teardown)."""
     events = []
 
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
     employee = get_random_user()
     src = employee.ip_address  # Deterministic employee IP for cross-generator correlation
     sp = random.randint(49152, 65535)
@@ -329,7 +329,7 @@ def asa_dc_traffic(base_date: str, day: int, hour: int, minute: int, second: int
     service = random.choices(DC_SERVICES, weights=DC_SERVICE_WEIGHTS)[0]
     dp, proto, svc_name = service
 
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
 
     # DC traffic is generally small and fast
     bytes_val = random.randint(200, 50000)
@@ -446,7 +446,7 @@ def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, sec
     sp = random.randint(49152, 65535)
     dst = server.ip
 
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
     bytes_val = random.randint(1000, 200000)
     duration_secs = random.randint(1, 30)
 
@@ -492,7 +492,7 @@ def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, s
     web_sp = random.randint(49152, 65535)
     app_dp = random.choice([443, 8443])
 
-    cid1 = random.randint(100000, 999999)
+    cid1 = next_cid()
     bytes1 = random.randint(2000, 100000)  # API call (request + response)
     duration1 = random.randint(1, 5)  # Fast internal call
 
@@ -510,7 +510,7 @@ def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, s
     # --- Leg 2: APP-BOS-01 (inside) -> SQL-PROD-01 (inside) on 1433 ---
     app_sp = random.randint(49152, 65535)
 
-    cid2 = random.randint(100000, 999999)
+    cid2 = next_cid()
     bytes2 = random.randint(500, 50000)  # DB query (smaller)
     duration2 = random.randint(1, 3)  # DB call is fast
 
@@ -572,7 +572,7 @@ def asa_web_session(base_date: str, day: int, hour: int, minute: int, second: in
     """Generate web server session (inbound to DMZ)."""
     events = []
 
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
     src = get_us_ip()  # External US visitor
     sp = random.randint(49152, 65535)
     dst = random.choice(WEB_SERVERS)
@@ -683,7 +683,7 @@ def asa_site_to_site(base_date: str, day: int, hour: int, minute: int, second: i
         else:
             src_site, dst_site = "AUS", "ATL"
 
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
     src = get_site_ip(src_site)
     sp = random.randint(49152, 65535)
     dst = get_site_ip(dst_site, "20" if random.random() < 0.3 else "30")  # 30% server, 70% user
@@ -888,7 +888,7 @@ def asa_backup_traffic(base_date: str, day: int, hour: int) -> List[str]:
         session_count = random.randint(2, 3)
 
     for _ in range(session_count):
-        cid = random.randint(100000, 999999)
+        cid = next_cid()
         sp = random.randint(49152, 65535)
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
@@ -1058,7 +1058,7 @@ def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
     day = _parse_registry_day(start_ts_str, base_date)
 
     # Connection ID and source port
-    cid = random.randint(100000, 999999)
+    cid = next_cid()
     sp = random.randint(49152, 65535)
 
     # Format ASA timestamps
@@ -1282,6 +1282,7 @@ def generate_asa_logs(
     all_events = []
 
     for day in range(days):
+        init_cid_allocator(day)  # Reset connection ID counter for each day
         if progress_callback:
             progress_callback("asa", day + 1, days)
         dt = date_add(start_date, day)

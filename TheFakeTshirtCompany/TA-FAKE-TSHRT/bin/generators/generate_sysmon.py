@@ -581,7 +581,6 @@ def _kv_header(event_id: int, computer: str, ts: datetime, demo_id: str = None) 
         ComputerName=<fqdn>
         TaskCategory=<label>
     """
-    fqdn = f"{computer}.theFakeTshirtCompany.com"
     ts_str = ts.strftime("%m/%d/%Y %I:%M:%S %p")
     task_cat = TASK_CATEGORIES.get(event_id, "Unknown")
 
@@ -592,7 +591,7 @@ def _kv_header(event_id: int, computer: str, ts: datetime, demo_id: str = None) 
         f"EventCode={event_id}\n"
         f"EventType=4\n"
         f"Type=Information\n"
-        f"ComputerName={fqdn}\n"
+        f"ComputerName={computer}\n"
         f"TaskCategory={task_cat}"
     )
 
@@ -719,7 +718,7 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
         f"Initiated: true",
         f"SourceIsIpv6: false",
         f"SourceIp: {src_ip}",
-        f"SourceHostname: {computer}.theFakeTshirtCompany.com",
+        f"SourceHostname: {computer}",
         f"SourcePort: {src_port}",
         f"SourcePortName: ",
         f"SourceMAC: {src_mac}",

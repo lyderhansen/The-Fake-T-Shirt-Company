@@ -375,6 +375,43 @@ def move_output_to_production(quiet: bool = False) -> dict:
 
 
 # =============================================================================
+# ASA CONNECTION ID ALLOCATOR (unique session IDs per generation run)
+# =============================================================================
+# Real ASA firewalls use sequential connection table IDs that never collide
+# within an active connection table. This allocator provides a monotonically
+# increasing counter seeded to a random starting point per day, ensuring
+# unique session IDs across the entire generation run. Shared between the
+# ASA baseline generator and scenario files that inject ASA events.
+
+import random as _random
+
+_cid_counter = 0
+_cid_base = 100000
+
+def init_cid_allocator(day_seed: int = 0):
+    """Reset the connection ID allocator with a deterministic starting point.
+
+    Called once per day of generation. The starting point is derived from
+    the day number so that different days produce different ID ranges,
+    mimicking a real ASA whose connection counter wraps around over time.
+    """
+    global _cid_counter, _cid_base
+    _cid_counter = 0
+    # Deterministic base per day: spread across the 100000-999999 range
+    rng = _random.Random(42 + day_seed)
+    _cid_base = rng.randint(100000, 500000)
+
+def next_cid() -> int:
+    """Return the next unique ASA connection ID.
+
+    Monotonically increasing within a day. Wraps within 100000-999999 range.
+    """
+    global _cid_counter
+    _cid_counter += 1
+    return 100000 + (_cid_base - 100000 + _cid_counter) % 900000
+
+
+# =============================================================================
 # CONFIG CLASS
 # =============================================================================
 

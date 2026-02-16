@@ -29,6 +29,8 @@ from typing import List, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from shared.config import next_cid
+
 
 @dataclass
 class CertificateExpiryConfig:
@@ -132,7 +134,7 @@ class CertificateExpiryScenario:
         pri = self._asa_pri(6)  # severity 6 = informational
         customer_ip = self._random_customer_ip()
         customer_port = random.randint(49152, 65535)
-        conn_id = random.randint(100000, 999999)
+        conn_id = next_cid()
 
         # Connection teardown due to SSL failure
         return (

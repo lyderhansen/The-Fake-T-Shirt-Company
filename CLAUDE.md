@@ -972,10 +972,13 @@ $SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reloa
        days: int = DEFAULT_DAYS,
        scale: float = DEFAULT_SCALE,
        scenarios: str = "none",
-       output_file: str = None,
+       output_file: str = None,       # or output_dir for multi-file generators
+       progress_callback=None,         # Called with (source_name, current_day, total_days)
        quiet: bool = False,
-   ) -> int:  # Returns event count
+   ) -> int:  # Returns event count (or dict with {"total": N, "files": {...}})
    ```
+   **Note:** `scale` controls volume for most generators. Perfmon (fixed metric intervals),
+   orders (use `--orders-per-day`), and servicebus (1:1 with orders) intentionally ignore scale.
 4. Add to `main_generate.py`:
    - Import the function
    - Add to `GENERATORS` dict

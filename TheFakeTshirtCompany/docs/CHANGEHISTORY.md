@@ -4,6 +4,111 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~16:00 UTC -- Project Audit: Splunk Config Cleanup
+
+### Context
+
+Full project audit covering generators, Splunk configuration, and cross-generator correlation. Found 1 critical bug, several consistency improvements.
+
+### Changes
+
+- **`default/transforms.conf`** -- Renamed stanza `[host_from_demo_field]` to `[perfmon_set_host_from_event]` for clarity.
+- **`default/props.conf`** -- Fixed 4 broken transform references: Perfmon Processor/Memory/LogicalDisk/Network_Interface stanzas referenced `host_from_demo` (which didn't exist in transforms.conf). All 8 Perfmon stanzas now correctly reference `perfmon_set_host_from_event`.
+- **`default/props.conf`** -- Added `CHARSET = UTF-8` to 9 stanzas that were missing it: o365:reporting:messagetrace, o365:management:activity, Perfmon:Generic, azure:servicebus, online:order:registry, online:order, google:gcp:pubsub:audit (base + admin_activity + data_access).
+- **`default/README.md`** -- Updated transform name reference.
+- **`CLAUDE.md`** -- Updated generator standard signature to include `progress_callback` and `output_dir` alternative. Added note about scale behavior in perfmon/orders/servicebus.
+
+### Audit Results (no action needed)
+
+- IP addresses: OK across all generators (company.py used consistently)
+- Username/email format: OK (all use `user@theFakeTshirtCompany.com`)
+- Order correlation chain: OK (access -> orders -> servicebus -> sap via tshirtcid)
+- Webex/Meraki/Exchange meeting correlation: OK (shared meeting_schedule.py)
+- Scenario demo_id tagging: OK
+- ASA session_id uniqueness: OK (fixed earlier this session)
+- inputs.conf coverage: OK (all generators have matching monitors)
+- eventtypes.conf/tags.conf: OK (CIM-compatible)
+
+---
+
+## 2026-02-17 ~14:00 UTC -- ASA Unique Connection IDs (Session ID Collision Fix)
+
+### Context
+
+ASA connection IDs (session_id) were generated with `random.randint(100000, 999999)` per event, leading to collisions where different connections shared the same session ID on the same day. With ~17,500 sessions/day and 900,000 possible IDs, the Birthday Paradox caused ~17% collision probability per day. In Splunk, `| stats values(src) values(dest) by session_id _time` showed multiple source/dest pairs sharing the same session_id.
+
+### Changes
+
+- `bin/shared/config.py` -- Added `init_cid_allocator(day_seed)` and `next_cid()` functions. Monotonically increasing counter with per-day deterministic base offset. Shared between baseline generator and scenarios.
+- `bin/generators/generate_asa.py` -- Replaced all 8 `random.randint(100000, 999999)` calls with `next_cid()`. Calls `init_cid_allocator(day)` at the start of each day's generation loop.
+- `bin/scenarios/security/exfil.py` -- Replaced 5 `cid = random.randint(100000, 999999)` with `next_cid()`.
+- `bin/scenarios/security/ransomware_attempt.py` -- Replaced 2 ASA `conn_id = random.randint(100000, 999999)` with `next_cid()`.
+- `bin/scenarios/network/certificate_expiry.py` -- Replaced 1 `conn_id = random.randint(100000, 999999)` with `next_cid()`.
+- `bin/scenarios/ops/memory_leak.py` -- Replaced 1 `conn_id = random.randint(100000, 999999)` with `next_cid()`.
+- `bin/scenarios/ops/cpu_runaway.py` -- Replaced 1 `conn_id = random.randint(100000, 999999)` with `next_cid()`.
+
+### Verification
+
+```
+14-day run with all scenarios:
+  234,285 unique session IDs
+  0 collisions (each CID appears exactly 2 times: Built + Teardown)
+```
+
+---
+
+## 2026-02-17 ~13:00 UTC -- Search-Time demo_id Field Extraction
+
+### Context
+
+The `demo_id` field was only extracted at index time as `IDX_demo_id` (via `TRANSFORMS-demo_id` with `WRITE_META = true`). When `KV_MODE=AUTO` conflicted with other CIM field extractions on certain sourcetypes, the `demo_id` field was not reliably available at search time. Users had to use `IDX_demo_id` instead of the expected `demo_id` field name.
+
+### Changes
+
+- `default/transforms.conf` -- Added `[extract_demo_id_search]` stanza: same regex as `extract_demo_id_indexed` but outputs `demo_id::$1$2` (search-time field, no `WRITE_META`). Matches both KV format (`demo_id=exfil`) and JSON format (`"demo_id": "exfil"`).
+- `default/props.conf` -- Added `REPORT-demo_id_search = extract_demo_id_search` to all 57 sourcetype stanzas (every stanza that already had `TRANSFORMS-demo_id`). This explicit `REPORT-` extraction works independently of `KV_MODE` settings.
+
+### Result
+
+- `demo_id` now available as a search-time field via explicit regex extraction (not dependent on `KV_MODE`)
+- `IDX_demo_id` still available for `tstats` acceleration queries
+- Both extractions use the same regex, applied at different processing stages
+- No data regeneration required -- this is a Splunk config-only change
+
+---
+
+## 2026-02-17 ~12:00 UTC -- Consistent Short Hostnames Across Windows Generators
+
+### Context
+
+Perfmon, WinEventLog, and Sysmon used inconsistent hostname formats for the same machines. Perfmon used short hostnames (`demo_host=AUS-WS-BGARCIA01`) while WinEventLog and Sysmon used FQDNs (`ComputerName=AUS-WS-BGARCIA01.theFakeTshirtCompany.com`). This caused Splunk `host` field mismatches -- cross-correlation between sourcetypes failed because the host values differed.
+
+### Changes
+
+- `bin/generators/generate_wineventlog.py` -- Removed `.theFakeTshirtCompany.com` suffix from all 26 `ComputerName={computer}` lines across all event templates (4624, 4625, 4634, 4648, 4672, 4688, 4689, 4697, 4719, 4720, 4722, 4724, 4740, 4768, 4769, 4771, 4776, 5136, 5140, 5145, 7045, 7036, 1102, 6, 1074, 140). Used `replace_all`.
+- `bin/generators/generate_sysmon.py` -- Removed `fqdn` variable from `_kv_header()`, changed `ComputerName={fqdn}` to `ComputerName={computer}`.
+- `bin/generators/generate_sysmon.py` -- Changed `SourceHostname` in `sysmon_eid3()` from FQDN to short hostname.
+
+### Preserved FQDN (by design)
+
+- WinEventLog Event 37 time sync messages: `DC-BOS-01.theFakeTshirtCompany.com` (NTP source)
+- WinEventLog Event 1014 DNS timeout targets: `wpad.theFakeTshirtCompany.com`
+- Sysmon `DestinationHostname` in EID 3: Internal servers as DNS-resolved destinations
+- Sysmon `DNS_INTERNAL` list and DNS query targets
+
+### Verification
+
+```
+Perfmon:      demo_host=DC-BOS-01               (short) ✅
+WinEventLog:  ComputerName=DC-BOS-02             (short) ✅
+Sysmon:       ComputerName=FILE-BOS-01           (short) ✅
+FQDN in time sync messages:                      preserved ✅
+Sysmon DestinationHostname FQDN:                  preserved ✅
+ComputerName FQDN leak check:                     0 lines ✅
+```
+
+---
+
 ## 2026-02-17 ~10:00 UTC -- Sysmon Client Workstation Scaling
 
 ### Context

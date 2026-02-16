@@ -19,6 +19,8 @@ from typing import List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from shared.config import next_cid
+
 
 @dataclass
 class RansomwareAttemptConfig:
@@ -130,7 +132,7 @@ class RansomwareAttemptScenario:
         c2_minute = self.cfg.c2_callback[1]
         c2_second = random.randint(10, 30)
         c2_ts = time_utils.ts_syslog(day, hour, c2_minute, c2_second)
-        conn_id = random.randint(100000, 999999)
+        conn_id = next_cid()
 
         # Outbound C2 connection (inside → outside)
         src_port = random.randint(49152, 65535)
@@ -182,7 +184,7 @@ class RansomwareAttemptScenario:
             attempt_second = random.randint(0, 59)
             ts = time_utils.ts_syslog(day, hour, attempt_minute, attempt_second)
 
-            conn_id = random.randint(100000, 999999)
+            conn_id = next_cid()
             src_port = random.randint(49152, 65535)
             target_port = scan_ports[i % len(scan_ports)]
 

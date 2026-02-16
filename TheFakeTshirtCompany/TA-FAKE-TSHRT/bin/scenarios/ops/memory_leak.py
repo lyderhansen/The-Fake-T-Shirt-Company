@@ -17,6 +17,8 @@ import random
 from typing import Tuple, List, Optional, Dict
 from dataclasses import dataclass
 
+from shared.config import next_cid
+
 
 @dataclass
 class MemoryLeakConfig:
@@ -357,7 +359,7 @@ class MemoryLeakScenario:
         customer_ip = self._random_customer_ip()
         customer_port = random.randint(1024, 61024)
         server_port = random.choice(self.web_ports)
-        conn_id = random.randint(100000, 999999)
+        conn_id = next_cid()
         duration = random.randint(1, 30)
         bytes_val = random.randint(0, 5000)
 
