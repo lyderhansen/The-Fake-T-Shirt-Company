@@ -4,6 +4,42 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-16 ~18:00 UTC -- Employee IP Correlation: ASA + GCP
+
+### Context
+
+After fixing customer IP correlation (access-ASA web sessions), analysis of all 24 generators revealed 2 remaining IP correlation gaps. 12 of 14 generators already used employees' deterministic `ip_address` property (from the User dataclass in company.py), but ASA employee traffic (outbound TCP, DNS, NAT) and GCP audit logs used random `get_internal_ip()` instead. This meant employee actions in these sources could not be correlated by IP with Entra ID, Secure Access, WinEventLog, Sysmon, AWS CloudTrail, or other sources.
+
+### Changed
+
+**ASA employee traffic (`bin/generators/generate_asa.py`):**
+- Added `get_random_user` to import from `shared.company`
+- `asa_tcp_session()`: Replaced `get_internal_ip()` with `get_random_user().ip_address` for the outbound half (employee -> outside). Inbound half (external -> DMZ) unchanged.
+- `asa_dns_query()`: Replaced `get_internal_ip()` with `get_random_user().ip_address` for employee DNS queries (UDP 302015/302016)
+- `asa_nat()`: Replaced `get_internal_ip()` with `get_random_user().ip_address` for employee NAT translations (305011/305012)
+- NOT changed (intentionally): `asa_dc_traffic()` (broad workstation chatter, not user-specific), `asa_site_to_site()` (bulk data replication), `asa_vpn()` (already correct), `asa_web_session()` / `asa_web_session_from_registry()` (already fixed via customer IP registry)
+
+**GCP audit logs (`bin/generators/generate_gcp.py`):**
+- Added `USERS` and `get_random_user` to import from `shared.company`
+- Added `GCP_HUMAN_USERS` list (6 cloud/IT team members: angela.james, carlos.martinez, brandon.turner, david.robinson, jessica.brown, patrick.gonzalez -- same team as AWS)
+- Added `_pick_gcp_user()` helper function (same pattern as AWS `_pick_human_user()`)
+- Modified `gcp_base_event()`: Added optional `caller_ip` parameter (backward-compatible, defaults to `get_internal_ip()` when None)
+- Updated all 12 baseline event generators with 50/50 human/service account mix: `gcp_compute_list`, `gcp_storage_get`, `gcp_storage_create`, `gcp_function_call`, `gcp_compute_start_stop`, `gcp_iam_sa_key_create`, `gcp_bigquery_query`, `gcp_logging_write`, `gcp_logging_list`, `gcp_storage_delete`, `gcp_storage_bucket_get`, `gcp_bigquery_tabledata_list`, `gcp_iam_set_policy`, plus inline `compute.instances.get` in `generate_baseline_hour()`
+- Scenario functions unchanged (already use correct IPs: exfil functions use THREAT_IP `185.220.101.42`, cpu_runaway uses specific service account)
+
+### Verification
+
+- Generators run: access (10,153), asa (18,868), gcp (135) -- test at scale 0.1-0.5
+- **ASA outbound TCP: 1,720/1,720 (100%)** employee IPs match known employees
+- **ASA DNS queries (to outside): 1,096/1,096 (100%)** match
+- **ASA NAT events: 596/596 (100%)** match
+- **GCP human user events: 63/63 (100%)** -- all human caller IPs match known employees
+- GCP human/SA split: ~46%/54% (target: 50/50)
+- DC traffic (inside->inside): Correctly uses random workstation IPs (by design)
+- No regressions in other event types
+
+---
+
 ## 2026-02-16 ~10:30 UTC -- International Customer IPs + Access-ASA 1:1 Correlation
 
 ### Context

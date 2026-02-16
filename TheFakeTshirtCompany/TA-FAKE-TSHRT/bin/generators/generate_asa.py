@@ -58,6 +58,7 @@ from shared.company import (
     ASA_WEB_PORTS, ASA_SCAN_PORTS, ASA_TEARDOWN_REASONS, ASA_EXT_ACLS, ASA_INT_ACLS,
     VPN_USERS, USERS, SERVERS, INTERNAL_DNS_SERVERS,
     get_internal_ip, get_us_ip, get_external_ip, get_dmz_ip, get_world_ip,
+    get_random_user,
 )
 
 # Use the perimeter ASA hostname consistently
@@ -122,7 +123,8 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     events = []
 
     cid = random.randint(100000, 999999)
-    src = get_internal_ip()
+    employee = get_random_user()
+    src = employee.ip_address  # Deterministic employee IP for cross-generator correlation
     sp = random.randint(49152, 65535)
     dst = get_external_ip()
     dp = random.choice(ASA_WEB_PORTS)
@@ -180,7 +182,8 @@ def asa_dns_query(base_date: str, day: int, hour: int, minute: int, second: int)
     events = []
 
     cid = random.randint(100000, 999999)
-    src = get_internal_ip()
+    employee = get_random_user()
+    src = employee.ip_address  # Deterministic employee IP for cross-generator correlation
     sp = random.randint(49152, 65535)
     dns = random.choice(DNS_SERVERS)
 
@@ -206,7 +209,8 @@ def asa_dns_query(base_date: str, day: int, hour: int, minute: int, second: int)
 def asa_nat(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
     """Generate NAT translation event."""
     ts = ts_syslog(base_date, day, hour, minute, second)
-    src = get_internal_ip()
+    employee = get_random_user()
+    src = employee.ip_address  # Deterministic employee IP for cross-generator correlation
     sp = random.randint(49152, 65535)
     nat = f"203.0.113.{random.randint(1, 10)}"
 

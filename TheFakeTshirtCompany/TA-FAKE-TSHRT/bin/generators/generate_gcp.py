@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path, Config
 from shared.time_utils import ts_gcp, date_add, calc_natural_events, TimeUtils
-from shared.company import GCP_PROJECT, GCP_REGION, ORG_NAME_LOWER, get_internal_ip, Company
+from shared.company import GCP_PROJECT, GCP_REGION, ORG_NAME_LOWER, get_internal_ip, USERS, get_random_user, Company
 from scenarios.registry import expand_scenarios
 
 # Log types
@@ -44,6 +44,16 @@ GCP_BUCKETS = [f"{ORG_NAME_LOWER}-data", f"{ORG_NAME_LOWER}-backups", f"{ORG_NAM
 GCP_FUNCTIONS = ["processData", "sendAlerts", "transformRecords"]
 GCP_INSTANCES = ["instance-prod-1", "instance-prod-2", "instance-web-1"]
 
+# Human GCP users (same cloud/IT team as AWS — use IAMUser identity)
+GCP_HUMAN_USERS = [
+    "angela.james",       # Cloud Engineer (BOS)
+    "carlos.martinez",    # DevOps Engineer (BOS)
+    "brandon.turner",     # DevOps Engineer (ATL)
+    "david.robinson",     # IT Director (BOS)
+    "jessica.brown",      # IT Administrator (ATL)
+    "patrick.gonzalez",   # Systems Administrator (BOS)
+]
+
 # Zone mapping per resource type (for realistic zone variation)
 _RESOURCE_ZONES = {
     "gce_instance": [f"{GCP_REGION}-a", f"{GCP_REGION}-b", f"{GCP_REGION}-c"],
@@ -60,6 +70,12 @@ _GCP_USER_AGENTS = [
     "google-api-go-client/0.5 Cloud-SDK/462.0.1",                                  # Go SDK
     "google-cloud-sdk/462.0.1 gcloud/terraform",                                   # Terraform
 ]
+
+
+def _pick_gcp_user():
+    """Pick a random human GCP user from company.py (returns User dataclass)."""
+    username = random.choice(GCP_HUMAN_USERS)
+    return USERS[username]
 
 
 def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool:
@@ -134,7 +150,8 @@ def _gcp_maybe_inject_error(event: Dict[str, Any], method_name: str) -> Dict[str
 def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int,
                    method_name: str, service_name: str, principal: str,
                    log_type: str = LOG_TYPE_ADMIN_ACTIVITY,
-                   resource_type: str = "gce_instance") -> Dict[str, Any]:
+                   resource_type: str = "gce_instance",
+                   caller_ip: str = None) -> Dict[str, Any]:
     """Create base GCP audit log structure.
 
     Args:
@@ -183,7 +200,7 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
                 }
             ],
             "requestMetadata": {
-                "callerIp": get_internal_ip(),
+                "callerIp": caller_ip or get_internal_ip(),
                 "callerSuppliedUserAgent": user_agent,
             },
             "resourceName": f"projects/{GCP_PROJECT}",
@@ -204,11 +221,17 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
 def gcp_compute_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Compute Engine list instances event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "v1.compute.instances.list", "compute.googleapis.com", principal,
-                           resource_type="gce_instance")
+                           resource_type="gce_instance", caller_ip=caller_ip)
     return _gcp_maybe_inject_error(event, "v1.compute.instances.list")
 
 
@@ -220,12 +243,18 @@ def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list 
         log_type: Use LOG_TYPE_DATA_ACCESS for actual data reads
     """
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     bucket = random.choice(GCP_BUCKETS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "storage.objects.get", "storage.googleapis.com", principal,
-                           log_type=log_type, resource_type="gcs_bucket")
+                           log_type=log_type, resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/data_{random.randint(1000, 9999)}.json"
 
     if active_scenarios and should_tag_exfil(day, "storage.objects.get", active_scenarios):
@@ -237,12 +266,18 @@ def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list 
 def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
     """Generate Cloud Storage create object event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     bucket = random.choice(GCP_BUCKETS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "storage.objects.create", "storage.googleapis.com", principal,
-                           resource_type="gcs_bucket")
+                           resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/upload_{random.randint(1000, 9999)}.csv"
 
     if active_scenarios and should_tag_exfil(day, "storage.objects.create", active_scenarios):
@@ -254,13 +289,19 @@ def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: li
 def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Cloud Functions call event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     func = random.choice(GCP_FUNCTIONS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.cloud.functions.v1.CloudFunctionsService.CallFunction",
                            "cloudfunctions.googleapis.com", principal,
-                           resource_type="cloud_function")
+                           resource_type="cloud_function", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/locations/{GCP_REGION}/functions/{func}"
     return _gcp_maybe_inject_error(event, "google.cloud.functions.v1.CloudFunctionsService.CallFunction")
 
@@ -268,14 +309,20 @@ def gcp_function_call(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 def gcp_compute_start_stop(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Compute Engine start/stop instance event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     instance = random.choice(GCP_INSTANCES)
     action = random.choice(["start", "stop"])
     method = f"v1.compute.instances.{action}"
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            method, "compute.googleapis.com", principal,
-                           resource_type="gce_instance")
+                           resource_type="gce_instance", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/zones/{GCP_REGION}-a/instances/{instance}"
     return _gcp_maybe_inject_error(event, f"v1.compute.instances.{action}")
 
@@ -283,13 +330,19 @@ def gcp_compute_start_stop(base_date: str, day: int, hour: int) -> Dict[str, Any
 def gcp_iam_sa_key_create(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate IAM service account key creation event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     target_sa = random.choice(GCP_SERVICE_ACCOUNTS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.iam.admin.v1.CreateServiceAccountKey",
                            "iam.googleapis.com", principal,
-                           resource_type="gce_instance")
+                           resource_type="gce_instance", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/serviceAccounts/{target_sa}"
     return _gcp_maybe_inject_error(event, "iam.serviceAccounts.keys.create")
 
@@ -297,11 +350,17 @@ def gcp_iam_sa_key_create(base_date: str, day: int, hour: int) -> Dict[str, Any]
 def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate BigQuery query event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "jobservice.jobcompleted", "bigquery.googleapis.com", principal,
-                           resource_type="bigquery_dataset")
+                           resource_type="bigquery_dataset", caller_ip=caller_ip)
     event["protoPayload"]["serviceData"] = {
         "jobCompletedEvent": {
             "job": {
@@ -315,7 +374,13 @@ def gcp_bigquery_query(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 def gcp_logging_write(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Cloud Logging WriteLogEntries event (apps writing logs)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     log_name = random.choice([
         f"projects/{GCP_PROJECT}/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
         f"projects/{GCP_PROJECT}/logs/compute.googleapis.com%2Factivity_log",
@@ -325,7 +390,7 @@ def gcp_logging_write(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.logging.v2.LoggingServiceV2.WriteLogEntries",
                            "logging.googleapis.com", principal,
-                           resource_type="gce_instance")
+                           resource_type="gce_instance", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = log_name
     event["protoPayload"]["request"] = {
         "logName": log_name,
@@ -337,12 +402,19 @@ def gcp_logging_write(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 def gcp_logging_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Cloud Logging ListLogEntries event (monitoring/ops querying logs)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.logging.v2.LoggingServiceV2.ListLogEntries",
                            "logging.googleapis.com", principal,
-                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance")
+                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance",
+                           caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}"
     event["protoPayload"]["request"] = {
         "resourceNames": [f"projects/{GCP_PROJECT}"],
@@ -361,12 +433,18 @@ def gcp_storage_delete(base_date: str, day: int, hour: int,
                        active_scenarios: list = None) -> Dict[str, Any]:
     """Generate Cloud Storage delete object event (lifecycle cleanup)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     bucket = random.choice(GCP_BUCKETS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "storage.objects.delete", "storage.googleapis.com", principal,
-                           resource_type="gcs_bucket")
+                           resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = (
         f"projects/_/buckets/{bucket}/objects/archive_{random.randint(1000, 9999)}.json"
     )
@@ -380,12 +458,18 @@ def gcp_storage_delete(base_date: str, day: int, hour: int,
 def gcp_storage_bucket_get(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate Cloud Storage get bucket metadata event."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     bucket = random.choice(GCP_BUCKETS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "storage.buckets.get", "storage.googleapis.com", principal,
-                           resource_type="gcs_bucket")
+                           resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}"
     return _gcp_maybe_inject_error(event, "storage.buckets.get")
 
@@ -393,14 +477,21 @@ def gcp_storage_bucket_get(base_date: str, day: int, hour: int) -> Dict[str, Any
 def gcp_bigquery_tabledata_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate BigQuery tabledata.list event (reading table data/export)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     dataset = random.choice(["analytics", "reporting", "warehouse"])
     table = random.choice(["daily_orders", "customer_metrics", "product_performance", "revenue_summary"])
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.cloud.bigquery.v2.TableDataService.List",
                            "bigquery.googleapis.com", principal,
-                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="bigquery_dataset")
+                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="bigquery_dataset",
+                           caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = (
         f"projects/{GCP_PROJECT}/datasets/{dataset}/tables/{table}"
     )
@@ -410,13 +501,19 @@ def gcp_bigquery_tabledata_list(base_date: str, day: int, hour: int) -> Dict[str
 def gcp_iam_set_policy(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     """Generate IAM SetIamPolicy event (normal role grants/revokes)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
-    principal = random.choice(GCP_SERVICE_ACCOUNTS)
+    if random.random() < 0.5:
+        user = _pick_gcp_user()
+        principal = f"{user.username}@theTshirtCompany.com"
+        caller_ip = user.ip_address
+    else:
+        principal = random.choice(GCP_SERVICE_ACCOUNTS)
+        caller_ip = None
     target_sa = random.choice(GCP_SERVICE_ACCOUNTS)
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.iam.admin.v1.SetIamPolicy",
                            "iam.googleapis.com", principal,
-                           resource_type="gce_instance")
+                           resource_type="gce_instance", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/serviceAccounts/{target_sa}"
     event["protoPayload"]["request"] = {
         "policy": {
@@ -608,11 +705,18 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
         elif r <= 91:
             # Compute get (data_access)
             minute, second = random.randint(0, 59), random.randint(0, 59)
-            principal = random.choice(GCP_SERVICE_ACCOUNTS)
+            if random.random() < 0.5:
+                _user = _pick_gcp_user()
+                principal = f"{_user.username}@theTshirtCompany.com"
+                _caller_ip = _user.ip_address
+            else:
+                principal = random.choice(GCP_SERVICE_ACCOUNTS)
+                _caller_ip = None
             instance = random.choice(GCP_INSTANCES)
             event = gcp_base_event(base_date, day, hour, minute, second,
                                    "v1.compute.instances.get", "compute.googleapis.com", principal,
-                                   log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance")
+                                   log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance",
+                                   caller_ip=_caller_ip)
             event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/zones/{GCP_REGION}-a/instances/{instance}"
             events.append(_gcp_maybe_inject_error(event, "v1.compute.instances.get"))
         elif r <= 97:
