@@ -4,6 +4,63 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-17 ~05:30 UTC -- TUI Source Selection UX: Mutual Exclusion, Dependency Highlighting, Group Estimation Fix
+
+### Context
+
+User reported that toggling source groups (e.g. "cloud", "network") in the TUI did not affect the estimation display -- only individual source toggles did. Root cause: `_get_sources_str()` fell back to "all" when nothing was explicitly selected, so deselecting the "all" group had no visible effect on estimation. Additionally, no visual indication that selecting a dependent generator (e.g. SAP) would auto-include its dependency (e.g. access).
+
+### Changes
+
+- `bin/tui_generate.py` -- **Mutual exclusion for source selection**: Selecting "all" now deselects all individual groups and sources. Selecting any group or source deselects "all". This makes the estimation immediately responsive to group toggles.
+- `bin/tui_generate.py` -- **Removed empty-to-all fallback**: `_get_sources_str()` now returns empty string when nothing is selected (estimation shows 0 events / 0 time). The fallback to "all" is only applied in `collect_config()` for actual generation.
+- `bin/tui_generate.py` -- **Auto-dependency resolution**: `_expand_selected_sources()` now auto-includes dependency generators (e.g. selecting SAP adds access, selecting meraki adds webex). Tracked in `_auto_deps` set for UI display.
+- `bin/tui_generate.py` -- **Dependency indicators in SOURCES section**: Auto-added dependencies show as `[+] access +sap,orders` in yellow, indicating they are automatically included and which generators need them.
+- `bin/tui_generate.py` -- **Preview command improvement**: Shows `--all` instead of `--sources=all`, and `--sources=(none)` when nothing selected.
+- `bin/tui_generate.py` -- Imported `GENERATOR_DEPENDENCIES` from `main_generate`.
+- `bin/tui_generate.py` -- Pre-compute `_expand_selected_sources()` once per frame in `draw()` via `_cached_expanded` to avoid redundant computation across status line, section rendering, and estimation.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/tui_generate.py` | Mutual exclusion, dep resolution, dep indicators, preview fix, caching |
+
+### Verification
+
+- Syntax check: passes
+- Logic test: "all" = 26 gens/3.3M, deselect all = 0 gens/0, cloud group = 6 gens/758K, cloud+network = 12 gens/2.4M (auto-deps: access, webex), SAP only = 2 gens/315K (auto-dep: access), retail group = 3 gens/329K (auto-dep: access)
+
+---
+
+## 2026-02-17 ~04:00 UTC -- TUI Volume and Time Estimation
+
+### Context
+
+The CLI banner now shows estimated event count and time before generation starts. The TUI needed the same live estimation, updating dynamically as the user changes sources, days, scale, clients, orders, or meraki health settings -- matching the existing pattern used for the Meraki health volume display.
+
+### Changes
+
+- `bin/tui_generate.py` -- Imported `_estimate_run` from `main_generate`.
+- `bin/tui_generate.py` -- Added `_calc_total_estimate()` method that reads all current TUI form values (sources, days, scale, clients, client_interval, orders_per_day, full_metrics, meraki health settings) and calls `_estimate_run()` to get (total_events, estimated_seconds).
+- `bin/tui_generate.py` -- Extended `_draw_status_line()` with two new segments: `Events: ~3.3M` (yellow/bold) and `Time: ~48s` (cyan, or red if >5 min). These update in real-time as the user edits any configuration value.
+- `bin/tui_generate.py` -- Fixed `col` tracking in status line so all segments (Output, Sources, Files, Health, Events, Time) flow correctly regardless of which optional segments are present.
+- `bin/tui_generate.py` -- Changed Meraki Health display from `~45,696/day` to shorter `~45,696/d` to save horizontal space for the new segments.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/tui_generate.py` | Import `_estimate_run`, `_calc_total_estimate()`, extended status line |
+
+### Verification
+
+- Syntax check: passes
+- Mock TUI test: default 14d = 3.3M events / 48s, orders=3000 = 8.2M / 130s, 175 clients full-metrics = 4.9M / 50s
+- Values match CLI estimation output
+
+---
+
 ## 2026-02-17 ~03:00 UTC -- Progress Display Alignment Fix + Pre-Run Estimation
 
 ### Context

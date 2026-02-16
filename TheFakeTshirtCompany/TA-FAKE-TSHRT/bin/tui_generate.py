@@ -29,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from main_generate import GENERATORS, SOURCE_GROUPS
+from main_generate import GENERATORS, SOURCE_GROUPS, GENERATOR_DEPENDENCIES, _estimate_run
 from scenarios.registry import IMPLEMENTED_SCENARIOS, SCENARIOS
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, GENERATOR_OUTPUT_FILES
 
@@ -117,6 +117,8 @@ class TUIApp:
         self.current_section = 0
         self.editing_config = None
         self.edit_buffer = ""
+        self._auto_deps = set()       # auto-added dependency generators (for UI display)
+        self._cached_expanded = set()  # pre-computed expanded sources for current frame
 
         # Animation state
         self.tshirt_x = -15
@@ -230,12 +232,56 @@ class TUIApp:
 
         return mr_events, ms_events, total
 
+    def _calc_total_estimate(self) -> tuple:
+        """Calculate estimated total events and execution time from current settings.
+
+        Returns (total_events, estimated_seconds).
+        Uses _cached_expanded from draw() if available.
+        """
+        expanded = getattr(self, '_cached_expanded', None) or self._expand_selected_sources()
+        sources = list(expanded)
+        if not sources:
+            return 0, 0.0
+
+        # Read config values with safe parsing
+        days_str = self.config[2].description
+        days = int(days_str) if days_str.isdigit() else 14
+        try:
+            scale = float(self.config[3].description)
+        except (ValueError, TypeError):
+            scale = 1.0
+        clients_str = self.config[4].description
+        clients = int(clients_str) if clients_str.isdigit() else 5
+        ci_str = self.config[5].description
+        client_interval = int(ci_str) if ci_str.isdigit() else 30
+        opd_str = self.config[6].description
+        orders_per_day = int(opd_str) if opd_str.isdigit() else 224
+        full_metrics = self.config[7].selected
+
+        # Meraki settings
+        hi_str = self.meraki[1].description
+        health_interval = int(hi_str) if hi_str.isdigit() else 15
+        mr_health = self.meraki[0].selected and self.meraki[2].selected
+        ms_health = self.meraki[0].selected and self.meraki[3].selected
+
+        total_events, est_seconds, _ = _estimate_run(
+            sources=sources, days=days, scale=scale,
+            orders_per_day=orders_per_day if orders_per_day != 224 else None,
+            num_clients=clients, client_interval=client_interval,
+            full_metrics=full_metrics, health_interval=health_interval,
+            mr_health=mr_health, ms_health=ms_health, parallel=4,
+        )
+        return total_events, est_seconds
+
     # ═══════════════════════════════════════════════════════════════════
     # DRAWING
     # ═══════════════════════════════════════════════════════════════════
 
     def draw(self):
         """Draw the entire TUI with 3-col top + 2-col bottom grid layout."""
+        # Pre-compute expanded sources and auto-deps for this frame
+        self._cached_expanded = self._expand_selected_sources()
+
         self.stdscr.erase()
         h, w = self.stdscr.getmaxyx()
 
@@ -677,7 +723,10 @@ class TUIApp:
         self.stdscr.refresh()
 
     def _expand_selected_sources(self) -> set:
-        """Expand selected groups/sources into individual generator names (deduplicated)."""
+        """Expand selected groups/sources into individual generator names (deduplicated).
+
+        Also auto-includes dependency generators (e.g. selecting 'sap' pulls in 'access').
+        """
         sources_str = self._get_sources_str()
         if sources_str == "all":
             return set(GENERATORS.keys())
@@ -686,8 +735,17 @@ class TUIApp:
             part = part.strip()
             if part in SOURCE_GROUPS:
                 expanded.update(SOURCE_GROUPS[part])
-            else:
+            elif part:
                 expanded.add(part)
+        # Auto-add dependency generators (same logic as main_generate.py)
+        deps_added = set()
+        for gen in list(expanded):
+            if gen in GENERATOR_DEPENDENCIES:
+                for dep in GENERATOR_DEPENDENCIES[gen]:
+                    if dep not in expanded:
+                        expanded.add(dep)
+                        deps_added.add(dep)
+        self._auto_deps = deps_added  # track for UI display
         return expanded
 
     def _count_output_files(self) -> int:
@@ -696,9 +754,9 @@ class TUIApp:
         return sum(len(GENERATOR_OUTPUT_FILES.get(g, [])) for g in expanded)
 
     def _draw_status_line(self, row, w):
-        """Draw the status bar with mode, output path, source count, and file count."""
+        """Draw the status bar with mode, output path, source count, file count, and estimates."""
         is_test = self.config[0].selected
-        expanded = self._expand_selected_sources()
+        expanded = self._cached_expanded  # use pre-computed value from draw()
         src_count = len(expanded)
         file_count = sum(len(GENERATOR_OUTPUT_FILES.get(g, [])) for g in expanded)
 
@@ -723,17 +781,46 @@ class TUIApp:
         col += len(str(src_count)) + 1
         self.safe_addstr(row, col, f"{LINE_V} Files: ", curses.A_DIM)
         col += 9
-        self.safe_addstr(row, col, str(file_count), curses.color_pair(4))
+        file_str = str(file_count)
+        self.safe_addstr(row, col, file_str, curses.color_pair(4))
+        col += len(file_str) + 1
 
         # Meraki health volume
-        mr_events, ms_events, total = self._calc_health_volume()
-        if total > 0:
-            col += len(str(file_count)) + 1
+        mr_events, ms_events, health_total = self._calc_health_volume()
+        if health_total > 0:
             self.safe_addstr(row, col, f"{LINE_V} Health: ", curses.A_DIM)
             col += 10
-            vol_str = f"~{total:,}/day"
-            vol_attr = curses.color_pair(5) if total > 100000 else curses.color_pair(4)
+            vol_str = f"~{health_total:,}/d"
+            vol_attr = curses.color_pair(5) if health_total > 100000 else curses.color_pair(4)
             self.safe_addstr(row, col, vol_str, vol_attr)
+            col += len(vol_str) + 1
+
+        # Total volume and time estimation
+        est_events, est_seconds = self._calc_total_estimate()
+        if est_events > 0:
+            # Format events
+            if est_events >= 1_000_000:
+                evt_str = f"~{est_events / 1_000_000:.1f}M"
+            elif est_events >= 10_000:
+                evt_str = f"~{est_events / 1_000:.0f}K"
+            else:
+                evt_str = f"~{est_events:,}"
+            self.safe_addstr(row, col, f"{LINE_V} Events: ", curses.A_DIM)
+            col += 10
+            self.safe_addstr(row, col, evt_str, curses.color_pair(3) | curses.A_BOLD)
+            col += len(evt_str) + 1
+
+            # Format time
+            if est_seconds < 60:
+                time_str = f"~{est_seconds:.0f}s"
+            elif est_seconds < 3600:
+                time_str = f"~{est_seconds / 60:.1f}m"
+            else:
+                time_str = f"~{est_seconds / 3600:.1f}h"
+            self.safe_addstr(row, col, f"{LINE_V} Time: ", curses.A_DIM)
+            col += 8
+            time_attr = curses.color_pair(5) if est_seconds > 300 else curses.color_pair(4)
+            self.safe_addstr(row, col, time_str, time_attr)
 
     def _draw_section_content(self, start_row, col, width, height, title, items, section_id,
                               show_checkbox=True, two_columns=False, align_descriptions=False):
@@ -809,9 +896,15 @@ class TUIApp:
                           and item.key in SCENARIOS
                           and SCENARIOS[item.key].start_day >= current_days)
 
+            # Check if source is auto-added as a dependency
+            is_auto_dep = (section_id == self.SECTION_SOURCES
+                           and item.key in self._auto_deps)
+
             if show_checkbox:
                 if is_planned:
                     checkbox = "[-]"
+                elif is_auto_dep:
+                    checkbox = "[+]"  # auto-included dependency
                 else:
                     checkbox = "[x]" if item.selected else "[ ]"
 
@@ -832,7 +925,13 @@ class TUIApp:
                 else:
                     # Standard layout
                     text = f"{checkbox} {item.label}"
-                    if item.description and not two_columns:
+                    if is_auto_dep:
+                        # Show which generator requires this dependency
+                        needed_by = [g for g, deps in GENERATOR_DEPENDENCIES.items()
+                                     if item.key in deps]
+                        if needed_by:
+                            text += f" +{','.join(needed_by[:2])}"
+                    elif item.description and not two_columns:
                         text += f"  {item.description}"
             else:
                 text = f"  {item.label}"
@@ -845,6 +944,8 @@ class TUIApp:
                 self.safe_addstr(item_row, item_col, text, curses.A_DIM)
             elif is_skipped:
                 self.safe_addstr(item_row, item_col, text, curses.color_pair(5) | curses.A_DIM)
+            elif is_auto_dep:
+                self.safe_addstr(item_row, item_col, text, curses.color_pair(3))  # yellow for auto-dep
             elif item.selected and show_checkbox:
                 self.safe_addstr(item_row, item_col, text, curses.color_pair(2))
             else:
@@ -960,7 +1061,12 @@ class TUIApp:
         show_files = self.config[8].selected
         is_test = self.config[0].selected
 
-        preview = f"--sources={sources_str} --scenarios={scenarios_str} --days={days}"
+        if sources_str == "all":
+            preview = f"--all --scenarios={scenarios_str} --days={days}"
+        elif sources_str:
+            preview = f"--sources={sources_str} --scenarios={scenarios_str} --days={days}"
+        else:
+            preview = f"--sources=(none) --scenarios={scenarios_str} --days={days}"
 
         # Production mode (only show --no-test since test is default)
         if not is_test:
@@ -994,7 +1100,12 @@ class TUIApp:
         return preview
 
     def _get_sources_str(self) -> str:
-        """Get comma-separated string of selected sources from groups and items."""
+        """Get comma-separated string of selected sources from groups and items.
+
+        Returns "all" when the All group is checked.
+        Returns "" (empty) when nothing is selected (estimation shows 0).
+        For generation, collect_config() falls back to "all" if empty.
+        """
         # Check if "all" group is selected
         for s in self.source_groups:
             if s.selected and s.key == "all":
@@ -1009,7 +1120,7 @@ class TUIApp:
         for s in self.source_items:
             if s.selected:
                 selected.append(s.key)
-        return ",".join(selected) if selected else "all"
+        return ",".join(selected)
 
     def _get_scenarios_str(self) -> str:
         """Get comma-separated string of selected scenarios (excludes unimplemented)."""
@@ -1213,8 +1324,29 @@ class TUIApp:
 
             # Toggle checkbox
             elif key == ord(' '):
-                if self.current_section in (self.SECTION_GROUPS, self.SECTION_SOURCES):
-                    items[self.current_row].selected = not items[self.current_row].selected
+                if self.current_section == self.SECTION_GROUPS:
+                    item = items[self.current_row]
+                    item.selected = not item.selected
+                    if item.key == "all" and item.selected:
+                        # Selecting "all" deselects individual groups and sources
+                        for g in self.source_groups:
+                            if g.key != "all":
+                                g.selected = False
+                        for s in self.source_items:
+                            s.selected = False
+                    elif item.key != "all" and item.selected:
+                        # Selecting a group deselects "all"
+                        for g in self.source_groups:
+                            if g.key == "all":
+                                g.selected = False
+                elif self.current_section == self.SECTION_SOURCES:
+                    item = items[self.current_row]
+                    item.selected = not item.selected
+                    if item.selected:
+                        # Selecting an individual source deselects "all"
+                        for g in self.source_groups:
+                            if g.key == "all":
+                                g.selected = False
                 elif self.current_section == self.SECTION_SCENARIOS:
                     item = items[self.current_row]
                     # Allow toggling "all", "none", and implemented scenarios only
@@ -1259,8 +1391,9 @@ class TUIApp:
 
     def collect_config(self) -> dict:
         """Collect all form inputs into a config dict."""
+        sources = self._get_sources_str()
         return {
-            "sources": self._get_sources_str(),
+            "sources": sources if sources else "all",  # fallback for generation
             "scenarios": self._get_scenarios_str(),
             "test_mode": self.config[0].selected,
             "start_date": self.config[1].description,
