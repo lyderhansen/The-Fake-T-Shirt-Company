@@ -4,6 +4,32 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-18 ~04:00 UTC -- CLAUDE.md Size Reduction (1023 → 549 lines)
+
+### Context
+
+CLAUDE.md had grown to 1023 lines, consuming significant context window on every message. Reviewed all sections for content that is either duplicated in code, purely historical, or generic reference material.
+
+### Changes
+
+- **`CLAUDE.md`** -- Removed 474 lines (46% reduction):
+  - Removed "Splunk App Development" section (~190 lines) -- generic Splunk SDK tutorial, not project-specific
+  - Removed "Log Format Examples" section (~55 lines) -- formats visible in generator code and output
+  - Removed "Known Scenario Source Gaps" (~10 lines) -- all gaps already resolved
+  - Removed full Webex 21-room device inventory table (~30 lines) -- replaced with 2-line summary
+  - Removed "Sensor + Webex Correlation" section (~50 lines) -- meeting lifecycle, problem rooms, sunny rooms detail
+  - Condensed "Customer Pool & VIP Segmentation" (~20 lines removed) -- kept formula, removed example tables
+  - Condensed "Meraki Device Configuration" (~40 lines removed) -- replaced 5 sub-tables with 2-line summary
+  - Condensed "Sample SPL Queries" (~15 lines removed) -- kept 3 key patterns
+  - Condensed "Available Log Sources" (~25 lines removed) -- replaced 4-column table with grouped list
+- **`docs/CLAUDE.md.backup-2026-02-18`** -- Full backup of pre-trimmed version (1023 lines)
+
+### Sections Preserved
+
+All essential project context retained: Network architecture, scenarios, company data, servers, key users, CLI options, volume patterns, design patterns, development notes.
+
+---
+
 ## 2026-02-18 ~02:00 UTC -- ASA Baseline Suppression During Scenarios
 
 ### Context

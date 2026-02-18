@@ -159,15 +159,56 @@ The-Fake-T-Shirt-Company/
 
 ## Available Log Sources
 
-24 generators producing correlated log data. Dependencies: orders, servicebus, sap depend on access (via order_registry.json).
+24 generators producing correlated log data:
 
-**Network:** asa (cisco:asa), meraki (meraki:mx/mr/ms/mv/mt), catalyst (cisco:ios), aci (cisco:aci:fault/event/audit)
-**Cloud/Security:** aws (aws:cloudtrail), gcp (google:gcp:pubsub:message), entraid (azure:aad:signin/audit), secure_access (cisco:umbrella:dns/proxy/firewall/audit), catalyst_center (cisco:catalyst:devicehealth/networkhealth/clienthealth/issue)
-**Collaboration:** exchange (ms:o365:reporting:messagetrace), office_audit (o365:management:activity), webex (cisco:webex:events), webex_ta (cisco:webex:meetings:history:*), webex_api (cisco:webex:*)
-**Windows:** perfmon (perfmon), wineventlog (XmlWinEventLog), sysmon (XmlWinEventLog:Microsoft-Windows-Sysmon/Operational), mssql (mssql:errorlog)
-**Linux:** linux (linux:*)
-**Web/Retail:** access (access_combined), orders (retail:orders), servicebus (azure:servicebus)
-**ERP/ITSM:** sap (sap:auditlog), servicenow (servicenow:incident)
+| Source | Generator | Output Format | Splunk Sourcetype |
+|--------|-----------|---------------|-------------------|
+| **Network** |
+| Cisco ASA | generate_asa.py | Syslog | cisco:asa |
+| Meraki MX (Firewall) | generate_meraki.py | Syslog | meraki:mx |
+| Meraki MR (AP) | generate_meraki.py | Syslog | meraki:mr |
+| Meraki MS (Switch) | generate_meraki.py | Syslog | meraki:ms |
+| Meraki MV (Camera) | generate_meraki.py | Syslog | meraki:mv |
+| Meraki MT (Sensor) | generate_meraki.py | Syslog | meraki:mt |
+| Cisco Catalyst | generate_catalyst.py | Syslog | cisco:ios |
+| Cisco ACI Fault | generate_aci.py | JSON | cisco:aci:fault |
+| Cisco ACI Event | generate_aci.py | JSON | cisco:aci:event |
+| Cisco ACI Audit | generate_aci.py | JSON | cisco:aci:audit |
+| **Cloud/Collaboration** |
+| AWS CloudTrail | generate_aws.py | JSON | aws:cloudtrail |
+| GCP Audit | generate_gcp.py | JSON | google:gcp:pubsub:message |
+| Entra ID Sign-in | generate_entraid.py | JSON | azure:aad:signin |
+| Entra ID Audit | generate_entraid.py | JSON | azure:aad:audit |
+| Cisco Secure Access DNS | generate_secure_access.py | CSV | cisco:umbrella:dns |
+| Cisco Secure Access Proxy | generate_secure_access.py | CSV | cisco:umbrella:proxy |
+| Cisco Secure Access FW | generate_secure_access.py | CSV | cisco:umbrella:firewall |
+| Cisco Secure Access Audit | generate_secure_access.py | CSV | cisco:umbrella:audit |
+| Catalyst Center Device Health | generate_catalyst_center.py | JSON | cisco:catalyst:devicehealth |
+| Catalyst Center Network Health | generate_catalyst_center.py | JSON | cisco:catalyst:networkhealth |
+| Catalyst Center Client Health | generate_catalyst_center.py | JSON | cisco:catalyst:clienthealth |
+| Catalyst Center Issues | generate_catalyst_center.py | JSON | cisco:catalyst:issue |
+| Exchange | generate_exchange.py | CSV | ms:o365:reporting:messagetrace |
+| M365 Audit | generate_office_audit.py | JSON | o365:management:activity |
+| Cisco Webex | generate_webex.py | JSON | cisco:webex:events |
+| Webex TA | generate_webex_ta.py | JSON | cisco:webex:meetings:history:* |
+| Webex API | generate_webex_api.py | JSON | cisco:webex:* (5 types) |
+| **Windows** |
+| Perfmon | generate_perfmon.py | Multiline KV | perfmon |
+| WinEventLog | generate_wineventlog.py | XML | XmlWinEventLog |
+| Sysmon | generate_sysmon.py | XML | XmlWinEventLog:Microsoft-Windows-Sysmon/Operational |
+| MSSQL | generate_mssql.py | Multiline | mssql:errorlog |
+| **Linux** |
+| vmstat/df/iostat/auth | generate_linux.py | Syslog KV | linux:* |
+| **Web/Retail** |
+| Apache Access | generate_access.py | Combined log | access_combined |
+| Orders | generate_orders.py | JSON | retail:orders |
+| ServiceBus | generate_servicebus.py | JSON | azure:servicebus |
+| **ERP** |
+| SAP S/4HANA | generate_sap.py | Pipe-delimited | sap:auditlog |
+| **ITSM** |
+| ServiceNow | generate_servicenow.py | Key-value | servicenow:incident |
+
+**Dependencies:** orders, servicebus, and sap depend on access (via order_registry.json).
 
 ## CLI Options
 
@@ -336,6 +377,17 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 - Outcome: Preventable outage
 - Affected sources: asa, access, servicenow
 
+### Known Scenario Source Gaps
+
+All previously identified gaps have been resolved:
+
+| Scenario | Source | Status |
+|----------|--------|--------|
+| ransomware_attempt | ASA | Was already implemented (asa_hour + asa_crosssite_hour) |
+| phishing_test | Secure Access Proxy | Fixed -- added _generate_phishing_test_proxy_events() |
+| firewall_misconfig | Catalyst Switch | Fixed -- enhanced with LINK/LINEPROTO interface flaps |
+| certificate_expiry | Apache Access | Was already implemented (CertificateExpiryScenario.access_hour) |
+
 ## Company Data (company.py)
 
 ### Organization
@@ -433,6 +485,62 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 ### Daily Noise
 - ±15% random variation (deterministic via date hashing)
 
+## Log Format Examples
+
+### Syslog (ASA)
+```
+Jan 05 2026 14:23:45 FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection 12345 for outside:8.8.8.8/443 (8.8.8.8/443) to inside:10.0.10.150/54321 (203.0.113.10/54321) demo_id=exfil
+```
+
+### Meraki Syslog
+```
+<134>1 1735689600.123456789 MX-HQ-01 firewall src=10.0.10.150 dst=8.8.8.8 mac=AA:BB:CC:DD:EE:FF protocol=tcp sport=54321 dport=443 pattern: allow all
+<134>1 1735689600.234567890 AP-HQ-FLOOR1 events type=association radio='1' vap='0' channel='36' rssi='55' client_mac='11:22:33:44:55:66' ssid='TShirtCo-Corp'
+```
+
+### JSON (AWS/GCP/EntraID)
+```json
+{"eventTime":"2026-01-05T14:23:45Z","eventSource":"s3.amazonaws.com","eventName":"GetObject","userIdentity":{"userName":"alex.miller"},"demo_id":"exfil"}
+```
+
+### Multiline KV (Perfmon)
+```
+01/05/2026 14:23:45.123
+collection="Processor"
+object=Processor
+counter="% Processor Time"
+instance=_Total
+Value=45.23
+demo_host=SQL-PROD-01
+```
+
+### Apache Combined (Access)
+```
+73.158.42.100 - - [05/Jan/2026:14:23:45 +0000] "GET /products/hack-the-planet-hoodie HTTP/1.1" 200 4523 "https://theTshirtCompany.com/" "Mozilla/5.0..." demo_id=exfil
+```
+
+### ServiceNow Key-Value
+```
+number="INC0001234" state="In Progress" priority="2" short_description="CPU runaway on SQL-PROD-01" assignment_group="IT Operations"
+```
+
+### SAP Audit Log (Pipe-delimited)
+```
+2026-01-05 14:23:45|SAP-PROD-01|DIA|alex.miller|VA01|S|Create Sales Order|SO-2026-00123|Sales order for customer CUST-00042, 3 items, total $234.56, ref ORD-2026-00123, tshirtcid=a1b2c1d2-4e56-4f7g-h8i9-j1k2l3m4n5o6
+2026-01-05 14:24:12|SAP-PROD-01|DIA|warehouse.user|MIGO|S|Goods Receipt 101|MAT-2026-04567|GR for PO 456, material M-0001 "Hack the Planet Tee", qty 500
+2026-01-05 02:00:05|SAP-PROD-01|BTC|sap.batch|SM37|S|Background Job Complete|MRP_NIGHTLY_RUN|MRP run completed, planned orders: 12, processing time: 847s
+```
+
+### Webex TA JSON (Meetings History)
+```json
+{"ConfName":"Weekly Team Sync","UserName":"john.smith@theTshirtCompany.com","StartTime":"01/05/2026 09:00:00","Duration":"45","AttendeeCount":"8"}
+```
+
+### Webex API JSON (REST API)
+```json
+{"id":"abc123","title":"Board Meeting","start":"2026-01-05T14:00:00Z","end":"2026-01-05T15:00:00Z","hostEmail":"john.smith@theTshirtCompany.com"}
+```
+
 ## Product Catalog (products.py)
 
 72 IT-themed products across 4 types:
@@ -445,11 +553,72 @@ Categories: developer, sysadmin, security, nerd, modern
 
 ## Customer Pool & VIP Segmentation
 
-Dynamic pool: `pool_total = max(500, orders_per_day * days // 4)` (~4 orders/customer). VIP = top 5% driving 30% of orders. `lookups/customer_lookup.csv` covers CUST-00001 to CUST-00500 only.
+The customer pool scales dynamically based on order volume to maintain realistic purchase frequency (~4 orders/customer).
+
+**Formula:**
+```python
+pool_total = max(500, orders_per_day * days // 4)   # ~4 orders per customer
+pool_vip = max(50, pool_total // 20)                 # VIP = top 5% of pool
+```
+
+**Traffic split:** VIP customers (CUST-00001 to CUST-{pool_vip}) drive 30% of orders. Regular customers (CUST-{pool_vip+1} to CUST-{pool_total}) drive 70%.
+
+| orders_per_day | days | pool_total | pool_vip | avg orders/customer |
+|----------------|------|------------|----------|---------------------|
+| 224 (default)  | 14   | 784        | 50       | ~4                  |
+| 224 (default)  | 31   | 1,736      | 86       | ~4                  |
+| 5,000          | 14   | 17,500     | 875      | ~4                  |
+| 5,000          | 31   | 38,750     | 1,937    | ~4                  |
+
+**Customer Lookup Enrichment:**
+- File: `lookups/customer_lookup.csv` (500 rows)
+- Scope: Only VIP customers (CUST-00001 to CUST-00500) have lookup data
+- Fields: customer_id, customer_name, email, segment, country, location, signup_date
+- Customers above CUST-00500 won't match the lookup (by design: VIP enrichment use case)
 
 ## Meraki Device Configuration (Multi-Site)
 
-4 MX (SD-WAN: BOS HA pair, ATL, AUS), 36 MR APs (BOS 16, ATL 12, AUS 8), 11 MS switches (BOS 5, ATL 4, AUS 2), 19 MV cameras (BOS 10, ATL 6, AUS 3), 14 MT sensors (temp, humidity, door, water leak). SSIDs: TShirtCo-Corp (802.1X), TShirtCo-Guest (PSK), TShirtCo-IoT (PSK). Full device inventory in `company.py`.
+### MX Security Appliances / SD-WAN
+| Device | Model | Location | Role | WAN Links |
+|--------|-------|----------|------|-----------|
+| MX-BOS-01 | MX450 | Boston | Primary (HA) | Comcast, AT&T |
+| MX-BOS-02 | MX450 | Boston | Secondary (HA) | Comcast, AT&T |
+| MX-ATL-01 | MX250 | Atlanta | Primary | AT&T, Spectrum |
+| MX-AUS-01 | MX85 | Austin | Primary | Verizon |
+
+### MR Access Points (36 total)
+| Location | Qty | Models | Areas |
+|----------|-----|--------|-------|
+| Boston | 16 | MR46 | 3 floors: Reception, Finance, Exec, Engineering |
+| Atlanta | 12 | MR46 | 2 floors: IT Ops, NOC, Training, Engineering |
+| Austin | 8 | MR46 | 1 floor: Sales, Engineering, Demo Lab |
+
+### MS Switches (11 total)
+| Location | Core | Access | Models |
+|----------|------|--------|--------|
+| Boston | 2x MS425-32 | 3x MS225-48 | Core stack + IDF per floor |
+| Atlanta | 2x MS425-32 | 2x MS225-48 | DC core + floor access |
+| Austin | - | 2x MS225-24 | Access only |
+
+### MV Smart Cameras (19 total)
+| Location | Indoor | Outdoor | Areas |
+|----------|--------|---------|-------|
+| Boston | 8x MV12/MV32 | 2x MV72 | Lobby, server rooms, parking |
+| Atlanta | 6x MV12/MV32 | - | DC, NOC, entrances |
+| Austin | 3x MV12 | - | Lobby, demo lab |
+
+### MT Sensors (14 total)
+| Type | Model | Locations |
+|------|-------|-----------|
+| Temperature | MT10 | Server rooms, data centers |
+| Humidity | MT11 | Data centers |
+| Door | MT20 | Server rooms, MDF/IDF |
+| Water Leak | MT14 | Data center floors |
+
+### Meraki SSIDs
+- TShirtCo-Corp (802.1X) - Corporate network
+- TShirtCo-Guest (PSK) - Guest network
+- TShirtCo-IoT (PSK) - IoT devices
 
 ### Meraki Event Types
 - **MX**: firewall, urls, security_event (IDS), vpn, sd_wan_health, sd_wan_failover
@@ -462,7 +631,97 @@ Dynamic pool: `pool_total = max(500, orders_per_day * days // 4)` (~4 orders/cus
 
 ## Webex Collaboration Devices
 
-21 rooms across 3 sites (BOS 10, ATL 7, AUS 4), named after video game characters. Naming: `{TYPE}-{LOC}-{FLOOR}F-{NAME}`. Problem rooms: Kirby (wifi/codec), Cortana (bandwidth/echo). Sunny rooms: Link, Chief, Doom. Full inventory in `company.py` and `meeting_schedule.py`.
+### Device Inventory (21 rooms — Video Game Character Names)
+
+Device naming: `{TYPE}-{LOC}-{FLOOR}F-{NAME}` (e.g., `WEBEX-BOS-3F-LINK`, `MT-BOS-3F-DOOR-LINK`)
+
+| Location | Room | Floor | Device | Model | Capacity |
+|----------|------|-------|--------|-------|----------|
+| **Boston (10)** |
+| | Link (Boardroom) | 3 | WEBEX-BOS-3F-LINK | Room Kit Pro + Board 85 Pro | 20 |
+| | Zelda | 2 | WEBEX-BOS-2F-ZELDA | Room Kit + Board 55 | 12 |
+| | Samus | 2 | WEBEX-BOS-2F-SAMUS | Room Kit | 8 |
+| | Kirby | 3 | WEBEX-BOS-3F-KIRBY | Desk Pro | 4 |
+| | Yoshi | 3 | WEBEX-BOS-3F-YOSHI | Room Kit Mini | 6 |
+| | Sonic (Lab) | 3 | WEBEX-BOS-3F-SONIC | Board 55 | 8 |
+| | Peach (Visitor) | 1 | WEBEX-BOS-1F-PEACH | Desk Pro | 6 |
+| | Toad (Visitor) | 1 | WEBEX-BOS-1F-TOAD | Room Kit Mini | 4 |
+| | Mario | 2 | WEBEX-BOS-2F-MARIO | Room Kit | 10 |
+| | Luigi | 3 | WEBEX-BOS-3F-LUIGI | Room Kit | 8 |
+| **Atlanta (7)** |
+| | Cortana (Training) | 2 | WEBEX-ATL-2F-CORTANA | Room Kit Pro | 16 |
+| | Chief | 2 | WEBEX-ATL-2F-CHIEF | Room Kit + Board 55 | 10 |
+| | Ryu (Operations) | 1 | WEBEX-ATL-1F-RYU | Room Kit | 6 |
+| | Pikachu | 2 | WEBEX-ATL-2F-PIKACHU | Desk Pro | 4 |
+| | Megaman | 2 | WEBEX-ATL-2F-MEGAMAN | Desk Pro | 4 |
+| | Lara (Lab) | 2 | WEBEX-ATL-2F-LARA | Board 55 | 8 |
+| | Kratos | 1 | WEBEX-ATL-1F-KRATOS | Room Kit | 8 |
+| **Austin (4)** |
+| | Doom | 1 | WEBEX-AUS-1F-DOOM | Room Kit + Board 55 | 12 |
+| | Fox | 1 | WEBEX-AUS-1F-FOX | Room Kit Mini | 6 |
+| | Jett (Demo) | 1 | WEBEX-AUS-1F-JETT | Room Kit | 8 |
+| | Crash | 1 | WEBEX-AUS-1F-CRASH | Room Kit | 8 |
+
+### Webex Event Types
+- **Meetings**: meeting_started, participant_joined, participant_left, meeting_ended
+- **Quality**: quality_metrics (audio MOS, video loss, jitter, latency)
+- **Device**: device_health (CPU, memory, peripherals)
+- **Analytics**: room_analytics (people count, ambient noise)
+- **Sharing**: wireless_share_started
+
+---
+
+## Sensor + Webex Correlation
+
+Meeting room sensors and Webex devices generate correlated events:
+
+### Meeting Lifecycle
+```
+-5 min   Door opens (MT)           First person arrives
+-3 min   Person detected (MV)      Camera sees movement
+-2 min   Temp begins rising        Body heat
+ 0 min   meeting_started           Webex meeting starts
++2 min   participants_join         People connect
++5 min   people_count: 6           Room analytics
++10 min  Temp +1.5C               Stabilizes higher
++55 min  participants_leave        People leave
++60 min  meeting_ended             Meeting ends
++62 min  Door opens                People exit
++75 min  Temp drops gradually      Room cools down
+```
+
+### Meeting Variations
+| Type | Frequency | Description |
+|------|-----------|-------------|
+| Ghost meetings (no-show) | ~15% | Room booked but no one shows up - no Webex events, no sensor activity |
+| Walk-in (unbooked) | ~10% | Door/camera activity without Webex meeting |
+| Late start | ~20% | Meeting starts 5-15 min after scheduled time |
+| Overfilled | ~5% | More participants than room capacity |
+
+### Problem Rooms (Consistent Quality Issues)
+| Room | Location | Issues | Cause |
+|------|----------|--------|-------|
+| **Kirby** | Boston Floor 3 | `wifi_congestion`, `old_equipment` | Near busy AP, outdated codec |
+| **Cortana** | Atlanta Floor 2 | `bandwidth_limited`, `echo_issues` | Too many video streams, bad acoustics |
+
+Quality metrics for problem rooms show:
+- `audio.mos_score` < 3.5 (poor/fair)
+- `video.packet_loss_pct` > 3%
+- `network.jitter_ms` > 40
+- `audio.echo_detected: true` (Cortana only)
+
+### Sunny Rooms (Temperature Variations)
+| Room | Location | Sun Direction | Peak Hours | Extra Heat |
+|------|----------|---------------|------------|------------|
+| Link | Boston | South | 13:00-17:00 | +4C |
+| Chief | Atlanta | West | 14:00-18:00 | +3.5C |
+| Doom | Austin | Southwest | 12:00-17:00 | +5C |
+
+### After-Hours Activity
+Legitimate overtime work on days 3 and 7 (NOT related to exfil scenario):
+- Rooms: Yoshi, Kirby, Pikachu
+- Time: 20:00-23:00
+- Creates investigatable but non-malicious sensor/Webex events
 
 ---
 
@@ -483,10 +742,224 @@ Dynamic pool: `pool_total = max(500, orders_per_day * days // 4)` (~4 orders/cus
 ### Sample SPL Queries
 
 ```spl
+# Find all exfil scenario events
 index=fake_tshrt demo_id=exfil | stats count by sourcetype
-index=fake_tshrt sourcetype="FAKE:cisco:asa" | timechart count by action
+
+# Timeline of attack phases
+index=fake_tshrt demo_id=exfil | timechart count by sourcetype
+
+# Compromised user activity
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" user="alex.miller"
+
+# CPU runaway correlation
 index=fake_tshrt sourcetype="FAKE:perfmon" demo_host="SQL-PROD-01" | timechart avg(Value) by counter
+
+# Order revenue by product type
+index=fake_tshrt sourcetype="FAKE:retail:orders" | stats sum(total) by product_type
+
+# SAP transaction activity by T-code
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" | stats count by tcode | sort -count
+
+# SAP failed operations
+index=fake_tshrt sourcetype="FAKE:sap:auditlog" status="E" | stats count by user, tcode, description
 ```
+
+---
+
+## Splunk App Development (TA-FAKE-TSHRT)
+
+This project includes a Splunk Technology Add-on (TA) for managing log generation from within Splunk Web.
+
+### REST Endpoint Development
+
+#### Handler Pattern: PersistentServerConnectionApplication
+
+Splunk custom REST endpoints **must** use `PersistentServerConnectionApplication` for proper HTTP method support:
+
+```python
+from splunk.persistconn.application import PersistentServerConnectionApplication
+import json
+
+class MyHandler(PersistentServerConnectionApplication):
+    def __init__(self, command_line, command_arg):
+        super().__init__()
+
+    def handle(self, in_string):
+        request = json.loads(in_string)
+        method = request.get('method', 'GET')
+        session_key = request.get('session', {}).get('authtoken')
+
+        # Parse form data (comes as list of [key, value] pairs)
+        form_data = {}
+        for item in request.get('form', []):
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                form_data[item[0]] = item[1]
+
+        if method == 'POST':
+            return {
+                'status': 200,
+                'payload': {'status': 'success', 'message': 'Done'}
+            }
+        return {'status': 200, 'payload': {'info': 'Use POST to execute'}}
+```
+
+**Important:** Do NOT use `MConfigHandler` or `admin_external` - these return 405 errors for POST requests.
+
+#### restmap.conf Configuration
+
+```ini
+[script:my_endpoint]
+match = /my_app/endpoint
+script = my_handler.py
+scripttype = persist                    # Required for PersistentServerConnectionApplication
+handler = my_handler.MyHandler          # Class reference
+requireAuthentication = true
+output_modes = json
+passPayload = true
+passHttpHeaders = true
+passHttpCookies = true
+python.version = python3
+```
+
+#### web.conf - Exposing Endpoints to Splunk Web
+
+Without `web.conf`, endpoints are only accessible via splunkd (port 8089). To access from dashboards (port 8000):
+
+```ini
+[expose:my_endpoint]
+pattern = my_app/endpoint
+methods = GET, POST
+```
+
+### SimpleXML Dashboard JavaScript
+
+**Splunk strips `<script>` tags from SimpleXML HTML panels.** You must use external JavaScript files.
+
+1. Create file in `appserver/static/`:
+   ```javascript
+   // appserver/static/my_dashboard.js
+   require([
+       'jquery',
+       'splunkjs/mvc',
+       'splunkjs/mvc/simplexml/ready!'
+   ], function($, mvc) {
+       'use strict';
+
+       // Access dashboard tokens
+       var tokens = mvc.Components.get("default");
+       var myValue = tokens.get('my_token');
+
+       // Event handlers (use delegated events)
+       $(document).on('click', '#my-button', function() {
+           // Handle click
+       });
+   });
+   ```
+
+2. Reference in dashboard XML:
+   ```xml
+   <dashboard version="1.1" theme="dark" script="my_dashboard.js">
+   ```
+
+#### AJAX Calls to REST Endpoints
+
+```javascript
+// Build URL that works from Splunk Web
+var url = Splunk.util.make_url('/splunkd/__raw/services/my_app/endpoint');
+
+$.ajax({
+    url: url,
+    method: 'POST',
+    data: {
+        param1: 'value1',
+        output_mode: 'json'
+    },
+    timeout: 120000,
+    success: function(response) {
+        var payload = response.payload || response;
+        console.log('Success:', payload);
+    },
+    error: function(xhr, status, error) {
+        console.log('Error:', xhr.responseText);
+    }
+});
+```
+
+### Making Splunk REST API Calls from Handlers
+
+```python
+import splunk.rest as rest
+
+# GET request
+response, content = rest.simpleRequest(
+    "/services/data/indexes/my_index",
+    sessionKey=session_key,
+    method='GET',
+    getargs={'output_mode': 'json'}
+)
+
+# POST request
+response, content = rest.simpleRequest(
+    "/services/data/indexes",
+    sessionKey=session_key,
+    method='POST',
+    postargs={
+        'name': 'new_index',
+        'maxDataSize': 'auto_high_volume'
+    }
+)
+
+if response.status == 200:
+    data = json.loads(content)
+```
+
+### Running External Commands from Handlers
+
+For long-running operations (like log generation), spawn a subprocess:
+
+```python
+import subprocess
+import os
+
+app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+script_path = os.path.join(app_root, 'bin', 'main_generate.py')
+
+cmd = ['python3', script_path, '--all', '--days=14']
+
+result = subprocess.run(
+    cmd,
+    capture_output=True,
+    text=True,
+    timeout=600,
+    cwd=os.path.dirname(script_path)
+)
+```
+
+### Common Issues and Solutions
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| 405 Method Not Allowed | Using `MConfigHandler` | Use `PersistentServerConnectionApplication` with `scripttype = persist` |
+| 401 CSRF Validation Failed | Missing CSRF token | Splunk handles this automatically when using `Splunk.util.make_url()` |
+| JavaScript not running | `<script>` tags stripped | Use external JS file with `script="file.js"` attribute |
+| Endpoint not accessible from dashboard | Missing `web.conf` | Add `[expose:...]` stanza to web.conf |
+| Buttons don't respond | Inline onclick stripped | Use `$(document).on('click', '#id', fn)` |
+
+### App Reload After Changes
+
+After modifying REST handlers or configuration:
+
+```bash
+# Restart Splunk (full reload)
+$SPLUNK_HOME/bin/splunk restart
+
+# Or bump to reload app (faster, but not always sufficient for REST changes)
+$SPLUNK_HOME/bin/splunk _internal call /services/apps/local/TA-FAKE-TSHRT/_reload
+```
+
+**Note:** Changes to `restmap.conf` or Python handlers usually require a full restart.
+
+---
 
 ## Adding New Generators
 
