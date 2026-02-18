@@ -214,11 +214,19 @@ class FirewallMisconfigScenario:
 
         return 0.0
 
-    def generate_hour(self, day: int, hour: int, time_utils) -> List[str]:
+    def generate_hour(self, day: int, hour: int, time_utils, normal_dmz_events: int = 0) -> List[str]:
         """Generate firewall misconfig events for an hour.
 
-        Deny volume scales with what would normally be web traffic (~25% of
-        baseline). Every customer attempt to reach the site generates a deny.
+        Deny volume scales dynamically based on the estimated normal DMZ event
+        count for this hour. The ASA generator calculates this from registry
+        session count + tcp_session DMZ fraction, so it automatically scales
+        with --scale and --orders-per-day.
+
+        Args:
+            normal_dmz_events: Estimated DMZ events this hour would normally
+                               produce (without suppression). Includes registry
+                               Built/Teardown + tcp_session DMZ-bound events.
+                               If 0, falls back to hardcoded minimums.
         """
         events = []
 
@@ -240,8 +248,9 @@ class FirewallMisconfigScenario:
             events.append(self.bad_acl(ts))
 
             # 10:20-10:59 - Heavy deny events (customers hitting blocked ACL)
-            # ~250 denies: customers keep retrying, load balancer health checks fail
-            for _ in range(250):
+            # 65% suppression, 40 of 60 minutes blocked
+            deny_count = max(250, int(normal_dmz_events * 0.65 * 40 / 60))
+            for _ in range(deny_count):
                 minute = 20 + random.randint(0, 39)
                 sec = random.randint(0, 59)
                 ts = time_utils.ts_syslog(day, hour, minute, sec)
@@ -249,8 +258,9 @@ class FirewallMisconfigScenario:
 
         # Hour 11: Continued outage - peak deny events
         elif hour == 11:
-            # ~400 deny events (peak business hours, many customers trying)
-            for _ in range(400):
+            # 100% suppression — replace all suppressed DMZ Built/Teardown events
+            deny_count = max(400, normal_dmz_events)
+            for _ in range(deny_count):
                 minute = random.randint(0, 59)
                 sec = random.randint(0, 59)
                 ts = time_utils.ts_syslog(day, hour, minute, sec)
@@ -258,8 +268,9 @@ class FirewallMisconfigScenario:
 
         # Hour 12: Rollback happens
         elif hour == self.cfg.end_hour:
-            # 12:00-12:02 - Last deny events before fix
-            for _ in range(20):
+            # 5% suppression — only 3 minutes blocked (12:00-12:03)
+            deny_count = max(20, int(normal_dmz_events * 0.05))
+            for _ in range(deny_count):
                 minute = random.randint(0, 2)
                 sec = random.randint(0, 59)
                 ts = time_utils.ts_syslog(day, hour, minute, sec)

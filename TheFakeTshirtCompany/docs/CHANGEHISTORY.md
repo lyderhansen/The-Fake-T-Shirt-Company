@@ -4,6 +4,62 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-18 ~08:00 UTC -- Firewall Misconfig: Dynamic Deny Volume Scaling
+
+### Context
+
+The firewall_misconfig deny events were hardcoded (700/1100/30), but DMZ baseline traffic scales with `--scale` and `--orders-per-day`. At production settings (scale=3.5, orders=5000), normal peak-hour DMZ volume was ~11,500 events but only 700 deny events were injected during full outage, making Day 6 appear as ~50% of normal traffic in Splunk timecharts.
+
+### Changes
+
+- **`bin/scenarios/network/firewall_misconfig.py`** -- Changed `generate_hour()` to accept `normal_dmz_events` parameter and calculate deny counts dynamically:
+  - h10 (65% suppression, 40/60 min): `max(250, normal_dmz_events * 0.65 * 40/60)`
+  - h11 (100% suppression): `max(400, normal_dmz_events)`
+  - h12 (5% suppression): `max(20, normal_dmz_events * 0.05)`
+  - Minimums ensure reasonable deny volume even without the parameter
+- **`bin/generators/generate_asa.py`** -- Calculates `normal_dmz_events` estimate from registry session count + tcp_session DMZ fraction, passes to scenario. Formula: `(registry_sessions * 2) + (remaining * 0.41 * 0.5 * 2)`
+
+### Verification
+
+Scale 1.0 (default): Day 6 vs Day 7 DMZ events per hour within ±17%:
+- h10: 1,225 vs 1,283 (95%) | h11: 1,444 vs 1,267 (113%) | h12: 1,230 vs 1,100 (111%)
+- h11 composition: 34 Built + 46 Teardown + 1,297 Deny (deny dominates correctly)
+
+Scale 3.5 + orders=5000 (production params): Day 6 vs Day 7 within ±19%:
+- h10: 38,485 vs 40,413 (95%) | h11: 48,282 vs 40,254 (119%) | h12: 37,356 vs 34,483 (108%)
+- h11 composition: 159 Built + 1,181 Teardown + 46,666 Deny
+
+---
+
+## 2026-02-18 ~06:00 UTC -- Firewall Misconfig: Calibrate Deny Volume to Match Suppressed DMZ Traffic
+
+### Context
+
+After ASA baseline suppression was implemented, the firewall_misconfig scenario (Day 6, h10-12) correctly suppressed DMZ Built/Teardown events. However, in Splunk timecharts filtered by `dest_zone=dmz`, Day 6 visually appeared as a low-traffic day because the deny events didn't compensate for the suppressed DMZ traffic volume.
+
+### Changes
+
+- **`bin/scenarios/network/firewall_misconfig.py`** -- Calibrated deny counts based on measured DMZ event totals:
+  - h10 (65% suppression): 250 -> **700** denies (compensates ~690 suppressed DMZ events)
+  - h11 (100% suppression): 400 -> **1100** denies (compensates ~1050 suppressed DMZ events)
+  - h12 (5% suppression): 20 -> **30** denies (minor adjustment)
+
+### Verification
+
+21-day dataset with all scenarios, comparing `dest_zone=dmz` total events:
+
+| Hour | Day 6 (scenario) | Day 7 (normal) | Delta |
+|------|-----------------|----------------|-------|
+| h09 (pre-outage) | 1,397 | 1,241 | +156 (normal noise) |
+| h10 (outage start) | 1,313 | 1,304 | +9 |
+| h11 (full outage) | 1,286 | 1,280 | +6 |
+| h12 (rollback) | 1,185 | 1,104 | +81 |
+| h13 (post-outage) | 1,270 | 1,216 | +54 (normal noise) |
+
+Day 6 h11 composition: 43 Built + 53 Teardown + 1,100 Deny (deny dominates as expected).
+
+---
+
 ## 2026-02-18 ~04:00 UTC -- CLAUDE.md Size Reduction (1023 → 549 lines)
 
 ### Context
