@@ -160,37 +160,68 @@ class FirewallMisconfigScenario:
     def access_should_error(self, day: int, hour: int) -> Tuple[bool, int, float]:
         """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
 
-        During the firewall misconfiguration, external customers cannot reach
-        the web server. This creates HTTP 403/504 errors in access logs.
+        During the firewall misconfiguration, the ACL blocks ALL external
+        traffic to the web server. No customer can reach the site at all.
+        This means 100% error rate -- every single request fails with
+        503/504, and zero orders can complete.
 
         Timeline:
-        - Hour 10 (10:20-10:59): ACL just applied, 30% error rate, 5x response time
-        - Hour 11 (full hour):   Peak outage, 50% error rate, 10x response time
-        - Hour 12 (00-05):       Last minutes before fix, 15% error rate, 3x response time
-        - Hour 12 (05+):         Resolved
+        - Hour 10 (10:20-10:59): ACL applied, 100% blocked, 10x response time
+        - Hour 11 (full hour):   Full outage, 100% blocked, 10x response time
+        - Hour 12 (00-05):       Still blocked until rollback at 12:03
+        - Hour 12 (05+):         Resolved, traffic normalizes
         """
         if day != self.cfg.day:
             return (False, 0, 1.0)
 
         if hour == self.cfg.start_hour:
-            # 10:20-10:59 — ACL just applied, partial impact
-            return (True, 30, 5.0)
+            # 10:20-10:59 -- ACL blocks ALL traffic to web server
+            return (True, 100, 10.0)
 
         if hour == 11:
-            # Full outage hour — maximum impact
-            return (True, 50, 10.0)
+            # Full outage hour -- nothing gets through
+            return (True, 100, 10.0)
 
         if hour == self.cfg.end_hour:
-            # 12:00-12:05 — last denies then fix, tapering
-            return (True, 15, 3.0)
+            # 12:00-12:03 blocked, 12:03 rollback, 12:05 traffic normalizes
+            # Blend: ~50% of the hour is blocked, rest is normal
+            return (True, 50, 5.0)
 
         return (False, 0, 1.0)
 
+    def asa_baseline_suppression(self, day: int, hour: int) -> float:
+        """Return 0.0-1.0 indicating how much external->DMZ web traffic to suppress.
+
+        The ACL blocks ALL external traffic to WEB-01. No customer connections
+        can be established, so baseline Built/Teardown for external->DMZ must
+        be fully suppressed during the outage.
+        """
+        if day != self.cfg.day:
+            return 0.0
+
+        if hour == self.cfg.start_hour:
+            # 10:20-10:59 -- ACL blocks everything after 10:20
+            # ~60% of the hour is blocked (minutes 20-59 out of 0-59)
+            return 0.65
+
+        if hour == 11:
+            # Full outage -- nothing gets through
+            return 1.0
+
+        if hour == self.cfg.end_hour:
+            # 12:00-12:03 blocked, 12:05 normalized -- ~5% of hour blocked
+            return 0.05
+
+        return 0.0
+
     def generate_hour(self, day: int, hour: int, time_utils) -> List[str]:
-        """Generate firewall misconfig events for an hour."""
+        """Generate firewall misconfig events for an hour.
+
+        Deny volume scales with what would normally be web traffic (~25% of
+        baseline). Every customer attempt to reach the site generates a deny.
+        """
         events = []
 
-        # Only active on day 7 (index 6)
         if day != self.cfg.day:
             return events
 
@@ -208,17 +239,18 @@ class FirewallMisconfigScenario:
             ts = time_utils.ts_syslog(day, hour, 18, random.randint(0, 29))
             events.append(self.bad_acl(ts))
 
-            # 10:20-10:59 - Deny events start (~30 per hour)
-            for _ in range(30):
+            # 10:20-10:59 - Heavy deny events (customers hitting blocked ACL)
+            # ~250 denies: customers keep retrying, load balancer health checks fail
+            for _ in range(250):
                 minute = 20 + random.randint(0, 39)
                 sec = random.randint(0, 59)
                 ts = time_utils.ts_syslog(day, hour, minute, sec)
                 events.append(self.deny_event(ts))
 
-        # Hour 11: Continued outage - heavy deny events
+        # Hour 11: Continued outage - peak deny events
         elif hour == 11:
-            # ~60 deny events this hour (peak frustration)
-            for _ in range(60):
+            # ~400 deny events (peak business hours, many customers trying)
+            for _ in range(400):
                 minute = random.randint(0, 59)
                 sec = random.randint(0, 59)
                 ts = time_utils.ts_syslog(day, hour, minute, sec)
@@ -227,7 +259,7 @@ class FirewallMisconfigScenario:
         # Hour 12: Rollback happens
         elif hour == self.cfg.end_hour:
             # 12:00-12:02 - Last deny events before fix
-            for _ in range(5):
+            for _ in range(20):
                 minute = random.randint(0, 2)
                 sec = random.randint(0, 59)
                 ts = time_utils.ts_syslog(day, hour, minute, sec)

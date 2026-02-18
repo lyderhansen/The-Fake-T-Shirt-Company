@@ -4,6 +4,79 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-18 ~02:00 UTC -- ASA Baseline Suppression During Scenarios
+
+### Context
+
+ASA generator produced full baseline Built/Teardown events for external→DMZ web traffic even during outage scenarios (firewall_misconfig, DDoS, memory_leak, etc.). This meant Splunk showed hundreds of successful web connections simultaneously with deny events from ACL blocks -- unrealistic.
+
+### Changes
+
+- **`bin/scenarios/network/firewall_misconfig.py`** -- Added `asa_baseline_suppression()`: h10=0.65, h11=1.0, h12=0.05. Increased deny events: h10=250 (was 30), h11=400 (was 60), h12=20 (was 5).
+- **`bin/scenarios/network/ddos_attack.py`** -- Added `asa_baseline_suppression()`: scales with intensity (`min(0.95, intensity)`). Increased DDoS event volume base from 200 to 600 per peak hour.
+- **`bin/scenarios/ops/memory_leak.py`** -- Added `asa_baseline_suppression()`: Day 7=0.2, Day 8=0.4, Day 9=0.6, Day 10 pre-OOM=0.8, OOM=0.95.
+- **`bin/scenarios/ops/cpu_runaway.py`** -- Added `asa_baseline_suppression()`: sev1=0.25, sev2=0.7, sev3=0.05.
+- **`bin/scenarios/network/certificate_expiry.py`** -- Added `asa_baseline_suppression()`: 0.9 during cert outage (h0-7).
+- **`bin/generators/generate_asa.py`** -- Added `web_suppression` parameter to `generate_baseline_hour()`. Filters registry web sessions by suppression factor. Added `_web_suppression_ctx` global so `asa_tcp_session()` reduces its 50% outside→dmz split during scenarios. Main loop calculates suppression from all active scenarios before baseline generation.
+
+### Verification
+
+21-day dataset with all scenarios:
+- Firewall misconfig h11 (100% suppression): **0 DMZ Built**, 440 deny events (dominates)
+- Firewall misconfig h10 (65% suppression): 248 DMZ Built (was ~600), 323 deny events
+- DDoS h08 full attack: **4 DMZ Built** (was ~600), 370 deny + 91 rate-limit + 60 threat events
+- Memory leak Day 9 (60% suppression): 3,206 DMZ Built (was ~6,800)
+- CPU runaway Day 11 (70% critical): 2,042 DMZ Built (was ~6,800)
+- Cert expiry h00-h06 (90% suppression): 6-12 DMZ Built per hour (was ~60-120)
+- Normal day (no scenarios): 6,849 DMZ Built (unchanged baseline)
+- Internal traffic (DC, VPN, site-to-site) unaffected during all scenarios
+
+---
+
+## 2026-02-18 ~00:30 UTC -- Scenario Error Rates: Realistic Severity
+
+### Context
+
+Scenario error rates in `access_should_error()` were too low, allowing orders to succeed during outages where the web shop should be completely unreachable. User feedback: "firewall misconfig should mean 0 orders if the webshop is blocked" and "DDoS and cpu_runaway should be even stricter".
+
+### Changes
+
+- **`bin/scenarios/network/firewall_misconfig.py`** -- ACL blocks ALL external traffic, so error_rate=100% during outage hours 10-11 (was 30/50%). Hour 12 (rollback at 12:03) set to 50% blend.
+- **`bin/scenarios/network/ddos_attack.py`** -- Full attack (intensity>=0.8): 95% (was 80%). Partial mitigation (>=0.5): 80% (was 50%). Ramping (>=0.3): 60% (was 30%). Probing (>=0.05): 20% (was 8%).
+- **`bin/scenarios/ops/cpu_runaway.py`** -- Critical severity (DB at 100% CPU): 85% (was 45%). Warning severity: 30% (was 10%). Recovery: 5% (was 3%).
+- **`bin/scenarios/ops/memory_leak.py`** -- Day 7: 25% (was 12%). Day 8: 50% (was 25%). Day 9: 75% (was 40%). Day 10 pre-OOM: 85-92% (was 50-60%). OOM crash: 95% (was 70%).
+
+### Verification
+
+21-day dataset with all scenarios:
+- Firewall misconfig (Jan 6): 0 orders during hour 11 (100% blocked), 239 total (normal outside outage window)
+- DDoS (Jan 18): 129 orders total (vs ~300 normal), 0-1 orders during peak hours 06-09
+- CPU runaway (Jan 11): 63 orders total, near-zero during critical phase
+- CPU runaway (Jan 12): 0-8 orders pre-fix, snaps back to normal after 10:30 fix
+- Memory leak descending staircase: 256 (Day 7) -> 173 (Day 8) -> 84 (Day 9) -> 0-3/hour pre-OOM (Day 10)
+- Event volume consistent across all days (16K-25K/day) -- only error codes change, not session count
+
+---
+
+## 2026-02-17 ~22:00 UTC -- Access Log: Consistent Volume During Scenarios
+
+### Context
+
+Access log generator reduced session volume by 30-70% during scenarios (memory_leak, cpu_runaway, ddos_attack, firewall_misconfig, certificate_expiry) AND injected error codes. This caused event volume to drop dramatically during scenarios. Real web servers don't see less traffic when broken -- they see the SAME traffic but with more error responses.
+
+### Changes
+
+- **`bin/generators/generate_access.py`** -- Removed session volume reduction logic (lines 844-867: `effective_sessions = sessions * 30/50/75%`). Removed post-recovery ramp-up logic (lines 820-833, 858-866: gradual 30%->85% restoration). Replaced SSL outage special case (lines 835-842: `sessions // 3` error events) with `error_rate = 95` override that uses normal session generation. Sessions now always run at full baseline volume. Scenarios inject errors via `error_rate` parameter applied to EVERY page in each session. Orders drop naturally because `/checkout/complete` only registers when `status == 200`.
+
+### Verification
+
+14-day dataset with all scenarios:
+- Event volume consistent: 16K-25K/day (variation from weekday/weekend factor only, no scenario drops)
+- Error rates proportional to scenario severity: 0.2% baseline -> 33.8% memory_leak OOM -> 37.8% cpu_runaway critical
+- Orders drop organically: 202/day (OOM day) vs 287-447/day (normal) -- checkout failures prevent order registration
+
+---
+
 ## 2026-02-17 ~20:00 UTC -- Logical Correlation Verification (120 checks, 21 categories)
 
 ### Context

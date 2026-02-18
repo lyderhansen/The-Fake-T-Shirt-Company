@@ -64,6 +64,10 @@ from shared.company import (
 # Use the perimeter ASA hostname consistently
 ASA_HOSTNAME = ASA_PERIMETER["hostname"]  # FW-EDGE-01
 
+# Web suppression context: set per-hour by generate_baseline_hour() so that
+# asa_tcp_session() can reduce its outside->dmz Built events during scenarios
+_web_suppression_ctx = 0.0
+
 # Syslog PRI calculation: PRI = Facility × 8 + Severity
 # Cisco ASA uses local4 (facility 20)
 ASA_FACILITY = 20  # local4
@@ -163,9 +167,12 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     start_ts = ts_syslog(base_date, day, hour, minute, second)
     teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
-    # 50% outbound, 50% inbound to DMZ
+    # 50% outbound (inside->outside), 50% inbound to DMZ (outside->dmz)
+    # When web_suppression is active, reduce the inbound DMZ fraction
+    # since scenarios suppress external->DMZ traffic
+    dmz_probability = 0.5 * (1.0 - _web_suppression_ctx)
     pri6 = asa_pri(6)  # info
-    if random.random() < 0.5:
+    if random.random() >= dmz_probability:
         events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built outbound TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to outside:{dst}/{dp} ({dst}/{dp})")
         events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to outside:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
     else:
@@ -1075,7 +1082,8 @@ def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
 
 
 def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int,
-                           registry_index: Dict = None) -> List[str]:
+                           registry_index: Dict = None,
+                           web_suppression: float = 0.0) -> List[str]:
     """Generate baseline events for one hour.
 
     Event distribution (updated for perimeter + internal traffic):
@@ -1098,14 +1106,29 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     are generated from the registry (1:1 match with access logs) instead of
     random generation. The remaining 75% of event_count is filled with non-web
     traffic types.
+
+    web_suppression (0.0-1.0): Fraction of external->DMZ web sessions to
+    suppress during scenarios (e.g., firewall_misconfig ACL blocks all traffic).
+    Suppressed sessions are NOT replaced with other traffic -- total volume
+    drops naturally, which is realistic during outages.
     """
     events = []
+
+    # Set the suppression context so asa_tcp_session() can reduce outside->dmz
+    global _web_suppression_ctx
+    _web_suppression_ctx = web_suppression
 
     # --- Phase 1: Registry-driven web sessions (if available) ---
     registry_web_events = 0
     if registry_index:
         # O(1) dict lookup replaces O(N) linear scan of all sessions
         hour_sessions = registry_index.get((day, hour), [])
+
+        # Suppress web sessions during scenarios (e.g., ACL blocks, DDoS)
+        if web_suppression > 0.0 and hour_sessions:
+            keep_count = max(0, int(len(hour_sessions) * (1.0 - web_suppression)))
+            hour_sessions = hour_sessions[:keep_count]
+
         for sess in hour_sessions:
             events.extend(asa_web_session_from_registry(base_date, sess))
             registry_web_events += 1  # Each produces 2 events (Built+Teardown)
@@ -1298,9 +1321,25 @@ def generate_asa_logs(
             # Calculate events for this hour using natural variation
             hour_events = calc_natural_events(base_events_per_peak_hour, start_date, day, hour, "firewall")
 
+            # Calculate web suppression from active scenarios
+            # During outages, external->DMZ web Built/Teardown events are suppressed
+            # to match scenario reality (ACL blocks, DDoS flood, server unresponsive)
+            web_suppression = 0.0
+            if include_fw_misconfig:
+                web_suppression = max(web_suppression, _fw_misconfig_scenario.asa_baseline_suppression(day, hour))
+            if include_ddos_attack:
+                web_suppression = max(web_suppression, _ddos_attack_scenario.asa_baseline_suppression(day, hour))
+            if include_memory_leak:
+                web_suppression = max(web_suppression, _memleak_scenario.asa_baseline_suppression(day, hour))
+            if include_cpu_runaway:
+                web_suppression = max(web_suppression, _cpu_runaway_scenario.asa_baseline_suppression(day, hour))
+            if include_cert_expiry:
+                web_suppression = max(web_suppression, _cert_expiry_scenario.asa_baseline_suppression(day, hour))
+
             # Generate baseline (with registry-driven web sessions if available)
             all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events,
-                                                     registry_index=registry_index))
+                                                     registry_index=registry_index,
+                                                     web_suppression=web_suppression))
 
             # Nightly backup traffic (BACKUP-ATL-01 -> FILE-BOS-01, 22:00-04:00)
             all_events.extend(asa_backup_traffic(start_date, day, hour))

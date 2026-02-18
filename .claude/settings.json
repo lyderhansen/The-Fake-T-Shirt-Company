@@ -24,6 +24,7 @@
   },
 
   "env": {
-    "PYTHONPATH": "TA-FAKE-TSHRT/TA-FAKE-TSHRT/bin"
+    "PYTHONPATH": "TA-FAKE-TSHRT/TA-FAKE-TSHRT/bin",
+    "NODE_TLS_REJECT_UNAUTHORIZED": "0"
   }
 }

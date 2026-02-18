@@ -284,6 +284,34 @@ class MemoryLeakScenario:
             return self.cfg.demo_id
         return ""
 
+    def asa_baseline_suppression(self, day: int, hour: int) -> float:
+        """Return 0.0-1.0 indicating how much external->DMZ web traffic to suppress.
+
+        WEB-01 memory exhaustion means nginx can't fork workers or accept new
+        connections. As memory fills, fewer connections can be established.
+        The ASA still sees the SYN packets but connections time out or reset.
+        """
+        if day < self.cfg.start_day or self.is_resolved(day, hour):
+            return 0.0
+
+        if day == 5:   # Day 6: subtle onset
+            return 0.0
+        if day == 6:   # Day 7: pressure building
+            return 0.2
+        if day == 7:   # Day 8: swap kicking in
+            return 0.4
+        if day == 8:   # Day 9: heavy swapping
+            return 0.6
+
+        if day == self.cfg.oom_day:  # Day 10: OOM
+            if hour < self.cfg.oom_hour:
+                return 0.8  # Pre-OOM: barely responding
+            elif hour == self.cfg.oom_hour:
+                return 0.95  # OOM crash
+            else:
+                return 0.0  # Post-restart
+        return 0.0
+
     # =========================================================================
     # SWAP USAGE
     # =========================================================================
@@ -438,23 +466,15 @@ class MemoryLeakScenario:
         cannot fork workers, cannot allocate request buffers, and starts swapping
         heavily. This creates a visible "descending staircase" revenue pattern.
 
-        Revenue impact (via generate_access.py session reduction):
-        - Day 7 (12%):   75% sessions, ~66% orders (noticeable dip)
-        - Day 8 (25%):   50% sessions, ~38% orders (clear drop)
-        - Day 9 (40%):   30% sessions, ~18% orders (severe)
-        - Day 10 pre-OOM (50-60%): 30% sessions, ~12-15% orders (near-total)
-        - Day 10 OOM (70%): 30% sessions, ~9% orders (crash)
-        - Day 10 post-restart: recovery ramp-up via generate_access.py
-
         Timeline for WEB-01:
-        - Day 1-5: Normal (1.0x response time) - before scenario
-        - Day 6: Subtle onset (1.1x response time) - barely noticeable
-        - Day 7: Memory pressure building (2.0x), 503s appearing (12%)
-        - Day 8: Swap kicking in (3.5x), frequent timeouts (25%)
-        - Day 9: Heavy swapping (5.0x), major failures (40%)
-        - Day 10, 00:00-13:59: Pre-OOM (7.0x), server barely responding (50-60%)
-        - Day 10, 14:00: OOM crash (10.0x), near-total outage (70%)
-        - Day 10, 14:05+: Server restarted, recovery ramp-up begins
+        - Day 1-5: Normal (1.0x response time) -- before scenario
+        - Day 6: Subtle onset (1.1x response time) -- barely noticeable
+        - Day 7: Memory pressure building (2.5x), 503s appearing (25%)
+        - Day 8: Swap kicking in (4.0x), frequent timeouts (50%)
+        - Day 9: Heavy swapping (6.0x), major failures (75%)
+        - Day 10, 00:00-13:59: Pre-OOM (8.0x), server barely responding (85-90%)
+        - Day 10, 14:00: OOM crash (10.0x), total outage (95%)
+        - Day 10, 14:05+: Server restarted, back to normal
         - Day 11+: Normal (1.0x response time)
         """
         # Before scenario or after resolution
@@ -467,30 +487,29 @@ class MemoryLeakScenario:
 
         # Day 7 (index 6): Memory pressure building, 503s appearing
         if day == 6:
-            return (True, 12, 2.0)
+            return (True, 25, 2.5)
 
         # Day 8 (index 7): Swap kicking in, frequent timeouts
         if day == 7:
-            return (True, 25, 3.5)
+            return (True, 50, 4.0)
 
-        # Day 9 (index 8): Heavy swapping, major failures
+        # Day 9 (index 8): Heavy swapping, most requests fail
         if day == 8:
-            return (True, 40, 5.0)
+            return (True, 75, 6.0)
 
         # Day 10 (index 9): OOM day
         if day == self.cfg.oom_day:
             if hour < self.cfg.oom_hour:
                 # Pre-OOM: server barely responding, climbing to crash
-                error_rate = 50 + (hour // 3)
-                return (True, min(error_rate, 60), 7.0)
+                error_rate = 85 + (hour // 5)
+                return (True, min(error_rate, 92), 8.0)
 
             elif hour == self.cfg.oom_hour:
-                # OOM crash hour - near-total outage, then restart
-                return (True, 70, 10.0)
+                # OOM crash hour -- total outage, then restart
+                return (True, 95, 10.0)
 
             else:
-                # Post-restart - back to normal (recovery ramp-up handled
-                # by generate_access.py's post-recovery tracking)
+                # Post-restart -- back to normal
                 return (False, 0, 1.0)
 
         # Should not reach here

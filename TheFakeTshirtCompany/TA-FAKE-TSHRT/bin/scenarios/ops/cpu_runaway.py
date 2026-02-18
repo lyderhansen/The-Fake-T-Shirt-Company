@@ -262,6 +262,27 @@ class CpuRunawayScenario:
             return self.cfg.demo_id
         return ""
 
+    def asa_baseline_suppression(self, day: int, hour: int) -> float:
+        """Return 0.0-1.0 indicating how much external->DMZ web traffic to suppress.
+
+        SQL-PROD-01 at 100% CPU means the DB can't serve queries. The web app
+        (APP-BOS-01) depends on SQL for product lookups, cart, and checkout.
+        Connections are established but time out waiting for DB responses,
+        so some suppression of successful web sessions is warranted.
+        """
+        if not self.is_active(day, hour):
+            return 0.0
+
+        severity = self.get_severity(day, hour)
+
+        if severity == 1:    # Warning: slow but functioning
+            return 0.25
+        elif severity == 2:  # Critical: DB unreachable
+            return 0.7
+        elif severity == 3:  # Recovery
+            return 0.05
+        return 0.0
+
     # =========================================================================
     # WINEVENTLOG EVENTS
     # =========================================================================
@@ -384,14 +405,13 @@ class CpuRunawayScenario:
         """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
 
         SQL-PROD-01 at 100% CPU means the database cannot serve queries.
-        The e-commerce API (APP-BOS-01) depends on SQL for every product lookup,
-        cart operation, and checkout. At critical severity, query timeouts
-        cascade into web 503/504 errors — a dramatic revenue drop.
+        The e-commerce API (APP-BOS-01) depends on SQL for every product
+        lookup, cart operation, and checkout. At critical severity, query
+        timeouts cascade into web 503/504 errors.
 
-        Revenue impact (via generate_access.py session reduction):
-        - severity 1 (10%): 75% sessions, ~68% orders (noticeable dip)
-        - severity 2 (45%): 30% sessions, ~17% orders (dramatic cliff)
-        - severity 3 (3%):  100% sessions, ~97% orders (quick recovery)
+        Every page that requires a DB query (product pages, cart, checkout)
+        will fail when SQL is unresponsive. Only static/cached content might
+        still load, but the ordering pipeline is completely broken.
         """
         if not self.is_active(day, hour):
             return (False, 0, 1.0)
@@ -399,11 +419,11 @@ class CpuRunawayScenario:
         severity = self.get_severity(day, hour)
 
         if severity == 1:    # Warning: DB slowing, queries timing out
-            return (True, 10, 1.5)
-        elif severity == 2:  # Critical: DB nearly unreachable
-            return (True, 45, 4.0)
+            return (True, 30, 2.5)
+        elif severity == 2:  # Critical: DB unreachable, all DB-dependent pages fail
+            return (True, 85, 8.0)
         elif severity == 3:  # Recovery: connections draining
-            return (True, 3, 1.2)
+            return (True, 5, 1.3)
         else:
             return (False, 0, 1.0)
 

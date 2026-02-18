@@ -330,6 +330,18 @@ class CertificateExpiryScenario:
             return False
         return self.cfg.expiry_hour <= hour <= self.cfg.fix_hour
 
+    def asa_baseline_suppression(self, day: int, hour: int) -> float:
+        """Return 0.0-1.0 indicating how much external->DMZ web traffic to suppress.
+
+        With an expired SSL certificate, HTTPS connections fail at the TLS
+        handshake. The ASA sees the SYN but the connection resets immediately.
+        Very few legitimate web sessions can complete.
+        """
+        if not self.is_outage_period(day, hour):
+            return 0.0
+        # During cert outage: ~90% suppression (almost all HTTPS fails)
+        return 0.9
+
     def get_phase(self, day: int, hour: int = 0) -> str:
         """Get the scenario phase for display purposes."""
         if day < self.cfg.day:

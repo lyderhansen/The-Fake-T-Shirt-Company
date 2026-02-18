@@ -220,6 +220,20 @@ class DdosAttackScenario:
             return self.cfg.demo_id
         return None
 
+    def asa_baseline_suppression(self, day: int, hour: int) -> float:
+        """Return 0.0-1.0 indicating how much external->DMZ web traffic to suppress.
+
+        During a DDoS flood, legitimate traffic is drowned out. The web servers
+        are overwhelmed and can't serve real customers. Suppression scales with
+        attack intensity -- at full attack, almost no legitimate web sessions
+        can complete.
+        """
+        intensity = self._get_attack_intensity(day, hour)
+        # Scale suppression with intensity, capped at 0.95
+        # At full attack (1.0): 95% of web sessions suppressed
+        # At probing (0.05): 5% suppressed (barely noticeable)
+        return min(0.95, intensity)
+
     # =========================================================================
     # ASA EVENT GENERATORS
     # =========================================================================
@@ -393,8 +407,9 @@ class DdosAttackScenario:
             return events
 
         # Scale event count by intensity
-        # Peak (1.0) = ~200 events/hour, probing (0.05) = ~10
-        base_events = max(5, int(intensity * 200))
+        # Peak (1.0) = ~600 events/hour, probing (0.05) = ~30
+        # Volume must dominate baseline during peak attack to look realistic
+        base_events = max(5, int(intensity * 600))
 
         # Generate deny events (bulk of the traffic)
         deny_count = int(base_events * 0.6)
@@ -451,30 +466,24 @@ class DdosAttackScenario:
         """Return (should_inject_errors, error_rate_pct, response_time_multiplier).
 
         Volumetric HTTP flood directly targeting WEB-01/WEB-02 in the DMZ.
-        At full intensity the web servers are completely overwhelmed — nearly
-        all requests fail with 503. This is one of the most impactful scenarios
+        At full intensity the web servers are completely overwhelmed -- nearly
+        all requests fail with 503. This is the most impactful scenario
         for revenue since the attack literally drowns the web tier.
 
-        Revenue impact (via generate_access.py session reduction):
-        - Full attack (80%): 30% sessions, ~6% orders (near-total loss)
-        - Wave 2 (70%):      30% sessions, ~9% orders
-        - Partial mitig (50%): 30% sessions, ~15% orders
-        - ISP filtering (60%): 30% sessions, ~12% orders (still severe)
-        - Subsiding (40%):   30% sessions, ~21% orders
-        - Eve 2nd wave (30%): 50% sessions, ~35% orders
-        - Ramping (30%):     50% sessions, ~35% orders
-        - Probing (8%):      75% sessions, ~69% orders
+        Error rates are very high because the attack saturates the web
+        servers' ability to respond. Even at partial mitigation the
+        infrastructure is still heavily stressed.
         """
         intensity = self._get_attack_intensity(day, hour)
 
         if intensity >= 0.8:
-            return (True, 80, 15.0)   # Full attack / wave 2 — servers drowning
+            return (True, 95, 15.0)   # Full attack / wave 2 -- servers drowning
         elif intensity >= 0.5:
-            return (True, 50, 8.0)    # Partial mitigation — still severe
+            return (True, 80, 10.0)   # Partial mitigation -- still severe
         elif intensity >= 0.3:
-            return (True, 30, 4.0)    # Ramping / ISP filtering
+            return (True, 60, 6.0)    # Ramping / ISP filtering -- major impact
         elif intensity >= 0.05:
-            return (True, 8, 2.0)     # Probing / residual
+            return (True, 20, 3.0)    # Probing / residual -- noticeable
         else:
             return (False, 0, 1.0)
 

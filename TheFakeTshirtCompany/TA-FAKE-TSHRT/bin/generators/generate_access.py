@@ -751,15 +751,6 @@ def generate_access_logs(
             dt = date_add(start_date, day)
             print(f"  [Access] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})...", file=sys.stderr, end="\r")
 
-        # Track recovery state across hours within each day.
-        # After a major outage ends (error_rate drops from high to low),
-        # sessions ramp back up gradually instead of snapping to 100%.
-        # This simulates real-world behavior: users slowly return, caches
-        # refill, CDN propagation catches up, word spreads that site is back.
-        recovery_hours_remaining = 0
-        recovery_ramp = []  # Session multiplier schedule, e.g. [0.30, 0.50, 0.70, 0.85]
-        prev_error_rate = 0
-
         for hour in range(24):
             # Check if we're in SSL outage period (certificate_expiry scenario)
             is_ssl_outage = include_cert_expiry and cert_expiry_scenario.is_outage_period(day, hour)
@@ -817,69 +808,27 @@ def generate_access_logs(
                     response_mult = max(response_mult, int(mult * 100))
                     demo_id = "ddos_attack"
 
-            # ── Post-recovery ramp-up detection ──────────────────────────
-            # Detect transition from outage to normal and start gradual recovery.
-            # This prevents the "compensation spike" where instant return to full
-            # sessions after an outage creates an unrealistic revenue surge.
-            if prev_error_rate >= 40 and error_rate < 8:
-                # Transition from severe outage (OOM, DDoS peak) -> normal
-                # 4-hour ramp: 30% -> 50% -> 70% -> 85% of baseline sessions
-                recovery_ramp = [0.30, 0.50, 0.70, 0.85]
-                recovery_hours_remaining = len(recovery_ramp)
-            elif prev_error_rate >= 20 and error_rate < 8:
-                # Transition from moderate outage (pre-OOM, DDoS ramp) -> normal
-                # 3-hour ramp: 50% -> 70% -> 85%
-                recovery_ramp = [0.50, 0.70, 0.85]
-                recovery_hours_remaining = len(recovery_ramp)
-
+            # During SSL outage, override error_rate to force errors on all pages
             if is_ssl_outage:
-                # During outage: generate SSL error events instead of normal sessions
-                # Reduced volume (customers can't complete requests)
-                error_count = sessions // 3  # Fewer attempts due to errors
-                for _ in range(error_count):
-                    minute = random.randint(0, 59)
-                    second = random.randint(0, 59)
-                    all_events.append(generate_ssl_error_event(start_date, day, hour, minute, second))
-            else:
-                # Reduce session volume during high-error scenarios
-                # Simulates customer abandonment: word spreads that site is down,
-                # fewer people attempt to visit. Combined with per-page error_rate,
-                # this creates a visible revenue drop in orders.
-                effective_sessions = sessions
-                if error_rate >= 40:
-                    # Severe outage (DDoS peak, OOM crash): 30% of normal traffic
-                    effective_sessions = max(1, sessions * 30 // 100)
-                elif error_rate >= 20:
-                    # Major issues (pre-OOM, DDoS ramping): 50% of normal traffic
-                    effective_sessions = max(1, sessions * 50 // 100)
-                elif error_rate >= 8:
-                    # Moderate degradation (cpu_runaway, memory critical): 75% traffic
-                    effective_sessions = max(1, sessions * 75 // 100)
-                elif recovery_hours_remaining > 0:
-                    # Post-recovery ramp-up: gradually return to full volume.
-                    # Users don't instantly come back after an outage -- word has
-                    # to spread that the site is back, CDN caches need to refill,
-                    # and users who gave up won't retry for a while.
-                    ramp_idx = len(recovery_ramp) - recovery_hours_remaining
-                    if 0 <= ramp_idx < len(recovery_ramp):
-                        effective_sessions = max(1, int(sessions * recovery_ramp[ramp_idx]))
-                    recovery_hours_remaining -= 1
+                error_rate = 95
+                response_mult = max(response_mult, 500)
+                demo_id = "certificate_expiry"
 
-                # Normal operation (with potential error injection from ops scenarios)
-                for _ in range(effective_sessions):
-                    minute = random.randint(0, 59)
-                    second = random.randint(0, 59)
-                    all_events.extend(generate_session(
-                        start_date, day, hour, minute, second,
-                        response_mult=response_mult,
-                        error_rate=error_rate,
-                        demo_id=demo_id if error_rate > 0 else None,
-                        pool_total=pool_total,
-                        pool_vip=pool_vip,
-                    ))
-
-            # Track error rate for recovery detection in next hour
-            prev_error_rate = error_rate
+            # Generate sessions at full baseline volume -- scenarios inject
+            # errors via error_rate (applied to EVERY page in the session),
+            # not by reducing session count. Orders drop naturally because
+            # /checkout/complete only registers when status == 200.
+            for _ in range(sessions):
+                minute = random.randint(0, 59)
+                second = random.randint(0, 59)
+                all_events.extend(generate_session(
+                    start_date, day, hour, minute, second,
+                    response_mult=response_mult,
+                    error_rate=error_rate,
+                    demo_id=demo_id if error_rate > 0 else None,
+                    pool_total=pool_total,
+                    pool_vip=pool_vip,
+                ))
 
             # Health check probes from MON-ATL-01 (every 30s, all hours)
             all_events.extend(generate_health_check_events(start_date, day, hour))
