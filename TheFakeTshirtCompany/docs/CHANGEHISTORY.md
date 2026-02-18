@@ -4,6 +4,33 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-18 ~12:00 UTC -- Memory Leak: Dynamic ASA Timeout/Reset Volume Scaling
+
+### Context
+
+Same issue as firewall_misconfig: the memory_leak scenario had hardcoded ASA event counts (30/80/150/250 per day) that didn't scale with `--scale` or `--orders-per-day`. At production scale (3.5, orders=5000), peak-hour DMZ baseline is ~11,500 events — the 250 events/day were invisible.
+
+### Changes
+
+- **`bin/scenarios/ops/memory_leak.py`**:
+  - Added `normal_dmz_events` parameter to `asa_generate_hour()`
+  - Replaced hardcoded daily event counting with dynamic formula: `max(minimum, int(normal_dmz_events * suppression))`
+  - Reuses existing `asa_baseline_suppression()` values (0.2/0.4/0.6/0.8/0.95) for scaling
+  - Added `_hourly_minimum()` helper for fallback when `normal_dmz_events=0`
+  - OOM day special handling preserved (burst at hour 14, taper after restart)
+- **`bin/generators/generate_asa.py`**:
+  - Refactored `_normal_dmz` calculation to shared variable (DRY — used by both memory_leak and firewall_misconfig)
+  - Passes `normal_dmz_events=_normal_dmz` to memory_leak scenario
+  - Simplified firewall_misconfig callsite (removed duplicate calculation)
+
+### Verification
+
+- **scale=1.0**: Day 9 (supp 0.6) — 7,695 memleak events/day (was 150). Business hours 91-100% of baseline. PASS.
+- **scale=2.0, orders=2000**: Day 9 (supp 0.6) — 62,999 memleak events/day. Business hours 95-103% of baseline. PASS.
+- **Note**: OOM hour (h14) generates 0 events — pre-existing issue where `is_resolved(oom_day, oom_hour)` returns True because `restart_hour == oom_hour == 14`. Separate fix needed.
+
+---
+
 ## 2026-02-18 ~08:00 UTC -- Firewall Misconfig: Dynamic Deny Volume Scaling
 
 ### Context

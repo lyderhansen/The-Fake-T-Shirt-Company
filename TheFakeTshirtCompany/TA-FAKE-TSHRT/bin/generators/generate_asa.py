@@ -1344,21 +1344,22 @@ def generate_asa_logs(
             # Nightly backup traffic (BACKUP-ATL-01 -> FILE-BOS-01, 22:00-04:00)
             all_events.extend(asa_backup_traffic(start_date, day, hour))
 
+            # Estimate normal DMZ events for this hour (without suppression).
+            # Used by scenarios to scale event volume to match suppressed traffic.
+            # Components: registry sessions (2 events each: Built+Teardown)
+            #           + tcp_session DMZ-bound (~41% of remaining * 50% dmz * 2 events)
+            _reg_sessions = len(registry_index.get((day, hour), [])) if registry_index else 0
+            _remaining = max(0, hour_events - _reg_sessions)
+            _normal_dmz = (_reg_sessions * 2) + int(_remaining * 0.41 * 0.5 * 2)
+
             # Generate scenario events using new scenario classes
             if include_exfil:
                 all_events.extend(_exfil_scenario.asa_hour(day, hour))
 
             if include_memory_leak:
-                all_events.extend(_memleak_scenario.asa_generate_hour(day, hour, _time_utils))
+                all_events.extend(_memleak_scenario.asa_generate_hour(day, hour, _time_utils, normal_dmz_events=_normal_dmz))
 
             if include_fw_misconfig:
-                # Estimate normal DMZ events for this hour (without suppression).
-                # Used by scenario to scale deny volume to match suppressed traffic.
-                # Components: registry sessions (2 events each: Built+Teardown)
-                #           + tcp_session DMZ-bound (~41% of remaining * 50% dmz * 2 events)
-                _reg_sessions = len(registry_index.get((day, hour), [])) if registry_index else 0
-                _remaining = max(0, hour_events - _reg_sessions)
-                _normal_dmz = (_reg_sessions * 2) + int(_remaining * 0.41 * 0.5 * 2)
                 all_events.extend(_fw_misconfig_scenario.generate_hour(day, hour, _time_utils, normal_dmz_events=_normal_dmz))
 
             if include_ransomware:

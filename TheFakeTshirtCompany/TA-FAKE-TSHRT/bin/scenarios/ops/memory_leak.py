@@ -411,34 +411,58 @@ class MemoryLeakScenario:
             f'from outside:{customer_ip}/{customer_port} to dmz:{self.cfg.host_ip}/{server_port}{suffix}'
         )
 
-    def asa_generate_hour(self, day: int, hour: int, time_utils) -> List[str]:
-        """Generate ASA events for an hour."""
+    def _hourly_minimum(self, day: int) -> int:
+        """Get minimum hourly timeout events for this day (fallback when no DMZ estimate)."""
+        if day == 6:                  # Day 7
+            return 3
+        if day == 7:                  # Day 8
+            return 7
+        if day == 8:                  # Day 9
+            return 12
+        if day == self.cfg.oom_day:   # Day 10
+            return 20
+        return 0
+
+    def asa_generate_hour(self, day: int, hour: int, time_utils, normal_dmz_events: int = 0) -> List[str]:
+        """Generate ASA events for an hour.
+
+        Timeout/reset volume scales dynamically based on the estimated normal
+        DMZ event count for this hour.  The ASA generator calculates this from
+        registry session count + tcp_session DMZ fraction, so it automatically
+        scales with --scale and --orders-per-day.
+
+        Args:
+            normal_dmz_events: Estimated DMZ events this hour would normally
+                               produce (without suppression).  If 0, falls back
+                               to hardcoded minimums per-day.
+        """
         events = []
 
         if not self.asa_is_active(day, hour):
             return events
 
-        daily_events = self.asa_events_per_day(day)
+        suppression = self.asa_baseline_suppression(day, hour)
+        minimum = self._hourly_minimum(day)
 
-        # Day 9 special handling - OOM at 14:00
+        # Day 10 special handling - OOM at 14:00
         if day == self.cfg.oom_day:
             if hour < self.cfg.oom_hour:
-                # Pre-OOM: increasing timeouts
-                hourly_events = 10 + hour
+                # Pre-OOM: barely responding (suppression 0.8)
+                hourly_events = max(minimum, int(normal_dmz_events * suppression))
             elif hour == self.cfg.oom_hour:
-                # OOM hour: burst of failures, then recovery
-                hourly_events = 40
+                # OOM hour: burst of failures (suppression 0.95)
+                hourly_events = max(40, int(normal_dmz_events * suppression))
             else:
-                # Post-restart: tapering off
+                # Post-restart: tapering off (suppression 0.0)
                 hourly_events = max(3, 20 - (hour - self.cfg.restart_hour) * 4)
         else:
-            # Normal degradation days
+            # Normal degradation days (7-9)
             if 8 <= hour <= 20:
-                # More events during business hours
-                hourly_events = daily_events // 12 + random.randint(-2, 2)
-                hourly_events = max(1, hourly_events)
+                # Business hours: scale by suppression fraction
+                hourly_events = max(minimum, int(normal_dmz_events * suppression))
             else:
-                hourly_events = max(1, daily_events // 24)
+                # Off-hours: reduced event count
+                hourly_events = max(1, minimum // 3)
 
         # Generate events
         for _ in range(hourly_events):
