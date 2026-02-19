@@ -1,6 +1,7 @@
 <nav search_view="search" color="#0B0C10">
   <view name="overview" default="true" />
   <collection label="Discovery">
+    <view name="discovery_security_overview" />
     <view name="discovery_soc" />
     <view name="discovery_itops" />
     <view name="discovery_netops" />

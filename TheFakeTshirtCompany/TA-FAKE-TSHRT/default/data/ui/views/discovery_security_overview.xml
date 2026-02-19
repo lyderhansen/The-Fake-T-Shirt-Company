@@ -1,0 +1,666 @@
+<dashboard version="2" theme="dark">
+  <label>Discovery - Security Overview</label>
+  <description>SOC Analyst security posture view -- firewall, authentication, DNS security, endpoint detection, and incident correlation</description>
+  <definition><![CDATA[
+{
+  "title": "Discovery - Security Overview",
+  "description": "SOC Analyst security posture view -- firewall, authentication, DNS security, endpoint detection, and incident correlation",
+  "dataSources": {
+    "ds_security_events_over_time": {
+      "type": "ds.search",
+      "name": "Security Events Over Time (sparkline)",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:azure:aad:signin\" OR sourcetype=\"FAKE:azure:aad:audit\" OR sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\" OR sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\" OR sourcetype=\"FAKE:cisco:umbrella:firewall\" OR sourcetype=\"FAKE:o365:management:activity\" OR sourcetype=\"FAKE:aws:cloudtrail\" OR sourcetype=\"FAKE:google:gcp:pubsub:message\" OR sourcetype=\"FAKE:linux:auth\") by _time span=1h"
+      }
+    },
+    "ds_auth_failures_total": {
+      "type": "ds.search",
+      "name": "Auth Failures Total",
+      "options": {
+        "query": "index=fake_tshrt ((sourcetype=\"FAKE:azure:aad:signin\" action=failure) OR (sourcetype=\"FAKE:WinEventLog\" EventCode=4625)) src=$src_token$ | eval auth_user=case(sourcetype==\"FAKE:azure:aad:signin\", coalesce(user, identity), 1=1, mvindex(Account_Name,1)) | search auth_user=$user_token$ | stats count"
+      }
+    },
+    "ds_firewall_denies_total": {
+      "type": "ds.search",
+      "name": "Firewall Deny Total",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked src=$src_token$ dest=$dest_token$ | stats count"
+      }
+    },
+    "ds_exfil_volume": {
+      "type": "ds.search",
+      "name": "Data Exfiltration Volume",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=$src_token$ dest=$dest_token$ | rex \"Teardown .* duration .* bytes (?<bytes_xfer>\\d+)\" | where bytes_xfer > 10000000 | stats count as large_transfers sum(bytes_xfer) as total_bytes | eval total_gb=round(total_bytes/1073741824, 1) | eval display=total_gb.\" GB\" | table display large_transfers"
+      }
+    },
+    "ds_account_lockouts": {
+      "type": "ds.search",
+      "name": "Account Lockouts Total",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" EventCode=4740 | eval locked_user=mvindex(Account_Name,1) | search locked_user=$user_token$ | stats count"
+      }
+    },
+    "ds_web_threat_blocks": {
+      "type": "ds.search",
+      "name": "Web Threat Blocks Total",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:umbrella:proxy\" Action=Blocked src=$src_token$ | stats count"
+      }
+    },
+    "ds_timeline_by_source": {
+      "type": "ds.search",
+      "name": "Security Events by Source Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:asa\" OR sourcetype=\"FAKE:azure:aad:signin\" OR sourcetype=\"FAKE:azure:aad:audit\" OR sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\" OR sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\" OR sourcetype=\"FAKE:cisco:umbrella:firewall\" OR sourcetype=\"FAKE:o365:management:activity\" OR sourcetype=\"FAKE:aws:cloudtrail\" OR sourcetype=\"FAKE:linux:auth\") by _time sourcetype span=$span_token$ | eval category=case(match(sourcetype,\"cisco:asa\"),\"Firewall (ASA)\", match(sourcetype,\"umbrella\"),\"Secure Access\", match(sourcetype,\"azure:aad\"),\"Entra ID\", match(sourcetype,\"WinEventLog:Sysmon\"),\"Sysmon\", match(sourcetype,\"WinEventLog\"),\"Windows Events\", match(sourcetype,\"o365\"),\"M365 Audit\", match(sourcetype,\"aws\"),\"AWS CloudTrail\", match(sourcetype,\"linux\"),\"Linux Auth\", 1=1,\"Other\") | timechart span=$span_token$ sum(count) by category"
+      }
+    },
+    "ds_top_threat_sources": {
+      "type": "ds.search",
+      "name": "Top Threat Source IPs",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" (action=blocked OR action=allowed) src=$src_token$ dest=$dest_token$ | chart count by src action | sort -blocked | head 15"
+      }
+    },
+    "ds_top_denied_ports": {
+      "type": "ds.search",
+      "name": "Top Denied Ports and Services",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked dest_port=* src=$src_token$ dest=$dest_token$ | eval service=case(dest_port==\"443\",\"HTTPS (443)\", dest_port==\"80\",\"HTTP (80)\", dest_port==\"22\",\"SSH (22)\", dest_port==\"23\",\"Telnet (23)\", dest_port==\"3389\",\"RDP (3389)\", dest_port==\"53\",\"DNS (53)\", dest_port==\"445\",\"SMB (445)\", dest_port==\"1433\",\"MSSQL (1433)\", dest_port==\"25\",\"SMTP (25)\", 1=1, \"Port \".dest_port) | stats count by service | sort -count | head 15"
+      }
+    },
+    "ds_dns_blocked": {
+      "type": "ds.search",
+      "name": "DNS Blocked Domains",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:umbrella:dns\" Action=Blocked src=$src_token$ | stats count by Domain | sort -count | head 15"
+      }
+    },
+    "ds_auth_failures_by_user": {
+      "type": "ds.search",
+      "name": "Auth Failures by User",
+      "options": {
+        "query": "index=fake_tshrt ((sourcetype=\"FAKE:azure:aad:signin\" action=failure) OR (sourcetype=\"FAKE:WinEventLog\" EventCode=4625)) src=$src_token$ | eval auth_user=case(sourcetype==\"FAKE:azure:aad:signin\", coalesce(user, identity, \"unknown\"), sourcetype==\"FAKE:WinEventLog\", mvindex(Account_Name, 1), 1=1, \"unknown\") | search auth_user=$user_token$ | stats count by auth_user | sort -count | head 15 | rename auth_user as \"User\""
+      }
+    },
+    "ds_sysmon_suspicious": {
+      "type": "ds.search",
+      "name": "Sysmon Suspicious Activity",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" (EventCode=8 OR EventCode=10) | eval activity=case(EventCode==8, \"CreateRemoteThread\", EventCode==10, \"ProcessAccess\") | chart count by host activity"
+      }
+    },
+    "ds_privileged_logons": {
+      "type": "ds.search",
+      "name": "Privileged Logons",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" EventCode=4672 | search Account_Name=$user_token$ | stats count by Account_Name | sort -count | head 15 | rename Account_Name as \"User\""
+      }
+    },
+    "ds_linux_failed_auth": {
+      "type": "ds.search",
+      "name": "Linux Failed Auth",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:linux:auth\" action=failure src=$src_token$ | stats count by host | sort -count | head 15"
+      }
+    },
+    "ds_o365_suspicious_ops": {
+      "type": "ds.search",
+      "name": "O365 Suspicious File Operations",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:management:activity\" (Operation=FileDownloaded OR Operation=SharingSet OR Operation=FileSyncDownloadedFull OR Operation=SafeLinksUrlClicked OR Operation=FileRestored OR Operation=SecurityComplianceSearch) src=$src_token$ | search UserId=$user_token$ | eval UserId=replace(UserId, \"@theFakeTshirtCompany.com\", \"\") | chart count by UserId Operation | addtotals | sort -Total | head 15 | fields - Total | rename UserId as \"User\""
+      }
+    },
+    "ds_recent_security_events": {
+      "type": "ds.search",
+      "name": "Recent Security Events",
+      "options": {
+        "query": "index=fake_tshrt ((sourcetype=\"FAKE:cisco:asa\" action=blocked) OR (sourcetype=\"FAKE:azure:aad:signin\" action=failure) OR (sourcetype=\"FAKE:WinEventLog\" EventCode=4625) OR (sourcetype=\"FAKE:cisco:umbrella:dns\" Action=Blocked) OR (sourcetype=\"FAKE:WinEventLog:Sysmon\" (EventCode=8 OR EventCode=10)) OR (sourcetype=\"FAKE:linux:auth\" action=failure)) src=$src_token$ dest=$dest_token$ $source_token$ | eval event_type=case(sourcetype==\"FAKE:cisco:asa\",\"FW Deny\", sourcetype==\"FAKE:azure:aad:signin\",\"Auth Fail\", match(sourcetype,\"WinEventLog\") AND EventCode==\"4625\",\"Win Auth Fail\", sourcetype==\"FAKE:cisco:umbrella:dns\",\"DNS Block\", match(sourcetype,\"Sysmon\") AND EventCode==\"8\",\"RemoteThread\", match(sourcetype,\"Sysmon\") AND EventCode==\"10\",\"ProcessAccess\", match(sourcetype,\"linux\"),\"Linux Auth Fail\", 1=1,\"Other\") | eval detail=coalesce(src.\" -> \".dest.\":\".dest_port, Domain, mvindex(Account_Name,1), CommandLine, \"--\") | eval event_user=case(sourcetype==\"FAKE:azure:aad:signin\", coalesce(user, identity, \"--\"), sourcetype==\"FAKE:WinEventLog\", coalesce(mvindex(Account_Name,1), \"--\"), 1=1, coalesce(user, Most_Granular_Identity, \"--\")) | search event_user=$user_token$ | table _time event_type sourcetype host event_user src dest detail demo_id | sort -_time | head 100 | rename event_type as \"Type\" sourcetype as \"Sourcetype\" host as \"Host\" event_user as \"User\" src as \"Source\" dest as \"Destination\" detail as \"Detail\" demo_id as \"Scenario\""
+      }
+    },
+    "ds_servicenow_incidents": {
+      "type": "ds.search",
+      "name": "ServiceNow Security Incidents",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" (category=\"Security\" OR category=\"Account\" OR category=\"Network\") priority=$severity_token$ | eval _color_rank=case(priority==\"1\",1, priority==\"2\",2, priority==\"3\",3, 1=1,4) | eval priority_label=case(priority==\"1\",\"1 - Critical\", priority==\"2\",\"2 - High\", priority==\"3\",\"3 - Medium\", priority==\"4\",\"4 - Low\", priority==\"5\",\"5 - Planning\", 1=1,priority) | table _time number category priority_label state short_description assignment_group demo_id _color_rank | sort -_time | head 50 | rename number as \"Incident\" category as \"Category\" priority_label as \"Priority\" state as \"State\" short_description as \"Description\" assignment_group as \"Team\" demo_id as \"Scenario\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_bg_kpi_row": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_timeline": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row3_left": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row3_right": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row4_left": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row4_right": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row5_left": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row5_right": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row6_left": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_row6_right": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_events_table": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_bg_incidents_table": {
+      "type": "splunk.rectangle",
+      "options": {
+        "fillColor": "#13141A",
+        "fillOpacity": 1,
+        "strokeColor": "transparent",
+        "cornerRadius": 8
+      }
+    },
+    "viz_kpi_security_events": {
+      "type": "splunk.singlevalue",
+      "title": "Security Events",
+      "dataSources": { "primary": "ds_security_events_over_time" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "trendDisplay": "percent",
+        "majorColor": "#00D2FF",
+        "trendColor": "> trendValue | rangeValue(trendColorConfig)",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      },
+      "context": {
+        "trendColorConfig": [
+          { "value": "#DC4E41", "to": 0 },
+          { "value": "#53A051", "from": 0 }
+        ]
+      }
+    },
+    "viz_kpi_auth_failures": {
+      "type": "splunk.singlevalue",
+      "title": "Auth Failures",
+      "dataSources": { "primary": "ds_auth_failures_total" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_fw_denies": {
+      "type": "splunk.singlevalue",
+      "title": "Firewall Denies",
+      "dataSources": { "primary": "ds_firewall_denies_total" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_exfil_volume": {
+      "type": "splunk.singlevalue",
+      "title": "Large Transfers (>10MB)",
+      "dataSources": { "primary": "ds_exfil_volume" },
+      "options": {
+        "majorValue": "> primary | seriesByName('display') | lastPoint()",
+        "majorColor": "#F1813F",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_lockouts": {
+      "type": "splunk.singlevalue",
+      "title": "Account Lockouts",
+      "dataSources": { "primary": "ds_account_lockouts" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#FF677B",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_web_blocks": {
+      "type": "splunk.singlevalue",
+      "title": "Web Threat Blocks",
+      "dataSources": { "primary": "ds_web_threat_blocks" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#00CDAF",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_timeline": {
+      "type": "splunk.area",
+      "title": "Security Events Over Time",
+      "dataSources": { "primary": "ds_timeline_by_source" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#DC4E41", "#00D2FF", "#7B56DB", "#53A051", "#009CEB", "#F8BE34", "#00CDAF", "#F1813F", "#FF677B", "#AE8CFF"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_top_threat_sources": {
+      "type": "splunk.bar",
+      "title": "Top Threat Sources (IP)",
+      "dataSources": { "primary": "ds_top_threat_sources" },
+      "options": {
+        "stackMode": "stacked",
+        "seriesColors": ["#DC4E41", "#53A051"],
+        "legendDisplay": "bottom",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_top_denied_ports": {
+      "type": "splunk.bar",
+      "title": "Top Denied Ports / Services",
+      "dataSources": { "primary": "ds_top_denied_ports" },
+      "options": {
+        "seriesColors": ["#F8BE34"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Deny Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_dns_blocked": {
+      "type": "splunk.bar",
+      "title": "DNS Blocked Domains",
+      "dataSources": { "primary": "ds_dns_blocked" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Blocked Requests",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_auth_failures_by_user": {
+      "type": "splunk.bar",
+      "title": "Auth Failures by User",
+      "dataSources": { "primary": "ds_auth_failures_by_user" },
+      "options": {
+        "seriesColors": ["#009CEB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Failures",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_sysmon_suspicious": {
+      "type": "splunk.bar",
+      "title": "Sysmon Suspicious Activity",
+      "dataSources": { "primary": "ds_sysmon_suspicious" },
+      "options": {
+        "stackMode": "stacked",
+        "seriesColors": ["#DC4E41", "#F1813F"],
+        "legendDisplay": "bottom",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_privileged_logons": {
+      "type": "splunk.bar",
+      "title": "Privileged Logons (4672)",
+      "dataSources": { "primary": "ds_privileged_logons" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Logons",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_linux_failed_auth": {
+      "type": "splunk.bar",
+      "title": "Linux Failed Auth by Host",
+      "dataSources": { "primary": "ds_linux_failed_auth" },
+      "options": {
+        "seriesColors": ["#F1813F"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Failures",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_o365_suspicious_ops": {
+      "type": "splunk.bar",
+      "title": "O365 File Activity",
+      "dataSources": { "primary": "ds_o365_suspicious_ops" },
+      "options": {
+        "stackMode": "stacked",
+        "seriesColors": ["#009CEB", "#DC4E41", "#F1813F", "#F8BE34", "#7B56DB", "#53A051"],
+        "legendDisplay": "bottom",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent",
+        "dataValuesDisplay": "all"
+      },
+      "showProgressBar": true
+    },
+    "viz_events_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Security Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_recent_events": {
+      "type": "splunk.table",
+      "title": "Security Event Log",
+      "dataSources": { "primary": "ds_recent_security_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false,
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_incidents_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### ServiceNow Security Incidents",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_servicenow_incidents": {
+      "type": "splunk.table",
+      "title": "Incident Queue (Security | Account | Network)",
+      "dataSources": { "primary": "ds_servicenow_incidents" },
+      "options": {
+        "count": 15,
+        "showRowNumbers": false,
+        "showInternalFields": false,
+        "backgroundColor": "transparent",
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByName(\"_color_rank\") | rangeValue(incidentRowColors)"
+        }
+      },
+      "context": {
+        "incidentRowColors": [
+          { "from": 0, "to": 1.5, "value": "#DC4E41" },
+          { "from": 1.5, "to": 2.5, "value": "#F1813F" },
+          { "from": 2.5, "to": 3.5, "value": "#F8BE34" },
+          { "from": 3.5, "to": 5, "value": "transparent" }
+        ]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    },
+    "input_span": {
+      "type": "input.dropdown",
+      "title": "Span",
+      "options": {
+        "token": "span_token",
+        "defaultValue": "1h",
+        "items": [
+          { "label": "1 hour", "value": "1h" },
+          { "label": "4 hours", "value": "4h" },
+          { "label": "1 day", "value": "1d" }
+        ]
+      }
+    },
+    "input_src": {
+      "type": "input.text",
+      "title": "Source IP",
+      "options": {
+        "token": "src_token",
+        "defaultValue": "*"
+      }
+    },
+    "input_dest": {
+      "type": "input.text",
+      "title": "Dest IP",
+      "options": {
+        "token": "dest_token",
+        "defaultValue": "*"
+      }
+    },
+    "input_user": {
+      "type": "input.text",
+      "title": "Username",
+      "options": {
+        "token": "user_token",
+        "defaultValue": "*"
+      }
+    },
+    "input_severity": {
+      "type": "input.dropdown",
+      "title": "Incident Priority",
+      "options": {
+        "token": "severity_token",
+        "defaultValue": "*",
+        "items": [
+          { "label": "All", "value": "*" },
+          { "label": "1 - Critical", "value": "1" },
+          { "label": "2 - High", "value": "2" },
+          { "label": "3 - Medium", "value": "3" },
+          { "label": "4 - Low", "value": "4" },
+          { "label": "5 - Planning", "value": "5" }
+        ]
+      }
+    },
+    "input_source": {
+      "type": "input.dropdown",
+      "title": "Source Type",
+      "options": {
+        "token": "source_token",
+        "defaultValue": "*",
+        "items": [
+          { "label": "All Sources", "value": "*" },
+          { "label": "Firewall (ASA)", "value": "sourcetype=\"FAKE:cisco:asa\"" },
+          { "label": "Entra ID", "value": "sourcetype=\"FAKE:azure:aad:signin\"" },
+          { "label": "Windows Events", "value": "sourcetype=\"FAKE:WinEventLog\"" },
+          { "label": "Sysmon", "value": "sourcetype=\"FAKE:WinEventLog:Sysmon\"" },
+          { "label": "Secure Access (DNS)", "value": "sourcetype=\"FAKE:cisco:umbrella:dns\"" },
+          { "label": "Secure Access (Proxy)", "value": "sourcetype=\"FAKE:cisco:umbrella:proxy\"" },
+          { "label": "Linux Auth", "value": "sourcetype=\"FAKE:linux:auth\"" },
+          { "label": "AWS CloudTrail", "value": "sourcetype=\"FAKE:aws:cloudtrail\"" },
+          { "label": "M365 Audit", "value": "sourcetype=\"FAKE:o365:management:activity\"" }
+        ]
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "globalInputs": ["input_global_trp", "input_span", "input_src", "input_dest", "input_user", "input_severity", "input_source"],
+    "layoutDefinitions": {
+      "layout_main": {
+        "type": "absolute",
+        "options": {
+          "width": 1900,
+          "height": 3510,
+          "display": "auto-scale",
+          "backgroundColor": "#0B0C10"
+        },
+        "structure": [
+          { "item": "viz_bg_kpi_row", "type": "block", "position": { "x": 20, "y": 20, "w": 1860, "h": 130 } },
+          { "item": "viz_kpi_security_events", "type": "block", "position": { "x": 30, "y": 25, "w": 295, "h": 120 } },
+          { "item": "viz_kpi_auth_failures", "type": "block", "position": { "x": 335, "y": 25, "w": 295, "h": 120 } },
+          { "item": "viz_kpi_fw_denies", "type": "block", "position": { "x": 640, "y": 25, "w": 295, "h": 120 } },
+          { "item": "viz_kpi_exfil_volume", "type": "block", "position": { "x": 945, "y": 25, "w": 295, "h": 120 } },
+          { "item": "viz_kpi_lockouts", "type": "block", "position": { "x": 1250, "y": 25, "w": 295, "h": 120 } },
+          { "item": "viz_kpi_web_blocks", "type": "block", "position": { "x": 1555, "y": 25, "w": 295, "h": 120 } },
+
+          { "item": "viz_bg_timeline", "type": "block", "position": { "x": 20, "y": 170, "w": 1860, "h": 400 } },
+          { "item": "viz_timeline", "type": "block", "position": { "x": 30, "y": 175, "w": 1840, "h": 390 } },
+
+          { "item": "viz_bg_row3_left", "type": "block", "position": { "x": 20, "y": 590, "w": 910, "h": 370 } },
+          { "item": "viz_top_threat_sources", "type": "block", "position": { "x": 30, "y": 595, "w": 890, "h": 360 } },
+          { "item": "viz_bg_row3_right", "type": "block", "position": { "x": 950, "y": 590, "w": 930, "h": 370 } },
+          { "item": "viz_top_denied_ports", "type": "block", "position": { "x": 960, "y": 595, "w": 910, "h": 360 } },
+
+          { "item": "viz_bg_row4_left", "type": "block", "position": { "x": 20, "y": 980, "w": 910, "h": 370 } },
+          { "item": "viz_dns_blocked", "type": "block", "position": { "x": 30, "y": 985, "w": 890, "h": 360 } },
+          { "item": "viz_bg_row4_right", "type": "block", "position": { "x": 950, "y": 980, "w": 930, "h": 370 } },
+          { "item": "viz_auth_failures_by_user", "type": "block", "position": { "x": 960, "y": 985, "w": 910, "h": 360 } },
+
+          { "item": "viz_bg_row5_left", "type": "block", "position": { "x": 20, "y": 1370, "w": 910, "h": 370 } },
+          { "item": "viz_sysmon_suspicious", "type": "block", "position": { "x": 30, "y": 1375, "w": 890, "h": 360 } },
+          { "item": "viz_bg_row5_right", "type": "block", "position": { "x": 950, "y": 1370, "w": 930, "h": 370 } },
+          { "item": "viz_privileged_logons", "type": "block", "position": { "x": 960, "y": 1375, "w": 910, "h": 360 } },
+
+          { "item": "viz_bg_row6_left", "type": "block", "position": { "x": 20, "y": 1760, "w": 910, "h": 370 } },
+          { "item": "viz_linux_failed_auth", "type": "block", "position": { "x": 30, "y": 1765, "w": 890, "h": 360 } },
+          { "item": "viz_bg_row6_right", "type": "block", "position": { "x": 950, "y": 1760, "w": 930, "h": 370 } },
+          { "item": "viz_o365_suspicious_ops", "type": "block", "position": { "x": 960, "y": 1765, "w": 910, "h": 360 } },
+
+          { "item": "viz_bg_events_table", "type": "block", "position": { "x": 20, "y": 2150, "w": 1860, "h": 500 } },
+          { "item": "viz_events_header", "type": "block", "position": { "x": 30, "y": 2155, "w": 1840, "h": 40 } },
+          { "item": "viz_recent_events", "type": "block", "position": { "x": 30, "y": 2195, "w": 1840, "h": 445 } },
+
+          { "item": "viz_bg_incidents_table", "type": "block", "position": { "x": 20, "y": 2670, "w": 1860, "h": 420 } },
+          { "item": "viz_incidents_header", "type": "block", "position": { "x": 30, "y": 2675, "w": 1840, "h": 40 } },
+          { "item": "viz_servicenow_incidents", "type": "block", "position": { "x": 30, "y": 2715, "w": 1840, "h": 365 } }
+        ]
+      }
+    },
+    "options": {},
+    "tabs": {
+      "items": [
+        { "label": "Security Overview", "layoutId": "layout_main" }
+      ]
+    }
+  }
+}
+  ]]></definition>
+</dashboard>

@@ -546,13 +546,29 @@ def signin_from_threat_ip(base_date: str, day: int, hour: int, minute: int,
 
 
 def signin_spray_noise(base_date: str, day: int, hour: int) -> Dict[str, Any]:
-    """Generate background spray noise from random world IPs."""
+    """Generate background spray noise from random world IPs.
+
+    Targets are a realistic mix of generic accounts attackers commonly try
+    (admin, helpdesk, etc.) and publicly-known executives whose names are
+    easy to guess from LinkedIn / company website.
+    """
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
     ts = ts_iso(base_date, day, hour, minute, second)
     cid = rand_uuid()
 
-    targets = ["admin", "ceo", "finance", "hr", "it.support", "john.smith", "jane.doe", "test"]
+    targets = [
+        "admin",              # Generic — does not exist
+        "administrator",      # Generic — does not exist
+        "helpdesk",           # Generic — does not exist
+        "info",               # Generic — does not exist
+        "support",            # Generic — does not exist
+        "service",            # Generic — does not exist
+        "noreply",            # Generic — does not exist
+        "john.smith",         # CEO — publicly known executive
+        "sarah.wilson",       # CFO — publicly known executive
+        "mike.johnson",       # CTO — publicly known executive
+    ]
     target = random.choice(targets)
 
     geo = random.choice(SPRAY_GEOS)
@@ -626,6 +642,7 @@ def generate_signin_hour(base_date: str, day: int, hour: int, event_count: int,
 # =============================================================================
 
 # Service principals (automated app identities that sign in to Entra ID)
+# Each SP has a fixed authMethod — in production, an app uses either cert or secret consistently.
 SERVICE_PRINCIPALS = [
     {
         "appDisplayName": "SAP S/4HANA Connector",
@@ -634,6 +651,7 @@ SERVICE_PRINCIPALS = [
         "ipAddress": "10.10.20.60",       # SAP-PROD-01
         "resourceDisplayName": "Microsoft Graph",
         "resourceId": "00000003-0000-0000-c000-000000000000",
+        "authMethod": "Client certificate",
     },
     {
         "appDisplayName": "Veeam Backup Agent",
@@ -642,6 +660,7 @@ SERVICE_PRINCIPALS = [
         "ipAddress": "10.20.20.20",       # BACKUP-ATL-01
         "resourceDisplayName": "Azure Storage",
         "resourceId": "e406a681-f3d4-42a8-90b6-c2b029497af1",
+        "authMethod": "Client secret",
     },
     {
         "appDisplayName": "Splunk Cloud Forwarder",
@@ -650,6 +669,7 @@ SERVICE_PRINCIPALS = [
         "ipAddress": "10.20.20.30",       # MON-ATL-01
         "resourceDisplayName": "Microsoft Graph",
         "resourceId": "00000003-0000-0000-c000-000000000000",
+        "authMethod": "Client secret",
     },
     {
         "appDisplayName": "GitHub Actions CI/CD",
@@ -658,6 +678,7 @@ SERVICE_PRINCIPALS = [
         "ipAddress": "10.20.20.30",       # MON-ATL-01
         "resourceDisplayName": "Azure DevOps",
         "resourceId": "499b84ac-1321-427f-aa17-267ca6975798",
+        "authMethod": "Client certificate",
     },
     {
         "appDisplayName": "Nagios Monitoring Agent",
@@ -666,18 +687,33 @@ SERVICE_PRINCIPALS = [
         "ipAddress": "10.20.20.30",       # MON-ATL-01
         "resourceDisplayName": "Microsoft Graph",
         "resourceId": "00000003-0000-0000-c000-000000000000",
+        "authMethod": "Client secret",
     },
 ]
 
-# Service principal sign-in error codes (rare failures)
+# Service principal sign-in error codes — ~5% failure rate (realistic for production).
+# Certificate expiry (7000222) removed from baseline; injected only by certificate_expiry scenario.
 SP_ERROR_CODES = [
     (0, "Success"),
     (0, "Success"),
     (0, "Success"),
     (0, "Success"),
-    (0, "Success"),           # 5x success = ~83% success rate
-    (7000215, "Invalid client secret provided"),
-    (7000222, "Client certificate expired"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),
+    (0, "Success"),                                   # 19x success = ~95%
+    (7000215, "Invalid client secret provided"),      # ~5% — transient secret rotation failure
 ]
 
 
@@ -731,7 +767,7 @@ def signin_service_principal(base_date: str, day: int, hour: int) -> Dict[str, A
             },
             "authenticationDetails": [
                 {
-                    "authenticationMethod": "Client secret" if success else "Client certificate",
+                    "authenticationMethod": sp["authMethod"],
                     "succeeded": success,
                 }
             ]

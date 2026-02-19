@@ -4,6 +4,296 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-19 ~22:00 UTC -- Entra ID Generator: Service Principal Failure Rate, Auth Method, Spray Noise
+
+### Context
+
+Dashboard "Auth Failures by User" panel was dominated by 5 service principals (~650 failures each) drowning out real user authentication failures (~15-27 each). Three bugs in `generate_entraid.py` caused unrealistic data.
+
+### Changes
+
+- **`bin/generators/generate_entraid.py`**:
+  - **SP failure rate**: Reduced from ~29% (5 success / 2 failure = 71% success) to ~5% (19 success / 1 failure = 95% success). Removed `7000222` (Client certificate expired) from baseline — cert expiry should only appear in the `certificate_expiry` scenario, not as random baseline noise.
+  - **authenticationMethod fix**: Each service principal now has a fixed `authMethod` field (`"Client certificate"` or `"Client secret"`). Previously, the logic was inverted: `"Client secret" if success else "Client certificate"` — meaning all successes showed "Client secret" and all failures showed "Client certificate" regardless of the actual SP configuration.
+  - **Spray noise targets**: Replaced unrealistic fake accounts (`test`, `ceo`, `finance`, `hr`, `it.support`, `jane.doe`) with a realistic mix of generic enumeration targets (`admin`, `administrator`, `helpdesk`, `info`, `support`, `service`, `noreply`) and publicly-known executives (`john.smith`, `sarah.wilson`, `mike.johnson`).
+
+### Service Principal Auth Methods
+
+| Service Principal | Auth Method |
+|------------------|-------------|
+| SAP S/4HANA Connector | Client certificate |
+| Veeam Backup Agent | Client secret |
+| Splunk Cloud Forwarder | Client secret |
+| GitHub Actions CI/CD | Client certificate |
+| Nagios Monitoring Agent | Client secret |
+
+### Expected Impact
+
+| Metric | Before | After |
+|--------|--------|-------|
+| SP failure rate | ~29% (3246 failures/31d) | ~5% (~560 failures/31d) |
+| Top Auth Failures users | 5 SPs dominate top 5 | Real users + executives visible |
+| authenticationMethod | Flipped based on success/failure | Consistent per SP |
+
+**Note:** Requires data regeneration for entraid source.
+
+---
+
+## 2026-02-19 ~21:00 UTC -- Security Overview: O365 Panel Rework (Suspicious + Baseline Activity)
+
+### Context
+
+Reworked O365 panel to distinguish genuinely suspicious file operations (scenario-driven) from normal baseline activity, then added baseline back for context. Stripped email domain from usernames for readability.
+
+### Changes
+
+- **`default/data/ui/views/discovery_security_overview.xml`**:
+  - `ds_o365_suspicious_ops`: Expanded query from just FileDownloaded/SharingSet to 6 operations:
+    - **Baseline**: FileDownloaded, SharingSet (normal daily activity)
+    - **Suspicious (scenario-driven)**: FileSyncDownloadedFull (exfil), SafeLinksUrlClicked (phishing), FileRestored (ransomware), SecurityComplianceSearch (phishing)
+  - Added `eval UserId=replace(UserId, "@theFakeTshirtCompany.com", "")` to strip domain from usernames
+  - `viz_o365_suspicious_ops`: Renamed title from "O365 Suspicious Activity" to "O365 File Activity" (now includes baseline)
+  - Updated `seriesColors` from 4 to 6 colors (alphabetical chart series order):
+    - FileDownloaded → #009CEB (blue, baseline)
+    - FileRestored → #DC4E41 (red, suspicious)
+    - FileSyncDownloadedFull → #F1813F (orange, suspicious)
+    - SafeLinksUrlClicked → #F8BE34 (yellow, suspicious)
+    - SecurityComplianceSearch → #7B56DB (purple, suspicious)
+    - SharingSet → #53A051 (green, baseline)
+
+---
+
+## 2026-02-19 ~20:00 UTC -- Security Overview: Stacked Charts + Top Threat Sources Allowed/Blocked
+
+### Context
+
+Chart improvements: Top Threat Sources now shows both allowed and blocked events per IP (was blocked-only). Three bar charts converted to stacked mode for multi-series visibility.
+
+### Changes
+
+- **`default/data/ui/views/discovery_security_overview.xml`**:
+  - `ds_top_threat_sources`: Changed from `action=blocked | stats count by src` to `(action=blocked OR action=allowed) | chart count by src action | sort -blocked`. Added `src=$src_token$` token integration. Now shows allowed (green) vs blocked (red) per source IP.
+  - `viz_top_threat_sources`: Added `stackMode: "stacked"`, colors `["#DC4E41", "#53A051"]` (blocked=red, allowed=green), legend moved to bottom, x-axis title changed from "Deny Events" to "Events"
+  - `viz_sysmon_suspicious`: Added `stackMode: "stacked"` (CreateRemoteThread + ProcessAccess per host)
+  - `viz_o365_suspicious_ops`: Added `stackMode: "stacked"` (FileDownloaded + SharingSet per user)
+  - `ds_o365_suspicious_ops`: Added `| addtotals | sort -Total | head 15 | fields - Total` after chart to sort by combined count and limit to top 15 users
+
+---
+
+## 2026-02-19 ~19:00 UTC -- Dashboard Fixes, demo_id Extraction, ASA Severity
+
+### Context
+
+Multiple fixes based on dashboard review: chart improvements, demo_id search-time extraction producing literal `$1$2` values, and ASA severity field missing due to incomplete EVAL fallback.
+
+### Changes
+
+- **`default/data/ui/views/discovery_security_overview.xml`**:
+  - Added `dest` column to Recent Security Events table (between src and detail), renamed as "Destination"
+  - Sysmon Suspicious Activity: changed `stats count by host activity` to `chart count by host activity` for multi-series bar chart (CreateRemoteThread + ProcessAccess per host)
+  - O365 Suspicious File Operations: changed `stats count by UserId Operation` to `chart count by UserId Operation` for multi-series bar chart (FileDownloaded + SharingSet per user)
+  - Renamed severity dropdown from "Severity" to "Incident Priority" (only applies to ServiceNow table)
+
+- **`default/transforms.conf`**:
+  - Removed `[extract_demo_id_search]` stanza (broken: `FORMAT = demo_id::$1$2` produced literal `$1$2` values when only one capture group matched)
+
+- **`default/props.conf`**:
+  - Replaced `REPORT-demo_id_search = extract_demo_id_search` with `EXTRACT-demo_id = (?|"demo_id":\s*"(?<demo_id>[^"]+)"|demo_id=(?<demo_id>\S+))` on all 57 sourcetype stanzas. Uses branch reset group `(?|...)` so both alternatives write to the same named capture group.
+  - Fixed `EVAL-severity` on `[FAKE:cisco:asa]`: added `severity_level` fallback mapping (emergencies/alert → critical, error → high, warning → medium, notification → low, informational → informational, debugging → informational). Previously only 5 message_ids had severity; now ALL ASA events get severity via syslog log_level → severity_level lookup → EVAL fallback.
+
+### ASA Severity Distribution (after fix)
+
+| Severity | Count | Source |
+|----------|-------|--------|
+| informational | 4,673,057 | log_level 6 (conn build/teardown) |
+| medium | 37,661 | log_level 4 (deny events: 106023, 313005) |
+| low | 438 | log_level 5 + message_id 405001 |
+| critical | 2 | log_level 1-2 |
+| high | 2 | log_level 3 + message_id 212011 |
+
+### demo_id Fix Verification
+
+| Test | Before | After |
+|------|--------|-------|
+| `demo_id="$1$2"` events | 7 found | 0 (literal gone) |
+| `demo_id=exfil` across sources | Working | Working (branch reset group) |
+
+---
+
+## 2026-02-19 ~16:00 UTC -- Security Overview: Token Coverage Audit and Fixes
+
+### Context
+
+Systematic audit of all 17 datasources against all 5 field tokens revealed 6 datasources missing token integration and a bug in ServiceNow priority field values (used `"1 - Critical"` but actual data has `"1"`).
+
+### Changes
+
+- **`default/data/ui/views/discovery_security_overview.xml`**:
+  - `ds_account_lockouts`: Added `user_token` filter via `mvindex(Account_Name,1)` (was unfiltered)
+  - `ds_web_threat_blocks`: Added `src=$src_token$` (was unfiltered)
+  - `ds_dns_blocked`: Added `src=$src_token$` (was unfiltered)
+  - `ds_o365_suspicious_ops`: Added `src=$src_token$` + `UserId=$user_token$` filter (was unfiltered)
+  - `ds_servicenow_incidents`: Added `priority=$severity_token$` filter + fixed `_color_rank` eval to match actual priority values (`"1"` not `"1 - Critical"`) + added `priority_label` for human-readable display
+  - `input_severity` dropdown: Fixed values from `"1 - Critical"` to `"1"` etc., added `"5 - Planning"` option
+  - Sysmon (`ds_sysmon_suspicious`) confirmed no applicable tokens — no user/src fields in EventCode 8/10 events
+
+### Verification
+
+| Query | Default (`*`) | Filtered | Result |
+|-------|--------------|----------|--------|
+| Account Lockouts (user) | 32 | `isabella.rodriguez` → 1 | OK |
+| Web Threat Blocks (src) | 14,110 | — | OK |
+| DNS Blocked (src) | 5 domains shown | — | OK |
+| O365 File Ops (src+user) | 5 users shown | `src=10.10.30.74` → 23 | OK |
+| ServiceNow (severity) | 195 total | `priority=2` → 61 | OK |
+
+### Token Coverage Matrix (final)
+
+| Datasource | src | dest | user | severity | source |
+|------------|-----|------|------|----------|--------|
+| Security Events (tstats) | — | — | — | — | — |
+| Auth Failures Total | ✅ | — | ✅ | — | — |
+| Firewall Denies Total | ✅ | ✅ | — | — | — |
+| Large Transfers | ✅ | ✅ | — | — | — |
+| Account Lockouts | — | — | ✅ | — | — |
+| Web Threat Blocks | ✅ | — | — | — | — |
+| Timeline (tstats) | — | — | — | — | — |
+| Top Threat Sources | — | ✅ | — | — | — |
+| Top Denied Ports | ✅ | ✅ | — | — | — |
+| DNS Blocked Domains | ✅ | — | — | — | — |
+| Auth Failures by User | ✅ | — | ✅ | — | — |
+| Sysmon Suspicious | — | — | — | — | — |
+| Privileged Logons | — | — | ✅ | — | — |
+| Linux Failed Auth | ✅ | — | — | — | — |
+| O365 File Ops | ✅ | — | ✅ | — | — |
+| Recent Events | ✅ | ✅ | ✅ | — | ✅ |
+| ServiceNow Incidents | — | — | — | ✅ | — |
+
+---
+
+## 2026-02-19 ~14:00 UTC -- Security Overview Dashboard v2: 1900px, Tokens, Endpoint Panels
+
+### Context
+
+Major update to the Security Overview dashboard based on user feedback:
+1. Layout too narrow at 1600px — expanded to 1900px
+2. Only 2 of 7 planned tokens were implemented (time, span) — added 5 missing tokens
+3. FW Denies KPI used tstats with `action=blocked` which doesn't work (field not indexed) — switched to regular search to also support token filtering
+4. ServiceNow table showed all incidents — filtered to security-relevant categories only
+5. No endpoint/server visibility — added 6 new panels covering Sysmon, WinEventLog, Linux, O365, and Secure Access
+
+### Changes
+
+- **`default/data/ui/views/discovery_security_overview.xml`** (rewritten):
+  - Expanded from 1600px to 1900px wide, ~3510px tall
+  - 17 data sources (was 11), 30 visualizations (was 21), 7 inputs (was 2)
+  - 12 background rectangles (was 8) for new panel rows
+
+  **New Tokens (5 added):**
+  - `src_token` (text, default `*`) — filters src IP in firewall, threat sources, recent events, Linux auth
+  - `dest_token` (text, default `*`) — filters dest IP in firewall denies, denied ports
+  - `user_token` (text, default `*`) — filters user in auth failures, privileged logons, recent events
+  - `severity_token` (dropdown, default `*`) — filters ServiceNow priority (Critical/High/Medium/Low)
+  - `source_token` (dropdown, default `*`) — filters sourcetype in recent events table
+
+  **New KPIs (2 added, total 6):**
+  - Account Lockouts — WinEventLog EventCode=4740, color #FF677B (32 events)
+  - Web Threat Blocks — Umbrella Proxy Action=Blocked, color #00CDAF (14,110 events)
+
+  **New Bar Charts (4 added, total 8):**
+  - Sysmon Suspicious Activity — EventCode 8 (CreateRemoteThread) + 10 (ProcessAccess) by host, #DC4E41
+  - Privileged Logons — EventCode 4672 by Account_Name, #7B56DB
+  - Linux Failed Auth — linux:auth action=failure by host, #F1813F
+  - O365 Suspicious File Ops — FileDownloaded + SharingSet by UserId, #009CEB
+
+  **Query Fixes:**
+  - FW Denies: Changed from `tstats ... action=blocked` to `index=fake_tshrt sourcetype="FAKE:cisco:asa" action=blocked src=$src_token$ dest=$dest_token$ | stats count` (regular search for token support)
+  - Auth Failures: Uses `action=failure` for Entra ID (not string-matching errorCode), `mvindex(Account_Name,1)` for WinEventLog 4625
+  - Privileged Logons (4672): Uses `Account_Name` directly (single-value, unlike 4625 multi-value)
+  - ServiceNow: Filtered to `category="Security" OR category="Account" OR category="Network"` (~195 incidents)
+  - Recent Events: Expanded to include ASA blocked, Entra ID failures, WinEventLog 4625, Umbrella DNS blocked, Sysmon 8/10, Linux auth failures — all with token filters
+
+---
+
+## 2026-02-19 ~10:00 UTC -- New Dashboard: Discovery - Security Overview (initial build)
+
+### Context
+
+Added new Security Overview dashboard for SOC Analyst use case, designed iteratively panel by panel. Provides cross-source security posture view combining firewall, authentication, DNS security, and incident correlation data. Scenarios are discoverable through KPI anomalies rather than explicit demo_id filtering.
+
+### Changes
+
+- **`default/data/ui/views/discovery_security_overview.xml`** (new):
+  - Dashboard Studio v2, absolute layout, dark theme, 1600px wide
+  - 11 data sources, 13 visualizations (4 KPI + 1 area chart + 4 bar charts + 2 tables + 2 headers)
+  - 8 background rectangles (#13141A) for card styling
+  - Inputs: Global time range picker + Span dropdown (1h/4h/1d)
+  - **KPIs:** Security Events (sparkline), Auth Failures, Firewall Denies, Large Transfers (>10MB)
+  - **Charts:** Security Events Over Time (stacked area by source category), Top Threat Sources (bar), Top Denied Ports/Services (bar), DNS Blocked Domains (bar), Auth Failures by User (bar)
+  - **Tables:** Recent Security Events (100 rows, multi-source), ServiceNow Incidents (priority-colored rows)
+  - All queries use `index=fake_tshrt` with `FAKE:` sourcetype prefix
+  - Default time range: Jan 1 - Feb 1, 2026 (epoch 1767225600-1769904000)
+  - Color palette follows design language: Cisco colors (#00D2FF, #DC4E41, #F8BE34, #F1813F, #7B56DB, #009CEB)
+
+- **`default/data/ui/nav/default.xml`**:
+  - Added `discovery_security_overview` at top of Discovery collection (before discovery_soc)
+
+### Data Sources
+
+| Panel | Type | Source |
+|-------|------|--------|
+| Security Events KPI | tstats sparkline | ASA + Entra ID + WinEventLog + Sysmon + Umbrella + O365 + CloudTrail + GCP |
+| Auth Failures KPI | stats count | Entra ID (action=failure) + WinEventLog (4625) |
+| Firewall Denies KPI | regular search | ASA (action=blocked) with src/dest token filters |
+| Large Transfers KPI | rex + stats | ASA Teardown events (bytes > 10MB) |
+| Timeline | tstats + timechart | All security sourcetypes, grouped by category |
+| Top Threat Sources | stats by src | ASA blocked events |
+| Top Denied Ports | stats by dest_port | ASA blocked events with service mapping |
+| DNS Blocked | stats by Domain | Umbrella DNS (Action=Blocked) |
+| Auth Failures by User | stats by user | Entra ID + WinEventLog |
+| Recent Events | table | ASA deny + Auth fail + DNS block + Sysmon process |
+| ServiceNow Incidents | table with row coloring | servicenow:incident (priority-based _color_rank) |
+
+---
+
+## 2026-02-18 ~14:00 UTC -- Exfil: Fix GCP Day 13 Gap + Exchange Duplicate Forwarding
+
+### Context
+
+Deep audit of exfil.py found 2 bugs:
+1. GCP exfiltration events only generated for Days 11-12, but exfil phase runs Days 11-13 — Day 13 had zero GCP storage events
+2. `exchange_hour()` and `exchange_day()` both generated forwarded mail events for Days 6-11, creating duplicate forwarding since both are called from `generate_exchange.py`
+
+### Changes
+
+- **`bin/scenarios/security/exfil.py`**:
+  - Line 879: Changed `(day == 11 or day == 12)` to `11 <= day <= 13` in `gcp_hour()` exfil block
+  - Line 2050: Same fix in `has_exfil_events()` GCP check
+  - `exchange_hour()`: Removed duplicate forwarding generation (kept in `exchange_day()` only)
+
+---
+
+## 2026-02-18 ~13:00 UTC -- Memory Leak: Fix OOM Hour Generating Zero ASA Events
+
+### Context
+
+Bug: The OOM crash hour (14:00, Day 10) generated **0 ASA events** because `asa_is_active()` called `is_resolved(day=9, hour=14)` which returned `True` since `restart_hour == oom_hour == 14`. The `>=` comparison treated the entire OOM hour as "resolved". Same issue affected `asa_baseline_suppression()` which returned 0.0 instead of 0.95 for the OOM hour.
+
+### Changes
+
+- **`bin/scenarios/ops/memory_leak.py`**:
+  - `asa_is_active()`: Replaced `is_resolved()` call with direct `hour > restart_hour` check so OOM hour is included
+  - `asa_baseline_suppression()`: Replaced `is_resolved()` call with direct day/hour checks so OOM hour correctly returns 0.95
+
+### Verification
+
+- Before fix: OOM hour (h14) = 0 memleak events, 0 "No matching connection" events
+- After fix: OOM hour (h14) = 778 memleak events, 52 "No matching connection" events ✅
+- Pre-OOM (h08-h13): Unchanged, escalating timeouts with 0.8 suppression ✅
+- Post-restart (h15+): Unchanged, tapering off to 0 ✅
+
+---
+
 ## 2026-02-18 ~12:00 UTC -- Memory Leak: Dynamic ASA Timeout/Reset Volume Scaling
 
 ### Context

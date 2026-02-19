@@ -290,8 +290,15 @@ class MemoryLeakScenario:
         WEB-01 memory exhaustion means nginx can't fork workers or accept new
         connections. As memory fills, fewer connections can be established.
         The ASA still sees the SYN packets but connections time out or reset.
+
+        Uses day/hour checks directly (not is_resolved) so the OOM crash
+        hour (14:00) correctly returns 0.95 suppression before restart.
         """
-        if day < self.cfg.start_day or self.is_resolved(day, hour):
+        if day < self.cfg.start_day:
+            return 0.0
+        if day > self.cfg.oom_day:
+            return 0.0
+        if day == self.cfg.oom_day and hour > self.cfg.restart_hour:
             return 0.0
 
         if day == 5:   # Day 6: subtle onset
@@ -369,8 +376,16 @@ class MemoryLeakScenario:
         return 0
 
     def asa_is_active(self, day: int, hour: int) -> bool:
-        """Check if ASA scenario is active."""
-        if self.is_resolved(day, hour):
+        """Check if ASA scenario is active.
+
+        Uses hour > restart_hour (not >=) so the OOM crash hour still
+        generates timeout/reset events before the 14:05 restart completes.
+        Cannot use is_resolved() here because that treats the entire OOM
+        hour as resolved (which is correct for memory/CPU/swap metrics).
+        """
+        if day > self.cfg.oom_day:
+            return False
+        if day == self.cfg.oom_day and hour > self.cfg.restart_hour:
             return False
         return self.asa_events_per_day(day) > 0
 

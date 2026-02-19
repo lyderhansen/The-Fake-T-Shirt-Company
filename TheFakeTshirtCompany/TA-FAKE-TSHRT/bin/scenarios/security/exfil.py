@@ -875,8 +875,8 @@ class ExfilScenario:
             if day == 11 and hour == 2:
                 events.append(self.gcp_storage_list(day, hour))
 
-            # Days 11-12: Data exfiltration from GCS (3-4 AM)
-            if (day == 11 or day == 12) and 3 <= hour <= 4:
+            # Days 11-13: Data exfiltration from GCS (3-4 AM)
+            if 11 <= day <= 13 and 3 <= hour <= 4:
                 count = random.randint(2, 4)
                 for _ in range(count):
                     events.append(self.gcp_storage_exfil(day, hour))
@@ -1810,15 +1810,14 @@ class ExfilScenario:
         return events
 
     def exchange_hour(self, day: int, hour: int) -> List[str]:
-        """Generate Exchange exfil events for a specific hour."""
-        events = []
+        """Generate Exchange exfil events for a specific hour.
 
-        # Forwarding happens hourly during business hours after rule is created (Day 5+)
-        if 5 <= day <= 11 and 9 <= hour <= 17:
-            if random.randint(0, 3) == 0:
-                events.extend(self.exchange_forwarded_mail(day, hour, 1))
-
-        return events
+        Note: Forwarding mail generation is handled entirely by exchange_day()
+        (Days 6-11 at hours [9, 11, 14, 16] with 50% probability).
+        Removed duplicate forwarding here to avoid double-generation since
+        both methods are called from generate_exchange.py.
+        """
+        return []
 
     # =========================================================================
     # SERVICENOW EVENTS
@@ -2047,7 +2046,7 @@ class ExfilScenario:
         elif source == "gcp":
             if phase == "persistence" and day == 8 and hour == 11:
                 return True
-            if phase == "exfil" and (day == 11 or day == 12) and 3 <= hour <= 4:
+            if phase == "exfil" and 11 <= day <= 13 and 3 <= hour <= 4:
                 return True
 
         return False
