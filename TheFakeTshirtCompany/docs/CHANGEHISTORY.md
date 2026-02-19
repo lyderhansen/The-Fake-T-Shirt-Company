@@ -4,6 +4,43 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-19 ~23:00 UTC -- Entra ID Generator: SP Burst Failure Pattern (one bad day per SP)
+
+### Context
+
+Replaced random 5% SP failure rate with a realistic burst pattern. In production, SP failures happen in bursts: a cert/secret expires overnight, fails for hours, and ops fixes it in the morning. Random drip of failures across all days is unrealistic.
+
+### Changes
+
+- **`bin/generators/generate_entraid.py`**:
+  - **New `_sp_is_failing()` helper**: Each SP gets a deterministic "bad day" via `sum(ord(c) for c in sp_id) % total_days`. On that day, failures occur only during a 6-hour window (02:00-08:00 UTC). All other times: 0% failure.
+  - **Burst failure rate**: 45% failure during the burst window (`SP_BURST_FAILURE_RATE = 0.45`). Replaced `SP_FAILURE_RATE = 0.05` (random drip).
+  - **`total_days` parameter propagation**: Added to `signin_service_principal()` and `generate_signin_hour()`, propagated from `generate_entraid_logs()` main loop.
+  - Uses `sum(ord(c))` instead of `hash()` for reproducibility across Python runs (Python 3.3+ randomizes string hashes via PYTHONHASHSEED).
+
+### SP Bad Day Distribution (14-day run)
+
+| Service Principal | Bad Day | Failure Window |
+|------------------|---------|----------------|
+| SAP S/4HANA Connector | Day 2 | 02:00-08:00 |
+| Veeam Backup Agent | Day 8 | 02:00-08:00 |
+| Splunk Cloud Forwarder | Day 11 | 02:00-08:00 |
+| GitHub Actions CI/CD | Day 13 | 02:00-08:00 |
+| Nagios Monitoring Agent | Day 11 | 02:00-08:00 |
+
+### Expected Impact
+
+| Metric | Before (random 5%) | After (burst) |
+|--------|-------------------|---------------|
+| SP failures per 14d | ~560 spread across all days | ~150-200 concentrated on bad days |
+| Failure pattern | Random drip every hour | Clear spike → fix → clean |
+| Failure rate off bad day | 5% | 0% |
+| Failure rate on bad day (burst window) | 5% | 45% |
+
+**Note:** Requires data regeneration for entraid source.
+
+---
+
 ## 2026-02-19 ~22:00 UTC -- Entra ID Generator: Service Principal Failure Rate, Auth Method, Spray Noise
 
 ### Context
@@ -13,8 +50,9 @@ Dashboard "Auth Failures by User" panel was dominated by 5 service principals (~
 ### Changes
 
 - **`bin/generators/generate_entraid.py`**:
-  - **SP failure rate**: Reduced from ~29% (5 success / 2 failure = 71% success) to ~5% (19 success / 1 failure = 95% success). Removed `7000222` (Client certificate expired) from baseline — cert expiry should only appear in the `certificate_expiry` scenario, not as random baseline noise.
-  - **authenticationMethod fix**: Each service principal now has a fixed `authMethod` field (`"Client certificate"` or `"Client secret"`). Previously, the logic was inverted: `"Client secret" if success else "Client certificate"` — meaning all successes showed "Client secret" and all failures showed "Client certificate" regardless of the actual SP configuration.
+  - **SP failure rate**: Reduced from ~29% to ~5% (`SP_FAILURE_RATE = 0.05`). Replaced weighted list with `random.random()` probability check.
+  - **Auth-method-matched errors**: Error codes now match the SP's credential type via `SP_ERRORS_BY_AUTH_METHOD` dict. Certificate-based SPs (SAP, GitHub) get `7000222` ("Client certificate expired"), secret-based SPs (Veeam, Splunk, Nagios) get `7000215` ("Invalid client secret provided"). Previously the error code was always random regardless of auth method.
+  - **Fixed authMethod per SP**: Each service principal now has a fixed `authMethod` field. The `authenticationDetails.authenticationMethod` value is consistent regardless of success/failure. Previously inverted: `"Client secret" if success else "Client certificate"`.
   - **Spray noise targets**: Replaced unrealistic fake accounts (`test`, `ceo`, `finance`, `hr`, `it.support`, `jane.doe`) with a realistic mix of generic enumeration targets (`admin`, `administrator`, `helpdesk`, `info`, `support`, `service`, `noreply`) and publicly-known executives (`john.smith`, `sarah.wilson`, `mike.johnson`).
 
 ### Service Principal Auth Methods

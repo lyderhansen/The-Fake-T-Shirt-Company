@@ -615,7 +615,8 @@ def signin_spray_noise(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 
 
 def generate_signin_hour(base_date: str, day: int, hour: int, event_count: int,
-                        active_scenarios: list = None) -> List[Dict[str, Any]]:
+                        active_scenarios: list = None,
+                        total_days: int = 14) -> List[Dict[str, Any]]:
     """Generate sign-in events for one hour (interactive + service principal)."""
     events = []
 
@@ -632,7 +633,7 @@ def generate_signin_hour(base_date: str, day: int, hour: int, event_count: int,
     # Service principal sign-ins (~15/hour, constant — machines don't sleep)
     sp_count = random.randint(10, 20)
     for _ in range(sp_count):
-        events.append(signin_service_principal(base_date, day, hour))
+        events.append(signin_service_principal(base_date, day, hour, total_days))
 
     return events
 
@@ -691,37 +692,49 @@ SERVICE_PRINCIPALS = [
     },
 ]
 
-# Service principal sign-in error codes — ~5% failure rate (realistic for production).
-# Certificate expiry (7000222) removed from baseline; injected only by certificate_expiry scenario.
-SP_ERROR_CODES = [
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),
-    (0, "Success"),                                   # 19x success = ~95%
-    (7000215, "Invalid client secret provided"),      # ~5% — transient secret rotation failure
-]
+# Service principal failure pattern — burst, not random.
+# Each SP gets one "bad day" with failures during a 6-hour window (02:00-08:00),
+# simulating a certificate/secret expiry that gets fixed in the morning.
+# All other hours/days: 0% failure (clean).
+SP_BURST_FAILURE_RATE = 0.45    # 45% failure during burst window
+SP_BURST_WINDOW = (2, 8)        # 02:00-08:00 UTC — expires overnight, fixed by ops
+
+# Error codes matched to auth method — the error message must match the credential type.
+SP_ERRORS_BY_AUTH_METHOD = {
+    "Client secret":      (7000215, "Invalid client secret provided"),
+    "Client certificate": (7000222, "Client certificate expired"),
+}
 
 
-def signin_service_principal(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+def _sp_is_failing(sp: dict, day: int, hour: int, total_days: int) -> bool:
+    """Check if this SP is in its failure burst window.
+
+    Each SP gets a deterministic 'bad day' (reproducible across runs).
+    On that day, failures occur only during the burst window (02:00-08:00).
+    All other times: no failures.
+
+    Uses sum of character ordinals instead of hash() because Python 3.3+
+    randomizes string hashes per process (PYTHONHASHSEED), which would make
+    the 'bad day' non-reproducible across generator runs.
+    """
+    sp_id = sp["servicePrincipalId"]
+    sp_bad_day = sum(ord(c) for c in sp_id) % max(1, total_days)
+    if day != sp_bad_day:
+        return False
+    start_h, end_h = SP_BURST_WINDOW
+    return start_h <= hour < end_h
+
+
+def signin_service_principal(base_date: str, day: int, hour: int,
+                             total_days: int = 14) -> Dict[str, Any]:
     """Generate service principal (non-interactive) sign-in event.
 
     Service principals sign in constantly — automated jobs, API calls,
     background services. These are machine-to-machine auth events.
+
+    Failures occur in bursts: each SP has one 'bad day' with a 6-hour failure
+    window (02:00-08:00). Outside that window, all sign-ins succeed.
+    Error codes match the SP's credential type (cert vs secret).
     """
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
@@ -729,8 +742,16 @@ def signin_service_principal(base_date: str, day: int, hour: int) -> Dict[str, A
     cid = rand_uuid()
 
     sp = random.choice(SERVICE_PRINCIPALS)
-    error_code, error_msg = random.choice(SP_ERROR_CODES)
-    success = error_code == 0
+
+    if _sp_is_failing(sp, day, hour, total_days):
+        success = random.random() >= SP_BURST_FAILURE_RATE   # 45% fail in burst
+    else:
+        success = True                                        # 0% fail outside burst
+
+    if success:
+        error_code, error_msg = 0, "Success"
+    else:
+        error_code, error_msg = SP_ERRORS_BY_AUTH_METHOD[sp["authMethod"]]
 
     event = {
         "time": ts,
@@ -1833,7 +1854,7 @@ def generate_entraid_logs(
         # Sign-in events
         for hour in range(24):
             hour_events = calc_natural_events(signin_base, start_date, day, hour, "auth")
-            signin_events.extend(generate_signin_hour(start_date, day, hour, hour_events, active_scenarios))
+            signin_events.extend(generate_signin_hour(start_date, day, hour, hour_events, active_scenarios, total_days=days))
 
             # Exfil scenario signin events (failed logins from threat IP, CA blocks, etc.)
             if exfil_scenario:
