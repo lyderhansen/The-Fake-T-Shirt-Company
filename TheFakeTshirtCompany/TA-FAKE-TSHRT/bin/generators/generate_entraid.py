@@ -318,7 +318,7 @@ def signin_success(base_date: str, day: int, hour: int, minute: int = None, seco
             "clientAppUsed": client["clientAppUsed"],
             "conditionalAccessStatus": "success",
             "isInteractive": True,
-            "authenticationRequirement": "multiFactorAuthentication",
+            "authenticationRequirement": "multiFactorAuthentication" if random.random() < 0.70 else "singleFactorAuthentication",
             "tokenIssuerType": "AzureAD",
             "riskLevelAggregated": "none",
             "riskLevelDuringSignIn": "none",
@@ -350,6 +350,8 @@ def signin_failed(base_date: str, day: int, hour: int, minute: int = None, secon
         second = random.randint(0, 59)
 
     user = get_random_user()
+    app_name = random.choice(ENTRA_APP_LIST)
+    app_id = ENTRA_APPS[app_name]
     ts = ts_iso(base_date, day, hour, minute, second)
     cid = rand_uuid()
     ip = user.get_ip()
@@ -384,8 +386,8 @@ def signin_failed(base_date: str, day: int, hour: int, minute: int = None, secon
             "userDisplayName": user.display_name,
             "userPrincipalName": user.email,
             "userId": user.entra_object_id,
-            "appId": "00000002-0000-0ff1-ce00-000000000000",
-            "appDisplayName": "Office 365 Exchange Online",
+            "appId": app_id,
+            "appDisplayName": app_name,
             "ipAddress": ip,
             "clientAppUsed": client["clientAppUsed"],
             "conditionalAccessStatus": "failure",

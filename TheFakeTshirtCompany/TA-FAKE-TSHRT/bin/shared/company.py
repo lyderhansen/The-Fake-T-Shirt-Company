@@ -2039,6 +2039,83 @@ def get_servers_by_location(location: str) -> List[Server]:
 
 
 # =============================================================================
+# SERVICE ACCOUNTS — Central reference for all service accounts across generators
+# =============================================================================
+#
+# Each generator defines its own service account usage, but this dict serves as
+# the authoritative inventory for documentation and cross-generator consistency.
+#
+# Name variants (e.g. svc.backup / svc-backup / svc_backup) reflect the naming
+# convention of each target system, which is realistic in enterprise environments.
+
+SERVICE_ACCOUNTS = {
+    # Backup automation — used across multiple generators
+    "svc.backup": {
+        "display_name": "Backup Service",
+        "variants": ["svc.backup", "svc-backup", "svc_backup"],
+        "used_in": ["wineventlog", "aws", "mssql", "exfil (spray target)"],
+        "role": "Automated backup jobs for file servers, SQL databases, and AWS snapshots",
+    },
+    # E-commerce database service account
+    "svc_ecommerce": {
+        "display_name": "E-Commerce App Service",
+        "variants": ["svc_ecommerce"],
+        "used_in": ["mssql"],
+        "role": "Web application connection pool for FakeTshirtDB (APP-BOS-01 → SQL-PROD-01)",
+    },
+    # Finance reporting database service account
+    "svc_finance": {
+        "display_name": "Finance Reporting Service",
+        "variants": ["svc_finance"],
+        "used_in": ["mssql"],
+        "role": "Scheduled finance reports and SAP data extraction queries",
+    },
+    # SAP batch processing
+    "sap.batch": {
+        "display_name": "SAP Batch Processor",
+        "variants": ["sap.batch"],
+        "used_in": ["sap"],
+        "role": "Overnight SAP batch jobs (MRP runs, posting runs, settlement)",
+    },
+    # SAP RFC integration
+    "sap.rfc": {
+        "display_name": "SAP RFC Integration",
+        "variants": ["sap.rfc"],
+        "used_in": ["sap"],
+        "role": "RFC calls between SAP modules and external systems (e-commerce, EDI)",
+    },
+    # IT administration
+    "it.admin": {
+        "display_name": "IT Administrator",
+        "variants": ["it.admin"],
+        "used_in": ["entraid", "wineventlog"],
+        "role": "Privileged IT admin for AD management, GPO changes, and server maintenance",
+    },
+    # Security administration
+    "sec.admin": {
+        "display_name": "Security Administrator",
+        "variants": ["sec.admin"],
+        "used_in": ["entraid", "wineventlog"],
+        "role": "Security operations — log review, CA policy management, incident response",
+    },
+    # Helpdesk
+    "helpdesk": {
+        "display_name": "Helpdesk Service",
+        "variants": ["helpdesk"],
+        "used_in": ["entraid"],
+        "role": "Password resets, account unlocks, basic user support",
+    },
+    # AD Connect Sync
+    "ad.sync": {
+        "display_name": "AD Connect Sync",
+        "variants": ["ad.sync"],
+        "used_in": ["entraid"],
+        "role": "Azure AD Connect synchronization agent (DC-BOS-01 → Entra ID)",
+    },
+}
+
+
+# =============================================================================
 # COMPANY CLASS
 # =============================================================================
 

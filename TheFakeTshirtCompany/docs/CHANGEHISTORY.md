@@ -4,6 +4,92 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-20 ~00:15 UTC -- Meraki Generator Audit Batch 1: STP, AMP, VPN Peers, 802.1X
+
+### Context
+
+Full audit of `generate_meraki.py` revealed four critical data realism issues verified against 31 days of Splunk data. A network engineer or SOC analyst would immediately flag these patterns.
+
+### Changes
+
+- **`bin/generators/generate_meraki.py`**:
+  - **Fix #1 — STP role/state combinations**: Role and state were chosen independently via `random.choice()`, producing impossible combinations like root/blocking or alternate/forwarding. Added `stp_valid` mapping enforcing IEEE 802.1D spec: root→forwarding, designated→forwarding, alternate→blocking, backup→blocking. Also reduced STP event weight from 20% to 5% (1,306 STP changes in 31 days = unstable network).
+  - **Fix #2 — AMP malware baseline volume**: 25% of security events were AMP malware detections (296 over 31 days, ~10/day with signatures like "Win.Ransomware.Locky"). Reduced weight from 25% to 2%. Healthy environment: 1-3 detections per month.
+  - **Fix #3 — VPN site-to-site peer IPs**: Baseline VPN events used `get_random_external_ip()` as peer contact, producing Google (172.217.14.78), Microsoft, GitHub, and even RFC1918 IPs as "site-to-site VPN peers". Added `_get_vpn_peer_ip()` helper that returns actual peer MX WAN IPs from `SDWAN_PEERS` (203.0.113.1/20/30).
+  - **Fix #4 — MS 802.1X fake usernames**: Switch 802.1X events used `user1` through `user100` fake accounts. Changed to use real employees from `get_users_by_location()`, matching the pattern already used by MR wireless 802.1X.
+
+### Verification (SPL queries for post-regeneration)
+
+```spl
+-- Fix #1: STP role/state should be valid pairs
+index=fake_tshrt sourcetype="FAKE:meraki:switches" type="stp_change"
+| spath eventData.role | spath eventData.state
+| stats count by "eventData.role" "eventData.state"
+
+-- Fix #2: AMP detections should be ~20 over 31d (was 296)
+index=fake_tshrt sourcetype="FAKE:meraki:securityappliances" subtype="amp_malware_blocked"
+| stats count
+
+-- Fix #3: VPN peers should only be 203.0.113.x
+index=fake_tshrt sourcetype="FAKE:meraki:securityappliances" type="vpn_connectivity_change"
+| spath eventData.peer_contact | stats count by "eventData.peer_contact"
+
+-- Fix #4: 802.1X should use real employee names
+index=fake_tshrt sourcetype="FAKE:meraki:switches" type="8021x_auth"
+| spath eventData.identity | stats count by "eventData.identity" | sort -count
+```
+
+### Scenario Safety
+
+All four fixes affect only baseline generator functions (`generate_ms_baseline_hour`, `generate_mx_baseline_hour`). Scenario functions (`generate_ids_alert`, `generate_after_hours_motion`) are untouched.
+
+**Note:** Requires data regeneration for meraki source.
+
+---
+
+## 2026-02-19 ~23:45 UTC -- Audit Batch 1: Entra ID + WinEventLog Realism Fixes
+
+### Context
+
+Full audit of `generate_entraid.py` and `generate_wineventlog.py` revealed three critical data realism issues that a SOC analyst or Splunk expert would immediately flag. All three are baseline-only changes — scenarios use their own event generators and are unaffected.
+
+### Changes
+
+- **`bin/generators/generate_entraid.py`**:
+  - **Fix #1 — Failed sign-in app distribution**: `signin_failed()` hardcoded all user failures to "Office 365 Exchange Online" (verified: 424/424 = 100%). Now picks a random app from `ENTRA_APP_LIST`, matching the distribution pattern used by `signin_success()`.
+  - **Fix #3 — authenticationRequirement mix**: `signin_success()` hardcoded 100% MFA (verified: 8103/8120 = 99.8%). Now uses ~70% `multiFactorAuthentication` / ~30% `singleFactorAuthentication` (trusted devices, remembered sessions, CA policy exceptions).
+
+- **`bin/generators/generate_wineventlog.py`**:
+  - **Fix #4 — Remove Logon Type 2 from servers**: `generate_baseline_logons()` used `logon_types = [2, 3, 10]` for all `WINDOWS_SERVERS`. Type 2 = Interactive (physical keyboard logon) is unrealistic for DCs, SQL servers, and file servers. Changed to `[3, 10]` (Network + RDP only). Client workstations already use Type 2 correctly in `generate_client_logon()`.
+
+- **`bin/shared/company.py`**:
+  - **SERVICE_ACCOUNTS dict**: Added centralized service account inventory documenting all 9 service accounts used across generators (svc.backup, svc_ecommerce, svc_finance, sap.batch, sap.rfc, it.admin, sec.admin, helpdesk, ad.sync) with their name variants, generator usage, and roles.
+
+### Verification (SPL queries for post-regeneration)
+
+```spl
+-- Fix #1: failures should spread across multiple apps
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" action=failure category="SignInLogs"
+| stats count by "properties.appDisplayName" | sort -count
+
+-- Fix #3: should see ~30% singleFactor
+index=fake_tshrt sourcetype="FAKE:azure:aad:signin" action=success category="SignInLogs"
+| stats count by "properties.authenticationRequirement"
+
+-- Fix #4: servers should only have Type 3 and 10
+index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4624
+  (host="DC-*" OR host="SQL-*" OR host="FILE-*" OR host="APP-*")
+| stats count by Logon_Type host
+```
+
+### Scenario Safety
+
+All three fixes affect only baseline generator functions (`signin_failed`, `signin_success`, `generate_baseline_logons`). Scenarios (exfil, ransomware, phishing) use their own event generators and never call these functions — confirmed via grep.
+
+**Note:** Requires data regeneration for entraid and wineventlog sources.
+
+---
+
 ## 2026-02-19 ~23:00 UTC -- Entra ID Generator: SP Burst Failure Pattern (one bad day per SP)
 
 ### Context

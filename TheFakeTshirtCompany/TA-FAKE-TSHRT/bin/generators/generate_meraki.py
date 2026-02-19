@@ -1527,6 +1527,22 @@ def mt_water_leak_event(ts: str, device: str, status: str,
 # BASELINE GENERATORS
 # =============================================================================
 
+
+def _get_vpn_peer_ip(mx_device: str) -> str:
+    """Get a valid AutoVPN peer WAN IP for this MX device.
+
+    Site-to-site VPN peers are always known MX WAN addresses from
+    SDWAN_PEERS, never random external IPs.
+    """
+    peers = []
+    for mx_a, mx_b in SDWAN_PEERS:
+        if mx_a == mx_device:
+            peers.append(MERAKI_MX_DEVICES[mx_b]["wan_ip"])
+        elif mx_b == mx_device:
+            peers.append(MERAKI_MX_DEVICES[mx_a]["wan_ip"])
+    return random.choice(peers) if peers else "203.0.113.1"
+
+
 def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
                               location: str, events_per_hour: int) -> List[dict]:
     """Generate baseline MX firewall/SD-WAN events for one hour at a location.
@@ -1604,7 +1620,7 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
         elif event_type == "vpn":
             vpn_type = random.choice(["site-to-site", "client"])
             connectivity = random.choice(["true", "true", "true", "false"])
-            peer_ip = get_random_external_ip() if vpn_type == "site-to-site" else None
+            peer_ip = _get_vpn_peer_ip(mx_device) if vpn_type == "site-to-site" else None
             events.append(mx_vpn_event(ts, mx_device, vpn_type, connectivity, peer_ip))
 
         elif event_type == "sdwan_health":
@@ -1619,7 +1635,7 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
             # Sub-types of security events
             sec_subtype = random.choices(
                 ["content_filtering", "amp_malware", "client_isolation"],
-                weights=[60, 25, 15]
+                weights=[85, 2, 13]  # AMP rare in healthy env (was 25, now 2)
             )[0]
 
             client_ip = get_random_internal_ip(location)
@@ -1877,7 +1893,7 @@ def generate_ms_baseline_hour(base_date: str, day: int, hour: int,
 
         event_type = random.choices(
             ["port_status", "stp", "8021x"],
-            weights=[60, 20, 20]
+            weights=[70, 5, 25]  # STP rare in stable network (was 20, now 5)
         )[0]
 
         if event_type == "port_status":
@@ -1892,12 +1908,24 @@ def generate_ms_baseline_hour(base_date: str, day: int, hour: int,
                 prev_status = random.choice(["100fdx", "1000fdx", "10000fdx"])
             events.append(ms_port_status_event(ts, switch, port, status, speed, prev_status))
         elif event_type == "stp":
-            role = random.choice(["designated", "root", "alternate", "backup"])
-            state = random.choice(["forwarding", "blocking", "listening", "learning"])
+            # Valid STP role/state pairs per IEEE 802.1D spec:
+            # root/designated = forwarding, alternate/backup = blocking
+            stp_valid = [
+                ("root", "forwarding"),
+                ("designated", "forwarding"),
+                ("alternate", "blocking"),
+                ("backup", "blocking"),
+            ]
+            role, state = random.choice(stp_valid)
             prev_role = random.choice(["designated", "root", "alternate", "backup"])
             events.append(ms_stp_event(ts, switch, port, role, state, prev_role))
         elif event_type == "8021x":
-            identity = f"user{random.randint(1, 100)}@theFakeTshirtCompany.com"
+            loc_users = get_users_by_location(location)
+            if loc_users:
+                user = random.choice(loc_users)
+                identity = f"{user.username}@theFakeTshirtCompany.com"
+            else:
+                identity = f"unknown@theFakeTshirtCompany.com"
             status = random.choices(["success", "failure"], weights=[90, 10])[0]
             events.append(ms_8021x_port_auth_event(ts, switch, port, identity, status))
 

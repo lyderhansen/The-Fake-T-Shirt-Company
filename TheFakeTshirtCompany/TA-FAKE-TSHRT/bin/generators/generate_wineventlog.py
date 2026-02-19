@@ -1048,7 +1048,7 @@ def generate_baseline_logons(base_date: str, day: int, hour: int, count: int) ->
     """Generate baseline logon events."""
     events = []
     computers = WINDOWS_SERVERS
-    logon_types = [2, 3, 10]
+    logon_types = [3, 10]  # Type 3=Network, Type 10=RDP (no Type 2=Interactive on servers)
 
     for _ in range(count):
         minute = random.randint(0, 59)
