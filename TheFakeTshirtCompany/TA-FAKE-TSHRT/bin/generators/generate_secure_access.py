@@ -173,14 +173,14 @@ INFRA_DOMAINS = [
 
 # DNS query types (weighted)
 DNS_QUERY_TYPES = [
-    ("1 (A)", 60),
-    ("28 (AAAA)", 15),
-    ("5 (CNAME)", 8),
-    ("15 (MX)", 3),
-    ("16 (TXT)", 4),
-    ("2 (NS)", 2),
-    ("33 (SRV)", 3),
-    ("65 (HTTPS)", 5),
+    ("1", 60),      # A
+    ("28", 15),     # AAAA
+    ("5", 8),       # CNAME
+    ("15", 3),      # MX
+    ("16", 4),      # TXT
+    ("2", 2),       # NS
+    ("33", 3),      # SRV
+    ("65", 5),      # HTTPS
 ]
 
 # DNS response codes (weighted)
@@ -248,7 +248,7 @@ USER_AGENTS = [
 
 # AMP dispositions (weighted)
 AMP_DISPOSITIONS = [
-    ("Clean", 95), ("Unknown", 3), ("Malicious", 1), ("Low Risk", 1),
+    ("Clean", 95), ("Unknown", 3), ("Malicious", 1), ("Grayware", 1),
 ]
 
 # Proxy actions (weighted)
@@ -481,7 +481,7 @@ def _generate_dns_event(start_date: str, day: int, hour: int,
     dest_country = _weighted_choice(DNS_DEST_COUNTRIES)
 
     # Rule ID (empty for allowed, policy ID for blocked)
-    rule_id = DNS_POLICY_STRICT if action == "Blocked" else DNS_POLICY_DEFAULT
+    rule_id = DNS_POLICY_STRICT if action == "Blocked" else ""
 
     # Identity types
     identity_types = "AD Users,Internal Networks"
@@ -506,11 +506,11 @@ def _generate_dns_event(start_date: str, day: int, hour: int,
         _csv_quote(ORG_ID),
     ]
 
-    line = ",".join(fields)
-
-    # Append demo_id if present (outside CSV for Splunk extraction)
+    # Append demo_id as extra CSV field (keeps DELIMS parser clean)
     if demo_id:
-        line += f" demo_id={demo_id}"
+        fields.append(f"demo_id={demo_id}")
+
+    line = ",".join(fields)
 
     return f"{timestamp}\t{line}"  # Prepend sortable timestamp (stripped before write)
 
@@ -639,10 +639,11 @@ def _generate_proxy_event(start_date: str, day: int, hour: int,
         _csv_quote(request_method),
     ]
 
-    line = ",".join(fields)
-
+    # Append demo_id as extra CSV field (keeps DELIMS parser clean)
     if demo_id:
-        line += f" demo_id={demo_id}"
+        fields.append(f"demo_id={demo_id}")
+
+    line = ",".join(fields)
 
     return f"{timestamp}\t{line}"
 
@@ -708,10 +709,11 @@ def _generate_firewall_event(start_date: str, day: int, hour: int,
         _csv_quote(verdict),
     ]
 
-    line = ",".join(fields)
-
+    # Append demo_id as extra CSV field (keeps DELIMS parser clean)
     if demo_id:
-        line += f" demo_id={demo_id}"
+        fields.append(f"demo_id={demo_id}")
+
+    line = ",".join(fields)
 
     return f"{timestamp}\t{line}"
 
@@ -786,10 +788,11 @@ def _generate_audit_event(start_date: str, day: int, hour: int,
         _csv_quote(after_val),
     ]
 
-    line = ",".join(fields)
-
+    # Append demo_id as extra CSV field (keeps DELIMS parser clean)
     if demo_id:
-        line += f" demo_id={demo_id}"
+        fields.append(f"demo_id={demo_id}")
+
+    line = ",".join(fields)
 
     return f"{timestamp}\t{line}"
 

@@ -4,6 +4,82 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-20 ~21:00 UTC -- Secure Access: Fix demo_id corrupting last CSV field
+
+### Context
+
+Splunk verification revealed that `demo_id=exfil` was appended **within** the last CSV field (e.g., `organization_id="7654321" demo_id=exfil"`), causing DELIMS-based field extraction to corrupt the last field in all 4 sourcetypes. Affected ~232 DNS, ~107 proxy, and ~30 firewall scenario events.
+
+### Changes
+
+- **`bin/generators/generate_secure_access.py`**: Changed all 4 event generators (DNS, proxy, firewall, audit) to append `demo_id=xxx` as an **extra comma-separated field** after the last CSV field instead of space-appending to the last field's value. New format: `..."7654321",demo_id=exfil` (unquoted, so existing EXTRACT regex still works).
+
+**Requires data regeneration** for secure_access source.
+
+---
+
+## 2026-02-20 ~20:15 UTC -- Secure Access DNS: Fix missing `action` field in Splunk
+
+### Context
+
+Post-verification of Secure Access fixes revealed DNS `action` field was not being extracted in Splunk. Root cause: Splunk reserves lowercase `action` as a CIM field, so REPORT transforms defining it directly as a field name get ignored. The proxy sourcetype works because it uses `Action` (PascalCase) + `FIELDALIAS Action AS action`.
+
+### Changes
+
+- **`TA-FAKE-TSHRT/default/transforms.conf`**: Changed `"action"` → `"Action"` (PascalCase) in `[umbrella_dns_fields]` FIELDS definition.
+- **`TA-FAKE-TSHRT/default/props.conf`**: Added back `FIELDALIAS-action_for_umbrella_dns = Action AS action` for CIM compatibility.
+
+**No data regeneration needed** — only Splunk restart/debug-refresh.
+
+---
+
+## 2026-02-20 ~19:30 UTC -- Secure Access Generator Realism Audit (5 fixes)
+
+### Context
+
+Deep audit of `generate_secure_access.py` against real Cisco Secure Access (Umbrella) S3 export formats and the official Cisco TA (`cisco-cloud-security` on Splunkbase). Generator was ~85% production-ready. Key finding: proxy field names in `transforms.conf` didn't match the real Cisco TA, causing `Blocked_Categories` values to appear under `File_Name` in Splunk.
+
+### Changes
+
+- **`TA-FAKE-TSHRT/default/transforms.conf`**:
+  - **Fix 1 (CRITICAL) — Proxy field names**: Renamed positions 20-23 in `[umbrella_proxy_fields]` to match real Cisco TA: `Threat_Name`→`AMP_Malware_Name`, `Threat_Reason`→`AMP_Score`, `Identity_Type`→`Policy_Identity_Type`, `File_Name`→`Blocked_Categories`. Fixes 349K proxy events with wrong field assignments.
+  - **Fix 5 — DNS field names**: Updated `[umbrella_dns_fields]` to match real Cisco TA field names: `Most_Granular_Identity`→`user`, `InternalIp`→`src`, `ExternalIp`→`src_translated_ip`, `QueryType`→`RecordType`, `ResponseCode`→`ReplyCode`, `Policy_ID`→`rule_id`, `Country`→`destination_countries`, `Request_ID`→`organization_id`, etc.
+
+- **`bin/generators/generate_secure_access.py`**:
+  - **Fix 2 — DNS Policy_ID**: Changed `rule_id` for Allowed DNS queries from `DNS_POLICY_DEFAULT ("100001")` to empty string `""`. Real Umbrella only populates rule_id for Blocked requests. Affects 1M+ DNS events.
+  - **Fix 3 — AMP disposition**: Replaced invalid `"Low Risk"` with `"Grayware"` in `AMP_DISPOSITIONS`. Real AMP taxonomy: Clean, Unknown, Malicious, Grayware. Affects ~3,500 proxy events.
+  - **Fix 4 — DNS query type format**: Changed from descriptive `"1 (A)"`, `"28 (AAAA)"` to numeric-only `"1"`, `"28"` matching real Umbrella DNS export. Affects 1M+ DNS events.
+
+### Verification
+
+```spl
+-- Proxy field alignment fixed
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:proxy"
+| head 100 | table AMP_Malware_Name AMP_Score Policy_Identity_Type Blocked_Categories
+
+-- DNS rule_id empty for Allowed
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" action="Allowed"
+| stats count by rule_id
+
+-- No more "Low Risk" AMP
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:proxy" | stats count by AMP_Disposition
+
+-- DNS query types numeric only
+index=fake_tshrt sourcetype="FAKE:cisco:umbrella:dns" | stats count by RecordType
+```
+
+**Test run:** 61,166 events (1 day), 0 errors. DNS: 43,692, Proxy: 13,986, Firewall: 3,487, Audit: 1.
+
+- **`TA-FAKE-TSHRT/default/props.conf`**:
+  - Updated DNS FIELDALIAS section: Removed redundant aliases (`Most_Granular_Identity AS user`, `InternalIp AS src`, `Action AS action`) since transforms now use those names directly. Updated CIM aliases to reference new field names (`domain AS query`, `RecordType AS query_type`, `ReplyCode AS reply_code`).
+
+- **`TA-FAKE-TSHRT/default/data/ui/views/discovery_security_overview.xml`**:
+  - Updated `Action=Blocked` → `action=Blocked` (2 occurrences), `Domain` → `domain`, removed `Most_Granular_Identity` reference (now `user` directly).
+
+**Note:** Fix 5 changes DNS field names in Splunk. Old names (`QueryType`, `InternalIp`, `Policy_ID`) replaced by Cisco TA standard names (`RecordType`, `src`, `rule_id`). Update any existing dashboards/saved searches.
+
+---
+
 ## 2026-02-20 ~16:30 UTC -- ASA Generator Realism Audit (6 fixes)
 
 ### Context
