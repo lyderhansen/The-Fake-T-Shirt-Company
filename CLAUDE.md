@@ -449,7 +449,7 @@ Dynamic pool: `pool_total = max(500, orders_per_day * days // 4)` (~4 orders/cus
 
 ## Meraki Device Configuration (Multi-Site)
 
-4 MX (SD-WAN: BOS HA pair, ATL, AUS), 36 MR APs (BOS 16, ATL 12, AUS 8), 11 MS switches (BOS 5, ATL 4, AUS 2), 19 MV cameras (BOS 10, ATL 6, AUS 3), 14 MT sensors (temp, humidity, door, water leak). SSIDs: TShirtCo-Corp (802.1X), TShirtCo-Guest (PSK), TShirtCo-IoT (PSK). Full device inventory in `company.py`.
+4 MX (SD-WAN: BOS HA pair, ATL, AUS), 36 MR APs (BOS 16, ATL 12, AUS 8), 11 MS switches (BOS 5, ATL 4, AUS 2), 15 MV cameras (BOS 8, ATL 7, AUS 4), 14 MT infrastructure sensors + ~38 meeting room sensors (temp, humidity, door, water leak). SSIDs: FakeTShirtCo-Corp (802.1X), FakeTShirtCo-Guest (PSK), FakeTShirtCo-IoT (PSK), FakeTShirtCo-Voice (802.1X). Full device inventory in `generate_meraki.py`.
 
 ### Meraki Event Types
 - **MX**: firewall, urls, security_event (IDS), vpn, sd_wan_health, sd_wan_failover

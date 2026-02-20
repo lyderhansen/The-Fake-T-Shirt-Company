@@ -373,6 +373,61 @@ PHISHING_MAIL_ID = "phish-msg-001"
 MALICIOUS_APP_NAME = "Microsoft Security Verification"
 MALICIOUS_APP_ID = "app-mal-12345678-abcd-1234-abcd-123456789abc"
 
+# =============================================================================
+# WEBEX CLIENT PROFILES (correlated clientType ↔ osType ↔ hardware ↔ audio)
+# =============================================================================
+
+WEBEX_CLIENT_PROFILES = [
+    {
+        "clientType": "Webex Desktop", "osType": "Windows",
+        "osVersions": ["10.0.19045", "10.0.22621", "10.0.22631"],
+        "hardwareTypes": ["Dell Latitude 5520", "Lenovo ThinkPad X1", "HP EliteBook 840"],
+        "cameras": ["Integrated Webcam", "Logitech C920", "Logitech Brio"],
+        "audio": ("Speakers (Realtek Audio)", "Microphone (Realtek Audio)"),
+        "networkTypes": ["wifi", "ethernet"], "weight": 35,
+    },
+    {
+        "clientType": "Webex Desktop", "osType": "macOS",
+        "osVersions": ["13.6.1", "14.2.1", "14.3.0"],
+        "hardwareTypes": ["MacBook Pro", "MacBook Air", "Mac Studio"],
+        "cameras": ["FaceTime HD Camera"],
+        "audio": ("MacBook Pro Speakers", "MacBook Pro Microphone"),
+        "networkTypes": ["wifi", "ethernet"], "weight": 20,
+    },
+    {
+        "clientType": "Webex Mobile (iOS)", "osType": "iOS",
+        "osVersions": ["17.2.1", "17.3.0", "17.4.0"],
+        "hardwareTypes": ["iPhone 14", "iPhone 15 Pro", "iPad Pro"],
+        "cameras": ["Front Camera"],
+        "audio": ("iPhone Speaker", "iPhone Microphone"),
+        "networkTypes": ["wifi", "cellular"], "weight": 15,
+    },
+    {
+        "clientType": "Webex Mobile (Android)", "osType": "Android",
+        "osVersions": ["13", "14"],
+        "hardwareTypes": ["Samsung Galaxy S23", "Google Pixel 8", "Samsung Galaxy A54"],
+        "cameras": ["Front Camera"],
+        "audio": ("Phone Speaker", "Phone Microphone"),
+        "networkTypes": ["wifi", "cellular"], "weight": 10,
+    },
+    {
+        "clientType": "Web Browser", "osType": "Windows",
+        "osVersions": ["10.0.19045", "10.0.22621", "10.0.22631"],
+        "hardwareTypes": ["Dell Latitude 5520", "Lenovo ThinkPad X1", "HP EliteBook 840"],
+        "cameras": ["Integrated Webcam", "Logitech C920", "Logitech Brio"],
+        "audio": ("Speakers (Realtek Audio)", "Microphone (Realtek Audio)"),
+        "networkTypes": ["wifi", "ethernet"], "weight": 12,
+    },
+    {
+        "clientType": "Web Browser", "osType": "macOS",
+        "osVersions": ["13.6.1", "14.2.1", "14.3.0"],
+        "hardwareTypes": ["MacBook Pro", "MacBook Air"],
+        "cameras": ["FaceTime HD Camera"],
+        "audio": ("MacBook Pro Speakers", "MacBook Pro Microphone"),
+        "networkTypes": ["wifi", "ethernet"], "weight": 8,
+    },
+]
+
 
 # =============================================================================
 # DATA CLASSES
@@ -463,6 +518,55 @@ class User:
     def department_id(self) -> int:
         """Numeric department ID for APIs like Webex."""
         return DEPARTMENT_IDS.get(self.department, 999)
+
+    # --- Webex device properties (deterministic per user via hash) ---
+
+    @property
+    def webex_profile(self) -> dict:
+        """Deterministic primary Webex client profile (clientType + OS + hardware)."""
+        h = int(hashlib.sha256(f"webex-profile:{self.username}".encode()).hexdigest()[:8], 16)
+        weights = [p["weight"] for p in WEBEX_CLIENT_PROFILES]
+        total = sum(weights)
+        pick = h % total
+        cumulative = 0
+        for p in WEBEX_CLIENT_PROFILES:
+            cumulative += p["weight"]
+            if pick < cumulative:
+                return p
+        return WEBEX_CLIENT_PROFILES[0]
+
+    @property
+    def webex_hardware(self) -> str:
+        """Deterministic hardware type from the user's Webex profile."""
+        h = int(hashlib.sha256(f"hw:{self.username}".encode()).hexdigest()[:8], 16)
+        return self.webex_profile["hardwareTypes"][h % len(self.webex_profile["hardwareTypes"])]
+
+    @property
+    def webex_camera(self) -> str:
+        """Deterministic camera from the user's Webex profile."""
+        h = int(hashlib.sha256(f"cam:{self.username}".encode()).hexdigest()[:8], 16)
+        return self.webex_profile["cameras"][h % len(self.webex_profile["cameras"])]
+
+    @property
+    def webex_os_version(self) -> str:
+        """Deterministic OS version from the user's Webex profile."""
+        h = int(hashlib.sha256(f"osver:{self.username}".encode()).hexdigest()[:8], 16)
+        return self.webex_profile["osVersions"][h % len(self.webex_profile["osVersions"])]
+
+    @property
+    def webex_network(self) -> str:
+        """Deterministic network type from the user's Webex profile."""
+        h = int(hashlib.sha256(f"net:{self.username}".encode()).hexdigest()[:8], 16)
+        return self.webex_profile["networkTypes"][h % len(self.webex_profile["networkTypes"])]
+
+    @property
+    def webex_secondary_profile(self):
+        """Mobile secondary device for ~15% of meetings (None if primary is already mobile)."""
+        if self.webex_profile["osType"] in ("iOS", "Android"):
+            return None
+        h = int(hashlib.sha256(f"secondary:{self.username}".encode()).hexdigest()[:8], 16)
+        mobile = [p for p in WEBEX_CLIENT_PROFILES if p["osType"] in ("iOS", "Android")]
+        return mobile[h % len(mobile)] if mobile else None
 
 
 @dataclass

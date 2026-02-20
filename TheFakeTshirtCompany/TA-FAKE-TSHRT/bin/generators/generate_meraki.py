@@ -64,6 +64,7 @@ MERAKI_MX_DEVICES = {
     "MX-BOS-01": {
         "model": "MX450",
         "serial": "Q2BOS-0001-0001",
+        "mac": "00:18:0A:D0:01:01",
         "location": "BOS",
         "role": "primary",
         "wan_ip": "203.0.113.1",
@@ -74,6 +75,7 @@ MERAKI_MX_DEVICES = {
     "MX-BOS-02": {
         "model": "MX450",
         "serial": "Q2BOS-0001-0002",
+        "mac": "00:18:0A:D0:01:02",
         "location": "BOS",
         "role": "secondary",
         "wan_ip": "203.0.113.2",
@@ -85,6 +87,7 @@ MERAKI_MX_DEVICES = {
     "MX-ATL-01": {
         "model": "MX250",
         "serial": "Q2ATL-0001-0001",
+        "mac": "00:18:0A:D0:20:01",
         "location": "ATL",
         "role": "primary",
         "wan_ip": "203.0.113.20",
@@ -96,6 +99,7 @@ MERAKI_MX_DEVICES = {
     "MX-AUS-01": {
         "model": "MX85",
         "serial": "Q2AUS-0001-0001",
+        "mac": "00:18:0A:D0:30:01",
         "location": "AUS",
         "role": "primary",
         "wan_ip": "203.0.113.30",
@@ -192,7 +196,7 @@ MERAKI_MV_DEVICES = {
     "CAM-ATL-EXT-01": {"model": "MV72", "location": "ATL", "floor": 0, "area": "Parking", "type": "outdoor"},
     # Austin Office
     "CAM-AUS-1F-01": {"model": "MV12", "location": "AUS", "floor": 1, "area": "Entrance", "type": "indoor"},
-    "CAM-AUS-1F-02": {"model": "MV12", "location": "AUS", "floor": 1, "area": "Server Room", "type": "indoor"},
+    "CAM-AUS-1F-02": {"model": "MV12", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "indoor"},
     "CAM-AUS-EXT-01": {"model": "MV72", "location": "AUS", "floor": 0, "area": "Parking Front", "type": "outdoor"},
     "CAM-AUS-EXT-02": {"model": "MV72", "location": "AUS", "floor": 0, "area": "Parking Back", "type": "outdoor"},
 }
@@ -214,8 +218,8 @@ MERAKI_MT_DEVICES = {
     "MT-ATL-DC-HUMID-02": {"model": "MT11", "location": "ATL", "floor": 1, "area": "DC Row B", "type": "humidity"},
     "MT-ATL-DC-DOOR-01": {"model": "MT20", "location": "ATL", "floor": 1, "area": "DC Entrance", "type": "door"},
     # Austin Office
-    "MT-AUS-TEMP-01": {"model": "MT10", "location": "AUS", "floor": 1, "area": "Server Room", "type": "temperature"},
-    "MT-AUS-DOOR-01": {"model": "MT20", "location": "AUS", "floor": 1, "area": "Server Room", "type": "door"},
+    "MT-AUS-TEMP-01": {"model": "MT10", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "temperature"},
+    "MT-AUS-DOOR-01": {"model": "MT20", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "door"},
 }
 
 
@@ -327,6 +331,84 @@ SDWAN_PEERS = [
 
 
 # =============================================================================
+# DEVICE SERIAL NUMBER REGISTRY
+# =============================================================================
+# Meraki serial format: Q2XX-XXXX-XXXX (MR), Q3XX (MS), QXXX (MV/MT)
+# MX serials are already defined in MERAKI_MX_DEVICES above.
+
+def _build_serial_registry() -> dict:
+    """Build a unified device-name → serial-number lookup from all device dicts."""
+    registry = {}
+    # MX — already have serials
+    for name, info in MERAKI_MX_DEVICES.items():
+        registry[name] = info["serial"]
+    # MR — generate Q2MR-{loc}-{seq} style serials
+    mr_seq = {}
+    for name, info in MERAKI_MR_DEVICES.items():
+        loc = info["location"]
+        mr_seq.setdefault(loc, 0)
+        mr_seq[loc] += 1
+        registry[name] = f"Q2MR-{loc}0-{mr_seq[loc]:04d}"
+    # MS — generate Q3MS-{loc}-{seq} style serials
+    ms_seq = {}
+    for name, info in MERAKI_MS_DEVICES.items():
+        loc = info["location"]
+        ms_seq.setdefault(loc, 0)
+        ms_seq[loc] += 1
+        registry[name] = f"Q3MS-{loc}0-{ms_seq[loc]:04d}"
+    # MV — generate Q2MV-{loc}-{seq} style serials
+    mv_seq = {}
+    for name, info in MERAKI_MV_DEVICES.items():
+        loc = info["location"]
+        mv_seq.setdefault(loc, 0)
+        mv_seq[loc] += 1
+        registry[name] = f"Q2MV-{loc}0-{mv_seq[loc]:04d}"
+    # MT — generate Q2MT-{loc}-{seq} style serials
+    mt_seq = {}
+    for name, info in MERAKI_MT_DEVICES.items():
+        loc = info["location"]
+        mt_seq.setdefault(loc, 0)
+        mt_seq[loc] += 1
+        registry[name] = f"Q2MT-{loc}0-{mt_seq[loc]:04d}"
+    # Meeting room cameras (MV-*) — not in MERAKI_MV_DEVICES but in MEETING_ROOMS
+    mr_mv_seq = {}
+    for room_name, room_config in MEETING_ROOMS.items():
+        if room_config.get("has_camera") and room_config.get("camera_id"):
+            cam_id = room_config["camera_id"]
+            loc = room_config["location"]
+            mr_mv_seq.setdefault(loc, 0)
+            mr_mv_seq[loc] += 1
+            # Offset by 100 to avoid collision with CAM-* serials
+            idx = mv_seq.get(loc, 0) + mr_mv_seq[loc]
+            registry[cam_id] = f"Q2MV-{loc}0-{idx:04d}"
+    # Meeting room sensors (MT-*-TEMP-*, MT-*-DOOR-*) — not in MERAKI_MT_DEVICES
+    mr_mt_seq = {}
+    for room_name, room_config in MEETING_ROOMS.items():
+        loc = room_config["location"]
+        mr_mt_seq.setdefault(loc, 0)
+        if room_config.get("has_temp_sensor") and room_config.get("temp_sensor_id"):
+            mr_mt_seq[loc] += 1
+            idx = mt_seq.get(loc, 0) + mr_mt_seq[loc]
+            registry[room_config["temp_sensor_id"]] = f"Q2MT-{loc}0-{idx:04d}"
+        if room_config.get("has_door_sensor") and room_config.get("door_sensor_id"):
+            mr_mt_seq[loc] += 1
+            idx = mt_seq.get(loc, 0) + mr_mt_seq[loc]
+            registry[room_config["door_sensor_id"]] = f"Q2MT-{loc}0-{idx:04d}"
+    return registry
+
+_DEVICE_SERIALS = _build_serial_registry()
+
+
+def _get_serial(device_name: str) -> str:
+    """Look up Meraki serial number for a device name.
+
+    Falls back to device_name if not found (e.g. dynamically generated
+    meeting room sensors added at runtime).
+    """
+    return _DEVICE_SERIALS.get(device_name, device_name)
+
+
+# =============================================================================
 # TIMESTAMP UTILITIES
 # =============================================================================
 
@@ -366,14 +448,36 @@ def get_random_internal_ip(location: str = None) -> str:
 
 
 def get_random_external_ip() -> str:
-    """Get random external IP (legitimate traffic)."""
+    """Get random external IP (legitimate traffic).
+
+    Avoids RFC1918/reserved ranges: 10.x, 100.64-127.x, 127.x,
+    169.254.x, 172.16-31.x, 192.168.x.
+    """
     ext_ips = [
         "13.107.42.14", "52.169.118.173", "52.239.228.100",
         "140.82.121.4", "172.217.14.78", "54.239.28.85", "35.186.224.25",
     ]
     if random.random() < 0.3:
         return random.choice(ext_ips)
-    return f"{random.randint(1, 223)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
+    while True:
+        a = random.randint(1, 223)
+        b = random.randint(0, 255)
+        c = random.randint(0, 255)
+        d = random.randint(1, 254)
+        # Skip reserved/private ranges
+        if a == 10:
+            continue
+        if a == 100 and 64 <= b <= 127:  # CGNAT
+            continue
+        if a == 127:  # Loopback
+            continue
+        if a == 169 and b == 254:  # Link-local
+            continue
+        if a == 172 and 16 <= b <= 31:  # Private
+            continue
+        if a == 192 and b == 168:  # Private
+            continue
+        return f"{a}.{b}.{c}.{d}"
 
 
 def get_mx_for_location(location: str) -> str:
@@ -443,7 +547,7 @@ def mx_firewall_event(ts: str, device: str, src: str, dst: str,
         "type": "firewall",
         "description": f"Firewall flow {action}ed",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "src": src,
@@ -476,7 +580,7 @@ def mx_url_event(ts: str, device: str, src_ip: str, src_port: int,
         "type": "url",
         "description": f"URL request: {method} {url}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "clientMac": mac,
         "eventData": {
@@ -518,7 +622,7 @@ def mx_ids_event(ts: str, device: str, signature: dict, src_ip: str,
         "subtype": "ids_alert",
         "description": signature['msg'],
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "deviceMac": device_mac,
         "clientMac": dst_mac,
@@ -555,7 +659,7 @@ def mx_vpn_event(ts: str, device: str, vpn_type: str, connectivity: str,
         "type": "vpn_connectivity_change",
         "description": "VPN tunnel status changed",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "vpn_type": vpn_type,
@@ -582,7 +686,7 @@ def mx_sdwan_health_event(ts: str, device: str, wan: str, latency_ms: float,
         "type": "sd_wan_health",
         "description": f"SD-WAN {wan} health: {status}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "wan": wan,
@@ -610,7 +714,7 @@ def mx_sdwan_failover_event(ts: str, device: str, primary_wan: str,
         "type": "sd_wan_failover",
         "description": f"SD-WAN failover from {primary_wan} to {backup_wan}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "from_wan": primary_wan,
@@ -636,7 +740,7 @@ def mx_vpn_tunnel_event(ts: str, device: str, peer: str, status: str,
         "type": "vpn_tunnel_status",
         "description": f"VPN tunnel to {peer}: {status}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "peer": peer,
@@ -668,7 +772,7 @@ def mx_content_filtering_event(ts: str, device: str, client_ip: str,
         "subtype": "content_filtering",
         "description": f"Content filtering: {action} {category}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "clientMac": client_mac,
         "eventData": {
@@ -701,7 +805,7 @@ def mx_amp_malware_event(ts: str, device: str, client_ip: str,
         "subtype": "amp_malware_blocked",
         "description": f"AMP malware blocked: {threat_name or file_name}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "clientMac": client_mac,
         "eventData": {
@@ -736,7 +840,7 @@ def mx_client_isolation_event(ts: str, device: str, client_ip: str,
         "subtype": "client_isolation",
         "description": f"Client {action}: {reason}",
         "category": "appliance",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "clientMac": client_mac,
         "eventData": {
@@ -772,7 +876,7 @@ def mr_association_event(ts: str, device: str, client_mac: str,
         "description": "802.11 association",
         "category": "wireless",
         "clientMac": client_mac,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "ssidNumber": vap,
         "eventData": {
@@ -806,7 +910,7 @@ def mr_disassociation_event(ts: str, device: str, client_mac: str,
         "description": "802.11 disassociation",
         "category": "wireless",
         "clientMac": client_mac,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "radio": str(radio),
@@ -837,7 +941,7 @@ def mr_8021x_success_event(ts: str, device: str, identity: str,
         "description": "802.1X EAP authentication succeeded",
         "category": "wireless",
         "clientMac": client_mac,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "identity": identity,
@@ -867,7 +971,7 @@ def mr_8021x_failure_event(ts: str, device: str, identity: str,
         "description": "802.1X EAP authentication failed",
         "category": "wireless",
         "clientMac": client_mac,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "identity": identity,
@@ -899,7 +1003,7 @@ def mr_wpa_auth_event(ts: str, device: str, client_mac: str,
         "description": "WPA authentication",
         "category": "wireless",
         "clientMac": client_mac,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "radio": str(radio),
@@ -927,7 +1031,7 @@ def mr_rogue_ssid_event(ts: str, device: str, rogue_ssid: str,
         "type": "rogue_ssid_detected",
         "description": f"Rogue SSID detected: {rogue_ssid}",
         "category": "wireless",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "ssid": rogue_ssid,
@@ -979,7 +1083,7 @@ def mr_health_score_event(ts: str, device: str,
         "type": "ap_health_score",
         "description": f"AP health score: {performance_score}%",
         "category": "wireless",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "performance": {"latest": performance_score},
@@ -1004,7 +1108,7 @@ def mr_signal_quality_event(ts: str, device: str,
         "type": "signal_quality",
         "description": "Wireless signal quality metrics",
         "category": "wireless",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "snr": snr,
@@ -1032,7 +1136,7 @@ def mr_channel_utilization_event(ts: str, device: str,
         "type": "channel_utilization",
         "description": f"Channel utilization: {utilization_total:.1f}%",
         "category": "wireless",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "band": band,
@@ -1060,7 +1164,7 @@ def mr_latency_stats_event(ts: str, device: str,
         "type": "latency_stats",
         "description": "Wireless latency statistics",
         "category": "wireless",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "latencyStats": {
@@ -1091,7 +1195,7 @@ def mr_client_health_event(ts: str, device: str, client_mac: str,
         "description": f"Client health: {performance_current}%",
         "category": "wireless",
         "clientMac": client_mac,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "performance": {
@@ -1120,7 +1224,7 @@ def mr_health_alert_event(ts: str, device: str,
         "type": "health_alert",
         "description": description,
         "category": category,
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "alertId": alert_id,
@@ -1149,7 +1253,7 @@ def mr_application_health_event(ts: str, device: str,
         "type": "application_health",
         "description": "Application health metrics",
         "category": "wireless",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "wanGoodput": wan_goodput_bps,
@@ -1190,7 +1294,7 @@ def ms_port_status_event(ts: str, device: str, port: int,
         "type": "port_status",
         "description": description,
         "category": "switch",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "port": str(port),
@@ -1224,7 +1328,7 @@ def ms_stp_event(ts: str, device: str, port: int, role: str, state: str,
         "type": "stp_change",
         "description": description,
         "category": "switch",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "port": str(port),
@@ -1252,7 +1356,7 @@ def ms_8021x_port_auth_event(ts: str, device: str, port: int,
         "type": "8021x_auth",
         "description": f"802.1X port auth: {status}",
         "category": "switch",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "port": str(port),
@@ -1282,7 +1386,7 @@ def mv_motion_event(ts: str, device: str, zone: str, confidence: float,
         "type": "motion_detected",
         "description": "Motion detected in zone",
         "category": "camera",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "zone": zone,
@@ -1309,7 +1413,7 @@ def mv_person_detection_event(ts: str, device: str, count: int, zone: str,
         "type": "person_detected",
         "description": f"{count} person(s) detected",
         "category": "camera",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "zone": zone,
@@ -1337,7 +1441,7 @@ def mv_analytics_event(ts: str, device: str, people_count: int,
         "type": "analytics",
         "description": "Room analytics",
         "category": "camera",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "people_count": people_count,
@@ -1364,7 +1468,7 @@ def mv_health_event(ts: str, device: str, status: str, disk_usage_pct: float,
         "type": "health_status",
         "description": f"Camera health: {status}",
         "category": "camera",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "eventData": {
             "status": status,
@@ -1397,11 +1501,11 @@ def mt_temperature_event(ts: str, device: str, celsius: float,
         "type": "sensor_reading",
         "description": "Temperature reading",
         "category": "sensor",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "sensor": {
             "name": sensor_area,
-            "serial": device,
+            "serial": _get_serial(device),
             "model": model
         },
         "trigger": {
@@ -1433,11 +1537,11 @@ def mt_humidity_event(ts: str, device: str, value: float,
         "type": "sensor_reading",
         "description": "Humidity reading",
         "category": "sensor",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "sensor": {
             "name": sensor_area,
-            "serial": device,
+            "serial": _get_serial(device),
             "model": model
         },
         "trigger": {
@@ -1469,11 +1573,11 @@ def mt_door_event(ts: str, device: str, status: str,
         "type": "door_open" if is_open else "door_close",
         "description": "Door opened" if is_open else "Door closed",
         "category": "sensor",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "sensor": {
             "name": sensor_area,
-            "serial": device,
+            "serial": _get_serial(device),
             "model": model
         },
         "trigger": {
@@ -1503,11 +1607,11 @@ def mt_water_leak_event(ts: str, device: str, status: str,
         "type": "water_detected" if detected else "water_clear",
         "description": "Water leak detected" if detected else "Water leak cleared",
         "category": "sensor",
-        "deviceSerial": device,
+        "deviceSerial": _get_serial(device),
         "deviceName": device,
         "sensor": {
             "name": sensor_area,
-            "serial": device,
+            "serial": _get_serial(device),
             "model": model
         },
         "trigger": {
@@ -1592,10 +1696,21 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
 
         if event_type == "firewall":
             src = get_random_internal_ip(location)
-            dst = get_random_external_ip()
+            # ~12% cross-site SD-WAN traffic (spoke→hub for DC/file/SQL access)
+            if location != "BOS" and random.random() < 0.12:
+                dst = random.choice([
+                    "10.10.20.10",  # DC-BOS-01
+                    "10.10.20.11",  # DC-BOS-02
+                    "10.10.20.20",  # FILE-BOS-01
+                    "10.10.20.30",  # SQL-PROD-01
+                    "10.10.20.40",  # APP-BOS-01
+                ])
+                dport = random.choice([445, 389, 636, 88, 135, 1433, 443])
+            else:
+                dst = get_random_external_ip()
+                dport = random.choice([80, 443, 53, 8080, 3389, 22, 25, 587])
             protocol = random.choice(["tcp", "udp"])
             sport = random.randint(1024, 65535)
-            dport = random.choice([80, 443, 53, 8080, 3389, 22, 25, 587])
             action = "allow" if random.random() < 0.95 else "deny"
             mac = get_mac_for_ip(src) or generate_mac()
             events.append(mx_firewall_event(ts, mx_device, src, dst, protocol, sport, dport, action, mac=mac))
@@ -1693,7 +1808,6 @@ def generate_mr_baseline_hour(base_date: str, day: int, hour: int,
         second = random.randint(0, 59)
         ts = ts_meraki(base_date, day, hour, minute, second)
 
-        ap = random.choice(aps)
         ssid_info = random.choice(MERAKI_SSIDS)
 
         # Determine if this event is from a known user (persistent MAC)
@@ -1704,6 +1818,17 @@ def generate_mr_baseline_hour(base_date: str, day: int, hour: int,
             selected_user = random.choice(location_users)
         elif ssid_info["name"] == "FakeTShirtCo-Corp" and location_users and random.random() < 0.7:
             selected_user = random.choice(location_users)
+
+        # Floor-weighted AP selection: users mostly connect to APs on their floor
+        if selected_user:
+            user_floor = selected_user.floor
+            same_floor = [a for a in aps if MERAKI_MR_DEVICES.get(a, {}).get("floor") == user_floor]
+            if same_floor and random.random() < 0.75:
+                ap = random.choice(same_floor)
+            else:
+                ap = random.choice(aps)  # 25% roaming to other floors
+        else:
+            ap = random.choice(aps)
 
         if selected_user:
             client_mac = selected_user.mac_address
@@ -1834,7 +1959,7 @@ def generate_mr_health_metrics(base_date: str, day: int, hour: int,
                 "type": "wireless_health",
                 "description": f"AP health metrics: {perf_score}%",
                 "category": "wireless",
-                "deviceSerial": ap,
+                "deviceSerial": _get_serial(ap),
                 "deviceName": ap,
                 "deviceModel": ap_info.get("model", "MR46"),
                 "floor": ap_info.get("floor", 1),
@@ -1994,7 +2119,7 @@ def generate_ms_port_health(base_date: str, day: int, hour: int,
                     "type": "port_status_health",
                     "description": f"Port {port} status: {status}",
                     "category": "switch",
-                    "deviceSerial": switch,
+                    "deviceSerial": _get_serial(switch),
                     "deviceName": switch,
                     "deviceModel": switch_info.get("model", "MS225-48"),
                     "floor": switch_info.get("floor", 1),
@@ -2088,7 +2213,7 @@ def generate_mv_baseline_hour(base_date: str, day: int, hour: int,
             if 8 <= hour <= 18:  # Business hours
                 count = random.randint(1, 10)
             else:
-                count = random.randint(0, 2)
+                count = random.randint(1, 2)  # Min 1: "person_detected" with count=0 is contradictory
             events.append(mv_person_detection_event(
                 ts, camera, count, cam_info["area"],
                 location=location, area=cam_info["area"],
@@ -2626,16 +2751,23 @@ def generate_sdwan_tunnel_events(base_date: str, day: int) -> List[dict]:
             second = random.randint(0, 59)
             ts = ts_meraki(base_date, day, hour, minute, second)
 
-            # Tunnels are usually up
+            # Tunnels are usually up — both sides report independently
             if random.random() < 0.98:
                 uptime = day * 86400 + hour * 3600 + random.randint(0, 3600)
                 events.append(mx_vpn_tunnel_event(ts, mx_a, mx_b, "up", uptime))
+                # Peer side reports too (slight timestamp offset)
+                ts_b = ts_meraki(base_date, day, hour, minute, random.randint(0, 59))
+                events.append(mx_vpn_tunnel_event(ts_b, mx_b, mx_a, "up", uptime))
             else:
-                # Occasional tunnel flap
+                # Occasional tunnel flap — both sides see it
                 events.append(mx_vpn_tunnel_event(ts, mx_a, mx_b, "down"))
+                events.append(mx_vpn_tunnel_event(ts, mx_b, mx_a, "down"))
                 # Comes back up
-                ts_up = ts_meraki(base_date, day, hour, minute + random.randint(1, 5), random.randint(0, 59))
+                flap_min = minute + random.randint(1, 5)
+                ts_up = ts_meraki(base_date, day, hour, flap_min, random.randint(0, 59))
+                ts_up_b = ts_meraki(base_date, day, hour, flap_min, random.randint(0, 59))
                 events.append(mx_vpn_tunnel_event(ts_up, mx_a, mx_b, "up", random.randint(60, 300)))
+                events.append(mx_vpn_tunnel_event(ts_up_b, mx_b, mx_a, "up", random.randint(60, 300)))
 
     return events
 
@@ -2648,8 +2780,10 @@ def generate_ids_alert(base_date: str, day: int, hour: int, location: str) -> Li
     """Generate IDS alert events (for attack scenarios)."""
     events = []
 
-    # Only generate during specific attack phases (days 4-13)
-    if day < 4 or day > 13:
+    # MX IDS only sees internal/SD-WAN traffic (ASA handles perimeter).
+    # Days 4-6 (external→ATL) are covered by ASA IDS, not MX.
+    # MX IDS starts at day 7 (lateral movement = internal cross-site traffic).
+    if day < 7 or day > 13:
         return events
 
     # Low probability per hour
@@ -2660,19 +2794,16 @@ def generate_ids_alert(base_date: str, day: int, hour: int, location: str) -> Li
     second = random.randint(0, 59)
     ts = ts_meraki(base_date, day, hour, minute, second)
 
-    # Get appropriate MX for the scenario
-    # Initial compromise in Atlanta, then lateral to Boston
-    if day >= 4 and day <= 6:
-        mx_device = "MX-ATL-01"
-        src_ip = THREAT_IP
-        dst_ip = JESSICA_WS_IP
-        direction = "ingress"
-    elif day >= 7 and day <= 10:
+    # Get appropriate MX for the scenario phase
+    if day >= 7 and day <= 10:
+        # Lateral movement: Jessica (ATL) → Alex (BOS) via SD-WAN tunnel
+        # MX-BOS-01 sees this as ingress from the AutoVPN tunnel
         mx_device = "MX-BOS-01"
-        src_ip = JESSICA_WS_IP  # Lateral movement from Jessica's machine
-        dst_ip = COMP_WS_IP
+        src_ip = JESSICA_WS_IP  # 10.20.30.15 (ATL — internal)
+        dst_ip = COMP_WS_IP    # 10.10.30.55 (BOS — internal)
         direction = "ingress"
     else:
+        # Days 11-13: Exfiltration — internal→external egress
         mx_device = get_mx_for_location(location)
         src_ip = get_random_internal_ip(location)
         dst_ip = get_random_external_ip()

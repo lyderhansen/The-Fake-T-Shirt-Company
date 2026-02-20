@@ -27,7 +27,7 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import date_add, get_hour_activity_level, is_weekend
 from shared.company import (
     USERS, get_random_user, LOCATIONS, get_users_by_location, NETWORK_CONFIG,
-    TENANT,
+    TENANT, WEBEX_CLIENT_PROFILES,
 )
 from shared.meeting_schedule import _meeting_schedule
 from scenarios.registry import expand_scenarios
@@ -41,25 +41,30 @@ WEBEX_SITE_URL = "theFakeTshirtCompany.webex.com"
 # Meeting types (MC = Meeting Center)
 MEETING_TYPES = ["MC", "TC", "EC", "SC"]  # Meeting, Training, Event, Support
 
-# Client types for attendees
-CLIENT_TYPES = [
-    "Webex Desktop",
-    "Webex Mobile (iOS)",
-    "Webex Mobile (Android)",
-    "Web Browser",
-    "Cisco Room Device",
-    "Phone (PSTN)",
-]
+def _ta_os_label(os_type: str, os_version: str) -> str:
+    """Convert profile osType + osVersion to TA-style label (e.g. 'Windows 11', 'macOS 14')."""
+    if os_type == "Windows":
+        if "22" in os_version:  # 10.0.22xxx = Windows 11
+            return "Windows 11"
+        return "Windows 10"
+    elif os_type == "macOS":
+        major = os_version.split(".")[0]
+        return f"macOS {major}"
+    elif os_type == "iOS":
+        major = os_version.split(".")[0]
+        return f"iOS {major}"
+    elif os_type == "Android":
+        return f"Android {os_version}"
+    return os_type
 
-CLIENT_OS = [
-    "Windows 10",
-    "Windows 11",
-    "macOS 13",
-    "macOS 14",
-    "iOS 17",
-    "Android 14",
-    "ChromeOS",
-]
+
+def _pick_ta_profile():
+    """Pick a random but correlated client profile for external participants."""
+    return random.choices(
+        WEBEX_CLIENT_PROFILES,
+        weights=[p["weight"] for p in WEBEX_CLIENT_PROFILES],
+        k=1,
+    )[0]
 
 # Meeting templates for realistic names
 MEETING_TEMPLATES = [
@@ -307,14 +312,21 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
     host_join = scheduled_meeting.start_time - timedelta(minutes=random.randint(1, 5))
     host_leave = scheduled_meeting.end_time + timedelta(minutes=random.randint(0, 2))
     host_user = _lookup_user_by_email(host_email)
+    if host_user:
+        host_ct = host_user.webex_profile["clientType"]
+        host_cos = _ta_os_label(host_user.webex_profile["osType"], host_user.webex_os_version)
+    else:
+        _hp = _pick_ta_profile()
+        host_ct = _hp["clientType"]
+        host_cos = _ta_os_label(_hp["osType"], random.choice(_hp["osVersions"]))
     attendees.append(AttendeeRecord(
         name=host_name,
         email=host_email,
         join_time=host_join,
         leave_time=host_leave,
         ip_address=host_user.ip_address if host_user else get_user_ip(location),
-        client_type=random.choice(CLIENT_TYPES[:4]),
-        client_os=random.choice(CLIENT_OS[:4]),
+        client_type=host_ct,
+        client_os=host_cos,
         is_external=False,
         is_host=True,
     ))
@@ -354,15 +366,44 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
             join_time = scheduled_meeting.start_time
             leave_time = scheduled_meeting.end_time
 
+        # Correlated client type / OS from user profile (or random for external)
+        if user and not is_external:
+            p_ct = user.webex_profile["clientType"]
+            p_cos = _ta_os_label(user.webex_profile["osType"], user.webex_os_version)
+        else:
+            # External: small chance of PSTN dial-in
+            if is_external and random.random() < 0.02:
+                p_ct = "Phone (PSTN)"
+                p_cos = "N/A"
+            else:
+                _ep = _pick_ta_profile()
+                p_ct = _ep["clientType"]
+                p_cos = _ta_os_label(_ep["osType"], random.choice(_ep["osVersions"]))
+
         attendees.append(AttendeeRecord(
             name=name,
             email=p_email,
             join_time=join_time,
             leave_time=leave_time,
             ip_address=ip_address,
-            client_type=random.choice(CLIENT_TYPES),
-            client_os=random.choice(CLIENT_OS),
+            client_type=p_ct,
+            client_os=p_cos,
             is_external=is_external,
+            is_host=False,
+        ))
+
+    # ~5% chance a Cisco Room Device joins (conference room with Webex device)
+    if random.random() < 0.05:
+        _loc_net = {"BOS": 10, "ATL": 20, "AUS": 30}.get(location, 10)
+        attendees.append(AttendeeRecord(
+            name="Conference Room Device",
+            email=f"room-device-{location.lower()}@{TENANT}",
+            join_time=scheduled_meeting.start_time - timedelta(seconds=random.randint(10, 60)),
+            leave_time=scheduled_meeting.end_time + timedelta(seconds=random.randint(0, 30)),
+            ip_address=f"10.{_loc_net}.20.{random.randint(200, 220)}",
+            client_type="Cisco Room Device",
+            client_os="RoomOS 11",
+            is_external=False,
             is_host=False,
         ))
 
@@ -535,8 +576,8 @@ def generate_attendees(
         join_time=host_join,
         leave_time=host_leave,
         ip_address=host.ip_address,
-        client_type=random.choice(CLIENT_TYPES[:4]),  # Desktop/web for host
-        client_os=random.choice(CLIENT_OS[:4]),
+        client_type=host.webex_profile["clientType"],
+        client_os=_ta_os_label(host.webex_profile["osType"], host.webex_os_version),
         is_external=False,
         is_host=True,
     ))
@@ -590,15 +631,44 @@ def generate_attendees(
             join_time = meeting_start
             leave_time = meeting_end
 
+        # Correlated client type / OS
+        if not is_external:
+            a_ct = attendee.webex_profile["clientType"]
+            a_cos = _ta_os_label(attendee.webex_profile["osType"], attendee.webex_os_version)
+        else:
+            # External: small chance of PSTN dial-in
+            if random.random() < 0.02:
+                a_ct = "Phone (PSTN)"
+                a_cos = "N/A"
+            else:
+                _ep = _pick_ta_profile()
+                a_ct = _ep["clientType"]
+                a_cos = _ta_os_label(_ep["osType"], random.choice(_ep["osVersions"]))
+
         attendees.append(AttendeeRecord(
             name=name,
             email=email,
             join_time=join_time,
             leave_time=leave_time,
             ip_address=ip_address,
-            client_type=random.choice(CLIENT_TYPES),
-            client_os=random.choice(CLIENT_OS),
+            client_type=a_ct,
+            client_os=a_cos,
             is_external=is_external,
+            is_host=False,
+        ))
+
+    # ~5% chance a Cisco Room Device joins (conference room with Webex device)
+    if random.random() < 0.05:
+        _loc_net = {"BOS": 10, "ATL": 20, "AUS": 30}.get(location, 10)
+        attendees.append(AttendeeRecord(
+            name="Conference Room Device",
+            email=f"room-device-{location.lower()}@{TENANT}",
+            join_time=meeting_start - timedelta(seconds=random.randint(10, 60)),
+            leave_time=meeting_end + timedelta(seconds=random.randint(0, 30)),
+            ip_address=f"10.{_loc_net}.20.{random.randint(200, 220)}",
+            client_type="Cisco Room Device",
+            client_os="RoomOS 11",
+            is_external=False,
             is_host=False,
         ))
 

@@ -17,6 +17,7 @@ Timestamp format: ISO 8601 (YYYY-MM-DDTHH:MM:SS.sssZ)
 
 import argparse
 import base64
+import hashlib
 import json
 import random
 import sys
@@ -32,7 +33,7 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import date_add, get_hour_activity_level, is_weekend
 from shared.company import (
     USERS, get_random_user, LOCATIONS, get_users_by_location, NETWORK_CONFIG,
-    TENANT, ORG_NAME, TENANT_ID,
+    TENANT, ORG_NAME, TENANT_ID, WEBEX_CLIENT_PROFILES,
 )
 from shared.meeting_schedule import _meeting_schedule
 from scenarios.registry import expand_scenarios
@@ -96,57 +97,11 @@ SECURITY_AUDIT_EVENTS = [
     ("LOGINS", "Login failed", "failed login attempt for organization"),
 ]
 
-# Correlated client profiles: (clientType, osType, osVersions, hardwareTypes, networkTypes, weight)
-_CLIENT_PROFILES = [
-    {
-        "clientType": "Webex Desktop", "osType": "Windows",
-        "osVersions": ["10.0.19045", "10.0.22621", "10.0.22631"],
-        "hardwareTypes": ["Dell Latitude 5520", "Lenovo ThinkPad X1", "HP EliteBook 840"],
-        "networkTypes": ["wifi", "ethernet"], "weight": 35,
-    },
-    {
-        "clientType": "Webex Desktop", "osType": "macOS",
-        "osVersions": ["13.6.1", "14.2.1", "14.3.0"],
-        "hardwareTypes": ["MacBook Pro", "MacBook Air", "Mac Studio"],
-        "networkTypes": ["wifi", "ethernet"], "weight": 20,
-    },
-    {
-        "clientType": "Webex Mobile (iOS)", "osType": "iOS",
-        "osVersions": ["17.2.1", "17.3.0", "17.4.0"],
-        "hardwareTypes": ["iPhone 14", "iPhone 15 Pro", "iPad Pro"],
-        "networkTypes": ["wifi", "cellular"], "weight": 15,
-    },
-    {
-        "clientType": "Webex Mobile (Android)", "osType": "Android",
-        "osVersions": ["13", "14"],
-        "hardwareTypes": ["Samsung Galaxy S23", "Google Pixel 8", "Samsung Galaxy A54"],
-        "networkTypes": ["wifi", "cellular"], "weight": 10,
-    },
-    {
-        "clientType": "Web Browser", "osType": "Windows",
-        "osVersions": ["10.0.19045", "10.0.22621", "10.0.22631"],
-        "hardwareTypes": ["Dell Latitude 5520", "Lenovo ThinkPad X1", "HP EliteBook 840"],
-        "networkTypes": ["wifi", "ethernet"], "weight": 12,
-    },
-    {
-        "clientType": "Web Browser", "osType": "macOS",
-        "osVersions": ["13.6.1", "14.2.1", "14.3.0"],
-        "hardwareTypes": ["MacBook Pro", "MacBook Air"],
-        "networkTypes": ["wifi", "ethernet"], "weight": 8,
-    },
-]
-
 # Flat client type list for call history records
 _CALL_CLIENT_TYPES = ["Webex Desktop", "Webex Mobile (iOS)", "Webex Mobile (Android)", "Web Browser"]
 CLIENT_VERSIONS = ["43.12.0.1234", "43.11.0.5678", "43.10.0.9012", "44.1.0.3456"]
 NETWORK_TYPES = ["wifi", "ethernet", "cellular"]
-SERVER_REGIONS = ["US East", "US West", "EU West", "APAC"]
-
-
-def _pick_client_profile() -> dict:
-    """Pick a correlated client profile (clientType + OS + hardware)."""
-    weights = [p["weight"] for p in _CLIENT_PROFILES]
-    return random.choices(_CLIENT_PROFILES, weights=weights, k=1)[0]
+SERVER_REGIONS = ["San Jose, USA", "Chicago, USA", "London, UK", "Frankfurt, DE", "Tokyo, JP"]
 
 # User agents
 USER_AGENTS = [
@@ -370,8 +325,23 @@ def generate_meeting_quality_record(
     """Generate a meeting quality record (cisco:webex:meeting:qualities)."""
     duration_mins = int((leave_time - join_time).total_seconds() / 60)
 
-    # Pick correlated client profile (clientType + OS + hardware)
-    profile = _pick_client_profile()
+    # Deterministic device per user — 15% chance of secondary (mobile) device
+    if user.webex_secondary_profile and random.random() < 0.15:
+        profile = user.webex_secondary_profile
+        _sh = int(hashlib.sha256(f"sec-hw:{user.username}".encode()).hexdigest()[:8], 16)
+        hw = profile["hardwareTypes"][_sh % len(profile["hardwareTypes"])]
+        cam = profile["cameras"][_sh % len(profile["cameras"])]
+        _so = int(hashlib.sha256(f"sec-osv:{user.username}".encode()).hexdigest()[:8], 16)
+        osv = profile["osVersions"][_so % len(profile["osVersions"])]
+        net = profile["networkTypes"][_sh % len(profile["networkTypes"])]
+        speaker, mic = profile["audio"]
+    else:
+        profile = user.webex_profile
+        hw = user.webex_hardware
+        cam = user.webex_camera
+        osv = user.webex_os_version
+        net = user.webex_network
+        speaker, mic = profile["audio"]
 
     audio_in, video_in = generate_quality_metrics(duration_mins)
 
@@ -385,14 +355,14 @@ def generate_meeting_quality_record(
         "clientType": profile["clientType"],
         "clientVersion": random.choice(CLIENT_VERSIONS),
         "osType": profile["osType"],
-        "osVersion": random.choice(profile["osVersions"]),
-        "hardwareType": random.choice(profile["hardwareTypes"]),
-        "speakerName": "Speakers (Realtek Audio)",
-        "networkType": random.choice(profile["networkTypes"]),
+        "osVersion": osv,
+        "hardwareType": hw,
+        "speakerName": speaker,
+        "networkType": net,
         "localIP": get_user_ip(user),
         "publicIP": get_public_ip(),
-        "camera": random.choice(["Integrated Webcam", "Logitech C920", "Logitech Brio"]),
-        "microphone": "Microphone (Realtek Audio)",
+        "camera": cam,
+        "microphone": mic,
         "serverRegion": random.choice(SERVER_REGIONS),
         "participantId": generate_uuid(),
         "participantSessionId": generate_uuid(),

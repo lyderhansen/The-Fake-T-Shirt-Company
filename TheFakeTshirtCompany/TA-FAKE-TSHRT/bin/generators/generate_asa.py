@@ -259,7 +259,7 @@ def asa_ssl(base_date: str, day: int, hour: int, minute: int, second: int) -> st
 
     pri6 = asa_pri(6)  # info
     if random.random() < 0.5:
-        return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-725001: Starting SSL handshake with client outside:{ip}/{port} for TLSv1.2 session"
+        return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-725001: Starting SSL handshake with client outside:{ip}/{port} for TLSv1.2 session."
     else:
         return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-725002: Device completed SSL handshake with client outside:{ip}/{port}"
 
@@ -547,20 +547,10 @@ def asa_icmp_ping(base_date: str, day: int, hour: int, minute: int, second: int)
     """
     ts = ts_syslog(base_date, day, hour, minute, second)
 
-    mon_ip = "10.20.20.30"  # MON-ATL-01
+    mon_ip = SERVERS["MON-ATL-01"].ip
 
-    # Ping targets: critical servers, DCs, web servers, network devices
-    targets = [
-        "10.10.20.10",   # DC-BOS-01
-        "10.10.20.11",   # DC-BOS-02
-        "10.10.20.30",   # SQL-PROD-01
-        "172.16.1.10",   # WEB-01
-        "172.16.1.11",   # WEB-02
-        "10.10.20.60",   # SAP-PROD-01
-        "10.10.20.61",   # SAP-DB-01
-        "10.20.20.10",   # DC-ATL-01
-        "10.20.20.20",   # BACKUP-ATL-01
-    ]
+    # Ping targets: critical servers (all except MON-ATL-01 itself)
+    targets = [s.ip for s in SERVERS.values() if s.hostname != "MON-ATL-01"]
     dst = random.choice(targets)
 
     pri6 = asa_pri(6)
@@ -572,7 +562,7 @@ def asa_icmp_ping(base_date: str, day: int, hour: int, minute: int, second: int)
 # =============================================================================
 
 # Web server IPs in DMZ
-WEB_SERVERS = ["172.16.1.10", "172.16.1.11"]  # WEB-01, WEB-02
+WEB_SERVERS = [s.ip for s in SERVERS.values() if s.hostname.startswith("WEB-")]
 WEB_PORTS = [80, 443]
 
 def asa_web_session(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
@@ -715,10 +705,10 @@ def asa_site_to_site(base_date: str, day: int, hour: int, minute: int, second: i
 
     reason = random.choice(ASA_TEARDOWN_REASONS)
 
-    # Site-to-site goes through the ASA for inspection even with SD-WAN
+    # Site-to-site VPN traffic transits ASA on inside zone (all sites terminate on inside)
     pri6 = asa_pri(6)
-    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for {src_site.lower()}:{src}/{sp} ({src}/{sp}) to {dst_site.lower()}:{dst}/{dp} ({dst}/{dp})")
-    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for {src_site.lower()}:{src}/{sp} to {dst_site.lower()}:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dst}/{dp} ({dst}/{dp})")
+    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to inside:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
 
@@ -727,17 +717,8 @@ def asa_site_to_site(base_date: str, day: int, hour: int, minute: int, second: i
 # ADDITIONAL EVENT TYPES
 # =============================================================================
 
-def asa_http_inspect(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
-    """Generate HTTP inspection event."""
-    ts = ts_syslog(base_date, day, hour, minute, second)
-    src = get_us_ip()
-    dst = random.choice(WEB_SERVERS)
-
-    methods = ["GET", "POST", "PUT", "DELETE"]
-    uris = ["/api/v1/orders", "/api/v1/products", "/checkout", "/cart", "/login"]
-
-    pri6 = asa_pri(6)
-    return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-302020: Built inbound HTTP connection for outside:{src} to dmz:{dst} method {random.choice(methods)} uri {random.choice(uris)}"
+# NOTE: asa_http_inspect() removed — ASA does not log HTTP method/URI in firewall
+# syslog. Message ID 302020 is used for ICMP only (see asa_icmp_ping).
 
 
 def asa_rate_limit(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
@@ -863,8 +844,8 @@ def asa_failover(base_date: str, day: int) -> List[str]:
 # NIGHTLY BACKUP TRAFFIC (BACKUP-ATL-01 -> FILE-BOS-01)
 # =============================================================================
 
-BACKUP_SRC = "10.20.20.20"   # BACKUP-ATL-01 (Atlanta)
-BACKUP_DST = "10.10.20.20"   # FILE-BOS-01 (Boston)
+BACKUP_SRC = SERVERS["BACKUP-ATL-01"].ip   # Atlanta
+BACKUP_DST = SERVERS["FILE-BOS-01"].ip     # Boston
 
 
 def asa_backup_traffic(base_date: str, day: int, hour: int) -> List[str]:
@@ -916,15 +897,15 @@ def asa_backup_traffic(base_date: str, day: int, hour: int) -> List[str]:
         start_ts = ts_syslog(base_date, day, hour, minute, second)
         teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
-        # ATL -> BOS cross-site SMB backup traffic
+        # ATL -> BOS cross-site SMB backup traffic (inside→inside via VPN)
         events.append(
             f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP "
-            f"connection {cid} for atl:{BACKUP_SRC}/{sp} ({BACKUP_SRC}/{sp}) "
-            f"to bos:{BACKUP_DST}/445 ({BACKUP_DST}/445)"
+            f"connection {cid} for inside:{BACKUP_SRC}/{sp} ({BACKUP_SRC}/{sp}) "
+            f"to inside:{BACKUP_DST}/445 ({BACKUP_DST}/445)"
         )
         events.append(
             f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP "
-            f"connection {cid} for atl:{BACKUP_SRC}/{sp} to bos:{BACKUP_DST}/445 "
+            f"connection {cid} for inside:{BACKUP_SRC}/{sp} to inside:{BACKUP_DST}/445 "
             f"duration {dur} bytes {bytes_val} TCP FINs"
         )
 
@@ -1184,29 +1165,29 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
         elif event_type <= 93:
             # SSL handshakes
             events.append(asa_ssl(base_date, day, hour, minute, second))
-        elif event_type <= 96:
-            # ICMP health checks (monitoring pings)
+        elif event_type <= 97:
+            # ICMP health checks (monitoring pings) — expanded from 96 to 97
             events.append(asa_icmp_ping(base_date, day, hour, minute, second))
-        elif event_type <= 98:
-            # HTTP inspection
-            events.append(asa_http_inspect(base_date, day, hour, minute, second))
         elif event_type <= 99:
-            # Admin commands
+            # Admin commands — expanded from 99 to absorb HTTP inspect removal
             events.append(asa_admin(base_date, day, hour, minute, second))
         else:
             # Internal ACL denies (policy violations)
             events.append(asa_deny_internal(base_date, day, hour, minute, second))
 
     # Background scan noise (scaled with traffic - more traffic = more scans)
-    scan_count = max(1, event_count // 100)  # ~1% of traffic is scan attempts
-    for _ in range(random.randint(scan_count, scan_count * 3)):
+    # Real internet-facing firewalls see ~5% background noise from scanners/bots
+    scan_count = max(2, event_count // 20)  # ~5% of traffic is scan attempts
+    for _ in range(random.randint(scan_count, scan_count * 2)):
         events.append(asa_deny_external(base_date, day, hour, random.randint(0, 59), random.randint(0, 59)))
 
-    # Occasional rate limiting and threat detection (during business hours)
+    # Rate limiting and threat detection (during business hours)
+    # Internet-facing firewalls see regular rate limit triggers
     if 8 <= hour <= 18:
-        if random.random() < 0.05:  # 5% chance per hour
-            events.append(asa_rate_limit(base_date, day, hour, random.randint(0, 59), random.randint(0, 59)))
-        if random.random() < 0.03:  # 3% chance per hour
+        if random.random() < 0.30:  # 30% chance per business hour
+            for _ in range(random.randint(1, 3)):
+                events.append(asa_rate_limit(base_date, day, hour, random.randint(0, 59), random.randint(0, 59)))
+        if random.random() < 0.20:  # 20% chance per business hour
             events.append(asa_threat_detect(base_date, day, hour, random.randint(0, 59), random.randint(0, 59)))
 
     return events

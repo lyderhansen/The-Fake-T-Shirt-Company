@@ -4,6 +4,193 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-20 ~16:30 UTC -- ASA Generator Realism Audit (6 fixes)
+
+### Context
+
+Deep audit of `generate_asa.py` against real Cisco ASA 5525-X syslog behavior found 6 realism issues. The generator was ~75% production-ready — good syslog format, Built/Teardown correlation, byte distribution, volume patterns, and scenario hooks. Fixes address interface naming, fake event types, and volume realism.
+
+### Changes
+
+- **`bin/generators/generate_asa.py`**:
+  - **Fix 1 — Interface names**: Changed site-based zone names (`atl:`, `bos:`, `aus:`) to proper ASA zone name `inside:` in `asa_site_to_site()` and `asa_backup_traffic()`. Real ASA logs VPN/SD-WAN traffic on inside zone, not per-site names. Affects ~48K events.
+  - **Fix 2 — Remove fake HTTP inspect**: Removed `asa_http_inspect()` function — ASA does not log HTTP method/URI in firewall syslog. Message ID 302020 is ICMP only. Removed 2% event allocation, redistributed to ICMP and admin commands. Removes ~26K unrealistic events.
+  - **Fix 3 — SSL format**: Added missing period at end of `%ASA-6-725001` message to match real ASA format.
+  - **Fix 4 — Scan noise**: Increased background scan noise from ~1% to ~5% of traffic (`event_count // 100` → `event_count // 20`). Real internet-facing firewalls see 5-8% scan/bot traffic.
+  - **Fix 5 — Rate limiting frequency**: Increased rate limiting from 5%→30% and threat detection from 3%→20% per business hour, with burst (1-3 events per trigger). Old: ~930 events/31 days. New: ~7K+.
+  - **Fix 6 — Hardcoded IPs**: Replaced hardcoded IPs with `SERVERS` dict lookups for `WEB_SERVERS`, `mon_ip` (MON-ATL-01), `BACKUP_SRC` (BACKUP-ATL-01), `BACKUP_DST` (FILE-BOS-01), and ICMP ping targets.
+
+### Verification
+
+```spl
+-- No more site-based interface names
+index=fake_tshrt sourcetype="FAKE:cisco:asa" ("atl:" OR "aus:" OR "bos:") | stats count
+-- Expected: 0
+
+-- No more HTTP inspection with method/URI
+index=fake_tshrt sourcetype="FAKE:cisco:asa" "302020" "method" | stats count
+-- Expected: 0
+
+-- Interface distribution
+index=fake_tshrt sourcetype="FAKE:cisco:asa" "302013"
+| rex field=_raw "for (?<src_iface>[^:]+):" | stats count by src_iface
+-- Expected: inside, outside, dmz, management — NO atl/bos/aus
+```
+
+**Note:** Requires data regeneration for asa source.
+
+---
+
+## 2026-02-20 ~15:00 UTC -- Fix Secondary Device Determinism in webex_api
+
+### Context
+
+Post-verification found that 110/175 users had 4 distinct hardware types instead of expected max 2. Root cause: when a user joins on their secondary mobile device (~15% of meetings), hardware/camera/osVersion/network were chosen randomly from the profile's list instead of being deterministic per user.
+
+### Changes
+
+- **`bin/generators/generate_webex_api.py`**:
+  - Secondary device block in `generate_meeting_quality_record()`: replaced `random.choice()` with hash-based deterministic selection (same pattern as primary device). Each user now always uses the same specific mobile device (e.g., always "iPhone 15 Pro", not rotating between iPhone 14/15 Pro/iPad Pro).
+
+### Verification
+
+```spl
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meeting:qualities"
+| stats dc(hardwareType) as hw_count by webexUserEmail | stats count by hw_count
+-- Expected: hw_count=1 (~41), hw_count=2 (~134)
+```
+
+---
+
+## 2026-02-20 ~14:00 UTC -- Webex Deterministic User→Device Mapping + Field Fixes
+
+### Context
+
+Three issues found in the Webex generators:
+1. **webex_api**: All 175 users showed identical 12 hardware types — `hardwareType`, `camera`, `osType`, `clientType` etc. randomly chosen per meeting event, not per user.
+2. **webex_ta**: `clientType` and `clientOS` were completely uncorrelated (`random.choice()` from separate lists), producing impossible combos: "Cisco Room Device" + "Android 14", "Phone (PSTN)" + "ChromeOS", "Webex Mobile (iOS)" + "Windows 10".
+3. **webex_api**: `speakerName`/`microphone`/`camera` hardcoded or uncorrelated with hardware; `serverRegion` used non-standard format.
+
+### Changes
+
+- **`bin/shared/company.py`**:
+  - Added `WEBEX_CLIENT_PROFILES` — 6 correlated profiles (clientType ↔ osType ↔ hardware ↔ cameras ↔ audio ↔ networkTypes) with weighted distribution
+  - Added 6 deterministic `User` properties: `webex_profile`, `webex_hardware`, `webex_camera`, `webex_os_version`, `webex_network`, `webex_secondary_profile` — all hash-based (same pattern as `vpn_ip`, `mac_address`)
+  - Each user now has a fixed primary device (e.g. "Dell Latitude 5520" + Windows + "Speakers (Realtek Audio)") and optionally a secondary mobile device for ~15% of meetings
+
+- **`bin/generators/generate_webex_api.py`**:
+  - Removed local `_CLIENT_PROFILES` list and `_pick_client_profile()` — now imports `WEBEX_CLIENT_PROFILES` from company.py
+  - `generate_meeting_quality_record()`: Uses `user.webex_*` properties instead of random per-event selection
+  - `speakerName` and `microphone` now correlate with hardware profile (was hardcoded "Speakers (Realtek Audio)" for all)
+  - `camera` now correlates with hardware profile (was random from global list)
+  - `serverRegion` changed from "US East"/"US West" to city format: "San Jose, USA", "Chicago, USA", etc.
+
+- **`bin/generators/generate_webex_ta.py`**:
+  - Removed uncorrelated `CLIENT_TYPES` and `CLIENT_OS` lists
+  - Added `_ta_os_label()` helper to convert profile osType + version to TA labels (e.g. "Windows 11", "macOS 14")
+  - Added `_pick_ta_profile()` for external participants (random but correlated)
+  - Fixed all 4 client_type/client_os assignment locations (2 in shared-schedule meetings, 2 in ad-hoc meetings)
+  - Internal users: use deterministic `user.webex_profile` properties
+  - External users: use `_pick_ta_profile()` for correlated random selection
+  - "Cisco Room Device" now only appears as a proper participant (~5% of meetings) with correct OS: "RoomOS 11"
+  - "Phone (PSTN)" now only appears for external participants (~2% chance) with "N/A" as OS
+
+### Verification
+
+```spl
+-- Hardware per user: should be 1-2, NOT 12
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meeting:qualities"
+| stats dc(hardwareType) as hw_count by webexUserEmail | sort -hw_count | head 10
+
+-- No impossible combos in webex_ta
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory"
+| stats count by clientType clientOS
+
+-- Room Device must have RoomOS 11
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory" clientType="Cisco Room Device"
+| stats count by clientOS
+```
+
+**Note:** Requires data regeneration for webex_api and webex_ta sources.
+
+---
+
+## 2026-02-20 ~01:45 UTC -- Meraki deviceSerial Completion Fix
+
+### Context
+
+Post-regeneration Splunk verification revealed that Fix #5 (deviceSerial) from Batch 2 was incomplete. The `replace_all` on `"deviceSerial": device` only caught event-generator functions where the variable was named `device`. Health functions, meeting room cameras/sensors used different variable names (`ap`, `switch`, `camera_id`, `sensor`) and were missed. ~92% of Meraki events (~1.6M) still had `deviceSerial` = `deviceName`.
+
+### Changes
+
+- **`bin/generators/generate_meraki.py`**:
+  - **AP health** (`generate_mr_health_metrics`): Changed `"deviceSerial": ap` → `"deviceSerial": _get_serial(ap)` — fixes 106,992 AP health events
+  - **Switch health** (`generate_ms_health_metrics`): Changed `"deviceSerial": switch` → `"deviceSerial": _get_serial(switch)` — fixes 1,307,680 switch port health events
+  - **Meeting room cameras + sensors** in `_build_serial_registry()`: Added registration of meeting room cameras (`MV-*` from `MEETING_ROOMS` config, 6 cameras) and meeting room sensors (`MT-*-TEMP-*`, `MT-*-DOOR-*`, ~38 sensors). These were not in `MERAKI_MV_DEVICES`/`MERAKI_MT_DEVICES` and thus had no serial in the registry, causing `_get_serial()` fallback to return the device name. Now generates proper serials (Q2MV/Q2MT format) with sequence offsets to avoid collision with infrastructure device serials.
+
+### Verification
+
+```spl
+-- Should return 0 rows after regeneration:
+index=fake_tshrt sourcetype="FAKE:meraki:*"
+| where deviceSerial=deviceName
+| stats count by sourcetype
+```
+
+**Note:** Requires data regeneration for meraki source.
+
+---
+
+## 2026-02-20 ~01:00 UTC -- Meraki Generator Audit Batch 3: Edge Cases, Docs, Realism Polish
+
+### Context
+
+Final batch of the Meraki audit addresses 8 lower-severity but still valuable realism improvements: external IP generation, tunnel symmetry, documentation mismatches, device naming, and behavioral patterns.
+
+### Changes
+
+- **`bin/generators/generate_meraki.py`**:
+  - **Fix #8 — External IP generator could produce RFC1918/bogon addresses**: `get_random_external_ip()` used `random.randint(1, 223)` for the first octet, which could generate private (10.x, 172.16-31.x, 192.168.x), CGNAT (100.64-127.x), loopback (127.x), and link-local (169.254.x) as "external" IPs. Added a while-loop with explicit filtering for all reserved ranges.
+  - **Fix #9 — SD-WAN tunnel events were unidirectional**: `generate_sdwan_baseline_hour()` only generated tunnel status from `mx_a`'s perspective. Real AutoVPN tunnels report from both sides. Now generates symmetric events from both peers, with independent timestamps.
+  - **Fix #12 — Austin "Server Room" camera/sensor**: Austin has no servers, but `CAM-AUS-1F-02`, `MT-AUS-TEMP-01`, and `MT-AUS-DOOR-01` had `area: "Server Room"`. Renamed to `"IDF Closet"` (industry-standard term for branch wiring closets).
+  - **Fix #14 — MR WiFi floor affinity**: User-AP associations were completely random across all APs at a location. Now 75% of associations go to an AP on the user's assigned floor, 25% roam to other floors (elevator, meetings, etc.).
+  - **Fix #15 — Person detection count=0**: After-hours `person_detected` events used `random.randint(0, 2)`, which could produce count=0 — semantically contradictory ("person detected" with zero people). Changed minimum to 1.
+
+- **`CLAUDE.md`**:
+  - **Fix #11 — SSID names**: Documentation said `TShirtCo-*` but code uses `FakeTShirtCo-*`. Updated CLAUDE.md to match actual SSIDs: FakeTShirtCo-Corp, FakeTShirtCo-Guest, FakeTShirtCo-IoT. Added FakeTShirtCo-Voice SSID.
+  - **Fix #13 — Camera count mismatch**: Documentation said 19 MV cameras, actual device inventory is 15 (BOS 8, ATL 7 [including 4 meeting room], AUS 4 [including 1 meeting room]). Updated count and clarified MT sensor totals (14 infrastructure + ~38 meeting room sensors).
+
+- **Fix #10 — MX fallback MAC**: Already resolved in Batch 2 (Fix #5 added unique MAC addresses to all 4 MX devices).
+
+### Scenario Safety
+
+All fixes are baseline-only or documentation. No scenario functions were modified.
+
+**Note:** Requires data regeneration for meraki source.
+
+---
+
+## 2026-02-20 ~00:30 UTC -- Meraki Generator Audit Batch 2: deviceSerial, Cross-Site SD-WAN, IDS Fix
+
+### Context
+
+Batch 2 addresses deeper structural issues found during the Meraki generator audit: incorrect device serial numbers, missing inter-site SD-WAN traffic, and an architectural inconsistency in the exfil scenario IDS alerts.
+
+### Changes
+
+- **`bin/generators/generate_meraki.py`**:
+  - **Fix #5 — deviceSerial uses device name instead of serial**: All ~35 event functions used `"deviceSerial": device` which produced values like "MX-BOS-01" — obviously not a Meraki serial number. Added `_build_serial_registry()` that generates proper serials for all device types (MX already had them, MR/MS/MV/MT now get generated serials like `Q2MR-BOS0-0001`). New `_get_serial()` helper replaces all `"deviceSerial": device` references. Also added `mac` field to all 4 MX devices (was a single hardcoded fallback `00:18:0A:01:02:03`).
+  - **Fix #6 — Missing inter-site SD-WAN traffic**: All MX firewall events were internal→external. Added ~12% cross-site flows for ATL/AUS spokes targeting BOS servers (DC, File, SQL, App). Uses realistic ports (445/SMB, 389/LDAP, 88/Kerberos, 1433/SQL, 443/HTTPS). BOS MX excluded from cross-site (it is the hub).
+  - **Fix #7 — External threat IP on internal MX IDS**: Days 4-6 used `THREAT_IP` (185.220.101.42) as source on MX-ATL-01, but per architecture all external traffic goes through ASA — MX only handles internal/SD-WAN. Removed days 4-6 from MX IDS (ASA covers this). MX IDS now starts at day 7 (lateral movement = internal cross-site traffic via AutoVPN, architecturally correct for MX inspection).
+
+### Scenario Safety
+
+Fix #7 modifies the exfil scenario's `generate_ids_alert()` function. The change makes the scenario more architecturally correct — MX IDS alerts now only appear for traffic the MX would actually see (internal lateral movement, not external perimeter attacks). Days 4-6 IDS coverage remains via the ASA generator.
+
+**Note:** Requires data regeneration for meraki source.
+
+---
+
 ## 2026-02-20 ~00:15 UTC -- Meraki Generator Audit Batch 1: STP, AMP, VPN Peers, 802.1X
 
 ### Context
