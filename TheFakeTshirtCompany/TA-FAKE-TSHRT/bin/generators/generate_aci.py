@@ -16,6 +16,7 @@ Splunk Add-on for Cisco ACI.
 """
 
 import argparse
+import base64
 import hashlib
 import json
 import random
@@ -153,6 +154,74 @@ FAULT_LIFECYCLES = ["soaking", "soaking-clearing", "raised", "raised-clearing", 
 FAULT_REASONS = ["sfp-missing", "link-not-connected", "admin-down", "err-disabled", "link-failure"]
 FAULT_USAGES = ["discovery", "infra", "fabric-member", "none"]
 
+# Realistic fault rule names (verified against APIC MIM)
+FAULT_RULES = {
+    "port-down": "ethpm-if-port-down-no-infra",
+    "link-down": "ethpm-if-link-down",
+    "health-score": "health-health-score-below-threshold",
+    "endpoint-attach": "epm-ep-learned",
+    "psu-ok": "eqpt-psu-operational",
+    "fan-failure": "eqpt-fan-failure",
+    "high-cpu": "dbgs-cpu-utilization-exceeded",
+    "bgp-down": "bgp-peer-down",
+    "contract-hit": "actrl-rule-hit-count",
+    "memory-high": "dbgs-memory-utilization-exceeded",
+    "ep-move": "epm-ep-moved",
+}
+
+# Realistic changeSet templates per fault type
+FAULT_CHANGESETS = {
+    "port-down": ["operStQual (New: sfp-missing)", "operStQual (New: link-not-connected)",
+                   "operStQual (New: admin-down)", "usage (New: discovery)"],
+    "link-down": ["operSt (New: down), operStQual (New: link-failure)"],
+    "health-score": ["healthAvg (Old: 95, New: {score})"],
+    "endpoint-attach": ["flags:ip,mac, ip:{ip}, vlan:vlan-{vlan}"],
+    "psu-ok": ["operSt (Old: unknown, New: ok)"],
+    "fan-failure": ["operSt (Old: ok, New: failed)"],
+    "high-cpu": ["cpuPct:{pct}"],
+    "bgp-down": ["operSt (Old: established, New: idle)"],
+    "contract-hit": ["hitCount:{count}"],
+    "memory-high": ["memPct:{pct}"],
+    "ep-move": ["flags:mac, from:{port1}, to:{port2}"],
+}
+
+# Realistic changeSet templates for events
+EVENT_CHANGESETS = {
+    "link-state-change": "operSt (Old: {old}, New: {new})",
+    "endpoint-learning": "flags:ip,mac, ip:{ip}, vlan:vlan-{vlan}",
+    "endpoint-aging": "flags:mac, reason:aged-out",
+    "contract-match": "hitCount:{count}, direction:uni-dir",
+    "admin-state-change": "adminSt (Old: {old}, New: {new})",
+    "health-change": "healthAvg (Old: {old_score}, New: {new_score})",
+    "config-change": "configSt (Old: applied, New: applying)",
+    "fault-raised": "code:{fault_code}, severity:{sev}",
+    "fault-cleared": "code:{fault_code}, prevSeverity:{sev}",
+}
+
+# Realistic audit changeSet and affected DN per object type
+AUDIT_CHANGESETS = {
+    "fvTenant": {"affected": "uni/tn-{tenant}", "changeSet": "name:{tenant}, descr:Production tenant", "ind": "modification"},
+    "fvBD": {"affected": "uni/tn-{tenant}/BD-{bd}", "changeSet": "arpFlood:yes, unicastRoute:yes", "ind": "modification"},
+    "fvAEPg": {"affected": "uni/tn-{tenant}/ap-DataCenter/epg-{epg}", "changeSet": "prefGrMemb:include", "ind": "modification"},
+    "vzBrCP": {"affected": "uni/tn-{tenant}/brc-{contract}", "changeSet": "scope:context, targetDscp:unspecified", "ind": "modification"},
+    "fabricNode": {"affected": "topology/pod-1/node-{node_id}", "changeSet": "name:{node}, role:leaf", "ind": "modification"},
+    "infraAccPortP": {"affected": "uni/infra/accportprof-Server-Ports", "changeSet": "name:Server-Ports", "ind": "modification"},
+    "fvSubnet": {"affected": "uni/tn-{tenant}/BD-{bd}/subnet-[{subnet}]", "changeSet": "ip:{subnet}, scope:public", "ind": "modification"},
+    "aaaUser": {"affected": "uni/userext/user-{user}", "changeSet": "accountStatus:active", "ind": "modification"},
+    "aaaLogin": {"affected": "uni/userext/user-{user}", "changeSet": "", "ind": "creation"},
+    "configSnapshot": {"affected": "uni/backupst/snapshots", "changeSet": "name:DailyBackup", "ind": "creation"},
+}
+
+# Audit event codes per action type
+AUDIT_CODES = {
+    "creation": "E4205213",
+    "modification": "E4206326",
+    "deletion": "E4205050",
+}
+
+# Client tags for audit records
+AUDIT_CLIENT_TAGS = ["REST", "GUI", "Python", ""]
+
 # =============================================================================
 # EVENT CONFIGURATION
 # =============================================================================
@@ -267,6 +336,12 @@ _next_fault_id = _event_id_counter()
 _next_audit_id = _event_id_counter()
 
 
+def _session_id(admin: str, ts: str) -> str:
+    """Generate a realistic APIC session ID (base64-like string)."""
+    raw = hashlib.md5(f"{admin}-{ts}".encode()).digest()
+    return base64.b64encode(raw[:12]).decode().rstrip("=") + "=="
+
+
 # =============================================================================
 # FAULT GENERATOR
 # =============================================================================
@@ -311,15 +386,36 @@ def _generate_fault(start_date: str, day: int, hour: int,
 
     dn = f"{node['dn']}/sys/phys-[{iface}]/phys/fault-{code}"
 
+    # Realistic rule name from APIC MIM
+    rule = FAULT_RULES.get(subject, f"{subject}-rule")
+
+    # Realistic changeSet (not empty)
+    cs_templates = FAULT_CHANGESETS.get(subject, [""])
+    change_set = random.choice(cs_templates).format(
+        score=score, ip=ep_ip, vlan=random.randint(100, 500),
+        pct=pct, port1=port1, port2=port2, count=random.randint(1, 500),
+    )
+
+    # Severity history: ~20% of the time origSeverity/prevSeverity differ
+    orig_severity = severity
+    prev_severity = severity
+    highest_severity = severity
+    if random.random() < 0.20 and severity not in ("cleared",):
+        sev_idx = FAULT_SEVERITIES.index(severity) if severity in FAULT_SEVERITIES else 3
+        if sev_idx > 0:
+            highest_severity = FAULT_SEVERITIES[max(0, sev_idx - 1)]
+        if sev_idx < len(FAULT_SEVERITIES) - 2:
+            prev_severity = FAULT_SEVERITIES[min(len(FAULT_SEVERITIES) - 1, sev_idx + 1)]
+
     fault = {
         "faultInst": {
             "attributes": {
                 "dn": dn,
                 "code": code,
                 "severity": severity,
-                "origSeverity": severity,
-                "prevSeverity": severity,
-                "highestSeverity": severity,
+                "origSeverity": orig_severity,
+                "prevSeverity": prev_severity,
+                "highestSeverity": highest_severity,
                 "lc": lc,
                 "cause": cause,
                 "type": ftype,
@@ -331,12 +427,13 @@ def _generate_fault(start_date: str, day: int, hour: int,
                 "modTs": "never",
                 "occur": str(random.randint(1, 5)),
                 "ack": "no",
-                "rule": f"{subject}-rule",
-                "changeSet": "",
+                "alert": "no",
+                "delegated": "no",
+                "rule": rule,
+                "changeSet": change_set,
                 "rn": f"fault-{code}",
                 "status": "",
                 "childAction": "",
-                "uid": "",
             }
         }
     }
@@ -380,9 +477,22 @@ def _generate_event(start_date: str, day: int, hour: int,
 
     ts = _iso_ts(start_date, day, hour)
     event_id = _next_event_id()
+    tx_id = str(random.randint(576460752303423000, 576460752303424000))
 
     affected = node["dn"]
-    change_set = f"state:{state}"
+
+    # Realistic changeSet per event type
+    cs_tmpl = EVENT_CHANGESETS.get(cause, f"state:{state}")
+    old_state = "down" if state in ("up", "ok", "active") else "up"
+    change_set = cs_tmpl.format(
+        old=old_state, new=state, ip=ep_ip, vlan=random.randint(100, 500),
+        count=random.randint(1, 500), old_score=old_score, new_score=new_score,
+        fault_code=fault_code, sev=severity,
+    ) if "{" in cs_tmpl else cs_tmpl
+
+    # Operational events use "internal", config events use a username
+    trig = "config" if cause == "config-change" else "oper"
+    user = random.choice(ACI_ADMINS) if trig == "config" else "internal"
 
     event = {
         "eventRecord": {
@@ -397,8 +507,9 @@ def _generate_event(start_date: str, day: int, hour: int,
                 "id": str(event_id),
                 "ind": ind,
                 "severity": severity,
-                "trig": "oper",
-                "user": "",
+                "trig": trig,
+                "txId": tx_id,
+                "user": user,
                 "modTs": "never",
                 "rn": f"rec-{event_id}",
                 "status": "",
@@ -426,7 +537,9 @@ def _generate_audit(start_date: str, day: int, hour: int,
     bd = random.choice(["BD-Servers", "BD-Users", "BD-Web", "BD-Mgmt"])
     epg = random.choice(ALL_EPGS)["name"]
     contract = random.choice(["Web-to-DB", "App-to-DB", "Web-to-App", "Mgmt-Access"])
-    node = random.choice(ALL_NODES)["name"]
+    node_obj = random.choice(ALL_NODES)
+    node = node_obj["name"]
+    node_id = str(node_obj["id"])
     subnet = f"10.{random.randint(10, 30)}.{random.randint(20, 40)}.0/24"
     src_ip = random.choice(["10.10.10.20", "10.10.30.182", "10.10.30.183", "10.20.30.15"])
     user = admin
@@ -438,21 +551,41 @@ def _generate_audit(start_date: str, day: int, hour: int,
 
     ts = _iso_ts(start_date, day, hour)
     audit_id = _next_audit_id()
-    affected = f"uni/tn-{tenant}"
     tx_id = str(random.randint(576460752303423000, 576460752303424000))
+
+    # Realistic affected DN, changeSet, and ind per object type
+    audit_meta = AUDIT_CHANGESETS.get(obj_type, {"affected": f"uni/tn-{tenant}", "changeSet": f"type:{obj_type}", "ind": "modification"})
+    affected = audit_meta["affected"].format(
+        tenant=tenant, bd=bd, epg=epg, contract=contract,
+        node=node, node_id=node_id, subnet=subnet, user=user,
+    )
+    change_set = audit_meta["changeSet"].format(
+        tenant=tenant, bd=bd, epg=epg, contract=contract,
+        node=node, subnet=subnet, user=user,
+    ) if "{" in audit_meta["changeSet"] else audit_meta["changeSet"]
+    ind = audit_meta["ind"]
+    code = AUDIT_CODES.get(ind, "E4206326")
+
+    # Session ID and client tag
+    session_id = _session_id(admin, ts)
+    client_tag = random.choice(AUDIT_CLIENT_TAGS)
 
     audit = {
         "aaaModLR": {
             "attributes": {
+                "dn": f"subj-[{affected}]/mod-{audit_id}",
                 "affected": affected,
                 "cause": "transition",
-                "changeSet": f"type:{obj_type}",
-                "code": "E4206326",
+                "changeSet": change_set,
+                "code": code,
                 "created": ts,
                 "descr": descr,
                 "id": str(audit_id),
-                "ind": "modification",
+                "ind": ind,
                 "severity": "info",
+                "sessionId": session_id,
+                "srcIp": src_ip,
+                "clientTag": client_tag,
                 "trig": "config",
                 "txId": tx_id,
                 "user": admin,

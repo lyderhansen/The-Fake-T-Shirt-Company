@@ -226,6 +226,10 @@ def _generate_device_health(start_date: str, day: int, hour: int,
         "reachabilityHealth": reachability,
         "avgTemperature": round(avg_temp, 1),
         "maxTemperature": round(max_temp, 1),
+        "freeMemoryBuffer": round(rng.uniform(20000, 60000), 1),
+        "freeMemoryBufferHealth": 10 if mem_util < 60 else (9 if mem_util < 75 else 7),
+        "packetPool": round(rng.uniform(70, 90), 1),
+        "packetPoolHealth": 10 if cpu_util < 50 else (9 if cpu_util < 70 else 7),
         "timestamp": ts,
         "demo_id": demo_id,
     }
@@ -298,6 +302,18 @@ def _generate_network_health(start_date: str, day: int, hour: int,
                     {"key": "cpu", "value": str(round(avg_cpu, 1))},
                     {"key": "memory", "value": str(round(avg_mem, 1))},
                 ],
+            }
+        ],
+        # Real API typo: "Distirubution" instead of "Distribution"
+        "healthDistirubution": [
+            {
+                "category": "Distribution",
+                "totalCount": total_count,
+                "healthScore": health_score,
+                "goodPercentage": good_pct,
+                "goodCount": good_count,
+                "badCount": bad_count,
+                "fairCount": fair_count,
             }
         ],
         "timestamp": ts,
@@ -426,6 +442,9 @@ def _generate_issue(start_date: str, day: int, hour: int,
 
     actions = SUGGESTED_ACTIONS.get(name, [{"message": "Investigate the issue", "steps": []}])
 
+    # Real API typo fields: "occurence" instead of "occurrence"
+    last_occurence_ts = _epoch_ms(start_date, day, hour, random.randint(0, 59))
+
     event = {
         "issueId": f"AWf2-issue-{_issue_counter[0]:04d}",
         "issueSource": "Assurance",
@@ -438,6 +457,9 @@ def _generate_issue(start_date: str, day: int, hour: int,
         "issuePriority": priority,
         "issueSummary": descr,
         "issueTimestamp": issue_ts,
+        "status": "active",
+        "issue_occurence_count": random.randint(1, 5),
+        "last_occurence_time": last_occurence_ts,
         "suggestedActions": actions,
         "impactedHosts": [],
         "timestamp": ts,

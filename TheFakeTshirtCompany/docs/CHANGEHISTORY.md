@@ -4,6 +4,53 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-22 ~01:00 UTC -- Network Generators Realism Audit (ACI + Catalyst + Catalyst Center, 12 fixes)
+
+### Context
+
+Audit of 3 network generators against vendor documentation: ACI (~690 lines) vs APIC MIM/REST API docs, Catalyst (~710 lines) vs IOS-XE 17.12 syslog reference, Catalyst Center (~600 lines) vs Catalyst Center Assurance API v2 docs.
+
+### Changes
+
+**ACI Generator (5 fixes)**
+
+- **Fix 1: Add `dn` to audit records.** Every APIC MO has a `dn`; audit records (`aaaModLR`) were missing it. Added `"dn": f"subj-[{affected}]/mod-{audit_id}"`.
+- **Fix 2: Add `sessionId`, `srcIp`, `clientTag` to audit records.** Critical for security auditing. `sessionId` uses MD5+base64 derivation, `srcIp` uses the already-computed admin IP, `clientTag` randomly picks from REST/GUI/Python.
+- **Fix 3: Add `txId` to event records.** Real APIC events include transaction IDs; added to `eventRecord` attributes.
+- **Fix 4: Realistic `changeSet` values.** All 3 record types now have realistic property-change strings instead of empty/generic values. Added `FAULT_CHANGESETS`, `EVENT_CHANGESETS`, `AUDIT_CHANGESETS` lookup dicts. Faults: e.g. `"operStQual (New: sfp-missing)"`. Events: e.g. `"operSt (Old: down, New: up)"`. Audit: e.g. `"arpFlood:yes, unicastRoute:yes"`.
+- **Fix 5: Minor field improvements.** Added `alert`/`delegated` to faults, removed non-standard `uid` field. Realistic `rule` names from APIC MIM (e.g. `ethpm-if-port-down-no-infra`). Severity history variation (~20%): `origSeverity`/`prevSeverity`/`highestSeverity` can now differ. Audit `ind` varies (creation/modification/deletion) with matching event codes. Audit `affected` DN varies per object type. Event `user` field uses `"internal"` for operational events.
+
+**Catalyst Generator (4 fixes)**
+
+- **Fix 1: MAC format colon→dot notation.** IOS-XE natively uses `aabb.ccdd.eeff` in syslog. Added `_mac_to_cisco()` helper. Applied to DOT1X, MAB, AUTHMGR, SW_MATM events and exfil scenario.
+- **Fix 2: IOS-XE process name prefix.** Real Catalyst 9300 auth messages include `Switch 1 R0/0: sessmgrd:`. Added to all DOT1X/MAB/AUTHMGR templates. STACKMGR uses `Switch 1 R0/0: stack_mgr:`.
+- **Fix 3: STACKMGR severity + RESTART fix.** Changed `%STACKMGR-5-SWITCH_ADDED` to correct `%STACKMGR-4-SWITCH_ADDED` (severity 4). Removed `\n` from `%SYS-5-RESTART` template that broke syslog line parsing.
+- **Fix 4: New event types.** Added `ROUTING_EVENTS` (OSPF-5-ADJCHG up/down), `STACK_EVENTS` (STACKMGR-6-ACTIVE_ELECTED), `SYS-5-CONFIG_P` (programmatic config). Low-frequency injection in main loop.
+
+**Catalyst Center Generator (3 fixes)**
+
+- **Fix 1: Add `status` field to issues.** Real API includes `active`/`resolved`/`ignored` status. Added to `_generate_issue()`.
+- **Fix 2: Real API typo fields.** Network health: added `healthDistirubution` misspelled field (real API typo alongside correctly-spelled `healthDistribution`). Issues: added `issue_occurence_count` and `last_occurence_time` (real API typos).
+- **Fix 3: Supplementary device health fields.** Added `freeMemoryBuffer`, `freeMemoryBufferHealth`, `packetPool`, `packetPoolHealth` — present in real API responses.
+
+### Verification
+
+- Syntax check: ALL 3 PASS
+- 3-day run (all scenarios): 10,876 events, 0 errors
+- ACI audit: `dn`, `sessionId`, `srcIp`, `clientTag` present; `ind` varies; realistic `changeSet`
+- ACI event: `txId` present; `user` = "internal" for oper events; realistic `changeSet`
+- ACI fault: `alert`/`delegated` present; `uid` removed; realistic `rule` names; `changeSet` populated
+- Catalyst: MAC addresses in dot notation (e.g. `b8ac.6f6f.ecd3`); `Switch 1 R0/0: sessmgrd:` in auth events; STACKMGR severity 4; no newline in RESTART
+- Catalyst Center: `status=active` in issues; `healthDistirubution` typo field present; `freeMemoryBuffer`/`packetPool` in device health; `issue_occurence_count` in issues
+
+### Affected files
+
+- `bin/generators/generate_aci.py`
+- `bin/generators/generate_catalyst.py`
+- `bin/generators/generate_catalyst_center.py`
+
+---
+
 ## 2026-02-21 ~21:30 UTC -- ServiceNow Generator Realism Audit (5 fixes)
 
 ### Context

@@ -138,19 +138,21 @@ INTERFACE_EVENTS = [
 ]
 
 # 802.1X / Authentication events
+# IOS-XE process name prefix: real Catalyst 9300 auth messages include
+# "Switch 1 R0/0: sessmgrd:" before the facility mnemonic
 AUTH_EVENTS = [
     ("%DOT1X-5-SUCCESS", 5, PRI_NOTICE,
-     "Authentication successful for client ({mac}) on Interface {port} AuditSessionID {session_id}", 20),
+     "Switch 1 R0/0: sessmgrd: Authentication successful for client ({mac}) on Interface {port} AuditSessionID {session_id}", 20),
     ("%DOT1X-5-FAIL", 5, PRI_NOTICE,
-     "Authentication failed for client ({mac}) on Interface {port} AuditSessionID {session_id}", 3),
+     "Switch 1 R0/0: sessmgrd: Authentication failed for client ({mac}) on Interface {port} AuditSessionID {session_id}", 3),
     ("%MAB-5-SUCCESS", 5, PRI_NOTICE,
-     "Authentication successful for client ({mac}) on Interface {port} AuditSessionID {session_id}", 10),
+     "Switch 1 R0/0: sessmgrd: Authentication successful for client ({mac}) on Interface {port} AuditSessionID {session_id}", 10),
     ("%MAB-5-FAIL", 5, PRI_NOTICE,
-     "Authentication failed for client ({mac}) on Interface {port} AuditSessionID {session_id}", 2),
+     "Switch 1 R0/0: sessmgrd: Authentication failed for client ({mac}) on Interface {port} AuditSessionID {session_id}", 2),
     ("%AUTHMGR-5-START", 5, PRI_NOTICE,
-     "Starting 'dot1x' for client ({mac}) on Interface {port} AuditSessionID {session_id}", 15),
+     "Switch 1 R0/0: sessmgrd: Starting 'dot1x' for client ({mac}) on Interface {port} AuditSessionID {session_id}", 15),
     ("%AUTHMGR-5-SUCCESS", 5, PRI_NOTICE,
-     "Authorization succeeded for client ({mac}) on Interface {port} AuditSessionID {session_id}", 15),
+     "Switch 1 R0/0: sessmgrd: Authorization succeeded for client ({mac}) on Interface {port} AuditSessionID {session_id}", 15),
 ]
 
 # System events
@@ -158,13 +160,29 @@ SYSTEM_EVENTS = [
     ("%SYS-5-CONFIG_I", 5, PRI_NOTICE,
      "Configured from console by {admin} on vty0 ({admin_ip})", 5),
     ("%SYS-5-RESTART", 5, PRI_NOTICE,
-     "System restarted --\nCisco IOS Software [Dublin], Catalyst L3 Switch Software (CAT9K_IOSXE), Version {version}, RELEASE SOFTWARE", 1),
+     "System restarted -- Cisco IOS Software [Dublin], Catalyst L3 Switch Software (CAT9K_IOSXE), Version {version}, RELEASE SOFTWARE", 1),
     ("%SYS-6-LOGGINGHOST_STARTSTOP", 6, PRI_INFO,
      "Logging to host 10.20.20.30 port 514 started - CLI initiated", 1),
     ("%SEC_LOGIN-5-LOGIN_SUCCESS", 5, PRI_NOTICE,
      "Login Success [user: {admin}] [Source: {admin_ip}] [localport: 22] at {timestamp}", 5),
     ("%SEC_LOGIN-4-LOGIN_FAILED", 4, PRI_WARNING,
      "Login failure [user: {admin}] [Source: {admin_ip}] [localport: 22] [Reason: Invalid password] at {timestamp}", 1),
+    ("%SYS-5-CONFIG_P", 5, PRI_NOTICE,
+     "Configured programmatically by NETCONF/RESTCONF from {admin_ip}", 2),
+]
+
+# Routing protocol events (separate — only fire during business hours)
+ROUTING_EVENTS = [
+    ("%OSPF-5-ADJCHG", 5, PRI_NOTICE,
+     "Process 1, Nbr {neighbor_ip} on Vlan{vlan} from FULL to DOWN, Neighbor Down: Interface down or detached", 1),
+    ("%OSPF-5-ADJCHG", 5, PRI_NOTICE,
+     "Process 1, Nbr {neighbor_ip} on Vlan{vlan} from LOADING to FULL, Loading Done", 2),
+]
+
+# Stack management events
+STACK_EVENTS = [
+    ("%STACKMGR-6-ACTIVE_ELECTED", 6, PRI_INFO,
+     "Switch 1 R0/0: stack_mgr: Switch 1 has been elected ACTIVE", 1),
 ]
 
 # Spanning Tree events
@@ -189,8 +207,8 @@ SWITCH_EVENTS = [
      "Interface {port}: PD detected: IEEE PD", 3),
     ("%CDP-4-NATIVE_VLAN_MISMATCH", 4, PRI_WARNING,
      "Native VLAN mismatch discovered on {port} ({vlan1}), with {neighbor} {remote_port} ({vlan2})", 1),
-    ("%STACKMGR-5-SWITCH_ADDED", 5, PRI_NOTICE,
-     "Switch 1 has been added to the stack", 1),
+    ("%STACKMGR-4-SWITCH_ADDED", 4, PRI_WARNING,
+     "Switch 1 R0/0: stack_mgr: Switch 1 has been added to the stack", 1),
 ]
 
 # PoE events (for IP phones, APs, cameras)
@@ -223,8 +241,18 @@ def _random_port(switch_name: str, access: bool = True) -> str:
 
 
 def _random_mac() -> str:
-    """Generate a random MAC address (lowercase, colon-separated)."""
-    return ":".join(f"{random.randint(0, 255):02x}" for _ in range(6))
+    """Generate a random MAC address in Cisco dot notation (xxxx.xxxx.xxxx)."""
+    octets = [random.randint(0, 255) for _ in range(6)]
+    return f"{octets[0]:02x}{octets[1]:02x}.{octets[2]:02x}{octets[3]:02x}.{octets[4]:02x}{octets[5]:02x}"
+
+
+def _mac_to_cisco(mac: str) -> str:
+    """Convert colon-separated MAC (aa:bb:cc:dd:ee:ff) to Cisco dot notation (aabb.ccdd.eeff).
+
+    IOS-XE natively uses dot notation in syslog messages (DOT1X, MAB, SW_MATM, etc.).
+    """
+    clean = mac.replace(":", "").replace("-", "").replace(".", "").lower()
+    return f"{clean[0:4]}.{clean[4:8]}.{clean[8:12]}"
 
 
 def _random_vlan(switch_name: str) -> int:
@@ -308,14 +336,14 @@ def _generate_auth_event(start_date: str, day: int, hour: int,
     mnemonic, severity, pri, template, _ = event
 
     if mac_override:
-        mac = mac_override
+        mac = _mac_to_cisco(mac_override)
     elif random.random() < 0.80:
         # Use a real user MAC from this switch's location
         location = CATALYST_SWITCHES[switch_name]["location"]
         location_users = [u for u in USERS.values() if u.location == location]
         if location_users:
             user = random.choice(location_users)
-            mac = user.mac_address.lower()  # Catalyst uses lowercase MACs
+            mac = _mac_to_cisco(user.mac_address)
         else:
             mac = _random_mac()
     else:
@@ -371,7 +399,7 @@ def _generate_switch_event(start_date: str, day: int, hour: int,
         location = CATALYST_SWITCHES[switch_name]["location"]
         location_users = [u for u in USERS.values() if u.location == location]
         if location_users:
-            mac = random.choice(location_users).mac_address.lower()
+            mac = _mac_to_cisco(random.choice(location_users).mac_address)
         else:
             mac = _random_mac()
     else:
@@ -417,7 +445,7 @@ def _generate_exfil_events(start_date: str, day: int, hour: int,
         # MAC flap: attacker laptop seen on multiple ports (lateral movement)
         if hour in (10, 14, 22) and random.random() < 0.5:
             switch = "CAT-BOS-DIST-01"
-            mac = "02:00:de:ad:be:ef"  # Attacker MAC
+            mac = "0200.dead.beef"  # Attacker MAC
             vlan = 30  # User VLAN
             port1 = f"GigabitEthernet1/0/{random.randint(1, 24)}"
             port2 = f"GigabitEthernet1/0/{random.randint(25, 48)}"
@@ -432,7 +460,7 @@ def _generate_exfil_events(start_date: str, day: int, hour: int,
             port = f"GigabitEthernet1/0/{random.randint(1, 48)}"
             session_id = _random_session_id()
             ts = _format_syslog_ts(start_date, day, hour)
-            msg = f"%DOT1X-5-SUCCESS: Authentication successful for client (02:00:de:ad:be:ef) on Interface {port} AuditSessionID {session_id}"
+            msg = f"%DOT1X-5-SUCCESS: Authentication successful for client (0200.dead.beef) on Interface {port} AuditSessionID {session_id}"
             seq_counter[0] += 1
             events.append(_build_syslog_line(PRI_NOTICE, seq_counter[0], switch, ts, msg, "exfil"))
 
@@ -624,6 +652,33 @@ def generate_catalyst_logs(
                 # Prepend sortable timestamp for ordering
                 sort_key = _format_syslog_ts(start_date, day, hour)
                 all_events.append(f"{sort_key}\t{event}")
+
+            # OSPF adjacency events (~1-2 per day during business hours)
+            if 8 <= hour <= 17 and random.random() < 0.01 * scale:
+                rtg_evt = _weighted_choice(ROUTING_EVENTS)
+                mnemonic, sev, pri, rtg_tmpl, _ = rtg_evt
+                # OSPF neighbors are the other distribution switches
+                switch = random.choice(SWITCH_NAMES)
+                other_switches = [s for s in SWITCH_NAMES if s != switch]
+                nbr_switch = random.choice(other_switches) if other_switches else switch
+                nbr_ip = CATALYST_SWITCHES[nbr_switch]["ip"]
+                vlan = random.choice([10, 20])
+                ts = _format_syslog_ts(start_date, day, hour)
+                msg = f"{mnemonic}: {rtg_tmpl.format(neighbor_ip=nbr_ip, vlan=vlan)}"
+                seq_counters[switch][0] += 1
+                line = _build_syslog_line(pri, seq_counters[switch][0], switch, ts, msg)
+                all_events.append(f"{ts}\t{line}")
+
+            # Stack election (~once per 7 days, early morning)
+            if hour == 3 and day % 7 == 0 and random.random() < 0.5:
+                stk_evt = STACK_EVENTS[0]
+                mnemonic, sev, pri, stk_tmpl, _ = stk_evt
+                switch = random.choice(SWITCH_NAMES)
+                ts = _format_syslog_ts(start_date, day, hour)
+                msg = f"{mnemonic}: {stk_tmpl}"
+                seq_counters[switch][0] += 1
+                line = _build_syslog_line(pri, seq_counters[switch][0], switch, ts, msg)
+                all_events.append(f"{ts}\t{line}")
 
             # Scenario events
             if "exfil" in active_scenarios and is_scenario_active_day("exfil", day):
