@@ -14,6 +14,7 @@ Splunk sourcetypes: servicenow:incident, servicenow:cmdb, servicenow:change
 """
 
 import argparse
+import hashlib
 import random
 import sys
 import uuid
@@ -55,6 +56,40 @@ PRIORITIES = {
     4: {"name": "Low", "resolve_hours": (8, 48), "weight": 30},
     5: {"name": "Planning", "resolve_hours": (24, 168), "weight": 10},
 }
+
+# Incident state: display name → numeric code (ServiceNow stores numeric internally)
+INCIDENT_STATE_MAP = {
+    "New": "1",
+    "In Progress": "2",
+    "On Hold": "-5",
+    "Resolved": "6",
+    "Closed": "7",
+}
+
+# Change state: display name → numeric code
+CHANGE_STATE_MAP = {
+    "New": "-5",
+    "Assess": "-4",
+    "Authorize": "-3",
+    "Scheduled": "-2",
+    "Implement": "-1",
+    "Review": "0",
+    "Closed": "3",
+    "Cancelled": "4",
+}
+
+# Priority matrix: (urgency, impact) → priority (1=Critical, 5=Planning)
+PRIORITY_MATRIX = {
+    (1, 1): 1, (1, 2): 2, (1, 3): 3,
+    (2, 1): 2, (2, 2): 3, (2, 3): 4,
+    (3, 1): 3, (3, 2): 4, (3, 3): 5,
+}
+
+
+def _calculate_priority(urgency: int, impact: int) -> int:
+    """Calculate ServiceNow priority from urgency x impact matrix."""
+    return PRIORITY_MATRIX.get((urgency, impact), 4)
+
 
 # =============================================================================
 # ASSIGNMENT GROUPS
@@ -1014,6 +1049,10 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
     """
     events = []
 
+    # Compute sys_id and sys_created_on ONCE for the entire lifecycle
+    sys_id = _generate_sys_id(f"INC:{incident.number}")
+    created_on = incident.opened_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     # Calculate resolution time based on priority
     resolve_min, resolve_max = PRIORITIES[incident.priority]["resolve_hours"]
     resolve_hours = random.uniform(resolve_min, resolve_max)
@@ -1021,8 +1060,12 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
     # Event 1: New (incident created)
     fields = {
         "sys_updated_on": incident.opened_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": incident.caller_id,
         "number": incident.number,
-        "state": "New",
+        "state": INCIDENT_STATE_MAP["New"],
+        "dv_state": "New",
         "short_description": incident.short_description,
         "description": incident.description,
         "category": incident.category,
@@ -1030,9 +1073,10 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
         "priority": incident.priority,
         "urgency": incident.urgency,
         "impact": incident.impact,
-        "caller_id": incident.caller_id,
-        "caller_name": incident.caller_name,
-        "assignment_group": incident.assignment_group,
+        "caller_id": _generate_sys_id(f"user:{incident.caller_id}"),
+        "dv_caller_id": incident.caller_name,
+        "assignment_group": _generate_sys_id(f"group:{incident.assignment_group}"),
+        "dv_assignment_group": incident.assignment_group,
         "location": incident.location,
     }
     if incident.cmdb_ci:
@@ -1048,10 +1092,14 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 
     fields = {
         "sys_updated_on": assign_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": incident.caller_id,
         "number": incident.number,
-        "state": "In Progress",
-        "assigned_to": assigned_to,
-        "assigned_to_name": assigned_name,
+        "state": INCIDENT_STATE_MAP["In Progress"],
+        "dv_state": "In Progress",
+        "assigned_to": _generate_sys_id(f"user:{assigned_to}"),
+        "dv_assigned_to": assigned_name,
         "work_notes": random.choice(WORK_NOTES[:5]),  # Investigation notes
     }
     if incident.demo_id:
@@ -1065,8 +1113,12 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 
         fields = {
             "sys_updated_on": update_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "sys_id": sys_id,
+            "sys_created_on": created_on,
+            "sys_created_by": incident.caller_id,
             "number": incident.number,
-            "state": "In Progress",
+            "state": INCIDENT_STATE_MAP["In Progress"],
+            "dv_state": "In Progress",
             "work_notes": random.choice(WORK_NOTES[3:]),  # Progress notes
         }
         if incident.demo_id:
@@ -1092,10 +1144,14 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 
     fields = {
         "sys_updated_on": resolved_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": incident.caller_id,
         "number": incident.number,
-        "state": "Resolved",
-        "resolved_by": assigned_to,
-        "resolved_by_name": assigned_name,
+        "state": INCIDENT_STATE_MAP["Resolved"],
+        "dv_state": "Resolved",
+        "resolved_by": _generate_sys_id(f"user:{assigned_to}"),
+        "dv_resolved_by": assigned_name,
         "close_code": random.choice(CLOSE_CODES[:2]),  # Mostly Solved/Workaround
         "close_notes": close_notes,
     }
@@ -1113,8 +1169,12 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
         new_priority = max(1, incident.priority - 1)
         esc_fields = {
             "sys_updated_on": escalation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "sys_id": sys_id,
+            "sys_created_on": created_on,
+            "sys_created_by": incident.caller_id,
             "number": incident.number,
-            "state": "In Progress",
+            "state": INCIDENT_STATE_MAP["In Progress"],
+            "dv_state": "In Progress",
             "priority": new_priority,
             "urgency": new_priority,
             "work_notes": f"Priority escalated from {incident.priority} to {new_priority} - customer impact increasing",
@@ -1131,8 +1191,12 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 
     fields = {
         "sys_updated_on": closed_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": incident.caller_id,
         "number": incident.number,
-        "state": "Closed",
+        "state": INCIDENT_STATE_MAP["Closed"],
+        "dv_state": "Closed",
     }
     if incident.demo_id:
         fields["demo_id"] = incident.demo_id
@@ -1146,8 +1210,12 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
         # Reopen event
         reopen_fields = {
             "sys_updated_on": reopen_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "sys_id": sys_id,
+            "sys_created_on": created_on,
+            "sys_created_by": incident.caller_id,
             "number": incident.number,
-            "state": "In Progress",
+            "state": INCIDENT_STATE_MAP["In Progress"],
+            "dv_state": "In Progress",
             "reopen_count": 1,
             "work_notes": random.choice([
                 "Issue recurred after initial fix",
@@ -1166,9 +1234,14 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 
         reresolve_fields = {
             "sys_updated_on": reresolve_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "sys_id": sys_id,
+            "sys_created_on": created_on,
+            "sys_created_by": incident.caller_id,
             "number": incident.number,
-            "state": "Resolved",
-            "resolved_by": assigned_to,
+            "state": INCIDENT_STATE_MAP["Resolved"],
+            "dv_state": "Resolved",
+            "resolved_by": _generate_sys_id(f"user:{assigned_to}"),
+            "dv_resolved_by": assigned_name,
             "close_code": "Solved",
             "close_notes": random.choice([
                 "Root cause identified and permanent fix applied",
@@ -1185,8 +1258,12 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
         reclose_time = reresolve_time + timedelta(hours=random.randint(1, 12))
         reclose_fields = {
             "sys_updated_on": reclose_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "sys_id": sys_id,
+            "sys_created_on": created_on,
+            "sys_created_by": incident.caller_id,
             "number": incident.number,
-            "state": "Closed",
+            "state": INCIDENT_STATE_MAP["Closed"],
+            "dv_state": "Closed",
             "reopen_count": 1,
         }
         if incident.demo_id:
@@ -1203,6 +1280,11 @@ def generate_incident_lifecycle(incident: Incident, base_date: datetime) -> List
 def _cmdb_sys_id(name: str) -> str:
     """Generate deterministic sys_id from CI name."""
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{name}.theFakeTshirtCompany.com"))
+
+
+def _generate_sys_id(seed: str) -> str:
+    """Generate a deterministic 32-char ServiceNow sys_id from seed string."""
+    return hashlib.md5(seed.encode()).hexdigest()
 
 
 def generate_cmdb_records(start_date: str) -> List[str]:
@@ -1345,7 +1427,8 @@ def generate_cmdb_records(start_date: str) -> List[str]:
             "cpu_count": 8,
             "ram": 16,
             "disk_space": 512,
-            "assigned_to": f"{ws['user']}@{TENANT}",
+            "assigned_to": _generate_sys_id(f"user:{ws['user']}@{TENANT}"),
+            "dv_assigned_to": f"{ws['user']}@{TENANT}",
             "category": "Workstation",
             "subcategory": "Laptop",
             "record_type": "ci",
@@ -1399,7 +1482,7 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
     """Generate all state transitions for a change request.
 
     Change lifecycle:
-        New → Assess → Authorize → Scheduled → Implement → Review → Closed
+        New -> Assess -> Authorize -> Scheduled -> Implement -> Review -> Closed
     Emergency changes collapse Assess+Authorize into minutes.
 
     Args:
@@ -1412,25 +1495,36 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
     requester_email, requester_name = get_assignment_member(
         change_data.get("assignment_group", "Service Desk"))
 
+    # Compute sys_id and sys_created_on ONCE for the entire lifecycle
+    sys_id = _generate_sys_id(f"CHG:{change_num}")
+    created_on = change_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     # Shared fields for demo_id
     def _add_demo_id(fields):
         if demo_id:
             fields["demo_id"] = demo_id
 
     # State 1: New
+    _ag = change_data.get("assignment_group", "Service Desk")
     fields = {
         "sys_updated_on": change_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
         "type": change_data.get("type", "standard"),
-        "state": "New",
+        "state": CHANGE_STATE_MAP["New"],
+        "dv_state": "New",
         "short_description": change_data["short"],
         "description": change_data.get("description", change_data["short"]),
         "category": change_data.get("category", "Infrastructure"),
         "priority": change_data.get("priority", 3),
         "risk": change_data.get("risk", "Low"),
         "impact": change_data.get("impact", 3),
-        "assignment_group": change_data.get("assignment_group", "Service Desk"),
-        "requested_by": requester_email,
+        "assignment_group": _generate_sys_id(f"group:{_ag}"),
+        "dv_assignment_group": _ag,
+        "requested_by": _generate_sys_id(f"user:{requester_email}"),
+        "dv_requested_by": requester_name,
     }
     if change_data.get("cmdb_ci"):
         fields["cmdb_ci"] = change_data["cmdb_ci"]
@@ -1446,8 +1540,12 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
 
     fields = {
         "sys_updated_on": assess_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
-        "state": "Assess",
+        "state": CHANGE_STATE_MAP["Assess"],
+        "dv_state": "Assess",
         "work_notes": "Risk assessment completed" if not is_emergency else "Emergency - expedited assessment",
     }
     _add_demo_id(fields)
@@ -1464,10 +1562,14 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
         change_data.get("assignment_group", "Service Desk"))
     fields = {
         "sys_updated_on": auth_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
-        "state": "Authorize",
-        "assigned_to": assigned_to,
-        "assigned_to_name": assigned_name,
+        "state": CHANGE_STATE_MAP["Authorize"],
+        "dv_state": "Authorize",
+        "assigned_to": _generate_sys_id(f"user:{assigned_to}"),
+        "dv_assigned_to": assigned_name,
         "work_notes": "Change approved" if not is_emergency else "Emergency change approved by CAB chair",
     }
     _add_demo_id(fields)
@@ -1500,8 +1602,12 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
     sched_time = auth_time + timedelta(minutes=random.randint(5, 30))
     fields = {
         "sys_updated_on": sched_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
-        "state": "Scheduled",
+        "state": CHANGE_STATE_MAP["Scheduled"],
+        "dv_state": "Scheduled",
         "planned_start_date": planned_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "planned_end_date": planned_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -1511,8 +1617,12 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
     # State 5: Implement
     fields = {
         "sys_updated_on": planned_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
-        "state": "Implement",
+        "state": CHANGE_STATE_MAP["Implement"],
+        "dv_state": "Implement",
         "actual_start_date": planned_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "work_notes": "Implementation started",
     }
@@ -1523,8 +1633,12 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
     actual_end = planned_end + timedelta(minutes=random.randint(-15, 30))
     fields = {
         "sys_updated_on": actual_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
-        "state": "Review",
+        "state": CHANGE_STATE_MAP["Review"],
+        "dv_state": "Review",
         "actual_end_date": actual_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "work_notes": "Implementation complete, in review",
     }
@@ -1540,8 +1654,12 @@ def generate_change_lifecycle(change_num: str, change_data: dict,
 
     fields = {
         "sys_updated_on": closed_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sys_id": sys_id,
+        "sys_created_on": created_on,
+        "sys_created_by": requester_email,
         "number": change_num,
-        "state": "Closed",
+        "state": CHANGE_STATE_MAP["Closed"],
+        "dv_state": "Closed",
         "close_code": close_code,
         "close_notes": close_notes,
     }
@@ -1670,6 +1788,26 @@ def generate_normal_incidents(base_date: datetime, day: int, count: int) -> List
         # Get caller
         caller_email, caller_name = get_random_user()
 
+        # Derive urgency/impact/priority using matrix
+        _template_priority = template.get("priority", None)
+        if _template_priority:
+            # Template specifies priority -- reverse-derive compatible urgency/impact
+            if _template_priority == 1:
+                _urgency, _impact = 1, 1
+            elif _template_priority == 2:
+                _urgency, _impact = random.choice([(1, 2), (2, 1)])
+            elif _template_priority == 3:
+                _urgency, _impact = random.choice([(1, 3), (2, 2), (3, 1)])
+            elif _template_priority == 4:
+                _urgency, _impact = random.choice([(2, 3), (3, 2)])
+            else:  # 5
+                _urgency, _impact = 3, 3
+            _priority = _template_priority
+        else:
+            _urgency = random.randint(1, 3)
+            _impact = random.randint(1, 3)
+            _priority = _calculate_priority(_urgency, _impact)
+
         # Create incident
         incident = Incident(
             number=get_next_incident_number(),
@@ -1677,9 +1815,9 @@ def generate_normal_incidents(base_date: datetime, day: int, count: int) -> List
             description=f"User reported: {template['short']}",
             category=category,
             subcategory=template.get("subcategory", "General"),
-            priority=template.get("priority", get_priority()),
-            urgency=template.get("priority", get_priority()),
-            impact=random.randint(2, 4),
+            priority=_priority,
+            urgency=_urgency,
+            impact=_impact,
             caller_id=caller_email,
             caller_name=caller_name,
             assignment_group=config["assignment_group"],
@@ -1750,15 +1888,28 @@ def generate_scenario_incidents(base_date: datetime, day: int, scenarios: str) -
         for template in selected:
             caller_email, caller_name = get_random_user()
 
+            # Derive urgency/impact from template priority using matrix
+            _scn_priority = template.get("priority", 1)
+            if _scn_priority == 1:
+                _urgency, _impact = 1, 1
+            elif _scn_priority == 2:
+                _urgency, _impact = random.choice([(1, 2), (2, 1)])
+            elif _scn_priority == 3:
+                _urgency, _impact = random.choice([(1, 3), (2, 2), (3, 1)])
+            elif _scn_priority == 4:
+                _urgency, _impact = random.choice([(2, 3), (3, 2)])
+            else:  # 5
+                _urgency, _impact = 3, 3
+
             incident = Incident(
                 number=get_next_incident_number(),
                 short_description=template["short"],
                 description=template.get("description", f"User reported: {template['short']}"),
                 category=template.get("category", "Infrastructure"),
                 subcategory=template.get("subcategory", "General"),
-                priority=template.get("priority", 1),
-                urgency=template.get("priority", 1),
-                impact=1 if template.get("priority", 2) <= 2 else 2,
+                priority=_scn_priority,
+                urgency=_urgency,
+                impact=_impact,
                 caller_id=caller_email,
                 caller_name=caller_name,
                 assignment_group=template.get("assignment_group", "Service Desk"),

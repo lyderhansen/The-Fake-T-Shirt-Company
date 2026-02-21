@@ -4,6 +4,42 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-21 ~21:30 UTC -- ServiceNow Generator Realism Audit (5 fixes)
+
+### Context
+
+Audit of `generate_servicenow.py` (~1,970 lines). Generator produced realistic ServiceNow incident/CMDB/change data but was missing several fields that real ServiceNow instances include: `sys_id` on incidents and changes, numeric state codes, display-value (`dv_`) prefixed reference fields, creation metadata, and consistent urgency/impact/priority alignment.
+
+### Changes (6 fixes)
+
+- **Fix 1: Add sys_id to INCIDENT and CHANGE records.** Added `hashlib` import and `_generate_sys_id()` helper (MD5-based 32-char hex). Computed once per incident/change at top of lifecycle function, then added to ALL event `fields` dicts (New, In Progress, work notes, Resolved, escalation, Closed, reopen, re-resolve, re-close for incidents; New, Assess, Authorize, Scheduled, Implement, Review, Closed for changes). CMDB already had `_cmdb_sys_id()` -- unchanged.
+
+- **Fix 2: Numeric state codes + dv_state display values.** Added `INCIDENT_STATE_MAP` and `CHANGE_STATE_MAP` module-level constants mapping display names to numeric codes (e.g., New=1, In Progress=2, Resolved=6, Closed=7 for incidents; New=-5, Assess=-4, ..., Closed=3 for changes). Replaced all `"state": "StateName"` with `"state": STATE_MAP["StateName"], "dv_state": "StateName"` in both lifecycle functions.
+
+- **Fix 3: Add dv_ prefixed display-value fields for reference fields.** Reference fields (`caller_id`, `assignment_group`, `assigned_to`, `resolved_by`, `requested_by`) now use `_generate_sys_id()` as the value with display name in `dv_` prefix field. Removed obsolete `caller_name`, `assigned_to_name`, `resolved_by_name` fields. Applied to incident lifecycle (7 locations), change lifecycle (3 locations), and CMDB workstation records.
+
+- **Fix 5: Add sys_created_on and sys_created_by fields.** Added immutable `sys_created_on` (ISO timestamp from opened_at/change_time) and `sys_created_by` (caller_id/requester_email) to ALL event `fields` dicts in both incident and change lifecycle functions. Values stay constant across all state transitions for the same record.
+
+- **Fix 4: Update props.conf FIELDALIAS for dv_ fields.** Updated `[FAKE:servicenow:incident]`: `FIELDALIAS-user` now aliases `dv_caller_id` (was `opened_by`), `FIELDALIAS-status` now aliases `dv_state` (was `state`), added `FIELDALIAS-assignment_user` for `dv_assigned_to`. Updated `[FAKE:servicenow:change]`: `FIELDALIAS-status_chg` now aliases `dv_state`, added `FIELDALIAS-assignment_user_chg` for `dv_assigned_to`.
+
+- **Fix 6: Fix urgency/impact alignment with priority matrix.** Added `PRIORITY_MATRIX` constant and `_calculate_priority()` function. In `generate_normal_incidents()`: when template specifies priority, reverse-derive compatible urgency/impact pairs; otherwise generate urgency/impact independently and derive priority from matrix. In `generate_scenario_incidents()`: same reverse-derivation from template priority. Replaces previous inconsistent assignment where priority and urgency were set to the same value and impact was random.
+
+### Verification
+
+- Syntax check: PASS
+- 14-day full run (all scenarios): 1,652 events, 0 errors
+- sys_id consistency: verified same sys_id across all lifecycle events for same record
+- State codes: verified numeric values (1, 2, 6, 7 for incidents; -5, -4, -3, -2, -1, 0, 3 for changes)
+- dv_ fields: verified dv_caller_id, dv_assignment_group, dv_assigned_to, dv_resolved_by, dv_requested_by present
+- Priority matrix: verified all 9 urgency×impact combinations → correct priority (p=1:u1i1, p=2:u1i2/u2i1, p=3:u1i3/u2i2/u3i1, p=4:u2i3/u3i2, p=5:u3i3)
+
+### Affected files
+
+- `bin/generators/generate_servicenow.py`
+- `TA-FAKE-TSHRT/default/props.conf` (FIELDALIAS updates for dv_ fields)
+
+---
+
 ## 2026-02-21 ~19:00 UTC -- Sysmon Generator Realism Audit (8 fixes)
 
 ### Context
