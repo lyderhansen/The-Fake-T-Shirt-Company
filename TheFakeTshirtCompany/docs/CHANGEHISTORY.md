@@ -4,6 +4,57 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-21 ~19:00 UTC -- Sysmon Generator Realism Audit (8 fixes)
+
+### Context
+
+Deep audit of `generate_sysmon.py` (~1,928 lines, 15K+ events over 14 days). Generator was ~70% production-ready. Two critical issues broke all process correlation (random GUIDs per event made process tree reconstruction impossible in Splunk). Several high/medium/low issues improved realism.
+
+### Changes (8 fixes)
+
+- **Fix 1 (CRITICAL): Deterministic ProcessGuid per process.** Added `process_guid` and `process_id` parameters to ALL 9 EID functions (eid1, eid3, eid5, eid7, eid8, eid10, eid11, eid13, eid22). When provided, events use the given GUID/PID instead of random values. Updated ALL caller sites (server generator, workstation generator, client generator, exfil scenario, ransomware scenario) to compute `proc_guid = _generate_guid(seed=...)` once per process session and pass it to all related EID calls. For EID 1, added `parent_process_guid` parameter so child processes reference their parent's GUID.
+
+- **Fix 2 (HIGH): Deterministic LogonGuid per session.** Added `logon_guid` parameter to `sysmon_eid1()`. Computed deterministically as `_generate_guid(seed=f"logon:{computer}:{user}:{day}")` at all caller sites. All processes in the same logon session on the same day now share a LogonGuid, enabling session-based hunting in Splunk.
+
+- **Fix 3 (HIGH): Added IMPHASH to hash format.** Updated `_generate_hashes()` to include a deterministic IMPHASH field: `SHA256=...,MD5=...,SHA1=...,IMPHASH=...`. Enables import-hash-based malware grouping and threat hunting.
+
+- **Fix 4 (HIGH): Ransomware scenario expanded to Day 8-9.** Changed `if day != 7` to `if day not in (7, 8)` and updated the main generator loop accordingly. Added Day 8 (0-indexed) cleanup events: Defender quarantine (08:00, MpCmdRun -RemediateThreats), IT admin RDP session (08:15, mstsc.exe:3389), registry cleanup (08:30, delete Run key), full AV scan (09:00, MpCmdRun -Scan -ScanType 2). Adds 4 events completing the ransomware containment story.
+
+- **Fix 5 (MEDIUM): EID 10 field name correction.** Changed `SourceProcessGUID` to `SourceProcessGuid` and `TargetProcessGUID` to `TargetProcessGuid` in `sysmon_eid10()` for consistency with real Sysmon v15 and the Splunk Sysmon TA's field extraction expectations.
+
+- **Fix 6 (MEDIUM): TerminalSessionId varies by context.** Changed from hardcoded `0` to context-based: 0 for SYSTEM/NETWORK SERVICE/LOCAL SERVICE, 1 for interactive users. Enables RDP session detection in Splunk.
+
+- **Fix 7 (LOW): CurrentDirectory varies by process.** Changed from hardcoded `C:\Windows\System32\` to context-based: System32 for system/Windows processes, Temp directory for temp executables, Program Files directory for installed apps, user home for other user processes.
+
+- **Fix 8 (LOW): Named constants for scenario usernames.** Replaced bare string literals (`jbrown`, `amiller`, `bwhite`) with named constants (`EXFIL_LATERAL_WIN_USER`, `EXFIL_TARGET_WIN_USER`, `RANSOM_TARGET_WIN_USER`) at the top of each scenario section. No functional change; code quality improvement.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `bin/generators/generate_sysmon.py` | All 8 fixes: deterministic ProcessGuid/LogonGuid, IMPHASH, ransomware day range, EID 10 field names, TerminalSessionId, CurrentDirectory, scenario username constants |
+
+### Verification
+
+```
+python3 bin/main_generate.py --sources=sysmon --days=14 --scenarios=all --test
+```
+
+| Check | Result |
+|-------|--------|
+| Generator runs | PASS -- 15,121 events, 0.4s |
+| IMPHASH present | PASS -- 7,155 events with IMPHASH field |
+| SourceProcessGuid (CamelCase) | PASS -- 821 EID 10 events, 0 old-style |
+| TerminalSessionId varies | PASS -- 2,756 session=0, 619 session=1 |
+| CurrentDirectory varies | PASS -- System32, Users, Program Files paths |
+| Ransomware Jan 8 + Jan 9 | PASS -- 12 attack events + 4 cleanup events |
+| Parent-child GUID linkage | PASS -- WINWORD GUID matches malware ParentProcessGuid |
+| Deterministic ProcessGuid | PASS -- GUIDs are seeded, not random |
+
+**Requires data regeneration** for sysmon source.
+
+---
+
 ## 2026-02-20 ~21:00 UTC -- Secure Access: Fix demo_id corrupting last CSV field
 
 ### Context

