@@ -4,6 +4,62 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~02:00 UTC -- ServiceBus Generator Realism Audit (7 fixes)
+
+### Context
+
+Comprehensive audit of `generate_servicebus.py` (Azure ServiceBus event generator). This generator reads `order_registry.json` (created by `generate_access.py`) and produces a 5-event lifecycle per order: OrderCreated, PaymentProcessed, InventoryReserved, ShipmentCreated, ShipmentDispatched. Cross-checked all correlations with the access log order registry, validated lifecycle ordering, timing delays, sequence numbers, scenario integration (dead_letter_pricing), and Azure ServiceBus message format compliance.
+
+### Changes (7 fixes)
+
+- **Fix 1 (CRITICAL): Lifecycle events out of order -- InventoryReserved before PaymentProcessed (19% of orders).** PaymentProcessed used `base_ts + random(1,5)` and InventoryReserved used `base_ts + random(2,10)`, both relative to the same order timestamp. When Payment got +5s and Inventory got +2s, inventory appeared first. Fixed by chaining timestamps: each lifecycle step now receives the previous step's timestamp as its base. OrderCreated at checkout time, Payment 1-5s after Created, Inventory 2-10s after Payment, ShipmentCreated 1-4h after Inventory, ShipmentDispatched 4-24h after ShipmentCreated. All event generator functions now return `(event_dict, event_timestamp)` tuples.
+
+- **Fix 2 (CRITICAL): Failed payments still generated shipment events.** The main loop unconditionally generated all 5 lifecycle events for every order, even when PaymentProcessed had status "Failed" / paymentStatus "Declined". In reality, a declined payment halts the order pipeline. Fixed by checking the `payment_failed` return value and using `continue` to skip InventoryReserved, ShipmentCreated, and ShipmentDispatched for failed payments. These orders now produce only 2 events (OrderCreated + PaymentProcessed).
+
+- **Fix 3 (BUG): ShipmentDispatched delay relative to order timestamp, not ShipmentCreated.** `generate_shipment_dispatched` received the original order `ts` and added `random(18000, 90000)` seconds to it, making the delay 5-25h from the order rather than 4-24h from ShipmentCreated. Fixed by chaining: ShipmentDispatched now receives ShipmentCreated's timestamp and adds `random(14400, 86400)` seconds (4-24h), matching the documented spec.
+
+- **Fix 4 (BUG): SequenceNumber not monotonically increasing when sorted by time.** Sequence numbers were assigned per-order during processing, but after the final time-sort, interleaving of different orders produced 1,775 violations where a later-timestamped event had a lower sequence number. Fixed by reassigning sequence numbers sequentially after the final `enqueuedTimeUtc` sort, matching real Azure ServiceBus behavior where sequence numbers reflect enqueue order.
+
+- **Fix 5 (BUG): Day calculation used month-start instead of start_date.** `day = (ts - datetime(ts.year, ts.month, 1)).days` hardcoded January 1st as the reference point. This coincidentally worked for the default `start_date=2026-01-01` but would be wrong for any other start date. Replaced with `_get_day_offset(ts, start_date)` helper that computes offset from the actual `start_date` parameter.
+
+- **Fix 6 (REALISM): Added missing Azure ServiceBus standard message properties.** Real Azure ServiceBus BrokerProperties include `contentType`, `label` (subject), `timeToLive`, and `correlationId`. Added all four to every event: `contentType="application/json;charset=utf-8"`, `label=<eventType>`, `timeToLive=86400` (orders/payments/inventory) or `259200` (shipments), `correlationId=<order_id>` for cross-event correlation.
+
+- **Fix 7 (BUG): ShipmentDispatched delay range was 5-25h, spec says 4-24h.** `random.randint(18000, 90000)` produced 5-25 hours. Changed to `random.randint(14400, 86400)` for the documented 4-24 hour range.
+
+### Verification
+
+**3-day run (`--sources=access,servicebus --days=3 --scenarios=all`):**
+- Generator output: 1,012 orders, 5,067 events
+- Lifecycle ordering errors: 0 (was 197)
+- Failed payment but shipped: 0
+- Failed payment truncated (2-event orders): 0 (no scenario failures in 3-day window)
+- Sequence number violations: 0 (was 1,775)
+- Timing delays all positive: 0 negatives
+- Created->Payment: 0-6s, avg 3s
+- Payment->Inventory: 1-11s, avg 6s
+- Inventory->ShipCreated: 3,617-14,397s (1-4h)
+- ShipCreated->Dispatched: 14,662-86,249s (4-24h)
+- MessageId uniqueness: 5,067/5,067
+- tshirtcid correlation: 0 mismatches
+- customer_id correlation: 0 mismatches
+- New Azure fields present: contentType, label, timeToLive, correlationId
+
+**17-day run (`--sources=access,servicebus --days=17 --scenarios=all`):**
+- Generator output: 4,649 orders, 23,237 events
+- Lifecycle ordering errors: 0
+- Failed payment truncated (2-event orders): 33
+- Failed payment but shipped: 0
+- Sequence number violations: 0
+- PriceUpdateFailed events: 76
+- demo_id=dead_letter_pricing events: 361
+- Dead-lettered total: 91 (15 baseline + 76 PriceUpdateFailed)
+
+### Affected file
+
+- `bin/generators/generate_servicebus.py`
+
+---
+
 ## 2026-02-26 ~00:30 UTC -- Orders Generator Realism Audit (5 fixes)
 
 ### Context

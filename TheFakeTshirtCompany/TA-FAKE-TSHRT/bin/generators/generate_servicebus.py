@@ -9,10 +9,13 @@ across access logs, orders, and servicebus events.
 
 Events per order:
   1. OrderCreated - When checkout completes
-  2. PaymentProcessed - 1-5 seconds after
-  3. InventoryReserved - 2-10 seconds after
-  4. ShipmentCreated - 1-4 hours after (business hours)
-  5. ShipmentDispatched - 4-24 hours after shipment
+  2. PaymentProcessed - 1-5 seconds after OrderCreated
+  3. InventoryReserved - 2-10 seconds after PaymentProcessed
+  4. ShipmentCreated - 1-4 hours after InventoryReserved
+  5. ShipmentDispatched - 4-24 hours after ShipmentCreated
+
+Each step chains off the previous step's timestamp to guarantee strict
+chronological ordering within a single order's lifecycle.
 """
 
 import argparse
@@ -20,7 +23,7 @@ import json
 import random
 import sys
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 from datetime import datetime, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -57,6 +60,15 @@ _SB_TRANSIENT_ERRORS = [
     "MessageLockLost",
     "SessionLockLost",
 ]
+
+# Default TTL values per event type (seconds) matching Azure ServiceBus defaults
+_SB_TTL_SECONDS = {
+    "OrderCreated": 86400,       # 1 day
+    "PaymentProcessed": 86400,   # 1 day
+    "InventoryReserved": 86400,  # 1 day
+    "ShipmentCreated": 259200,   # 3 days
+    "ShipmentDispatched": 259200, # 3 days
+}
 
 
 # =============================================================================
@@ -100,6 +112,21 @@ def get_topic_name(event_type: str) -> str:
         "ShipmentDispatched": "shipment-events",
     }
     return topics.get(event_type, "default-topic")
+
+
+def get_content_type(event_type: str) -> str:
+    """Get MIME content type for event type body."""
+    return "application/json;charset=utf-8"
+
+
+def _get_day_offset(ts: datetime, start_date: str) -> int:
+    """Calculate 0-indexed day offset from start_date.
+
+    Uses the actual start_date parameter instead of hardcoding month start,
+    so scenario day matching works correctly for any start_date value.
+    """
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    return (ts.replace(hour=0, minute=0, second=0, microsecond=0) - start_dt).days
 
 
 def get_scenario_effect(scenario: str, day: int, hour: int) -> dict:
@@ -168,11 +195,16 @@ def generate_dead_letter_event(order_id: str, tshirtcid: str, customer_id: str,
     event_ts = format_ts(event_ts_dt)
 
     reason = random.choice(_SB_DEAD_LETTER_REASONS)
+    ttl = _SB_TTL_SECONDS.get(event_type, 86400)
 
     return {
         "messageId": message_id,
+        "correlationId": order_id,
         "sessionId": session_id,
         "tshirtcid": tshirtcid,
+        "contentType": get_content_type(event_type),
+        "label": event_type,
+        "timeToLive": ttl,
         "enqueuedTimeUtc": event_ts,
         "sequenceNumber": seq_num,
         "deliveryCount": random.randint(5, 10),  # Max retries exhausted
@@ -198,16 +230,21 @@ def generate_dead_letter_event(order_id: str, tshirtcid: str, customer_id: str,
 
 def generate_order_created(order_id: str, tshirtcid: str, customer_id: str,
                            session_id: str, ts: datetime, items: List[Dict],
-                           cart_total: int, scenario: str, seq_num: int) -> Dict:
-    """Generate OrderCreated event."""
+                           cart_total: int, scenario: str, seq_num: int,
+                           start_date: str = DEFAULT_START_DATE) -> Tuple[Dict, datetime]:
+    """Generate OrderCreated event.
+
+    Returns (event_dict, event_timestamp) so the next step can chain off it.
+    """
     message_id = generate_message_id(order_id, "OrderCreated")
-    event_ts = format_ts(ts)
+    event_ts_dt = ts  # OrderCreated happens at checkout time
+    event_ts = format_ts(event_ts_dt)
 
     status = "Completed"
     delivery_count = 1
     processing_time = random.randint(50, 500)
 
-    day = (ts - datetime(ts.year, ts.month, 1)).days
+    day = _get_day_offset(ts, start_date)
     hour = ts.hour
     effect = get_scenario_effect(scenario, day, hour)
 
@@ -215,10 +252,16 @@ def generate_order_created(order_id: str, tshirtcid: str, customer_id: str,
         status = "Failed"
         delivery_count = random.randint(2, 5)
 
+    ttl = _SB_TTL_SECONDS.get("OrderCreated", 86400)
+
     event = {
         "messageId": message_id,
+        "correlationId": order_id,
         "sessionId": session_id,
         "tshirtcid": tshirtcid,
+        "contentType": get_content_type("OrderCreated"),
+        "label": "OrderCreated",
+        "timeToLive": ttl,
         "enqueuedTimeUtc": event_ts,
         "sequenceNumber": seq_num,
         "deliveryCount": delivery_count,
@@ -242,15 +285,22 @@ def generate_order_created(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["demo_id"] = scenario
 
-    return _sb_maybe_inject_transient(event)
+    return _sb_maybe_inject_transient(event), event_ts_dt
 
 
 def generate_payment_processed(order_id: str, tshirtcid: str, customer_id: str,
-                               session_id: str, ts: datetime, cart_total: int,
-                               scenario: str, seq_num: int) -> Dict:
-    """Generate PaymentProcessed event."""
+                               session_id: str, prev_ts: datetime, cart_total: int,
+                               scenario: str, seq_num: int,
+                               start_date: str = DEFAULT_START_DATE) -> Tuple[Dict, datetime, bool]:
+    """Generate PaymentProcessed event.
+
+    Args:
+        prev_ts: Timestamp of the previous event (OrderCreated) to chain from.
+
+    Returns (event_dict, event_timestamp, payment_failed).
+    """
     delay = random.randint(1, 5)
-    event_ts_dt = add_seconds(ts, delay)
+    event_ts_dt = add_seconds(prev_ts, delay)
     message_id = generate_message_id(order_id, "PaymentProcessed")
     event_ts = format_ts(event_ts_dt)
 
@@ -261,20 +311,28 @@ def generate_payment_processed(order_id: str, tshirtcid: str, customer_id: str,
     payment_status = "Approved"
     delivery_count = 1
     processing_time = random.randint(50, 500)
+    payment_failed = False
 
-    day = (ts - datetime(ts.year, ts.month, 1)).days
-    hour = ts.hour
+    day = _get_day_offset(prev_ts, start_date)
+    hour = prev_ts.hour
     effect = get_scenario_effect(scenario, day, hour)
 
     if effect["failure_rate"] > 0 and random.randint(0, 99) < effect["failure_rate"]:
         status = "Failed"
         payment_status = "Declined"
         delivery_count = random.randint(2, 5)
+        payment_failed = True
+
+    ttl = _SB_TTL_SECONDS.get("PaymentProcessed", 86400)
 
     event = {
         "messageId": message_id,
+        "correlationId": order_id,
         "sessionId": session_id,
         "tshirtcid": tshirtcid,
+        "contentType": get_content_type("PaymentProcessed"),
+        "label": "PaymentProcessed",
+        "timeToLive": ttl,
         "enqueuedTimeUtc": event_ts,
         "sequenceNumber": seq_num,
         "deliveryCount": delivery_count,
@@ -300,15 +358,22 @@ def generate_payment_processed(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["demo_id"] = scenario
 
-    return _sb_maybe_inject_transient(event)
+    return _sb_maybe_inject_transient(event), event_ts_dt, payment_failed
 
 
 def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
-                                session_id: str, ts: datetime, items: List[Dict],
-                                scenario: str, seq_num: int) -> Dict:
-    """Generate InventoryReserved event."""
+                                session_id: str, prev_ts: datetime, items: List[Dict],
+                                scenario: str, seq_num: int,
+                                start_date: str = DEFAULT_START_DATE) -> Tuple[Dict, datetime]:
+    """Generate InventoryReserved event.
+
+    Args:
+        prev_ts: Timestamp of the previous event (PaymentProcessed) to chain from.
+
+    Returns (event_dict, event_timestamp).
+    """
     delay = random.randint(2, 10)
-    event_ts_dt = add_seconds(ts, delay)
+    event_ts_dt = add_seconds(prev_ts, delay)
     message_id = generate_message_id(order_id, "InventoryReserved")
     event_ts = format_ts(event_ts_dt)
 
@@ -317,8 +382,8 @@ def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
     processing_time = random.randint(50, 500)
     reserved = True
 
-    day = (ts - datetime(ts.year, ts.month, 1)).days
-    hour = ts.hour
+    day = _get_day_offset(prev_ts, start_date)
+    hour = prev_ts.hour
     effect = get_scenario_effect(scenario, day, hour)
 
     if effect["failure_rate"] > 0 and random.randint(0, 99) < effect["failure_rate"]:
@@ -329,10 +394,16 @@ def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
     # Transform items for inventory
     inv_items = [{"sku": item["sku"], "quantity": 1, "reserved": reserved} for item in items]
 
+    ttl = _SB_TTL_SECONDS.get("InventoryReserved", 86400)
+
     event = {
         "messageId": message_id,
+        "correlationId": order_id,
         "sessionId": session_id,
         "tshirtcid": tshirtcid,
+        "contentType": get_content_type("InventoryReserved"),
+        "label": "InventoryReserved",
+        "timeToLive": ttl,
         "enqueuedTimeUtc": event_ts,
         "sequenceNumber": seq_num,
         "deliveryCount": delivery_count,
@@ -355,15 +426,22 @@ def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["demo_id"] = scenario
 
-    return _sb_maybe_inject_transient(event)
+    return _sb_maybe_inject_transient(event), event_ts_dt
 
 
 def generate_shipment_created(order_id: str, tshirtcid: str, customer_id: str,
-                              session_id: str, ts: datetime, scenario: str,
-                              seq_num: int) -> Dict:
-    """Generate ShipmentCreated event."""
-    delay = random.randint(3600, 14400)  # 1-4 hours
-    event_ts_dt = add_seconds(ts, delay)
+                              session_id: str, prev_ts: datetime, scenario: str,
+                              seq_num: int,
+                              start_date: str = DEFAULT_START_DATE) -> Tuple[Dict, datetime]:
+    """Generate ShipmentCreated event.
+
+    Args:
+        prev_ts: Timestamp of the previous event (InventoryReserved) to chain from.
+
+    Returns (event_dict, event_timestamp).
+    """
+    delay = random.randint(3600, 14400)  # 1-4 hours after InventoryReserved
+    event_ts_dt = add_seconds(prev_ts, delay)
     message_id = generate_message_id(order_id, "ShipmentCreated")
     event_ts = format_ts(event_ts_dt)
 
@@ -375,14 +453,20 @@ def generate_shipment_created(order_id: str, tshirtcid: str, customer_id: str,
     eta_dt = add_seconds(event_ts_dt, eta_delay)
     eta = format_ts(eta_dt)
 
-    day = (ts - datetime(ts.year, ts.month, 1)).days
-    hour = ts.hour
+    day = _get_day_offset(prev_ts, start_date)
+    hour = prev_ts.hour
     effect = get_scenario_effect(scenario, day, hour)
+
+    ttl = _SB_TTL_SECONDS.get("ShipmentCreated", 259200)
 
     event = {
         "messageId": message_id,
+        "correlationId": order_id,
         "sessionId": session_id,
         "tshirtcid": tshirtcid,
+        "contentType": get_content_type("ShipmentCreated"),
+        "label": "ShipmentCreated",
+        "timeToLive": ttl,
         "enqueuedTimeUtc": event_ts,
         "sequenceNumber": seq_num,
         "deliveryCount": 1,
@@ -406,15 +490,22 @@ def generate_shipment_created(order_id: str, tshirtcid: str, customer_id: str,
     if effect["has_effect"]:
         event["demo_id"] = scenario
 
-    return _sb_maybe_inject_transient(event)
+    return _sb_maybe_inject_transient(event), event_ts_dt
 
 
 def generate_shipment_dispatched(order_id: str, tshirtcid: str, customer_id: str,
-                                 session_id: str, ts: datetime, scenario: str,
-                                 seq_num: int) -> Dict:
-    """Generate ShipmentDispatched event."""
-    delay = random.randint(18000, 90000)  # 5-25 hours
-    event_ts_dt = add_seconds(ts, delay)
+                                 session_id: str, prev_ts: datetime, scenario: str,
+                                 seq_num: int,
+                                 start_date: str = DEFAULT_START_DATE) -> Tuple[Dict, datetime]:
+    """Generate ShipmentDispatched event.
+
+    Args:
+        prev_ts: Timestamp of the previous event (ShipmentCreated) to chain from.
+
+    Returns (event_dict, event_timestamp).
+    """
+    delay = random.randint(14400, 86400)  # 4-24 hours after ShipmentCreated
+    event_ts_dt = add_seconds(prev_ts, delay)
     message_id = generate_message_id(order_id, "ShipmentDispatched")
     event_ts = format_ts(event_ts_dt)
 
@@ -422,14 +513,20 @@ def generate_shipment_dispatched(order_id: str, tshirtcid: str, customer_id: str
     tracking = f"1Z{random.randint(100000000, 999999999)}{random.randint(1000, 9999)}"
     carrier = random.choice(CARRIERS)
 
-    day = (ts - datetime(ts.year, ts.month, 1)).days
-    hour = ts.hour
+    day = _get_day_offset(prev_ts, start_date)
+    hour = prev_ts.hour
     effect = get_scenario_effect(scenario, day, hour)
+
+    ttl = _SB_TTL_SECONDS.get("ShipmentDispatched", 259200)
 
     event = {
         "messageId": message_id,
+        "correlationId": order_id,
         "sessionId": session_id,
         "tshirtcid": tshirtcid,
+        "contentType": get_content_type("ShipmentDispatched"),
+        "label": "ShipmentDispatched",
+        "timeToLive": ttl,
         "enqueuedTimeUtc": event_ts,
         "sequenceNumber": seq_num,
         "deliveryCount": 1,
@@ -453,7 +550,7 @@ def generate_shipment_dispatched(order_id: str, tshirtcid: str, customer_id: str
     if effect["has_effect"]:
         event["demo_id"] = scenario
 
-    return _sb_maybe_inject_transient(event)
+    return _sb_maybe_inject_transient(event), event_ts_dt
 
 
 # =============================================================================
@@ -542,25 +639,51 @@ def generate_servicebus_logs(
         # Use scenario from registry or override
         order_scenario = scenario if scenario else (scenarios if scenarios != "none" else None)
 
-        # Generate all 5 events
-        all_events.append(generate_order_created(
-            order_id, tshirtcid, customer_id, session_id, ts, items, cart_total, order_scenario, seq_num))
+        # --- Chained lifecycle: each step uses the previous step's timestamp ---
+
+        # Step 1: OrderCreated (at checkout time)
+        created_event, created_ts = generate_order_created(
+            order_id, tshirtcid, customer_id, session_id, ts, items,
+            cart_total, order_scenario, seq_num, start_date)
+        all_events.append(created_event)
         seq_num += 1
 
-        all_events.append(generate_payment_processed(
-            order_id, tshirtcid, customer_id, session_id, ts, cart_total, order_scenario, seq_num))
+        # Step 2: PaymentProcessed (1-5s after OrderCreated)
+        payment_event, payment_ts, payment_failed = generate_payment_processed(
+            order_id, tshirtcid, customer_id, session_id, created_ts,
+            cart_total, order_scenario, seq_num, start_date)
+        all_events.append(payment_event)
         seq_num += 1
 
-        all_events.append(generate_inventory_reserved(
-            order_id, tshirtcid, customer_id, session_id, ts, items, order_scenario, seq_num))
+        # If payment failed, stop the lifecycle here (no inventory/shipment)
+        if payment_failed:
+            # Baseline dead-letter check still applies to failed orders
+            if random.random() < _SB_DEAD_LETTER_RATE:
+                dlq_event_type = random.choice(["OrderCreated", "PaymentProcessed"])
+                all_events.append(generate_dead_letter_event(
+                    order_id, tshirtcid, customer_id, session_id, ts, dlq_event_type, seq_num))
+                seq_num += 1
+            continue
+
+        # Step 3: InventoryReserved (2-10s after PaymentProcessed)
+        inventory_event, inventory_ts = generate_inventory_reserved(
+            order_id, tshirtcid, customer_id, session_id, payment_ts,
+            items, order_scenario, seq_num, start_date)
+        all_events.append(inventory_event)
         seq_num += 1
 
-        all_events.append(generate_shipment_created(
-            order_id, tshirtcid, customer_id, session_id, ts, order_scenario, seq_num))
+        # Step 4: ShipmentCreated (1-4h after InventoryReserved)
+        ship_created_event, ship_created_ts = generate_shipment_created(
+            order_id, tshirtcid, customer_id, session_id, inventory_ts,
+            order_scenario, seq_num, start_date)
+        all_events.append(ship_created_event)
         seq_num += 1
 
-        all_events.append(generate_shipment_dispatched(
-            order_id, tshirtcid, customer_id, session_id, ts, order_scenario, seq_num))
+        # Step 5: ShipmentDispatched (4-24h after ShipmentCreated)
+        ship_dispatched_event, ship_dispatched_ts = generate_shipment_dispatched(
+            order_id, tshirtcid, customer_id, session_id, ship_created_ts,
+            order_scenario, seq_num, start_date)
+        all_events.append(ship_dispatched_event)
         seq_num += 1
 
         # Baseline dead-letter events (~0.5% of orders get a dead-lettered message)
@@ -588,6 +711,11 @@ def generate_servicebus_logs(
     # Sort by enqueuedTimeUtc
     all_events.sort(key=lambda x: x["enqueuedTimeUtc"])
 
+    # Reassign sequence numbers after sort so they are monotonically increasing
+    # Real Azure ServiceBus assigns sequence numbers in enqueue order
+    for idx, event in enumerate(all_events):
+        event["sequenceNumber"] = idx + 1
+
     # Write output
     with open(output_path, "w") as f:
         for event in all_events:
@@ -599,10 +727,13 @@ def generate_servicebus_logs(
     if not quiet:
         retry_count = sum(1 for e in all_events if e.get("deliveryCount", 1) > 1 and e.get("status") != "DeadLettered")
         dlq_count = sum(1 for e in all_events if e.get("status") == "DeadLettered")
+        failed_pay = sum(1 for e in all_events
+                         if e.get("body", {}).get("eventType") == "PaymentProcessed"
+                         and e.get("body", {}).get("paymentStatus") == "Declined")
         print(f"\n  Complete!", file=sys.stderr)
         print(f"  Orders: {order_count:,}", file=sys.stderr)
         print(f"  Events: {event_count:,}", file=sys.stderr)
-        print(f"  Retried: {retry_count:,} ({retry_count * 100 // max(event_count, 1)}%) | Dead-lettered: {dlq_count:,}", file=sys.stderr)
+        print(f"  Retried: {retry_count:,} ({retry_count * 100 // max(event_count, 1)}%) | Dead-lettered: {dlq_count:,} | Failed payments: {failed_pay:,}", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
 
     return event_count
