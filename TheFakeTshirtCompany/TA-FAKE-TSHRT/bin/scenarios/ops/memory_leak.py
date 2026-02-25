@@ -54,8 +54,8 @@ class MemoryLeakScenario:
         self.cfg = config or MemoryLeakConfig()
         self.demo_id_enabled = demo_id_enabled
 
-        # Web ports for ASA events
-        self.web_ports = [80, 443, 8443]
+        # Web ports for ASA events (HTTPS only — DMZ e-commerce servers)
+        self.web_ports = [443, 8443]
 
         # Timeout reasons
         self.timeout_reasons = [
@@ -187,7 +187,7 @@ class MemoryLeakScenario:
             },
             {
                 "hour": 14, "minute": 5, "second": 10,
-                "message": "WEB-01 nginx: Server startup complete. Memory usage: 52%. Listening on ports 80, 443, 8443",
+                "message": "WEB-01 nginx: Server startup complete. Memory usage: 52%. Listening on ports 443, 8443",
                 "level": "INFO",
             },
             {
@@ -394,8 +394,13 @@ class MemoryLeakScenario:
         prefix = random.choice(self.customer_prefixes)
         return f"{prefix}.{random.randint(1, 254)}"
 
-    def asa_teardown_event(self, ts: str, reason: str) -> str:
-        """Generate a TCP teardown event (timeout/reset)."""
+    def asa_timeout_session(self, built_ts: str, teardown_ts: str, reason: str) -> List[str]:
+        """Generate a Built+Teardown pair for a timed-out connection.
+
+        During memory exhaustion, the ASA still sees the inbound SYN (Built)
+        but the server can't respond, so the connection times out (Teardown).
+        Both events share the same connection ID for proper correlation.
+        """
         suffix = self._demo_suffix_syslog()
         pri6 = self._asa_pri(6)  # info
 
@@ -403,14 +408,25 @@ class MemoryLeakScenario:
         customer_port = random.randint(1024, 61024)
         server_port = random.choice(self.web_ports)
         conn_id = next_cid()
-        duration = random.randint(1, 30)
-        bytes_val = random.randint(0, 5000)
 
-        return (
-            f'{pri6}{ts} FW-EDGE-01 %ASA-6-302014: Teardown TCP connection {conn_id} '
-            f'for outside:{customer_ip}/{customer_port} to dmz:{self.cfg.host_ip}/{server_port} '
-            f'duration {duration}:00:00 bytes {bytes_val} {reason}{suffix}'
+        # Timeout connections: short duration (30s-5min), minimal bytes (SYN/SYN-ACK only)
+        duration_secs = random.randint(30, 300)
+        dur_mins = duration_secs // 60
+        dur_secs = duration_secs % 60
+        dur = f"0:{dur_mins}:{dur_secs}"
+        bytes_val = random.randint(0, 500)  # Minimal — connection never completed
+
+        built = (
+            f'{pri6}{built_ts} FW-EDGE-01 %ASA-6-302013: Built inbound TCP connection {conn_id} '
+            f'for outside:{customer_ip}/{customer_port} ({customer_ip}/{customer_port}) '
+            f'to dmz:{self.cfg.host_ip}/{server_port} ({self.cfg.host_ip}/{server_port}){suffix}'
         )
+        teardown = (
+            f'{pri6}{teardown_ts} FW-EDGE-01 %ASA-6-302014: Teardown TCP connection {conn_id} '
+            f'for outside:{customer_ip}/{customer_port} to dmz:{self.cfg.host_ip}/{server_port} '
+            f'duration {dur} bytes {bytes_val} {reason}{suffix}'
+        )
+        return [built, teardown]
 
     def asa_no_connection_event(self, ts: str) -> str:
         """Generate a 'no matching connection' event (server unresponsive)."""
@@ -439,12 +455,11 @@ class MemoryLeakScenario:
         return 0
 
     def asa_generate_hour(self, day: int, hour: int, time_utils, normal_dmz_events: int = 0) -> List[str]:
-        """Generate ASA events for an hour.
+        """Generate ASA timeout session events for an hour.
 
-        Timeout/reset volume scales dynamically based on the estimated normal
-        DMZ event count for this hour.  The ASA generator calculates this from
-        registry session count + tcp_session DMZ fraction, so it automatically
-        scales with --scale and --orders-per-day.
+        Each event is a Built+Teardown pair (client SYN → server timeout).
+        Volume is ~35% of suppressed DMZ events: not every blocked client
+        retries, and the ASA rate-limits logging for repeated timeouts.
 
         Args:
             normal_dmz_events: Estimated DMZ events this hour would normally
@@ -459,38 +474,46 @@ class MemoryLeakScenario:
         suppression = self.asa_baseline_suppression(day, hour)
         minimum = self._hourly_minimum(day)
 
-        # Day 10 special handling - OOM at 14:00
+        # Calculate timeout session count (~35% of suppressed connections)
+        retry_factor = 0.35
+
         if day == self.cfg.oom_day:
             if hour < self.cfg.oom_hour:
-                # Pre-OOM: barely responding (suppression 0.8)
-                hourly_events = max(minimum, int(normal_dmz_events * suppression))
+                # Pre-OOM: barely responding
+                hourly_sessions = max(minimum, int(normal_dmz_events * suppression * retry_factor))
             elif hour == self.cfg.oom_hour:
-                # OOM hour: burst of failures (suppression 0.95)
-                hourly_events = max(40, int(normal_dmz_events * suppression))
+                # OOM hour: burst of failures (more retries during total outage)
+                hourly_sessions = max(15, int(normal_dmz_events * suppression * 0.5))
             else:
-                # Post-restart: tapering off (suppression 0.0)
-                hourly_events = max(3, 20 - (hour - self.cfg.restart_hour) * 4)
+                # Post-restart: tapering off
+                hourly_sessions = max(2, 8 - (hour - self.cfg.restart_hour) * 2)
         else:
             # Normal degradation days (7-9)
             if 8 <= hour <= 20:
-                # Business hours: scale by suppression fraction
-                hourly_events = max(minimum, int(normal_dmz_events * suppression))
+                hourly_sessions = max(minimum, int(normal_dmz_events * suppression * retry_factor))
             else:
-                # Off-hours: reduced event count
-                hourly_events = max(1, minimum // 3)
+                hourly_sessions = max(1, minimum // 3)
 
-        # Generate events
-        for _ in range(hourly_events):
+        # Generate Built+Teardown pairs
+        for _ in range(hourly_sessions):
             minute = random.randint(0, 59)
             sec = random.randint(0, 59)
-            ts = time_utils.ts_syslog(day, hour, minute, sec)
 
-            # OOM hour, first 5 minutes: server down - "no matching connection"
+            # OOM hour, first 5 minutes: server completely down
             if (day == self.cfg.oom_day and hour == self.cfg.oom_hour and minute < 5):
+                ts = time_utils.ts_syslog(day, hour, minute, sec)
                 events.append(self.asa_no_connection_event(ts))
             else:
+                # Built timestamp, then Teardown 30s-5min later (within same hour)
+                built_ts = time_utils.ts_syslog(day, hour, minute, sec)
+                timeout_secs = random.randint(30, 300)
+                td_total_sec = minute * 60 + sec + timeout_secs
+                td_min = min(59, td_total_sec // 60)
+                td_sec = td_total_sec % 60 if td_min < 59 else 59
+                teardown_ts = time_utils.ts_syslog(day, hour, td_min, td_sec)
+
                 reason = random.choice(self.timeout_reasons)
-                events.append(self.asa_teardown_event(ts, reason))
+                events.extend(self.asa_timeout_session(built_ts, teardown_ts, reason))
 
         return events
 

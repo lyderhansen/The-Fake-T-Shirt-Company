@@ -178,8 +178,9 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     else:
         us = get_us_ip()
         dmz = get_dmz_ip()
-        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for outside:{us}/{sp} ({us}/{sp}) to dmz:{dmz}/{dp} ({dmz}/{dp})")
-        events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{us}/{sp} to dmz:{dmz}/{dp} duration {dur} bytes {bytes_val} {reason}")
+        dmz_dp = random.choice(WEB_PORTS)  # HTTPS only for DMZ web servers
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for outside:{us}/{sp} ({us}/{sp}) to dmz:{dmz}/{dmz_dp} ({dmz}/{dmz_dp})")
+        events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{us}/{sp} to dmz:{dmz}/{dmz_dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
 
@@ -563,7 +564,7 @@ def asa_icmp_ping(base_date: str, day: int, hour: int, minute: int, second: int)
 
 # Web server IPs in DMZ
 WEB_SERVERS = [s.ip for s in SERVERS.values() if s.hostname.startswith("WEB-")]
-WEB_PORTS = [80, 443]
+WEB_PORTS = [443]  # HTTPS only — e-commerce DMZ servers
 
 def asa_web_session(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
     """Generate web server session (inbound to DMZ)."""

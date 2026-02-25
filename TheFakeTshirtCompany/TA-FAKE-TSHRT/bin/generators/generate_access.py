@@ -361,7 +361,7 @@ def generate_session(
 
     # Web server for this session (consistent throughout)
     web_server = random.choice(["172.16.1.10", "172.16.1.11"])
-    web_port = random.choice([80, 443])
+    web_port = 443  # HTTPS only — modern e-commerce site
 
     # Time tracking
     dt = date_add(base_date, day)

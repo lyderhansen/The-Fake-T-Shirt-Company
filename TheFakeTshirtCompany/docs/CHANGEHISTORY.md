@@ -4,6 +4,41 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-25 ~12:00 UTC -- ASA DMZ Port 80 Removal + Memory Leak Orphan Teardown Fix
+
+### Context
+
+Two logical issues found during cross-generator correlation audit: (1) DMZ web servers (WEB-01/WEB-02) were receiving port 80 (HTTP) traffic through the ASA, but a modern e-commerce site should be HTTPS-only (port 443). (2) The memory_leak scenario generated standalone Teardown events without matching Built events, breaking CID-based session correlation in Splunk.
+
+### Changes (3 fixes)
+
+- **Fix 1: Remove port 80 from all DMZ web server traffic.** Changed `generate_access.py` from `random.choice([80, 443])` to `443` only. Changed `generate_asa.py` `WEB_PORTS` from `[80, 443]` to `[443]`. Fixed `asa_tcp_session()` DMZ branch to use `WEB_PORTS` instead of `ASA_WEB_PORTS` (which includes 80/8080 for outbound employee traffic). Removed port 80 from memory_leak nginx startup message. `ASA_WEB_PORTS` in company.py unchanged (outbound employee browsing legitimately uses port 80).
+
+- **Fix 2: Replace orphan Teardowns with Built+Teardown pairs in memory_leak.** Replaced `asa_teardown_event()` (single Teardown) with `asa_timeout_session()` returning `[Built, Teardown]` with same CID, same IP, and realistic timeout duration (30s-5min). Byte count reduced from 0-5000 to 0-500 (connection never completed). Duration format fixed from `duration N:00:00` to `0:M:S`.
+
+- **Fix 3: Reduce memory_leak ASA timeout volume to ~35%.** Changed from `int(normal_dmz_events * suppression)` (100% of suppressed) to `int(normal_dmz_events * suppression * 0.35)` — not every client retries a timed-out connection. OOM hour uses 0.5 factor (more retries during total outage). Post-restart taper reduced from `max(3, 20-4*h)` to `max(2, 8-2*h)`.
+
+### Verification
+
+- Syntax check: ALL 3 files PASS
+- 14-day run (all scenarios): 845,124 events, 0 errors
+- Port 80 in DMZ: **0 events** (was 19,738)
+- Port 443 in DMZ: 166,273 events
+- memory_leak Built (302013): 6,790
+- memory_leak Teardown (302014): 6,790 (**1:1 match**)
+- memory_leak No-connection (313005): 38 (OOM crash minutes only)
+- CID correlation verified: Built CID matches Teardown CID in all sampled pairs
+- Timeout durations realistic: 0:2:43, 0:3:36 (was 17:00:00)
+- Timeout bytes realistic: 2, 480 (was 0-5000)
+
+### Affected files
+
+- `bin/generators/generate_access.py` (port 80 → 443)
+- `bin/generators/generate_asa.py` (WEB_PORTS, DMZ branch port fix)
+- `bin/scenarios/ops/memory_leak.py` (Built+Teardown pairs, volume reduction, nginx message)
+
+---
+
 ## 2026-02-22 ~01:00 UTC -- Network Generators Realism Audit (ACI + Catalyst + Catalyst Center, 12 fixes)
 
 ### Context
