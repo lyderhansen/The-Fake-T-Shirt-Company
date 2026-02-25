@@ -20,6 +20,7 @@ Output: JSON records with full order details including:
 """
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -156,7 +157,7 @@ def get_customer_data(customer_id: str, region: str) -> Dict:
         last_name = US_LAST_NAMES[(seed * 7) % len(US_LAST_NAMES)]
         state_data = US_STATES[seed % len(US_STATES)]
         state_name, state_abbrev, tax_rate, cities = state_data
-        city = cities[seed % len(cities)]
+        city = cities[int(hashlib.md5(f"city-{seed}".encode()).hexdigest()[:8], 16) % len(cities)]
         street = US_STREETS[(seed * 3) % len(US_STREETS)]
         street_num = (seed * 17) % 9999 + 1
         street = f"{street_num} {street}"
@@ -250,7 +251,8 @@ def add_seconds(ts: datetime, seconds: int) -> datetime:
 
 
 def generate_order_events(registry_entry: Dict,
-                          dead_letter_scenario: Optional['DeadLetterPricingScenario'] = None) -> tuple:
+                          dead_letter_scenario: Optional['DeadLetterPricingScenario'] = None,
+                          start_date: str = DEFAULT_START_DATE) -> tuple:
     """Generate separate events for each order status change.
 
     Instead of one event with statusHistory, generates 5 separate events:
@@ -259,6 +261,7 @@ def generate_order_events(registry_entry: Dict,
     Args:
         registry_entry: Order registry entry from order_registry.json
         dead_letter_scenario: Optional scenario object for price error injection
+        start_date: Generation start date (YYYY-MM-DD) for scenario day calculation
 
     Returns: (events, region, total) tuple
     """
@@ -274,11 +277,9 @@ def generate_order_events(registry_entry: Dict,
     # Parse timestamp
     dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
 
-    # Customer
+    # Customer (name/email not embedded in events; enriched via Splunk lookup)
     region = get_customer_region(customer_id)
     customer_data = get_customer_data(customer_id, region)
-    customer_name = f"{customer_data['first_name']} {customer_data['last_name']}"
-    email = f"{customer_data['first_name'].lower()}.{customer_data['last_name'].lower()}@example.com"
 
     # Items from registry (use actual products from access logs)
     items = []
@@ -287,7 +288,9 @@ def generate_order_events(registry_entry: Dict,
     has_wrong_prices = False
 
     # Check if dead_letter_pricing scenario applies to this order
-    day = (dt - datetime(dt.year, dt.month, 1)).days
+    # Calculate day as 0-indexed offset from start_date (matches access generator)
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    day = (dt - start_dt).days
     hour = dt.hour
     is_dead_letter_order = (scenario == "dead_letter_pricing"
                             and dead_letter_scenario is not None)
@@ -339,9 +342,9 @@ def generate_order_events(registry_entry: Dict,
             "lineTotal": cart_total
         })
 
-    # Pricing
+    # Pricing (round tax to nearest dollar, matching standard e-commerce rounding)
     tax_rate = customer_data["tax_rate"]
-    tax = int(subtotal * tax_rate / 100)
+    tax = round(subtotal * tax_rate / 100)
 
     if customer_data["country"] == "United States":
         shipping = BASE_SHIPPING_COST
@@ -435,6 +438,10 @@ def generate_order_events(registry_entry: Dict,
             **base_event,
             "status": "cancelled",
             "timestamp": ts_payment.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "payment": {
+                "method": payment_method,
+                "transactionId": txn_id,
+            },
             "failureType": "fraud_detected",
             "failureReason": failure_reason,
         }
@@ -570,7 +577,7 @@ def generate_orders(
         if not quiet and (i + 1) % 100 == 0:
             print(f"  [Orders] Processing {i + 1}/{len(order_registry)}...", file=sys.stderr, end="\r")
 
-        events, region, total = generate_order_events(entry, dead_letter_scenario_obj)
+        events, region, total = generate_order_events(entry, dead_letter_scenario_obj, start_date)
         all_events.extend(events)
         order_count += 1
 

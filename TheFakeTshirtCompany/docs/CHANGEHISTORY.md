@@ -4,6 +4,53 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~00:30 UTC -- Orders Generator Realism Audit (5 fixes)
+
+### Context
+
+Comprehensive audit of `generate_orders.py` (retail order event generator). This generator reads `order_registry.json` (created by `generate_access.py`) and produces JSON order lifecycle events (created, payment_confirmed, processing, shipped, delivered) with pricing, tax, shipping, and payment details. Ran the generator, cross-checked all correlations with the access log order registry, and verified pricing, tax, shipping, scenario integration, and customer data generation.
+
+### Changes (5 fixes)
+
+- **Fix 1 (CRITICAL): Dead-letter pricing scenario day calculation wrong.** The day number for dead_letter_pricing scenario was calculated as `(dt - datetime(dt.year, dt.month, 1)).days` (day-of-month), instead of as an offset from `start_date`. This only worked by coincidence when `start_date` was the 1st of a month. With a non-default start_date (e.g., `2026-01-10`), the access generator would tag orders on the correct day (Jan 25 = day 15 from Jan 10), but the orders generator would calculate day=24 (from Jan 1) and fail to apply wrong prices. Fixed by passing `start_date` to `generate_order_events()` and computing `day = (dt - start_dt).days`. Verified: with `start_date=2026-01-10, days=17`, dead_letter_pricing now correctly fires on Jan 25 with 100 affected orders and 67 wrong-price orders.
+
+- **Fix 2 (BUG): Fraud events missing payment info.** When `failureType == "fraud_detected"`, the order event had status "cancelled" but did NOT include payment method or transaction ID. Fraud detection happens during payment processing, so the attempted payment details are essential. Added `"payment": {"method": ..., "transactionId": ...}` to fraud_detected events. Verified: all 14 fraud events (3-day run) now include payment info.
+
+- **Fix 3 (BUG): Tax calculation used floor truncation instead of rounding.** Tax was computed as `int(subtotal * tax_rate / 100)`, which always rounds down (e.g., $4.54 becomes $4 instead of $5). Changed to `round(subtotal * tax_rate / 100)` for standard e-commerce rounding. This affected 45% of orders (2,594 out of 5,739 in a 17-day run) by $1 each.
+
+- **Fix 4 (CLEANUP): Removed dead `customer_name` and `email` variables.** Lines 280-281 computed `customer_name` and `email` from `customer_data` but never included them in the event JSON (correctly -- these are enriched via Splunk's `customer_lookup` at search time). Removed the unused assignments to eliminate dead code.
+
+- **Fix 5 (REALISM): US city selection was locked to one city per state.** The city index used `seed % len(cities)` (= `seed % 5`), but since the state index used `seed % 20` and `20 = 4 * 5`, all customers mapped to a given state always got the same city (e.g., all California customers got "Los Angeles", all Texas got "San Antonio"). Changed to a `hashlib.md5` hash-based selection that fully decouples city from state. Now all 5 cities appear per state with near-uniform distribution. Added `import hashlib`.
+
+### Verification
+
+**3-day run (all scenarios):**
+- Generator output: 997 orders, 4,773 events
+- Order ID correlation (registry vs orders): 997/997 match
+- Customer ID correlation: 0 mismatches
+- tshirtcid correlation: 0 mismatches
+- Tax calculation (round): 0 errors
+- Fraud events with payment: 14/14
+- Status lifecycle errors: 0
+- Total = subtotal + tax + shipping: 0 errors
+- Prices match catalog: 0 mismatches
+- Subtotal matches line items: 0 errors
+- Timestamps monotonic within orders: 0 errors
+- Shipping logic correct: 0 errors
+- demo_id consistent across events: 0 inconsistencies
+- US city diversity: all 5 cities per state (was 1)
+
+**17-day run (dead_letter_pricing scenario):**
+- Dead-letter pricing events: 500 (100 created, 400 lifecycle)
+- Wrong-price orders: 67/100
+- Correct date (Jan 25 with start_date=Jan 10): 100/100
+
+### Affected file
+
+- `bin/generators/generate_orders.py`
+
+---
+
 ## 2026-02-25 ~21:00 UTC -- Access Log Generator Realism Audit (9 fixes)
 
 ### Context
