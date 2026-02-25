@@ -4,6 +4,61 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-25 ~21:00 UTC -- Access Log Generator Realism Audit (9 fixes)
+
+### Context
+
+Comprehensive audit of `generate_access.py` (Apache Combined Format access log generator). Ran the generator, inspected all output files (`access_combined.log`, `order_registry.json`, `web_session_registry.json`), and identified 9 issues ranging from critical sort-order bugs to unrealistic response sizes and missing correlation fields.
+
+### Changes (9 fixes)
+
+- **Fix 1 (CRITICAL): Events sorted by IP, not timestamp.** `all_events.sort()` was lexicographic on the full line (starting with IP address), causing events from `10.x` IPs to precede `66.x`/`98.x` regardless of time. Replaced with `all_events.sort(key=_sort_key)` that parses the Apache `[DD/Mon/YYYY:HH:MM:SS +0000]` timestamp into ISO format for correct chronological sorting. Also handles multi-month runs where month abbreviations (Jan, Feb) do not sort lexicographically.
+
+- **Fix 2 (BUG): `last_event_sec` captured post-increment value.** The session registry set `last_event_sec = current_sec` after the event loop, but `current_sec` had already been incremented by 8-180 seconds for the next (non-existent) page. For sessions starting near midnight (hour 23), this caused `end_ts` to wrap to `23:00:xx` while `start_ts` was `23:55:xx`, producing `start_ts > end_ts`. Fixed by tracking `last_event_sec` inside the loop, updated after each event is appended. Was affecting ~25 sessions per 3-day run.
+
+- **Fix 3 (BUG): Response sizes unrealistic for non-200 status codes.** All status codes used content-based sizing (e.g., 6000-9000 for product pages). Now: 304 returns 0 bytes (Not Modified), 301/302 returns 0-230 (redirect), 404 returns 500-1500 (error page), 401/403 returns 200-800, 429 returns 200-500, 500+ returns 500-2000. Added `status` parameter to `get_response_size()`.
+
+- **Fix 4 (BUG): Bot user-agents on purchase/abandoned sessions.** `get_user_agent()` had a 5% bot chance applied to all sessions, including purchases. This produced 55 "Googlebot" checkout completions per 3-day run. Moved UA assignment after session-type selection: purchase/abandoned sessions always get a real browser UA; only bounce/browser sessions can get bot UAs.
+
+- **Fix 5 (BUG): Referer after POST /cart/add was the cart/add URL.** After `POST /cart/add?product=foo&qty=1`, the next page's Referer was `https://theFakeTshirtCompany.com/cart/add?product=foo&qty=1`. Real browsers use POST-Redirect-GET (PRG) pattern where the Referer is the page before the POST. Fixed by not updating `previous_url` for POST endpoints (`/cart/add`, `/checkout/complete`), keeping the referring product page or checkout page.
+
+- **Fix 6 (MISSING): `customer_ip` not in order_registry.json.** CLAUDE.md spec requires `customer_ip` in the order registry for cross-generator correlation. Added `"customer_ip": ip` to the registry entry. All 1029 orders (3-day) / 3664 orders (14-day) now include it.
+
+- **Fix 7 (BUG): Hardcoded "2026" in order IDs.** Order IDs used `f"ORD-2026-{seq:05d}"` regardless of `start_date`. Derived year from `start_date[:4]` and passed as `order_year` parameter to `generate_session()`.
+
+- **Fix 8 (CLEANUP): Removed dead `planned_cart_index` variable.** Variable was initialized to 0 and never incremented, making all references to `planned_cart_index` equivalent to 0. Removed the variable and simplified `planned_cart[planned_cart_index + item_idx]` to `planned_cart[item_idx]`.
+
+- **Fix 9 (CLARITY): Added parentheses to `get_method_for_url` condition.** `"/api/" in url and "/cart" in url` relied on Python's `and` binding tighter than `or`. Added explicit parentheses for readability.
+
+### Verification
+
+**3-day run (all scenarios):**
+- Generator output: 60,704 events, 1,029 orders, 10,797 web sessions
+- Timestamp sort order: 0 out-of-order (was 4,284)
+- Session registry start>end: 0 (was 25)
+- 304 response size=0: 100% (was avg 6,615 bytes)
+- 301 response size>300: 0 (was avg 6,505 bytes)
+- Bot-UA purchases: 0 (was 55)
+- Bot-UA cart adds: 0 (was 130)
+- Referer=/cart/add after POST: 0 (was 100%)
+- customer_ip in orders: 1,029/1,029 (was 0)
+- Cart total mismatches: 0/1,029
+- Session type distribution: bounce=39.3%, browser=35.3%, abandoned=15.4%, purchase=10.0% (matches weights)
+
+**14-day run (all scenarios):**
+- Generator output: 282,295 events, 3,664 orders, 50,454 web sessions
+- Timestamp sort order: 0 out-of-order
+- Session registry start>end: 0
+- Scenarios active: certificate_expiry (1,255), cpu_runaway (36,240), firewall_misconfig (4,202), memory_leak (55,089)
+- Date range: 2026-01-01 to 2026-01-14
+
+### Affected files
+
+- `bin/generators/generate_access.py` (all 9 fixes)
+- `docs/CHANGEHISTORY.md` (this entry)
+
+---
+
 ## 2026-02-25 ~12:00 UTC -- ASA DMZ Port 80 Removal + Memory Leak Orphan Teardown Fix
 
 ### Context

@@ -135,13 +135,37 @@ def generate_tshirtcid() -> str:
 
 def get_method_for_url(url: str) -> str:
     """Get HTTP method based on URL."""
-    if url.startswith("/cart/add") or url == "/checkout/complete" or "/api/" in url and "/cart" in url:
+    if url.startswith("/cart/add") or url == "/checkout/complete" or ("/api/" in url and "/cart" in url):
         return "POST"
     return "GET"
 
 
-def get_response_size(url: str) -> int:
-    """Get response size based on URL type."""
+def get_response_size(url: str, status: int = 200) -> int:
+    """Get response size based on URL type and HTTP status code.
+
+    Non-200 status codes return realistic error/redirect response sizes:
+    - 301/302: 0 (redirect, body is empty or minimal)
+    - 304: 0 (Not Modified, no body sent)
+    - 401/403: small error page (200-800 bytes)
+    - 404: error page (500-1500 bytes)
+    - 429: rate limit response (200-500 bytes)
+    - 500/502/503/504: server error page (500-2000 bytes)
+    """
+    # Non-200 status codes have standard error response sizes
+    if status == 304:
+        return 0  # Not Modified — no body
+    elif status in (301, 302):
+        return random.randint(0, 230)  # Redirect — minimal or empty body
+    elif status in (401, 403):
+        return random.randint(200, 800)  # Auth error page
+    elif status == 404:
+        return random.randint(500, 1500)  # Not found error page
+    elif status == 429:
+        return random.randint(200, 500)  # Rate limit response
+    elif status >= 500:
+        return random.randint(500, 2000)  # Server error page
+
+    # 200 OK — size depends on content type
     if url == "/":
         return random.randint(8000, 13000)
     elif url.startswith("/products/category/"):
@@ -304,6 +328,7 @@ def generate_session(
     demo_id: Optional[str] = None,
     pool_total: int = 10000,
     pool_vip: int = 500,
+    order_year: str = "2026",
 ) -> List[str]:
     """Generate a complete user session with full tracking."""
     global ORDER_SEQUENCE
@@ -313,7 +338,6 @@ def generate_session(
     # Session identifiers
     session_id = generate_session_id()
     tshirtcid = generate_tshirtcid()
-    ua = get_user_agent()
 
     # Pick session type
     roll = random.randint(1, 100)
@@ -327,6 +351,12 @@ def generate_session(
             session_type = stype
             page_range = prange
             break
+
+    # User agent: bots only for bounce/browser sessions (bots don't purchase)
+    if session_type in ("purchase", "abandoned"):
+        ua = random.choice(USER_AGENTS)
+    else:
+        ua = get_user_agent()
 
     page_count = random.randint(*page_range)
 
@@ -357,7 +387,6 @@ def generate_session(
             # 20% chance of qty=2, otherwise qty=1
             qty = random.choices([1, 2], weights=QTY_WEIGHTS)[0]
             planned_cart.append((slug, qty))
-    planned_cart_index = 0  # Track which planned item we're adding next
 
     # Web server for this session (consistent throughout)
     web_server = random.choice(["172.16.1.10", "172.16.1.11"])
@@ -382,6 +411,7 @@ def generate_session(
     previous_url = "-"
     order_id = "-"
     pages_generated = 0
+    last_event_sec = first_event_sec  # Track actual last event timestamp
 
     while pages_generated < page_count:
         hour = current_sec // 3600
@@ -413,7 +443,7 @@ def generate_session(
         status = get_status_code(error_rate)
         response_time = get_response_time(current_url, response_mult)
         method = get_method_for_url(current_url)
-        size = get_response_size(current_url)
+        size = get_response_size(current_url, status)
 
         # Extra fields
         extra_fields = ""
@@ -444,7 +474,7 @@ def generate_session(
         this_order_id = order_id
         if current_url == "/checkout/complete" and status == 200:
             ORDER_SEQUENCE += 1
-            this_order_id = f"ORD-2026-{ORDER_SEQUENCE:05d}"
+            this_order_id = f"ORD-{order_year}-{ORDER_SEQUENCE:05d}"
             order_id = this_order_id
 
             # Add to order registry
@@ -453,6 +483,7 @@ def generate_session(
                 "order_id": this_order_id,
                 "tshirtcid": tshirtcid,
                 "customer_id": customer_id,
+                "customer_ip": ip,
                 "session_id": session_id,
                 "timestamp": iso_timestamp,
                 "products": [{"slug": s, "price": p, "qty": q} for s, p, q in cart_products],
@@ -476,10 +507,16 @@ def generate_session(
             line += f" demo_id={demo_id}"
 
         events.append(line)
+        last_event_sec = current_sec  # Track timestamp of this actual event
 
         # Prepare for next page
         pages_generated += 1
-        previous_url = current_url
+        # POST endpoints (cart/add, checkout/complete) should not appear as Referer.
+        # In real browsers, POST responses redirect (PRG pattern), so the Referer
+        # for the next page is the page before the POST, not the POST endpoint.
+        if not current_url.startswith("/cart/add") and current_url != "/checkout/complete":
+            previous_url = current_url
+        # else: keep previous_url unchanged (the product page or checkout page)
         current_sec += random.randint(8, 180)  # 8s to 3min between pages
 
         # Determine next URL based on session type and progress
@@ -502,7 +539,7 @@ def generate_session(
 
         elif session_type == "abandoned":
             # Pages needed: product view + cart add for each item, then /cart, /checkout
-            items_remaining = len(planned_cart) - planned_cart_index
+            items_remaining = len(planned_cart)
             checkout_pages = 2  # /cart and /checkout
             item_pages = items_remaining * 2  # view + add per item
 
@@ -517,7 +554,7 @@ def generate_session(
                     item_idx = (item_pages - 1 - page_offset) // 2
                     is_view = (item_pages - 1 - page_offset) % 2 == 0
                     if item_idx < items_remaining:
-                        slug, qty = planned_cart[planned_cart_index + item_idx]
+                        slug, qty = planned_cart[item_idx]
                         if is_view:
                             current_url = f"/products/{slug}"
                         else:
@@ -531,7 +568,7 @@ def generate_session(
 
         elif session_type == "purchase":
             # Pages needed: product view + cart add for each item, then /cart, /checkout, /checkout/complete
-            items_remaining = len(planned_cart) - planned_cart_index
+            items_remaining = len(planned_cart)
             checkout_pages = 3  # /cart, /checkout, /checkout/complete
             item_pages = items_remaining * 2  # view + add per item
 
@@ -548,7 +585,7 @@ def generate_session(
                     item_idx = (item_pages - 1 - page_offset) // 2
                     is_view = (item_pages - 1 - page_offset) % 2 == 0
                     if item_idx < items_remaining:
-                        slug, qty = planned_cart[planned_cart_index + item_idx]
+                        slug, qty = planned_cart[item_idx]
                         if is_view:
                             current_url = f"/products/{slug}"
                         else:
@@ -562,7 +599,7 @@ def generate_session(
 
     # Record session in web session registry for ASA 1:1 correlation
     if events:
-        last_event_sec = current_sec  # Last page timestamp
+        # last_event_sec was tracked inside the loop (set after each event append)
         # Sum response bytes from access log lines (format: ... "METHOD /path HTTP/1.1" STATUS BYTES ...)
         total_bytes = 0
         for e in events:
@@ -742,6 +779,9 @@ def generate_access_logs(
         print(f"  Output: {output_path}", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
 
+    # Derive order year from start_date (not hardcoded)
+    order_year = start_date[:4]
+
     all_events = []
 
     for day in range(days):
@@ -828,6 +868,7 @@ def generate_access_logs(
                     demo_id=demo_id if error_rate > 0 else None,
                     pool_total=pool_total,
                     pool_vip=pool_vip,
+                    order_year=order_year,
                 ))
 
             # Health check probes from MON-ATL-01 (every 30s, all hours)
@@ -839,8 +880,25 @@ def generate_access_logs(
         if not quiet:
             print(f"  [Access] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
 
-    # Sort events by timestamp
-    all_events.sort()
+    # Sort events by timestamp (extract datetime from Apache log format)
+    # Format: "... [DD/Mon/YYYY:HH:MM:SS +0000] ..." — need to parse the bracketed timestamp
+    import re
+    _TS_RE = re.compile(r'\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}) \+0000\]')
+
+    def _sort_key(line: str) -> str:
+        """Extract ISO-sortable timestamp from Apache log line."""
+        m = _TS_RE.search(line)
+        if m:
+            # Convert "01/Jan/2026:14:30:45" to "2026-01-01T14:30:45" for correct sorting
+            raw = m.group(1)
+            try:
+                dt_parsed = datetime.strptime(raw, "%d/%b/%Y:%H:%M:%S")
+                return dt_parsed.strftime("%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                return raw
+        return line  # Fallback: sort by full line
+
+    all_events.sort(key=_sort_key)
 
     # Write output
     with open(output_path, "w") as f:
