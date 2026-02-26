@@ -115,12 +115,22 @@ class ExfilScenario:
         self.time_utils = time_utils
         self.cfg = exfil_config or ExfilConfig()
 
-        # Lateral movement targets - cross-site (Atlanta → Boston)
-        # Atlanta servers (10.20.x.x), Boston servers (10.10.x.x)
-        self.lateral_targets_atl = ["10.20.20.10", "10.20.20.11", "10.20.20.20"]  # Atlanta DC servers
-        self.lateral_targets_bos = ["10.10.20.10", "10.10.20.11", "10.10.20.20", "10.10.20.21"]  # Boston servers
-        self.lateral_targets = self.lateral_targets_atl + self.lateral_targets_bos
-        self.lateral_ports = [445, 3389, 22, 3306, 5432, 1433]  # SMB, RDP, SSH, MySQL, PostgreSQL, MSSQL
+        # Lateral movement targets - real server IPs only
+        # OS-appropriate probe ports per server (attacker scans common ports, ACL blocks them)
+        self.lateral_target_ports = {
+            # Boston Windows servers
+            "10.10.20.10": [445, 3389, 135, 389, 636],    # DC-BOS-01 (Windows DC)
+            "10.10.20.11": [445, 3389, 135, 389, 636],    # DC-BOS-02 (Windows DC)
+            "10.10.20.20": [445, 3389, 139, 135],          # FILE-BOS-01 (Windows File)
+            "10.10.20.30": [1433, 445, 3389],              # SQL-PROD-01 (Windows SQL)
+            "10.10.20.40": [443, 8443, 3389, 445],         # APP-BOS-01 (Windows IIS)
+            "10.10.20.60": [22, 3000, 8443, 443],          # SAP-PROD-01 (Linux SAP)
+            # Atlanta servers
+            "10.20.20.10": [445, 3389, 135, 389, 636],    # DC-ATL-01 (Windows DC)
+            "10.20.20.20": [445, 3389, 135],               # BACKUP-ATL-01 (Windows Backup)
+            "10.20.20.30": [22, 443, 8080, 5601],          # MON-ATL-01 (Linux Monitoring)
+        }
+        self.lateral_targets = list(self.lateral_target_ports.keys())
 
         # Cloud IPs for persistence (Azure, AWS, GCP)
         self.cloud_ips = ["52.239.228.100", "3.5.140.2", "35.205.61.0", "20.190.128.0"]
@@ -254,20 +264,19 @@ class ExfilScenario:
         return events
 
     def asa_lateral_movement(self, day: int, hour: int) -> List[str]:
-        """Generate lateral movement events."""
+        """Generate lateral movement probe events (blocked by ACL)."""
         suffix = self._demo_suffix_syslog()
-        pri6 = self._asa_pri(6)  # info
+        pri4 = self._asa_pri(4)  # warning (Deny)
 
         ts = self.time_utils.ts_syslog(day, hour, random.randint(0, 59), random.randint(0, 59))
-        cid = next_cid()
         sp = random.randint(49000, 54000)
         target = random.choice(self.lateral_targets)
-        port = random.choice(self.lateral_ports)
+        port = random.choice(self.lateral_target_ports[target])
+        acl = random.choice(self.int_acls)
 
         return [
-            f'{pri6}{ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {cid} '
-            f'for inside:{self.cfg.comp_ws_ip}/{sp} ({self.cfg.comp_ws_ip}/{sp}) '
-            f'to inside:{target}/{port} ({target}/{port}){suffix}'
+            f'{pri4}{ts} FW-EDGE-01 %ASA-4-106023: Deny tcp src inside:{self.cfg.comp_ws_ip}/{sp} '
+            f'dst inside:{target}/{port} by access-group "{acl}" [0x0, 0x0]{suffix}'
         ]
 
     def asa_internal_deny(self, day: int, hour: int, count: int = 1) -> List[str]:

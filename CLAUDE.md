@@ -346,12 +346,13 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 
 ### Network (Per Location)
 
-| Location | Network | Users | Servers | IoT/Sensors | Cameras |
-|----------|---------|-------|---------|-------------|---------|
-| Boston (BOS) | 10.10.x.x | .30.0/23 | .20.0/24 | .60.0/24 | .70.0/24 |
-| Atlanta (ATL) | 10.20.x.x | .30.0/24 | .20.0/24 | .60.0/24 | .70.0/24 |
-| Austin (AUS) | 10.30.x.x | .30.0/24 | - | .60.0/24 | .70.0/24 |
+| Location | Network | Users (Wired) | Users (WiFi) | Servers | IoT/Sensors | Cameras | Voice | Guest |
+|----------|---------|---------------|--------------|---------|-------------|---------|-------|-------|
+| Boston (BOS) | 10.10.x.x | .30.0/23 | .40.0/23 | .20.0/24 | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
+| Atlanta (ATL) | 10.20.x.x | .30.0/24 | .40.0/24 | .20.0/24 | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
+| Austin (AUS) | 10.30.x.x | .30.0/24 | .40.0/24 | - | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
 
+- Management (Boston): 10.10.10.0/24
 - DMZ (Boston): 172.16.1.0/24
 - VPN Pool: 10.250.0.0/24 (deterministic per-user via SHA256 hash, range .10-.209)
 - SD-WAN: AutoVPN mesh between all sites

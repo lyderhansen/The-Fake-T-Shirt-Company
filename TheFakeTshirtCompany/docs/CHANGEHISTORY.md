@@ -4,6 +4,34 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-27 ~00:30 UTC -- Port & Logic Audit (4 fixes)
+
+### Context
+
+Splunk MCP verification of ASA port/traffic patterns revealed logical errors in the exfil scenario's lateral movement probe generation and an undocumented guest subnet in CLAUDE.md.
+
+### Changes
+
+1. **exfil.py**: Removed phantom server IPs `10.10.20.21` and `10.20.20.11` from lateral movement targets — these IPs don't correspond to any real server. Added real servers: SQL-PROD-01, APP-BOS-01, SAP-PROD-01, MON-ATL-01.
+2. **exfil.py**: Changed `asa_lateral_movement()` from `%ASA-6-302013: Built` to `%ASA-4-106023: Deny` — a workstation probing random server ports would be blocked by firewall ACLs, not allowed through.
+3. **exfil.py**: Replaced flat `lateral_ports` list with per-server `lateral_target_ports` dict — SSH (22) only on Linux servers, MSSQL (1433) only on SQL-PROD-01, AD ports (389/636/135) only on DCs, etc.
+4. **CLAUDE.md**: Added WiFi (.40.x), Voice (.50.x), and Guest (.80.x) subnets to network table — these existed in company.py but were undocumented. Added Management subnet.
+
+### Verification
+
+- ASA + exfil 14-day run: 830,920 events, no errors
+- 0 Built events from alex.miller to internal servers (was 156)
+- 78 Built events to external/cloud (C2/exfil — correct)
+- All Deny probes target real server IPs with OS-appropriate ports
+- No phantom IPs in output
+
+### Files Changed
+
+- `bin/scenarios/security/exfil.py` — lateral target IPs, port mapping, event format
+- `CLAUDE.md` — network subnet documentation
+
+---
+
 ## 2026-02-27 ~10:00 UTC -- Post-Audit Polish (7 fixes)
 
 ### Context
