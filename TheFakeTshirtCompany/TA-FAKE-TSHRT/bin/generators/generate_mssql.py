@@ -55,17 +55,16 @@ PRIMARY_DB = "TShirtDB"
 
 # Service accounts that connect to SQL
 SERVICE_ACCOUNTS = [
-    {"user": "svc_ecommerce", "client_ip": "172.16.1.10", "auth": "SQL Server authentication"},   # WEB-01
-    {"user": "svc_ecommerce", "client_ip": "172.16.1.11", "auth": "SQL Server authentication"},   # WEB-02
+    {"user": "svc_ecommerce", "client_ip": "10.10.20.40", "auth": "SQL Server authentication"},   # APP-BOS-01 (3-tier: WEB->APP->SQL)
     {"user": "svc_finance", "client_ip": "10.10.20.40", "auth": "SQL Server authentication"},     # APP-BOS-01
-    {"user": "svc_backup", "client_ip": "10.20.20.50", "auth": "SQL Server authentication"},      # BACKUP-ATL-01
+    {"user": "svc_backup", "client_ip": "10.20.20.20", "auth": "SQL Server authentication"},      # BACKUP-ATL-01
 ]
 
 # Human users who connect (DBAs, IT staff)
 DBA_USERS = [
     {"user": "steve.jackson", "client_ip": "10.20.30.20", "auth": "Windows authentication"},   # DBA Atlanta
     {"user": "jessica.brown", "client_ip": "10.20.30.15", "auth": "Windows authentication"},   # IT Admin Atlanta
-    {"user": "mike.johnson", "client_ip": "10.10.30.11", "auth": "Windows authentication"},    # CTO Boston
+    {"user": "mike.johnson", "client_ip": "10.10.30.12", "auth": "Windows authentication"},    # CTO Boston
 ]
 
 # Backup configuration
@@ -108,9 +107,13 @@ def format_mssql_event(ts: datetime, source: str, error: int = 0,
 # =============================================================================
 
 def generate_startup_events(base_date: datetime) -> List[str]:
-    """Generate SQL Server startup sequence events."""
+    """Generate SQL Server startup sequence events.
+
+    Placed at 00:00:05 so they appear first in the ERRORLOG, matching
+    real SQL Server behavior where the log starts with startup messages.
+    """
     events = []
-    ts = datetime(base_date.year, base_date.month, base_date.day, 6, 0, 0, 90000)
+    ts = datetime(base_date.year, base_date.month, base_date.day, 0, 0, 5, 90000)
 
     messages = [
         (0,    "Server",  "Microsoft SQL Server 2022 (RTM-CU12) - 16.0.4120.1 (X64)"),
@@ -171,7 +174,7 @@ def generate_backup_event(base_date: datetime, day: int,
 
     events.append(format_mssql_event(
         ts, f"spid{BACKUP_SPID}",
-        message=f"Backup database successfully processed {pages} pages in {duration} seconds ({mb_sec} MB/sec)."
+        message=f"BACKUP DATABASE successfully processed {pages} pages in {duration} seconds ({mb_sec} MB/sec)."
     ))
 
     return events

@@ -206,8 +206,10 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
         disk_busy_flag, io_mult = cpu_runaway_scenario.adjusted_disk(host, day, hour, minute)
         disk_busy = disk_busy_flag == 1
         demo_id = cpu_runaway_scenario.get_demo_id(day, hour) or None
-        # When scenario is active, don't apply hour_mult reduction
-        scenario_override = demo_id is not None
+        # Only override hour_mult during warning/critical phases (severity 1-2),
+        # not during recovery (severity 3) when metrics should return to normal.
+        severity = cpu_runaway_scenario.get_severity(day, hour, minute)
+        scenario_override = severity in (1, 2)
 
     # Apply DDoS attack downstream effects on APP-BOS-01
     # APP-BOS-01 (IIS/.NET) retries failed connections to overwhelmed WEB-01

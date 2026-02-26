@@ -4,6 +4,60 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~17:00 UTC -- Linux + MSSQL + Perfmon Generator Realism Audit (6 fixes)
+
+### Context
+
+Phase 4 infrastructure generator audit. Audited `generate_linux.py` (674 lines, 6 output files: auth, cpu, vmstat, df, iostat, interfaces), `generate_mssql.py` (704 lines, SQL Server ERRORLOG format), and `generate_perfmon.py` (636 lines, Windows Perfmon key=value multiline format). Cross-referenced output against real syslog auth.log format, SQL Server 2019 ERRORLOG format, and Splunk Perfmon input format. Verified scenario injection for memory_leak (Days 7-10), cpu_runaway (Days 11-12), disk_filling (Days 1-5), and exfil (Days 1-14). Checked server IP/hostname correlation against company.py.
+
+### Changes (6 fixes across 2 files)
+
+- **Fix 1 (HIGH): svc_backup connected from wrong IP.** Service account `svc_backup` used IP `10.20.20.50` but BACKUP-ATL-01 actual IP is `10.20.20.20` per company.py. Fixed source IP. (`generate_mssql.py`)
+
+- **Fix 2 (HIGH): svc_ecommerce connected from DMZ web servers instead of APP-BOS-01.** Per the documented 3-tier architecture (WEB -> APP -> SQL), the e-commerce application on APP-BOS-01 (10.10.20.40) connects to SQL, not the DMZ nginx servers (172.16.1.10/11) which cannot run SQL Server authentication. Removed duplicate WEB-01/WEB-02 entries and consolidated to APP-BOS-01. (`generate_mssql.py`)
+
+- **Fix 3 (MODERATE): mike.johnson DBA login used wrong IP.** Used `10.10.30.11` (sarah.wilson's IP per company.py) instead of `10.10.30.12` (mike.johnson's actual IP per company.py). (`generate_mssql.py`)
+
+- **Fix 4 (MODERATE): Startup events appeared after login/backup events.** SQL Server startup sequence was generated at 06:00 on Day 1, but baseline login and backup events started at 00:00. In a real ERRORLOG, startup messages are always first because the log file is created fresh on startup. Moved startup events to 00:00:05 so they appear before any other events. (`generate_mssql.py`)
+
+- **Fix 5 (MINOR): Backup completion message used wrong capitalization.** Generator produced "Backup database successfully processed" but real SQL Server 2019 ERRORLOG uses "BACKUP DATABASE successfully processed" (uppercase command name). (`generate_mssql.py`)
+
+- **Fix 6 (MODERATE): SQL Server counters showed stressed values during recovery.** The `scenario_override` flag was set to True whenever `demo_id` was non-None, which included the recovery phase (severity 3) after the DBA fixed the stuck backup at 10:30. This caused SQL Server-specific Perfmon counters (Page Life Expectancy, Buffer Cache Hit Ratio, Lock Waits/sec, Batch Requests/sec) to show stressed values for 13+ hours post-fix. Changed to only set `scenario_override=True` during warning (severity 1) and critical (severity 2) phases. (`generate_perfmon.py`)
+
+### Verification
+
+**Linux generator (`--sources=linux --days=14 --scenarios=all`):**
+- Events: 131,885 (auth=9,800+ | cpu/vmstat/df/iostat/interfaces=24,192 each)
+- memory_leak progression on WEB-01: Day 7=61%, Day 8=69%, Day 9=87%, Day 10=97% then OOM+restart to 51%
+- disk_filling on MON-ATL-01: Day 1=45%, Day 5=95%, Day 6=45% (resolved)
+- All 6 Linux servers present in output
+- No issues found (no changes needed)
+
+**MSSQL generator (`--sources=mssql --days=14 --scenarios=all`):**
+- Events: 1,423
+- Startup events now first in log (00:00:05)
+- svc_backup: CLIENT=10.20.20.20 (BACKUP-ATL-01, was 10.20.20.50)
+- svc_ecommerce: CLIENT=10.10.20.40 (APP-BOS-01, was 172.16.1.10/11)
+- mike.johnson: CLIENT=10.10.30.12 (was 10.10.30.11)
+- BACKUP DATABASE: uppercase (was "Backup database")
+- cpu_runaway: KILL at 10:30, restart sequence, recovery events present
+- exfil: xp_cmdshell by alex.miller (10.10.30.55) on Days 13-14
+
+**Perfmon generator (`--sources=perfmon --days=14 --scenarios=all`):**
+- Events: 528,864
+- cpu_runaway SQL counters: critical phase PLE=200-430 (stressed), recovery phase PLE=1,400-2,400 (normal, was 100-500)
+- cpu_runaway tags: Day 11 02:00 through Day 12 23:55 (correct timeline)
+- All Windows servers present in output
+
+### Files changed
+
+| File | Changes |
+|------|---------|
+| `bin/generators/generate_mssql.py` | Fixes 1-5: svc_backup IP, svc_ecommerce source, mike.johnson IP, startup timing, backup capitalization |
+| `bin/generators/generate_perfmon.py` | Fix 6: scenario_override uses severity check instead of demo_id presence |
+
+---
+
 ## 2026-02-27 ~01:00 UTC -- Webex Generators Realism Audit (7 fixes)
 
 ### Context
