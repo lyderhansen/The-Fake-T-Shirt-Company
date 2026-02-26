@@ -489,7 +489,6 @@ class ExfilScenario:
     def aws_create_user(self, day: int) -> str:
         """Create malicious IAM user."""
         ts = self.time_utils.ts_iso(day, 10, 45, 22)
-        demo = self._demo_json()
 
         return json.dumps({
             "eventVersion": "1.08",
@@ -515,12 +514,14 @@ class ExfilScenario:
                     "arn": f"arn:aws:iam::{self.cfg.aws_account_id}:user/{self.cfg.aws_mal_user}"
                 }
             },
-            "requestID": "attack-aws-001",
-            "eventID": "event-attack-001",
+            "requestID": str(uuid.uuid4()),
+            "eventID": str(uuid.uuid4()),
+            "readOnly": False,
             "eventType": "AwsApiCall",
             "managementEvent": True,
+            "recipientAccountId": self.cfg.aws_account_id,
+            "eventCategory": "Management",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
-            "eventCategory": "Management"
         })
 
     def aws_attach_policy(self, day: int) -> str:
@@ -547,12 +548,15 @@ class ExfilScenario:
                 "userName": self.cfg.aws_mal_user,
                 "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
             },
-            "requestID": "attack-aws-002",
-            "eventID": "event-attack-002",
+            "responseElements": None,
+            "requestID": str(uuid.uuid4()),
+            "eventID": str(uuid.uuid4()),
+            "readOnly": False,
             "eventType": "AwsApiCall",
             "managementEvent": True,
+            "recipientAccountId": self.cfg.aws_account_id,
+            "eventCategory": "Management",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
-            "eventCategory": "Management"
         })
 
     def aws_s3_exfil(self, day: int, hour: int) -> str:
@@ -580,16 +584,19 @@ class ExfilScenario:
                 "bucketName": self.cfg.aws_bucket_sensitive,
                 "key": file
             },
-            "requestID": f"exfil-{random.randint(0, 999)}",
-            "eventID": f"event-exfil-{random.randint(0, 999)}",
+            "responseElements": None,
+            "requestID": str(uuid.uuid4()),
+            "eventID": str(uuid.uuid4()),
             "readOnly": True,
+            "eventType": "AwsApiCall",
+            "managementEvent": False,
+            "recipientAccountId": self.cfg.aws_account_id,
+            "eventCategory": "Data",
             "resources": [{
                 "type": "AWS::S3::Object",
                 "ARN": f"arn:aws:s3:::{self.cfg.aws_bucket_sensitive}/{file}"
             }],
-            "eventType": "AwsApiCall",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
-            "eventCategory": "Data"
         })
 
     def aws_hour(self, day: int, hour: int) -> List[str]:

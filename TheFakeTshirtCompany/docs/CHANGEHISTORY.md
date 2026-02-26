@@ -4,6 +4,63 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~09:00 UTC -- AWS CloudTrail Generator Realism Audit (7 fixes)
+
+### Context
+
+Comprehensive audit of `generate_aws.py` (AWS CloudTrail generator) and the AWS events in `scenarios/security/exfil.py`. Cross-referenced all generated JSON fields against the official AWS CloudTrail documentation ([record contents](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html), [log file examples](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-examples.html), [console sign-in events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-aws-console-sign-in-events.html)). Verified field names, data types, presence/absence of fields, event categorization, and scenario correlation accuracy.
+
+### Changes (7 fixes)
+
+- **Fix 1 (CRITICAL): Missing `eventCategory` field on ALL events.** Real CloudTrail records (since version 1.08) always include `eventCategory`. None of the 31,000+ generated events had this field. Added `eventCategory` parameter to both `aws_iam_user_event()` and `aws_assumed_role_event()` builder functions, defaulting to `"Management"`. S3 data-plane operations (GetObject, PutObject, DeleteObject) now pass `event_category="Data"`. ConsoleLogin and all scenario events also updated.
+
+- **Fix 2 (MODERATE): S3 data-plane operations had `managementEvent: true`.** In real CloudTrail, S3 object-level operations (GetObject, PutObject, DeleteObject) are data events with `managementEvent: false`. All S3 data event generators now correctly set `managementEvent: false` via the new `event_category` parameter.
+
+- **Fix 3 (MODERATE): ConsoleLogin events missing `requestParameters` field.** Real CloudTrail ConsoleLogin events always include `"requestParameters": null`. The generator constructed ConsoleLogin events manually without this field. Added `"requestParameters": null` to the ConsoleLogin event builder.
+
+- **Fix 4 (MODERATE): Baseline S3 events incorrectly tagged with `demo_id=exfil`.** The `should_tag_exfil()` function tagged ALL baseline S3 GetObject/PutObject events during days 7-13 with `demo_id=exfil`, even though these were normal user operations. This created ~3,000 false-positive exfil-tagged events vs ~32 actual attack events. Removed the function entirely. Now only true attack events (from ExfilScenario class and `aws_get_secret_exfil`) receive the exfil tag.
+
+- **Fix 5 (MINOR): ConsoleLogin failed events missing `accessKeyId` in userIdentity.** Real CloudTrail failed ConsoleLogin events include `"accessKeyId": ""` (empty string). Successful logins omit `accessKeyId` entirely. Updated ConsoleLogin builder to include `accessKeyId: ""` only for failed logins and omit it for successful logins.
+
+- **Fix 6 (MINOR): ExfilScenario events missing fields and using non-UUID IDs.** The `aws_create_user()` and `aws_attach_policy()` methods in `exfil.py` were missing `recipientAccountId`, `readOnly`, and `responseElements` (on AttachUserPolicy). They also used fixed string requestIDs (e.g., `"attack-aws-001"`) instead of UUID format. The `aws_s3_exfil()` method was missing `recipientAccountId` and `managementEvent`. All three methods updated with proper fields and UUID-format IDs.
+
+- **Fix 7 (BUG): `aws_config_put_evaluations` not receiving `active_scenarios` from baseline hour.** The function accepted an `active_scenarios` parameter for exfil compliance tagging, but the call in `generate_baseline_hour()` never passed it. Fixed by passing `active_scenarios` to the call site.
+
+### Verification
+
+**3-day run (`--sources=aws --days=3 --scenarios=all`):**
+- Generator output: 4,218 events
+- `eventCategory` present: 4,218/4,218 (was 0/4,218)
+- S3 data events with `managementEvent=false`: 1,332/1,332 (was 0/1,332)
+- S3 data events with `eventCategory="Data"`: 1,332/1,332
+- Non-S3 events with `managementEvent=true`: 2,886/2,886
+- ConsoleLogin events with `requestParameters` field: 218/218 (was 0/218)
+- Failed ConsoleLogin events with `accessKeyId=""`: all (was missing)
+- Successful ConsoleLogin events without `accessKeyId`: all (was missing)
+- `demo_id` events in 3-day run: 0 (correct; scenarios start after day 3)
+
+**20-day run (`--sources=aws --days=20 --scenarios=all`):**
+- Generator output: 31,536 events
+- `eventCategory` present: 31,536/31,536
+- Exfil demo_id events: 80 (was ~3,300 before fix, mostly false positives)
+  - True attack events: CreateUser=1, AttachUserPolicy=1, GetSecretValue=1, GetObject=29
+  - PutEvaluations (NON_COMPLIANT compliance events): 48
+- DDoS demo_id events: 32 (RunInstances + SetAlarmState)
+- Memory leak demo_id events: 2 (SetAlarmState alarms)
+- CPU runaway demo_id events: 2 (SetAlarmState alarms)
+- All exfil events have UUID-format requestID/eventID: yes (was fixed strings)
+- All exfil events have recipientAccountId: yes (was missing on 3 event types)
+- Error rate: 2.7% (within target 3-5% range)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `bin/generators/generate_aws.py` | Added `eventCategory` to all events, fixed S3 `managementEvent`, fixed ConsoleLogin format, removed false-positive exfil tagging, fixed `aws_config_put_evaluations` call site |
+| `bin/scenarios/security/exfil.py` | Added `recipientAccountId`, `readOnly`, `responseElements`, `managementEvent` to exfil AWS events; replaced fixed requestID/eventID with UUIDs |
+
+---
+
 ## 2026-02-26 ~05:00 UTC -- SAP Generator Realism Audit (9 fixes)
 
 ### Context

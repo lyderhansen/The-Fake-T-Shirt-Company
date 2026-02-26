@@ -10,10 +10,12 @@ Field validation fixes applied:
   - userAgent: Varied per user (Console, CLI, SDK)
   - userIdentity.type: AssumedRole for Lambda/EC2 service calls
   - readOnly: Boolean based on event type
-  - managementEvent: True for management events
+  - managementEvent: True for management events, False for S3 data events
+  - eventCategory: "Management" or "Data" per CloudTrail spec (since v1.08)
   - resources: ARN array on all events
   - sessionContext: Added for AssumedRole events
   - recipientAccountId: Already present (verified)
+  - ConsoleLogin: requestParameters=null, accessKeyId="" on failed logins
 """
 
 import argparse
@@ -115,20 +117,10 @@ def _is_read_only(event_name: str) -> bool:
     return event_name.startswith(_READ_ONLY_PREFIXES)
 
 
-def should_tag_exfil(day: int, event_name: str, active_scenarios: list) -> bool:
-    """Check if event should get exfil demo_id.
-
-    Exfil scenario:
-    - Staging phase (day 8-10): GetObject, PutObject, ListBucket
-    - Exfil phase (day 11-14): GetObject (large downloads)
-    """
-    if "exfil" not in active_scenarios:
-        return False
-    # Exfil scenario: day 8-14 (0-indexed: 7-13)
-    if day < 7 or day > 13:
-        return False
-    # Tag S3 operations during staging/exfil phase
-    return event_name in ["GetObject", "PutObject", "ListBucket"]
+# Note: Baseline S3 events are NOT tagged with demo_id=exfil.
+# Only actual attack events (from ExfilScenario class and aws_get_secret_exfil)
+# get the exfil tag. This prevents ~3000 false-positive exfil events per run
+# and ensures demo_id=exfil in Splunk returns only true attack activity.
 
 # =============================================================================
 # EVENT GENERATORS
@@ -141,8 +133,14 @@ def _pick_human_user() -> "User":
 
 
 def aws_iam_user_event(base_date: str, day: int, hour: int, minute: int, second: int,
-                       event_name: str, event_source: str, user) -> Dict[str, Any]:
-    """Create CloudTrail event with IAMUser identity (human users)."""
+                       event_name: str, event_source: str, user,
+                       event_category: str = "Management") -> Dict[str, Any]:
+    """Create CloudTrail event with IAMUser identity (human users).
+
+    Args:
+        event_category: "Management" (default) or "Data" (for S3 object operations).
+    """
+    is_data = event_category == "Data"
     return {
         "eventVersion": "1.08",
         "userIdentity": {
@@ -164,18 +162,25 @@ def aws_iam_user_event(base_date: str, day: int, hour: int, minute: int, second:
         "eventType": "AwsApiCall",
         "recipientAccountId": AWS_ACCOUNT_ID,
         "readOnly": _is_read_only(event_name),
-        "managementEvent": True,
+        "managementEvent": not is_data,
+        "eventCategory": event_category,
     }
 
 
 def aws_assumed_role_event(base_date: str, day: int, hour: int, minute: int, second: int,
                            event_name: str, event_source: str,
-                           role_name: str, session_name: str) -> Dict[str, Any]:
-    """Create CloudTrail event with AssumedRole identity (service accounts)."""
+                           role_name: str, session_name: str,
+                           event_category: str = "Management") -> Dict[str, Any]:
+    """Create CloudTrail event with AssumedRole identity (service accounts).
+
+    Args:
+        event_category: "Management" (default) or "Data" (for S3 object operations).
+    """
     role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/{role_name}"
     assumed_role_arn = f"arn:aws:sts::{AWS_ACCOUNT_ID}:assumed-role/{role_name}/{session_name}"
     # AssumedRole principalId format: AROA... : session-name
     role_id = f"AROA{uuid.uuid5(uuid.NAMESPACE_DNS, role_name).hex[:16].upper()}"
+    is_data = event_category == "Data"
 
     return {
         "eventVersion": "1.08",
@@ -210,18 +215,20 @@ def aws_assumed_role_event(base_date: str, day: int, hour: int, minute: int, sec
         "eventType": "AwsApiCall",
         "recipientAccountId": AWS_ACCOUNT_ID,
         "readOnly": _is_read_only(event_name),
-        "managementEvent": True,
+        "managementEvent": not is_data,
+        "eventCategory": event_category,
     }
 
 
-def aws_s3_get_object(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
-    """Generate S3 GetObject event."""
+def aws_s3_get_object(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate S3 GetObject event (data event, not management)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
     user = _pick_human_user()
     bucket = random.choice(AWS_BUCKETS)
     key = f"data/{random.choice(['reports', 'exports', 'logs'])}/file_{random.randint(1000, 9999)}.json"
 
-    event = aws_iam_user_event(base_date, day, hour, minute, second, "GetObject", "s3.amazonaws.com", user)
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "GetObject", "s3.amazonaws.com", user,
+                               event_category="Data")
     event["requestParameters"] = {"bucketName": bucket, "key": key}
     event["responseElements"] = None
     event["resources"] = [
@@ -229,24 +236,23 @@ def aws_s3_get_object(base_date: str, day: int, hour: int, active_scenarios: lis
         {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}", "accountId": AWS_ACCOUNT_ID},
     ]
 
-    if active_scenarios and should_tag_exfil(day, "GetObject", active_scenarios):
-        event["demo_id"] = "exfil"
-
     return _maybe_inject_error(event, "GetObject")
 
 
-def aws_s3_put_object(base_date: str, day: int, hour: int, active_scenarios: list = None) -> Dict[str, Any]:
-    """Generate S3 PutObject event."""
+def aws_s3_put_object(base_date: str, day: int, hour: int) -> Dict[str, Any]:
+    """Generate S3 PutObject event (data event, not management)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
 
     # 60% human uploads, 40% service (backup/pipeline)
     if random.random() < 0.6:
         user = _pick_human_user()
-        event = aws_iam_user_event(base_date, day, hour, minute, second, "PutObject", "s3.amazonaws.com", user)
+        event = aws_iam_user_event(base_date, day, hour, minute, second, "PutObject", "s3.amazonaws.com", user,
+                                   event_category="Data")
     else:
         svc = random.choice(list(AWS_SERVICE_ROLES.values()))
         event = aws_assumed_role_event(base_date, day, hour, minute, second, "PutObject", "s3.amazonaws.com",
-                                       svc["role_name"], svc["session_name"])
+                                       svc["role_name"], svc["session_name"],
+                                       event_category="Data")
 
     bucket = random.choice(AWS_BUCKETS)
     key = f"uploads/{random.choice(['daily', 'hourly'])}/data_{random.randint(1000, 9999)}.csv"
@@ -257,20 +263,18 @@ def aws_s3_put_object(base_date: str, day: int, hour: int, active_scenarios: lis
         {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}", "accountId": AWS_ACCOUNT_ID},
     ]
 
-    if active_scenarios and should_tag_exfil(day, "PutObject", active_scenarios):
-        event["demo_id"] = "exfil"
-
     return _maybe_inject_error(event, "PutObject")
 
 
 def aws_s3_delete_object(base_date: str, day: int, hour: int) -> Dict[str, Any]:
-    """Generate S3 DeleteObject event."""
+    """Generate S3 DeleteObject event (data event, not management)."""
     minute, second = random.randint(0, 59), random.randint(0, 59)
     user = _pick_human_user()
     bucket = random.choice(AWS_BUCKETS)
     key = f"data/{random.choice(['temp', 'old', 'archive'])}/file_{random.randint(1000, 9999)}.json"
 
-    event = aws_iam_user_event(base_date, day, hour, minute, second, "DeleteObject", "s3.amazonaws.com", user)
+    event = aws_iam_user_event(base_date, day, hour, minute, second, "DeleteObject", "s3.amazonaws.com", user,
+                               event_category="Data")
     event["requestParameters"] = {"bucketName": bucket, "key": key}
     event["responseElements"] = None
     event["resources"] = [
@@ -382,42 +386,60 @@ def aws_sts_assume_role(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 
 
 def aws_console_login(base_date: str, day: int, hour: int) -> Dict[str, Any]:
-    """Generate ConsoleLogin event (AWS Management Console sign-in)."""
+    """Generate ConsoleLogin event (AWS Management Console sign-in).
+
+    Matches real CloudTrail ConsoleLogin format:
+    - requestParameters is always null
+    - eventType is "AwsConsoleSignIn"
+    - Failed logins include errorMessage and accessKeyId="" in userIdentity
+    - Successful logins omit accessKeyId from userIdentity
+    """
     minute, second = random.randint(0, 59), random.randint(0, 59)
     user = _pick_human_user()
 
+    # ~5% of console logins fail
+    is_failure = random.random() < 0.05
+
+    # userIdentity differs for success vs failure:
+    # - Success: no accessKeyId (real CloudTrail omits it)
+    # - Failure: accessKeyId="" (empty string, per real CloudTrail)
+    user_identity = {
+        "type": "IAMUser",
+        "principalId": user.aws_principal_id,
+        "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/{user.username}",
+        "accountId": AWS_ACCOUNT_ID,
+        "userName": user.username,
+    }
+    if is_failure:
+        user_identity["accessKeyId"] = ""
+
     event = {
         "eventVersion": "1.08",
-        "userIdentity": {
-            "type": "IAMUser",
-            "principalId": user.aws_principal_id,
-            "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/{user.username}",
-            "accountId": AWS_ACCOUNT_ID,
-            "userName": user.username,
-        },
+        "userIdentity": user_identity,
         "eventTime": ts_iso(base_date, day, hour, minute, second),
         "eventSource": "signin.amazonaws.com",
         "eventName": "ConsoleLogin",
         "awsRegion": AWS_REGION,
         "sourceIPAddress": user.ip_address,
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "requestParameters": None,
         "requestID": str(uuid.uuid4()),
         "eventID": str(uuid.uuid4()),
         "eventType": "AwsConsoleSignIn",
         "recipientAccountId": AWS_ACCOUNT_ID,
         "readOnly": False,
         "managementEvent": True,
+        "eventCategory": "Management",
     }
 
-    # ~5% of console logins fail
-    if random.random() < 0.05:
+    if is_failure:
+        event["errorMessage"] = "Failed authentication"
         event["responseElements"] = {"ConsoleLogin": "Failure"}
         event["additionalEventData"] = {
             "LoginTo": f"https://console.aws.amazon.com/console/home?region={AWS_REGION}",
             "MobileVersion": "No",
             "MFAUsed": "No",
         }
-        event["errorMessage"] = "Failed authentication"
     else:
         event["responseElements"] = {"ConsoleLogin": "Success"}
         event["additionalEventData"] = {
@@ -647,16 +669,17 @@ def aws_get_secret_exfil(base_date: str, day: int, hour: int) -> Dict[str, Any]:
         "eventSource": "secretsmanager.amazonaws.com",
         "eventName": "GetSecretValue",
         "awsRegion": AWS_REGION,
-        "sourceIPAddress": "10.10.30.55",  # Compromised workstation
+        "sourceIPAddress": "10.10.30.55",  # Compromised workstation (alex.miller)
         "userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
-        "requestID": str(uuid.uuid4()),
-        "eventID": str(uuid.uuid4()),
-        "eventType": "AwsApiCall",
-        "recipientAccountId": AWS_ACCOUNT_ID,
-        "readOnly": True,
-        "managementEvent": True,
         "requestParameters": {"secretId": "prod/database/credentials", "versionStage": "AWSCURRENT"},
         "responseElements": None,
+        "requestID": str(uuid.uuid4()),
+        "eventID": str(uuid.uuid4()),
+        "readOnly": True,
+        "eventType": "AwsApiCall",
+        "managementEvent": True,
+        "recipientAccountId": AWS_ACCOUNT_ID,
+        "eventCategory": "Management",
         "resources": [
             {"type": "AWS::SecretsManager::Secret", "ARN": f"arn:aws:secretsmanager:{AWS_REGION}:{AWS_ACCOUNT_ID}:secret:prod/database/credentials"},
         ],
@@ -745,9 +768,9 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
         event_type = random.randint(1, 100)
 
         if event_type <= 16:
-            events.append(aws_s3_get_object(base_date, day, hour, active_scenarios))
+            events.append(aws_s3_get_object(base_date, day, hour))
         elif event_type <= 28:
-            events.append(aws_s3_put_object(base_date, day, hour, active_scenarios))
+            events.append(aws_s3_put_object(base_date, day, hour))
         elif event_type <= 31:
             events.append(aws_s3_delete_object(base_date, day, hour))
         elif event_type <= 41:
@@ -779,7 +802,7 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
         elif event_type <= 99:
             events.append(aws_config_start_evaluation(base_date, day, hour))
         else:
-            events.append(aws_config_put_evaluations(base_date, day, hour))
+            events.append(aws_config_put_evaluations(base_date, day, hour, active_scenarios))
 
     return events
 
