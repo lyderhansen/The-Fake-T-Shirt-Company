@@ -15,6 +15,7 @@ Timeline (Day 8-9):
 """
 
 import random
+import uuid
 from typing import List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -286,12 +287,15 @@ class RansomwareAttemptScenario:
             "RecipientAddress": self.cfg.target_email,
             "Subject": self.cfg.phishing_subject,
             "Status": "Delivered",
-            "ToIP": "10.30.30.20",
+            "ToIP": "10.10.20.50",  # Exchange server IP (not user workstation)
             "FromIP": "185.234.72.15",
-            "Size": str(random.randint(250000, 350000)),  # .docm file
+            "Size": random.randint(250000, 350000),  # Integer, not string
             "MessageId": f"<{random.randint(100000, 999999)}.phishing@invoices-delivery.com>",
-            "MessageTraceId": str(random.randint(10000000, 99999999)),
+            "MessageTraceId": str(uuid.uuid4()),  # UUID format, not random int
             "Organization": "theFakeTshirtCompany.com",
+            "Directionality": "Inbound",
+            "ConnectorId": "Inbound from Internet",
+            "SourceContext": "External inbound",
             "AttachmentNames": self.cfg.phishing_attachment,
         }
         event.update(self._demo_json())

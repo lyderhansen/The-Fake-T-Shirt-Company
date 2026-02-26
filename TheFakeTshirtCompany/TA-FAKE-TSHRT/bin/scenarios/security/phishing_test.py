@@ -226,7 +226,7 @@ class PhishingTestScenario:
                         "Status": "Delivered",
                         "ToIP": "10.10.20.50",  # Exchange server
                         "FromIP": self.cfg.sim_platform_ip,
-                        "Size": str(random.randint(15000, 25000)),
+                        "Size": random.randint(15000, 25000),
                         "MessageId": f"<phishsim-{username}-{uuid.uuid4().hex[:8]}@{self.cfg.sim_domain}>",
                         "MessageTraceId": str(uuid.uuid4()),
                         "Organization": TENANT,
@@ -255,7 +255,7 @@ class PhishingTestScenario:
                     "Status": "Delivered",
                     "ToIP": "10.10.20.50",
                     "FromIP": self.cfg.operator_ip,
-                    "Size": str(random.randint(8000, 12000)),
+                    "Size": random.randint(8000, 12000),
                     "MessageId": f"<training-{username}-{uuid.uuid4().hex[:8]}@{TENANT}>",
                     "MessageTraceId": str(uuid.uuid4()),
                     "Organization": TENANT,

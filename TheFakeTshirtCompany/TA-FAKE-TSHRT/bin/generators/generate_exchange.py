@@ -853,19 +853,21 @@ def generate_exchange_logs(
         if not quiet:
             print(f"  [Exchange] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
 
-    # Sort baseline events by timestamp
-    all_events.sort(key=lambda x: x["Received"])
+    # Parse scenario events (JSON strings) into dicts for unified sorting
+    scenario_events_parsed = []
+    for event_json in scenario_events_json:
+        scenario_events_parsed.append(json.loads(event_json))
+
+    # Merge baseline and scenario events, then sort by timestamp
+    all_events.extend(scenario_events_parsed)
+    all_events.sort(key=lambda x: x.get("Received", ""))
 
     # Write all output to single JSON file
     with open(output_path, "w") as f:
-        # Write baseline events
         for event in all_events:
             f.write(json.dumps(event) + "\n")
-        # Append scenario events (already JSON strings)
-        for event_json in scenario_events_json:
-            f.write(event_json + "\n")
 
-    total_events = len(all_events) + len(scenario_events_json)
+    total_events = len(all_events)
 
     if not quiet:
         print(f"  [Exchange] Complete! {total_events:,} events written", file=sys.stderr)

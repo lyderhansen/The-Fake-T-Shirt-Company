@@ -652,7 +652,7 @@ def _phishing_test_events_for_hour(start_date: str, day: int, hour: int) -> List
     Uses deterministic seed to select the SAME clickers as PhishingTestScenario.
 
     Timeline:
-        Day 20-21 (0-indexed): SafeLinks URL click events (RecordType 146)
+        Day 20-21 (0-indexed): SafeLinks URL click events (RecordType 41)
             When employees click the phishing sim link, M365 Defender SafeLinks
             logs the URL check event.
         Day 22: Admin review events (ashley.griffin reviews campaign results)
@@ -687,13 +687,13 @@ def _phishing_test_events_for_hour(start_date: str, day: int, hour: int) -> List
             second = random.randint(0, 59)
             ts = ts_iso(start_date, day, click_hour, click_minute, second)
 
-            # SafeLinks URL click event (RecordType 146 = ThreatIntelligenceUrl)
+            # SafeLinks URL click event (RecordType 41 = ThreatIntelligenceUrl)
             event = {
                 "CreationTime": ts,
                 "Id": str(uuid.uuid4()),
                 "Operation": "SafeLinksUrlClicked",
                 "OrganizationId": ORG_ID,
-                "RecordType": 146,
+                "RecordType": 41,
                 "UserKey": _generate_user_key(username),
                 "UserType": 0,
                 "Workload": "ThreatIntelligence",

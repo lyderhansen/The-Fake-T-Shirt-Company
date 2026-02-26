@@ -4,6 +4,56 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~23:30 UTC -- Exchange + Office Audit Generator Realism Audit (8 fixes)
+
+### Context
+
+Comprehensive audit of `generate_exchange.py` (894 lines) and `generate_office_audit.py` (944 lines), plus related scenario files (`ransomware_attempt.py`, `phishing_test.py`). Cross-referenced generated output against real Exchange Online MessageTrace format (Get-MessageTrace/Get-MessageTraceV2 PowerShell output) and Office 365 Management Activity API AuditRecord schema. Verified scenario injection (exfil, ransomware_attempt, phishing_test), cross-generator correlation (employee emails/IPs, tenant IDs, threat actor IP), and field-level accuracy.
+
+### Changes (8 fixes across 4 files)
+
+- **Fix 1 (CRITICAL): Exchange scenario events appended unsorted after baseline.** Scenario events from `exfil_scenario.exchange_day()`, ransomware, and phishing_test were collected as JSON strings and appended after all sorted baseline events. This resulted in ~30 scenario events with Day 1-13 timestamps appearing at the end of the file after Day 14 baseline events. Fix: parse scenario JSON strings back to dicts, merge with baseline events, sort all together by `Received` timestamp before writing. (`generate_exchange.py`)
+
+- **Fix 2 (MODERATE): Ransomware MessageTraceId was not UUID format.** Used `str(random.randint(10000000, 99999999))` producing 8-digit numbers like `"79322405"` instead of proper UUID format like `"8a7a54b3-b92e-4dd7-be9b-a7dd897156c7"`. Real Exchange MessageTraceId is always a GUID. Fixed to `str(uuid.uuid4())`. Added `import uuid` to ransomware_attempt.py. (`ransomware_attempt.py`)
+
+- **Fix 3 (MODERATE): Ransomware exchange Size field was string type.** Used `str(random.randint(250000, 350000))` producing `"280392"` (string) instead of `280392` (integer). All baseline exchange events use integer Size. Fixed to `random.randint(250000, 350000)`. (`ransomware_attempt.py`)
+
+- **Fix 4 (MODERATE): Ransomware exchange event missing Directionality field.** Phishing email from external sender lacked `"Directionality": "Inbound"` field present on all other inbound baseline events. Added `"Directionality": "Inbound"`. (`ransomware_attempt.py`)
+
+- **Fix 5 (MODERATE): Ransomware exchange event missing ConnectorId field.** Inbound external email lacked `"ConnectorId": "Inbound from Internet"` field present on all other inbound baseline events. Added `"ConnectorId": "Inbound from Internet"`. (`ransomware_attempt.py`)
+
+- **Fix 6 (MODERATE): Ransomware exchange ToIP was user workstation IP.** `ToIP` was set to `"10.30.30.20"` (Brooklyn White's workstation IP) instead of an Exchange server IP. Real Exchange MessageTrace `ToIP` for inbound mail is the destination mail server, not the recipient's workstation. Fixed to `"10.10.20.50"` (Exchange server). Also added `"SourceContext": "External inbound"` for consistency. (`ransomware_attempt.py`)
+
+- **Fix 7 (MINOR): Phishing test exchange Size field was string type.** Both simulation email Size (`str(random.randint(15000, 25000))`) and training email Size (`str(random.randint(8000, 12000))`) produced strings instead of integers. Fixed both to `random.randint()` without `str()` wrapper. (`phishing_test.py`)
+
+- **Fix 8 (MODERATE): Office audit phishing_test SafeLinks RecordType was 146 instead of 41.** Used `RecordType: 146` for SafeLinks URL click events (ThreatIntelligenceUrl). The correct AuditLogRecordType enum value is **41**. Value 146 is undocumented/nonexistent in the official Office 365 Management Activity API schema. Fixed to `RecordType: 41`. (`generate_office_audit.py`)
+
+### Verification
+
+**Exchange generator (`--sources=exchange --days=14 --scenarios=all`):**
+- Total events: 52,470 (baseline + scenario)
+- Demo events: 31 (exfil=30, ransomware_attempt=1)
+- Timestamp ordering: 0 out-of-order events (was 30+ before Fix 1)
+- Scenario events interleaved: first demo at line 3,947, last at line 46,255
+- Ransomware event: UUID MessageTraceId, integer Size, Directionality=Inbound, ConnectorId present, ToIP=Exchange server
+- String Size values: 0 (was 1 before fixes)
+- Events missing Size field: 10 (exfil mailbox audit events -- by design)
+
+**Office audit generator (`--sources=office_audit --days=14 --scenarios=all`):**
+- Total events: 19,514
+- RecordType distribution: 6=4,850 | 7=6,770 | 14=126 | 25=7,768
+- No RecordType 146 present (was incorrect before Fix 8)
+- Demo events: 277 (exfil=259, ransomware_attempt=18)
+
+### Files Changed
+
+- `bin/generators/generate_exchange.py`
+- `bin/generators/generate_office_audit.py`
+- `bin/scenarios/security/ransomware_attempt.py`
+- `bin/scenarios/security/phishing_test.py`
+
+---
+
 ## 2026-02-26 ~22:00 UTC -- GCP Generator Realism Audit (8 fixes)
 
 ### Context
