@@ -4,6 +4,59 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-27 ~01:00 UTC -- Webex Generators Realism Audit (7 fixes)
+
+### Context
+
+Comprehensive audit of all three Webex generators: `generate_webex.py` (1324 lines, device events), `generate_webex_ta.py` (804 lines, Splunk TA format), and `generate_webex_api.py` (785 lines, REST API format). Also audited `meeting_schedule.py` and `company.py` MEETING_ROOMS configuration. Cross-referenced output against real Webex Admin Audit Events API, Webex Calling CDR API, and Splunk TA for Cisco Webex Meetings format. Verified cross-generator meeting correlation (860 meetings match across all three generators), problem/sunny room quality differentiation, scenario injection (exfil demo_id tagging), and meeting lifecycle ordering.
+
+### Changes (7 fixes across 2 files)
+
+- **Fix 1 (MODERATE): Meeting type distribution was uniform instead of realistic.** Both `generate_webex_ta.py` and fallback path in `generate_webex_ta.py` used `random.choice(MEETING_TYPES)` giving ~25% each for MC/TC/EC/SC. Real Webex usage is heavily MC (Meeting Center) dominated (~85%). Added `MEETING_TYPE_WEIGHTS = [85, 5, 5, 5]` and switched to `random.choices()` with weights. (`generate_webex_ta.py`)
+
+- **Fix 2 (MODERATE): timeZoneID hardcoded to Eastern for all meetings.** All meetings used `timeZoneID: "4"` (Eastern Time) regardless of location. Austin (AUS) meetings should use `"11"` (Central Time). Added location-aware timezone: `"11" if meeting.location == "AUS" else "4"`. (`generate_webex_ta.py`)
+
+- **Fix 3 (MINOR): Dead/broken `_get_scheduled_meetings_for_day()` function.** This function had a broken day-filter check with a `pass` statement that caused it to return ALL meetings regardless of day. The function was never called in the main flow (superseded by `generate_meetings_for_day()`), so it was dead code. Removed the function. (`generate_webex_ta.py`)
+
+- **Fix 4 (MODERATE): Admin audit events missing top-level `type` field.** Real Webex Admin Audit Events API includes a `type` field (e.g., `"user_management"`, `"group_management"`, `"device_management"`). Added `ADMIN_AUDIT_TYPE_MAP` dictionary and included `type` field in all admin audit records. (`generate_webex_api.py`)
+
+- **Fix 5 (MODERATE): Security audit events missing top-level `type` field.** Real Webex Security Audit Events API includes `type: "logins"` for all login/logout events. Added `"type": "logins"` to security audit records. (`generate_webex_api.py`)
+
+- **Fix 6 (MODERATE): Security audit never generated failed login events.** Only login and logout events were produced (SECURITY_AUDIT_EVENTS[0] and [1]). Real Webex traffic includes ~1-3% failed logins from typos, expired tokens, and locked accounts. Added failed login generation at ~2% of login count using SECURITY_AUDIT_EVENTS[2]. (`generate_webex_api.py`)
+
+- **Fix 7 (MINOR): Call history `Answered` field used `"true"`/`"false"` instead of `"Yes"`/`"No"`.** Real Webex Calling CDR API returns `Answered` as `"Yes"` or `"No"` strings, matching the `Answer indicator` field format. Changed from `str(answered).lower()` to `"Yes" if answered else "No"`. (`generate_webex_api.py`)
+
+### Verification
+
+**All three generators (`--sources=webex,webex_ta,webex_api --days=14 --scenarios=all`):**
+- Total events: 41,580 (across 8 output files)
+- Cross-generator correlation: 860 meetings match across all three generators
+- Meeting lifecycle: 0 ordering issues (meeting_started always before participant_joined)
+
+**generate_webex.py (device events):**
+- Events: 25,627 (device_health=1,470 | room_analytics=4,095 | meeting_started=860 | participant_joined/left=4,423 each | quality_metrics=9,120 | wireless_share=267 | meeting_ended=860)
+- Problem room quality: Kirby 28.4% degraded, Cortana 45.2% degraded
+- Sunny rooms quality: Link 95.0% good, Chief 95.6% good, Doom 94.8% good
+- Exfil demo_id events: 362
+
+**generate_webex_ta.py (TA format):**
+- Meeting records: 860 (meetingusage) + 4,438 (attendee)
+- Meeting type distribution: MC=84.5%, TC=4.3%, EC=5.0%, SC=6.2% (was ~25% each)
+- timeZoneID: 4 (Eastern)=699, 11 (Central)=161 (was all Eastern)
+
+**generate_webex_api.py (REST API format):**
+- Meetings: 860 | Admin audit: 289 | Security audit: 4,751 | Quality: 4,152 | Calls: 603
+- Admin audit type field present: user_management=66, group_management=57, device_management=63, compliance_management=50, meeting_management=53
+- Security audit: login=2,354 | logout=2,354 | failed=43 (was 0 failed)
+- Call history Answered: Yes=548, No=55 (was "true"/"false")
+
+### Files Changed
+
+- `bin/generators/generate_webex_ta.py`
+- `bin/generators/generate_webex_api.py`
+
+---
+
 ## 2026-02-26 ~23:30 UTC -- Exchange + Office Audit Generator Realism Audit (8 fixes)
 
 ### Context

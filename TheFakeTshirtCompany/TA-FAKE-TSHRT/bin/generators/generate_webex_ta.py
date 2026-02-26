@@ -38,8 +38,10 @@ from scenarios.registry import expand_scenarios
 
 WEBEX_SITE_URL = "theFakeTshirtCompany.webex.com"
 
-# Meeting types (MC = Meeting Center)
+# Meeting types with realistic weights (MC = Meeting Center)
+# MC dominates (~85%), TC/EC/SC are rare
 MEETING_TYPES = ["MC", "TC", "EC", "SC"]  # Meeting, Training, Event, Support
+MEETING_TYPE_WEIGHTS = [85, 5, 5, 5]  # Realistic distribution
 
 def _ta_os_label(os_type: str, os_version: str) -> str:
     """Convert profile osType + osVersion to TA-style label (e.g. 'Windows 11', 'macOS 14')."""
@@ -217,7 +219,7 @@ def create_meeting_usage_record(meeting: MeetingRecord) -> dict:
         "totalCallOutDomestic": str(call_out_domestic),
         "totalCallOutInternational": str(call_out_intl),
         "meetingType": meeting.meeting_type,
-        "timeZoneID": "4",  # Eastern Time
+        "timeZoneID": "11" if meeting.location == "AUS" else "4",  # 4=Eastern, 11=Central
         "siteUrl": WEBEX_SITE_URL,
     }
 
@@ -417,26 +419,11 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
         start_time=scheduled_meeting.start_time,
         end_time=scheduled_meeting.end_time,
         location=location,
-        meeting_type=random.choice(MEETING_TYPES),
+        meeting_type=random.choices(MEETING_TYPES, weights=MEETING_TYPE_WEIGHTS, k=1)[0],
         attendees=attendees,
         demo_id=demo_id,
     )
 
-
-def _get_scheduled_meetings_for_day(day: int, location: str) -> list:
-    """Get all meetings for a specific day and location from the shared schedule."""
-    meetings = []
-    for key, scheduled_list in _meeting_schedule.items():
-        loc_code, room = key.split(":", 1)
-        if loc_code != location:
-            continue
-        for m in scheduled_list:
-            # Check if meeting is on the right day by comparing dates
-            if m.start_time.day == (day + 1) or m.start_time.timetuple().tm_yday == day + 1:
-                # More robust: compare the actual date
-                pass
-            meetings.append(m)
-    return meetings
 
 
 def generate_meetings_for_day(
@@ -547,7 +534,7 @@ def generate_single_meeting(
         start_time=start_time,
         end_time=end_time,
         location=location,
-        meeting_type=random.choice(MEETING_TYPES),
+        meeting_type=random.choices(MEETING_TYPES, weights=MEETING_TYPE_WEIGHTS, k=1)[0],
         attendees=attendees,
         demo_id=demo_id,
     )

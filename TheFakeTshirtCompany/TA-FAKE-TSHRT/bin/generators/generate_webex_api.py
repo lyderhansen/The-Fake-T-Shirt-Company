@@ -90,6 +90,15 @@ ADMIN_AUDIT_CATEGORIES = {
     ],
 }
 
+# Map category to Webex Admin Audit 'type' field value
+ADMIN_AUDIT_TYPE_MAP = {
+    "USERS": "user_management",
+    "GROUPS": "group_management",
+    "MEETINGS": "meeting_management",
+    "COMPLIANCE": "compliance_management",
+    "DEVICES": "device_management",
+}
+
 # Security audit event types (logins)
 SECURITY_AUDIT_EVENTS = [
     ("LOGINS", "A user logged in", "logged into organization"),
@@ -219,6 +228,7 @@ def generate_admin_audit_event(
         "actorId": generate_webex_id("PEOPLE"),
         "actorOrgId": WEBEX_ORG_ID,
         "created": ts_iso8601(event_time),
+        "type": ADMIN_AUDIT_TYPE_MAP.get(category, "admin_operation"),
         "data": {
             "actorName": actor_user.display_name,
             "actorEmail": f"{actor_user.username}@{TENANT}",
@@ -263,6 +273,7 @@ def generate_security_audit_event(
         "created": ts_iso8601(event_time),
         "actorId": generate_webex_id("PEOPLE"),
         "actorOrgId": WEBEX_ORG_ID,
+        "type": "logins",
         "data": {
             "actorName": user.display_name,
             "actorEmail": f"{user.username}@{TENANT}",
@@ -416,7 +427,7 @@ def generate_call_history_record(
         "Start time": ts_iso8601(start_time),
         "Answer time": ts_iso8601(start_time + timedelta(seconds=random.randint(5, 20))) if answered else "",
         "Answer indicator": "Yes" if answered else "No",
-        "Answered": str(answered).lower(),
+        "Answered": "Yes" if answered else "No",
         "User": f"{caller_user.username}@{TENANT}",
         "User type": "User"
     }
@@ -479,6 +490,21 @@ def generate_events_for_day(
         event_type = SECURITY_AUDIT_EVENTS[1]  # Logout
         security_audits.append(generate_security_audit_event(
             user, logout_time, event_type, success=True, demo_id=user_demo_id
+        ))
+
+    # Failed login events (~2% of login count - typos, expired tokens, locked accounts)
+    failed_count = max(1, int(login_count * 0.02))
+    for _ in range(failed_count):
+        user = get_random_user()
+        hour = random.choices(
+            range(6, 22),
+            weights=[5, 20, 40, 50, 50, 50, 30, 50, 50, 50, 40, 20, 15, 10, 5, 5]
+        )[0]
+        fail_time = dt.replace(hour=hour, minute=random.randint(0, 59), second=random.randint(0, 59))
+        event_type = SECURITY_AUDIT_EVENTS[2]  # Login failed
+        user_demo_id = demo_id if user.username in EXFIL_USERS else None
+        security_audits.append(generate_security_audit_event(
+            user, fail_time, event_type, success=False, demo_id=user_demo_id
         ))
 
     # === Admin Audit Events ===
