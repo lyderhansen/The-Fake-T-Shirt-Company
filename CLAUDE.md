@@ -368,8 +368,8 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 | jessica.brown | IT Administrator | ATL Floor 1 | 10.20.30.15 | **Initial compromise** |
 | brooklyn.white | Sales Engineer | AUS | 10.30.30.20 | **Ransomware target** |
 | john.smith | CEO | BOS Floor 3 | 10.10.30.10 | Executive |
-| sarah.wilson | CFO | BOS Floor 2 | 10.10.30.12 | Finance leadership |
-| mike.johnson | CTO | BOS Floor 3 | 10.10.30.11 | IT leadership |
+| sarah.wilson | CFO | BOS Floor 2 | 10.10.30.11 | Finance leadership |
+| mike.johnson | CTO | BOS Floor 3 | 10.10.30.12 | IT leadership |
 
 ### Threat Actor
 - IP: 185.220.101.42

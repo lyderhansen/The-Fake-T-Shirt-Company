@@ -283,6 +283,7 @@ def generate_security_audit_event(
             "eventCategory": category,
             "eventDescription": description,
             "actionText": f"{user.display_name} {action_verb} {ORG_NAME}",
+            "status": "success" if success else "failure",
             "trackingId": f"ATLAS_{generate_uuid()}"
         }
     }

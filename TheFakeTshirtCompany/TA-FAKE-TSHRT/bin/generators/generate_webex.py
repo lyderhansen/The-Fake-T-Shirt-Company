@@ -1116,6 +1116,8 @@ def generate_webex_logs(
     current_date = datetime.strptime(start_date, "%Y-%m-%d")
 
     for day_offset in range(days):
+        if progress_callback:
+            progress_callback("webex", day_offset + 1, days)
         day_date = current_date + timedelta(days=day_offset)
         day_str = day_date.strftime("%Y-%m-%d")
         weekend = is_weekend(day_date)

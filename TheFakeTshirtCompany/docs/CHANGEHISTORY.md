@@ -4,6 +4,130 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-27 ~10:00 UTC -- Post-Audit Polish (7 fixes)
+
+### Context
+
+Cleanup of issues identified by code reviewers during the generator audit. All fixes are targeted improvements to field-level realism and code hygiene.
+
+### Changes
+
+1. **CLAUDE.md**: Fixed mike.johnson/sarah.wilson IP swap (was reversed vs company.py authoritative source)
+2. **generate_gcp.py**: Removed dead `should_tag_exfil()` function and 3 call sites (always returned False)
+3. **generate_gcp.py**: Fixed `gcs_bucket` resource.labels.bucket_name to match resourceName bucket (4 storage functions)
+4. **exfil.py**: Added missing baseline fields to all 6 GCP ExfilScenario events: `authorizationInfo` array, `status` block, `receiveTimestamp`, UUID `insertId`
+5. **generate_webex.py**: Added missing `progress_callback` call in day loop (TUI progress bar now updates)
+6. **generate_webex_api.py**: Added `data.status` field ("success"/"failure") to security audit events, making failed logins filterable
+7. **generate_office_audit.py**: Fixed stale docstring referencing RecordType 146 (should be 41, fixed in previous commit)
+
+### Verification
+
+- GCP: 3-day run passes, exfil events now structurally identical to baseline events
+- Webex + webex_api: 3-day run passes, no regressions
+- Total: 10,621 events across verified generators
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `CLAUDE.md` | Fix 1 |
+| `bin/generators/generate_gcp.py` | Fixes 2-3 |
+| `bin/scenarios/security/exfil.py` | Fix 4 |
+| `bin/generators/generate_webex.py` | Fix 5 |
+| `bin/generators/generate_webex_api.py` | Fix 6 |
+
+---
+
+## 2026-02-26 ~22:00 UTC -- Full 14-Day Cross-Generator Scenario Verification (all pass)
+
+### Context
+
+Final verification task (Task 14). Ran ALL 26 generators with ALL scenarios for 14 days (`--all --days=14 --scenarios=all --test`) to verify scenario events are correctly correlated across generators. Total: 3,336,452 events in 45.3 seconds across 61 output files.
+
+Note: 3 scenarios were correctly skipped because their start days exceed the 14-day window: ddos_attack (day 17), dead_letter_pricing (day 15), phishing_test (day 20).
+
+### Event Counts Per Generator
+
+| Generator | Events |
+|-----------|--------|
+| access | 281,788 |
+| aci | 20,940 |
+| asa | 563,196 |
+| aws | 22,815 |
+| aws_billing | 238 |
+| aws_guardduty | 86 |
+| catalyst | 14,064 |
+| catalyst_center | 20,669 |
+| entraid | 11,195 |
+| exchange | 52,579 |
+| gcp | 17,038 |
+| linux | 131,895 |
+| meraki | 809,788 |
+| mssql | 1,413 |
+| office_audit | 19,510 |
+| orders | 17,809 |
+| perfmon | 528,864 |
+| sap | 29,183 |
+| secure_access | 706,944 |
+| servicebus | 18,342 |
+| servicenow | 1,662 |
+| sysmon | 15,132 |
+| webex | 26,085 |
+| webex_api | 10,803 |
+| webex_ta | 5,540 |
+| wineventlog | 8,874 |
+| **TOTAL** | **3,336,452** |
+
+### Scenario Verification Matrix
+
+All 7 active scenarios passed verification (0 bugs found).
+
+| Scenario | Day Range (0-indexed) | Calendar Dates | Sources With Events | Day Range Verified | Threat IP Verified | demo_id Present | Result |
+|----------|-----------------------|----------------|---------------------|-------------------|-------------------|-----------------|--------|
+| exfil | 0-13 | Jan 1-14 | 34 files (ASA, AWS, GuardDuty, Entra ID, Exchange, GCP, Office Audit, Webex, Webex API, Webex TA, Linux, MSSQL, Sysmon, WinEventLog, Meraki, Catalyst, ACI, Secure Access, ServiceNow) | PASS | PASS (all 185.220.101.42 events have demo_id) | PASS | **PASS** |
+| ransomware_attempt | 7-8 | Jan 8-9 | 12 files (Exchange, ASA, Sysmon, WinEventLog, Meraki MX/MR, Office Audit, Secure Access, GuardDuty, ServiceNow) | PASS | N/A (uses different IP 194.26.29.42) | PASS | **PASS** |
+| disk_filling | 0-4 | Jan 1-5 | 5 files (Linux df/cpu/iostat, ServiceNow) | PASS | N/A | PASS | **PASS** |
+| memory_leak | 5-9 | Jan 6-10 | 12 files (Linux, ASA, Access, Orders, ServiceBus, SAP, Catalyst Center, AWS, ServiceNow) | PASS (order lifecycle extends to delivery) | N/A | PASS | **PASS** |
+| cpu_runaway | 10-11 | Jan 11-12 | 17 files (Perfmon, MSSQL, WinEventLog, ASA, Access, Orders, ACI, Catalyst Center, AWS, GCP, SAP, ServiceNow) | PASS | N/A | PASS | **PASS** |
+| firewall_misconfig | 5 | Jan 6 10:15-12:05 | 7 files (ASA, Access, Orders, SAP, Catalyst, ServiceNow) | PASS (all events within 10:15-12:05) | N/A | PASS | **PASS** |
+| certificate_expiry | 12 | Jan 13 00:00-07:59 | 6 files (ASA, Access, Orders, SAP, ServiceNow) | PASS (recovery tail extends to ~08:00) | N/A | PASS | **PASS** |
+
+### Exfil Phase Verification
+
+| Phase | Days (0-indexed) | Calendar | Key Evidence |
+|-------|-----------------|----------|-------------|
+| Recon | 0-3 | Jan 1-4 | ASA port scans from 185.220.101.42, Exchange phishing spray (Day 0), Entra ID failed logins from Frankfurt DE, WinEventLog 4625 brute force |
+| Initial Access | 4 | Jan 5 | Jessica Brown clicks phishing link (Exchange ClickedUrl), Entra ID sign-in from 10.20.30.15 (Atlanta), mailbox login from threat IP |
+| Lateral Movement | 5-7 | Jan 6-8 | Catalyst MAC flap + 802.1X events, ACI fault/event alerts, Secure Access DNS queries, Entra ID privilege escalation |
+| Persistence | 8-10 | Jan 9-11 | AWS Config PutEvaluations (svc-datasync NON_COMPLIANT), GCP storage operations, Meraki MX IDS alerts, Linux exfil host metrics |
+| Exfiltration | 11-13 | Jan 12-14 | AWS S3 GetObject (confidential files via svc-datasync/AKIAMALICIOUS001), GCP storage, Sysmon rclone.exe network connections, MSSQL xp_cmdshell, ASA outbound to threat IP |
+
+### Ransomware Timeline Verification
+
+| Time | Event | Source |
+|------|-------|--------|
+| Jan 8 13:55 | Phishing email to brooklyn.white (Invoice_Q4_2026.docm) | Exchange |
+| Jan 8 14:02-14:05 | Process creation, suspicious execution | Sysmon |
+| Jan 8 14:02-14:12 | Security events (logon, privilege use) | WinEventLog |
+| Jan 8 14:05-14:09 | C2 callback to 194.26.29.42, lateral movement denied | ASA |
+| Jan 8 14:12-14:14 | IDS alerts (Emotet, SMB brute force) | Meraki MX |
+| Jan 8 14:15 | Wireless isolation of client | Meraki MR |
+| Jan 9 08:00-09:00 | Cleanup/remediation events | Sysmon |
+| Jan 8-9 | Incident creation and resolution | ServiceNow |
+
+### Cross-Check Results
+
+- **Threat actor IP (185.220.101.42):** Appears in 12 files, ALL instances have demo_id=exfil -- PASS
+- **Skipped scenarios:** ddos_attack, dead_letter_pricing, phishing_test correctly produced 0 events -- PASS
+- **No day-range leakage:** All scenario events fall within their designated day ranges -- PASS
+- **Order lifecycle tagging:** memory_leak orders placed during scenario days carry demo_id through fulfillment lifecycle (delivered days later) -- correct by design
+
+### No Changes Made
+
+This was a read-only verification task. All 7 active scenarios passed all checks. No bugs found, no code changes needed.
+
+---
+
 ## 2026-02-26 ~17:00 UTC -- Linux + MSSQL + Perfmon Generator Realism Audit (6 fixes)
 
 ### Context

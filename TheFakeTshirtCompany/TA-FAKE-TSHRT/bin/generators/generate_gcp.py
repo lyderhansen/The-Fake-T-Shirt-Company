@@ -114,16 +114,6 @@ def _pick_gcp_user():
     return USERS[username]
 
 
-def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool:
-    """Check if event should get exfil demo_id.
-
-    NOTE: Removed blanket tagging of all baseline storage events during exfil
-    days. Only actual attacker events (from ExfilScenario and dedicated scenario
-    hooks) get the demo_id=exfil tag. Tagging normal business storage operations
-    as exfil produces false signal and inflates scenario event counts.
-    """
-    return False
-
 
 # GCP baseline error definitions (3% of events)
 # Format: (gRPC code, message, applicable_methods)
@@ -308,9 +298,7 @@ def gcp_storage_get(base_date: str, day: int, hour: int, active_scenarios: list 
                            "storage.objects.get", "storage.googleapis.com", principal,
                            log_type=log_type, resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/data_{random.randint(1000, 9999)}.json"
-
-    if active_scenarios and should_tag_exfil(day, "storage.objects.get", active_scenarios):
-        event["demo_id"] = "exfil"
+    event["resource"]["labels"]["bucket_name"] = bucket
 
     return _gcp_maybe_inject_error(event, "storage.objects.get")
 
@@ -331,9 +319,7 @@ def gcp_storage_create(base_date: str, day: int, hour: int, active_scenarios: li
                            "storage.objects.create", "storage.googleapis.com", principal,
                            resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}/objects/upload_{random.randint(1000, 9999)}.csv"
-
-    if active_scenarios and should_tag_exfil(day, "storage.objects.create", active_scenarios):
-        event["demo_id"] = "exfil"
+    event["resource"]["labels"]["bucket_name"] = bucket
 
     return _gcp_maybe_inject_error(event, "storage.objects.create")
 
@@ -501,9 +487,7 @@ def gcp_storage_delete(base_date: str, day: int, hour: int,
     event["protoPayload"]["resourceName"] = (
         f"projects/_/buckets/{bucket}/objects/archive_{random.randint(1000, 9999)}.json"
     )
-
-    if active_scenarios and should_tag_exfil(day, "storage.objects.delete", active_scenarios):
-        event["demo_id"] = "exfil"
+    event["resource"]["labels"]["bucket_name"] = bucket
 
     return _gcp_maybe_inject_error(event, "storage.objects.delete")
 
@@ -524,6 +508,7 @@ def gcp_storage_bucket_get(base_date: str, day: int, hour: int) -> Dict[str, Any
                            "storage.buckets.get", "storage.googleapis.com", principal,
                            resource_type="gcs_bucket", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/_/buckets/{bucket}"
+    event["resource"]["labels"]["bucket_name"] = bucket
     return _gcp_maybe_inject_error(event, "storage.buckets.get")
 
 

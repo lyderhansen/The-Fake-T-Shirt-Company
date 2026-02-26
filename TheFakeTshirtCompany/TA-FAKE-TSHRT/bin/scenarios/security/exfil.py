@@ -632,6 +632,18 @@ class ExfilScenario:
     # GCP EVENTS
     # =========================================================================
 
+    @staticmethod
+    def _gcp_receive_ts(ts: str) -> str:
+        """Generate receiveTimestamp = event timestamp + 50-500ms pipeline delay."""
+        delay_us = random.randint(50000, 500000)
+        base_us = int(ts[20:26])
+        total_us = base_us + delay_us
+        if total_us < 1000000:
+            return ts[:20] + f"{total_us:06d}Z"
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+        from datetime import timedelta
+        return (dt + timedelta(microseconds=delay_us)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
     def gcp_create_sa_key(self, day: int) -> str:
         """Create service account key."""
         ts = self.time_utils.ts_gcp(day, 11, 0, 0)
@@ -642,13 +654,15 @@ class ExfilScenario:
                 "serviceName": "iam.googleapis.com",
                 "methodName": "google.iam.admin.v1.CreateServiceAccountKey",
                 "authenticationInfo": {"principalEmail": f"{self.cfg.comp_user}@{self.cfg.tenant}"},
+                "authorizationInfo": [{"permission": "iam.serviceAccountKeys.create", "resource": f"projects/{self.cfg.gcp_project}", "granted": True}],
                 "requestMetadata": {
                     "callerIp": self.cfg.threat_ip,
                     "callerSuppliedUserAgent": "Mozilla/5.0"
                 },
-                "resourceName": f"projects/{self.cfg.gcp_project}/serviceAccounts/compute-admin@{self.cfg.gcp_project}.iam.gserviceaccount.com/keys/{self.cfg.gcp_mal_key}"
+                "resourceName": f"projects/{self.cfg.gcp_project}/serviceAccounts/compute-admin@{self.cfg.gcp_project}.iam.gserviceaccount.com/keys/{self.cfg.gcp_mal_key}",
+                "status": {"code": 0, "message": ""},
             },
-            "insertId": "attack-gcp-001",
+            "insertId": uuid.uuid4().hex[:16],
             "resource": {
                 "type": "service_account",
                 "labels": {
@@ -657,6 +671,7 @@ class ExfilScenario:
                 }
             },
             "timestamp": ts,
+            "receiveTimestamp": self._gcp_receive_ts(ts),
             "severity": "NOTICE",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
             "logName": f"projects/{self.cfg.gcp_project}/logs/cloudaudit.googleapis.com%2Factivity"
@@ -673,6 +688,7 @@ class ExfilScenario:
                 "serviceName": "iam.googleapis.com",
                 "methodName": "google.iam.admin.v1.CreateServiceAccount",
                 "authenticationInfo": {"principalEmail": f"{self.cfg.comp_user}@{self.cfg.tenant}"},
+                "authorizationInfo": [{"permission": "iam.serviceAccounts.create", "resource": f"projects/{self.cfg.gcp_project}", "granted": True}],
                 "requestMetadata": {
                     "callerIp": self.cfg.threat_ip,
                     "callerSuppliedUserAgent": "Mozilla/5.0"
@@ -688,9 +704,10 @@ class ExfilScenario:
                 "response": {
                     "email": sa_email,
                     "unique_id": "110123456789012345678"
-                }
+                },
+                "status": {"code": 0, "message": ""},
             },
-            "insertId": "attack-gcp-sa-001",
+            "insertId": uuid.uuid4().hex[:16],
             "resource": {
                 "type": "service_account",
                 "labels": {
@@ -699,6 +716,7 @@ class ExfilScenario:
                 }
             },
             "timestamp": ts,
+            "receiveTimestamp": self._gcp_receive_ts(ts),
             "severity": "NOTICE",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
             "logName": f"projects/{self.cfg.gcp_project}/logs/cloudaudit.googleapis.com%2Factivity"
@@ -715,6 +733,7 @@ class ExfilScenario:
                 "serviceName": "cloudresourcemanager.googleapis.com",
                 "methodName": "SetIamPolicy",
                 "authenticationInfo": {"principalEmail": f"{self.cfg.comp_user}@{self.cfg.tenant}"},
+                "authorizationInfo": [{"permission": "resourcemanager.projects.setIamPolicy", "resource": f"projects/{self.cfg.gcp_project}", "granted": True}],
                 "requestMetadata": {
                     "callerIp": self.cfg.threat_ip,
                     "callerSuppliedUserAgent": "Mozilla/5.0"
@@ -736,9 +755,10 @@ class ExfilScenario:
                             "member": f"serviceAccount:{sa_email}"
                         }]
                     }
-                }
+                },
+                "status": {"code": 0, "message": ""},
             },
-            "insertId": "attack-gcp-iam-001",
+            "insertId": uuid.uuid4().hex[:16],
             "resource": {
                 "type": "project",
                 "labels": {
@@ -746,6 +766,7 @@ class ExfilScenario:
                 }
             },
             "timestamp": ts,
+            "receiveTimestamp": self._gcp_receive_ts(ts),
             "severity": "NOTICE",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
             "logName": f"projects/{self.cfg.gcp_project}/logs/cloudaudit.googleapis.com%2Factivity"
@@ -761,13 +782,15 @@ class ExfilScenario:
                 "serviceName": "storage.googleapis.com",
                 "methodName": "storage.buckets.getIamPolicy",
                 "authenticationInfo": {"principalEmail": f"{self.cfg.comp_user}@{self.cfg.tenant}"},
+                "authorizationInfo": [{"permission": "storage.buckets.getIamPolicy", "resource": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}", "granted": True}],
                 "requestMetadata": {
                     "callerIp": self.cfg.threat_ip,
                     "callerSuppliedUserAgent": "Mozilla/5.0"
                 },
-                "resourceName": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}"
+                "resourceName": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}",
+                "status": {"code": 0, "message": ""},
             },
-            "insertId": f"recon-gcp-{random.randint(100, 999)}",
+            "insertId": uuid.uuid4().hex[:16],
             "resource": {
                 "type": "gcs_bucket",
                 "labels": {
@@ -777,6 +800,7 @@ class ExfilScenario:
                 }
             },
             "timestamp": ts,
+            "receiveTimestamp": self._gcp_receive_ts(ts),
             "severity": "INFO",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
             "logName": f"projects/{self.cfg.gcp_project}/logs/cloudaudit.googleapis.com%2Fdata_access"
@@ -793,13 +817,15 @@ class ExfilScenario:
                 "serviceName": "storage.googleapis.com",
                 "methodName": "storage.objects.list",
                 "authenticationInfo": {"principalEmail": sa_email},
+                "authorizationInfo": [{"permission": "storage.objects.list", "resource": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}", "granted": True}],
                 "requestMetadata": {
                     "callerIp": self.cfg.comp_ws_ip,
                     "callerSuppliedUserAgent": "gsutil/5.0"
                 },
-                "resourceName": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}"
+                "resourceName": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}",
+                "status": {"code": 0, "message": ""},
             },
-            "insertId": f"discovery-gcp-{random.randint(100, 999)}",
+            "insertId": uuid.uuid4().hex[:16],
             "resource": {
                 "type": "gcs_bucket",
                 "labels": {
@@ -809,6 +835,7 @@ class ExfilScenario:
                 }
             },
             "timestamp": ts,
+            "receiveTimestamp": self._gcp_receive_ts(ts),
             "severity": "INFO",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
             "logName": f"projects/{self.cfg.gcp_project}/logs/cloudaudit.googleapis.com%2Fdata_access"
@@ -825,13 +852,15 @@ class ExfilScenario:
                 "serviceName": "storage.googleapis.com",
                 "methodName": "storage.objects.get",
                 "authenticationInfo": {"principalEmail": f"compute-admin@{self.cfg.gcp_project}.iam.gserviceaccount.com"},
+                "authorizationInfo": [{"permission": "storage.objects.get", "resource": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}/objects/{file}", "granted": True}],
                 "requestMetadata": {
                     "callerIp": self.cfg.comp_ws_ip,
                     "callerSuppliedUserAgent": "gsutil/5.0"
                 },
-                "resourceName": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}/objects/{file}"
+                "resourceName": f"projects/_/buckets/{self.cfg.gcp_bucket_sensitive}/objects/{file}",
+                "status": {"code": 0, "message": ""},
             },
-            "insertId": f"exfil-gcp-{random.randint(0, 999)}",
+            "insertId": uuid.uuid4().hex[:16],
             "resource": {
                 "type": "gcs_bucket",
                 "labels": {
@@ -841,6 +870,7 @@ class ExfilScenario:
                 }
             },
             "timestamp": ts,
+            "receiveTimestamp": self._gcp_receive_ts(ts),
             "severity": "INFO",
             "demo_id": self.cfg.demo_id if self.config.demo_id_enabled else None,
             "logName": f"projects/{self.cfg.gcp_project}/logs/cloudaudit.googleapis.com%2Fdata_access"
