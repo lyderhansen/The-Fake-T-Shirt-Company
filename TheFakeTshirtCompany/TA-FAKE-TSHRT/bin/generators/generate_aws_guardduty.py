@@ -11,8 +11,8 @@ Baseline findings (3-8 per day):
   - Recon:EC2/Portscan (severity 2.0)
 
 Scenario findings:
-  - exfil (days 8-13): IAM persistence + S3 exfiltration
-  - ransomware_attempt (day 8): EC2 malicious IP communication
+  - exfil (days 8-13): IAM persistence (AnomalousBehavior) + S3 exfiltration
+  - ransomware_attempt (day 8): EC2 malicious IP communication (MaliciousIPCaller.Custom)
 """
 
 import argparse
@@ -116,6 +116,9 @@ _SCANNER_IPS = [
     "159.89.173.104", "178.128.169.7", "206.189.85.18", "167.172.43.52",
     "64.227.115.12", "142.93.12.203", "198.51.100.42", "203.0.113.99",
 ]
+
+# Legitimate admin IPs (US-based, ISP residential) for root credential usage
+_ADMIN_IPS = {"73.158.42.100", "68.45.123.80", "24.12.88.150"}
 
 # Known Tor exit node IPs (simulated)
 _TOR_EXIT_IPS = [
@@ -262,9 +265,12 @@ def _remote_ip_details(ip: str) -> Dict[str, Any]:
         ("BR", "Brazil", "Sao Paulo", -23.5505, -46.6333),
     ]
 
-    # Threat IP always maps to Germany
+    # Threat IP always maps to Germany (Frankfurt)
     if ip == THREAT_IP:
         country = ("DE", "Germany", "Frankfurt", 50.1109, 8.6821)
+    # Legitimate admin IPs always map to US
+    elif ip in _ADMIN_IPS:
+        country = ("US", "United States", "New York", 40.7128, -74.0060)
     else:
         country = countries[ip_hash % len(countries)]
 
@@ -272,14 +278,21 @@ def _remote_ip_details(ip: str) -> Dict[str, Any]:
         "AS-CHOOPA", "DIGITALOCEAN-ASN", "OVH SAS", "HETZNER-AS",
         "AMAZON-02", "LINODE-AP", "VULTR-AS",
     ]
+    # Legitimate admin IPs use ISP-style org names, not hosting providers
+    if ip in _ADMIN_IPS:
+        org_name = "COMCAST-7922"
+        asn = "7922"
+    else:
+        org_name = org_names[ip_hash % len(org_names)]
+        asn = str(10000 + (ip_hash % 50000))
 
     return {
         "ipAddressV4": ip,
         "organization": {
-            "asn": str(10000 + (ip_hash % 50000)),
-            "asnOrg": org_names[ip_hash % len(org_names)],
-            "isp": org_names[ip_hash % len(org_names)],
-            "org": org_names[ip_hash % len(org_names)],
+            "asn": asn,
+            "asnOrg": org_name,
+            "isp": org_name,
+            "org": org_name,
         },
         "country": {
             "countryCode": country[0],
@@ -457,17 +470,23 @@ def _exfil_day8_malicious_ip_caller(base_date: str, day: int) -> Dict[str, Any]:
         api="CreateUser", service_name="iam.amazonaws.com",
         caller_type="Remote", source_ip=THREAT_IP,
     )
+    finding["service"]["evidence"] = {
+        "threatIntelligenceDetails": [{
+            "threatListName": "ProofPoint",
+            "threatNames": ["Malicious IP"],
+        }],
+    }
     finding["demo_id"] = "exfil"
     return finding
 
 
 def _exfil_day8_user_permissions(base_date: str, day: int) -> Dict[str, Any]:
-    """Persistence:IAMUser/UserPermissions - Attaching admin policy for persistence."""
+    """Persistence:IAMUser/AnomalousBehavior - Attaching admin policy for persistence."""
     alex = USERS["alex.miller"]
 
     finding = _build_finding_base(
         base_date, day, 10, random.randint(31, 59), random.randint(0, 59),
-        finding_type="Persistence:IAMUser/UserPermissions",
+        finding_type="Persistence:IAMUser/AnomalousBehavior",
         severity=7.0,
         title="Principal alex.miller invoked AttachUserPolicy to establish persistence",
         description=(
@@ -489,21 +508,73 @@ def _exfil_day8_user_permissions(base_date: str, day: int) -> Dict[str, Any]:
 
 def _exfil_s3_anomalous(base_date: str, day: int) -> Dict[str, Any]:
     """Exfiltration:S3/AnomalousBehavior - Data exfiltration from financial bucket."""
+    bucket_name = f"{ORG_NAME_LOWER}-financial-reports"
     finding = _build_finding_base(
         base_date, day, 3, random.randint(0, 59), random.randint(0, 59),
         finding_type="Exfiltration:S3/AnomalousBehavior",
         severity=8.0,
-        title=f"S3 API calls indicate data exfiltration from bucket {ORG_NAME_LOWER}-financial-reports",
+        title=f"S3 API calls indicate data exfiltration from bucket {bucket_name}",
         description=(
             f"Anomalous S3 GetObject activity detected from IAM user svc-datasync "
-            f"on bucket {ORG_NAME_LOWER}-financial-reports. The volume and pattern of "
+            f"on bucket {bucket_name}. The volume and pattern of "
             "data access is significantly higher than the established baseline and "
             "may indicate data exfiltration."
         ),
     )
-    finding["resource"] = _access_key_resource(
-        "svc-datasync", "AKIAMALICIOUS001", "AIDAMALICIOUS001",
-    )
+    # S3 findings use resourceType "S3Bucket" with both accessKeyDetails and s3BucketDetails
+    finding["resource"] = {
+        "resourceType": "S3Bucket",
+        "accessKeyDetails": {
+            "accessKeyId": "AKIAMALICIOUS001",
+            "principalId": "AIDAMALICIOUS001",
+            "userType": "IAMUser",
+            "userName": "svc-datasync",
+        },
+        "s3BucketDetails": [{
+            "arn": f"arn:aws:s3:::{bucket_name}",
+            "name": bucket_name,
+            "type": "Destination",
+            "createdAt": "2025-06-15T10:00:00Z",
+            "owner": {"id": AWS_ACCOUNT_ID},
+            "tags": [
+                {"key": "Department", "value": "Finance"},
+                {"key": "Environment", "value": "Production"},
+            ],
+            "defaultServerSideEncryption": {
+                "encryptionType": "AES256",
+                "kmsMasterKeyArn": "",
+            },
+            "publicAccess": {
+                "effectivePermission": "NOT_PUBLIC",
+                "permissionConfiguration": {
+                    "accountLevelPermissions": {
+                        "blockPublicAccess": {
+                            "blockPublicAcls": True,
+                            "blockPublicPolicy": True,
+                            "ignorePublicAcls": True,
+                            "restrictPublicBuckets": True,
+                        },
+                    },
+                    "bucketLevelPermissions": {
+                        "accessControlList": {
+                            "allowsPublicReadAccess": False,
+                            "allowsPublicWriteAccess": False,
+                        },
+                        "bucketPolicy": {
+                            "allowsPublicReadAccess": False,
+                            "allowsPublicWriteAccess": False,
+                        },
+                        "blockPublicAccess": {
+                            "blockPublicAcls": True,
+                            "blockPublicPolicy": True,
+                            "ignorePublicAcls": True,
+                            "restrictPublicBuckets": True,
+                        },
+                    },
+                },
+            },
+        }],
+    }
     finding["service"]["action"] = _aws_api_call_action(
         api="GetObject", service_name="s3.amazonaws.com",
         caller_type="Remote", source_ip=THREAT_IP,
@@ -521,13 +592,13 @@ def _exfil_s3_anomalous(base_date: str, day: int) -> Dict[str, Any]:
 
 
 def _ransomware_malicious_ip(base_date: str, day: int) -> Dict[str, Any]:
-    """UnauthorizedAccess:EC2/MaliciousIPCaller - EC2 communicating with known malicious IP."""
+    """UnauthorizedAccess:EC2/MaliciousIPCaller.Custom - EC2 communicating with known malicious IP."""
     instance_id = _EC2_INSTANCES[0]  # WEB-01
 
     finding = _build_finding_base(
         base_date, day, 14, random.randint(0, 59), random.randint(0, 59),
-        finding_type="UnauthorizedAccess:EC2/MaliciousIPCaller",
-        severity=5.0,
+        finding_type="UnauthorizedAccess:EC2/MaliciousIPCaller.Custom",
+        severity=8.0,
         title=f"EC2 instance {instance_id} is communicating with a known malicious IP",
         description=(
             f"EC2 instance {instance_id} is communicating with known malicious IP "
@@ -540,6 +611,12 @@ def _ransomware_malicious_ip(base_date: str, day: int) -> Dict[str, Any]:
         direction="OUTBOUND", remote_ip=THREAT_IP, remote_port=445,
         local_port=random.randint(49152, 65535),
     )
+    finding["service"]["evidence"] = {
+        "threatIntelligenceDetails": [{
+            "threatListName": "ProofPoint",
+            "threatNames": ["Malicious IP"],
+        }],
+    }
     finding["demo_id"] = "ransomware_attempt"
     return finding
 

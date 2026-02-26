@@ -4,6 +4,59 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~18:30 UTC -- AWS GuardDuty + Billing Generator Realism Audit (5 fixes)
+
+### Context
+
+Comprehensive audit of `generate_aws_guardduty.py` (665 lines) and `generate_aws_billing.py` (371 lines). Cross-referenced all generated JSON/CSV fields against the official AWS GuardDuty finding format ([finding format](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_finding-format.html), [GetFindings API](https://docs.aws.amazon.com/guardduty/latest/APIReference/API_GetFindings.html), [IAM finding types](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_finding-types-iam.html), [retired finding types](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_finding-types-retired.html)) and AWS Cost and Usage Report format ([data dictionary](https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html)).
+
+### Changes (5 fixes, all in generate_aws_guardduty.py; billing generator passed audit clean)
+
+- **Fix 1 (CRITICAL): Retired finding type `Persistence:IAMUser/UserPermissions`.** This finding type was retired by AWS on March 12, 2021 and replaced by ML-based detection. Changed to `Persistence:IAMUser/AnomalousBehavior`, the current active finding type for IAM persistence activity.
+
+- **Fix 2 (MODERATE): Root credential finding IPs resolved to wrong countries.** The three legitimate admin IPs (73.158.42.100, 68.45.123.80, 24.12.88.150) used in `Policy:IAMUser/RootCredentialUsage` findings were fed through `_remote_ip_details()` which uses hash-based country assignment, causing them to resolve to Brazil/Russia instead of the United States. Added `_ADMIN_IPS` set and special handling so these IPs always resolve to US with ISP-style organization (COMCAST-7922) instead of hosting provider names.
+
+- **Fix 3 (MODERATE): `Exfiltration:S3/AnomalousBehavior` findings missing `s3BucketDetails`.** Real GuardDuty S3 findings use `resourceType: "S3Bucket"` and include both `accessKeyDetails` and `s3BucketDetails` (array with bucket ARN, name, type, owner, encryption, public access config). The generator only had `resourceType: "AccessKey"` with `accessKeyDetails`. Added full `s3BucketDetails` array for the `faketshirtcompany-financial-reports` bucket with realistic encryption, public access blocking, and Finance department tags.
+
+- **Fix 4 (MODERATE): Ransomware finding severity too low (5.0 vs 8.0).** `UnauthorizedAccess:EC2/MaliciousIPCaller` findings have High severity (8.0) in real GuardDuty. The generator used 5.0 (Medium). Raised to 8.0 and updated finding type to `MaliciousIPCaller.Custom` to indicate custom threat list detection.
+
+- **Fix 5 (MINOR): MaliciousIPCaller findings missing `service.evidence`.** Real GuardDuty findings triggered by threat intelligence include `service.evidence.threatIntelligenceDetails` with threat list name and threat names. Added this block to both the exfil `UnauthorizedAccess:IAMUser/MaliciousIPCaller` and ransomware `UnauthorizedAccess:EC2/MaliciousIPCaller.Custom` findings.
+
+### Billing Generator (No Issues Found)
+
+The AWS Billing CUR generator passed the audit cleanly:
+- CUR CSV column names match the official AWS legacy CUR format (identity/, bill/, lineItem/, product/, resourceTags/ prefixes)
+- DDoS scenario multipliers produce realistic cost spikes: EC2 DataTransfer 4x, WAF 5x, S3 egress 3x on Days 18-19
+- Exfil scenario S3 cost increases are subtle (1.3x-1.5x on Days 11-13), appropriate for stealthy data theft
+- Billing period calculations correct (calendar month boundaries)
+- Weekend factor (0.75) and deterministic noise (0.90-1.10) produce natural daily variation
+- demo_id field correctly tags scenario-affected line items only
+
+### Verification
+
+**GuardDuty 14-day run (`--sources=aws_guardduty --days=14 --scenarios=all`):**
+- Total findings: 80 (74 baseline + 6 scenario)
+- Finding types: PortProbeUnprotectedPort=30, TorIPCaller=17, Portscan=15, RootCredentialUsage=12, S3/AnomalousBehavior=3, IAMUser/MaliciousIPCaller=1, IAMUser/AnomalousBehavior=1, EC2/MaliciousIPCaller.Custom=1
+- Retired finding types present: 0 (was 1)
+- Root credential IPs resolving to US: 12/12 (was ~6/18 before fix)
+- S3 exfil findings with s3BucketDetails: 3/3 (was 0/3)
+- Ransomware severity: 8.0 (was 5.0)
+- Evidence blocks on threat intel findings: 2/2 (was 0/2)
+
+**Billing 20-day run (`--sources=aws_billing --days=20 --scenarios=all`):**
+- Total line items: 340 (17 services x 20 days)
+- DDoS-tagged rows: 16 (8 services x 2 days)
+- Exfil-tagged rows: 6 (2 services x 3 days)
+- DDoS dates correct: 2026-01-18, 2026-01-19
+- Exfil dates correct: 2026-01-11, 2026-01-12, 2026-01-13
+- DDoS cost spike: EC2 DataTransfer $13.09-$18.08/day (baseline ~$4.50/day, ~3-4x)
+
+### Files Changed
+
+- `bin/generators/generate_aws_guardduty.py` (5 fixes)
+
+---
+
 ## 2026-02-26 ~09:00 UTC -- AWS CloudTrail Generator Realism Audit (7 fixes)
 
 ### Context
