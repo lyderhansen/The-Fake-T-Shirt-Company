@@ -46,9 +46,9 @@ GCP_INSTANCES = ["instance-prod-1", "instance-prod-2", "instance-web-1"]
 
 # Human GCP users (same cloud/IT team as AWS — use IAMUser identity)
 GCP_HUMAN_USERS = [
-    "angela.james",       # Cloud Engineer (BOS)
-    "carlos.martinez",    # DevOps Engineer (BOS)
-    "brandon.turner",     # DevOps Engineer (ATL)
+    "angela.james",       # Cloud Engineer (ATL)
+    "carlos.martinez",    # DevOps Engineer (ATL)
+    "brandon.turner",     # DevOps Engineer (BOS)
     "david.robinson",     # IT Director (BOS)
     "jessica.brown",      # IT Administrator (ATL)
     "patrick.gonzalez",   # Systems Administrator (BOS)
@@ -60,6 +60,42 @@ _RESOURCE_ZONES = {
     "gcs_bucket": [GCP_REGION],                # Regional, no zone suffix
     "cloud_function": [f"{GCP_REGION}"],        # Regional
     "bigquery_dataset": ["US"],                  # Multi-region
+}
+
+# IAM permission mapping: methodName -> IAM permission string
+# Real GCP authorizationInfo uses IAM permission format (e.g., "compute.instances.list"),
+# not the full method name (e.g., "v1.compute.instances.list").
+_METHOD_TO_PERMISSION = {
+    "v1.compute.instances.list": "compute.instances.list",
+    "v1.compute.instances.get": "compute.instances.get",
+    "v1.compute.instances.start": "compute.instances.start",
+    "v1.compute.instances.stop": "compute.instances.stop",
+    "storage.objects.get": "storage.objects.get",
+    "storage.objects.create": "storage.objects.create",
+    "storage.objects.delete": "storage.objects.delete",
+    "storage.objects.list": "storage.objects.list",
+    "storage.buckets.get": "storage.buckets.get",
+    "storage.buckets.getIamPolicy": "storage.buckets.getIamPolicy",
+    "google.cloud.functions.v1.CloudFunctionsService.CallFunction": "cloudfunctions.functions.invoke",
+    "jobservice.jobcompleted": "bigquery.jobs.create",
+    "google.cloud.bigquery.v2.TableDataService.List": "bigquery.tables.getData",
+    "google.iam.admin.v1.CreateServiceAccountKey": "iam.serviceAccountKeys.create",
+    "google.iam.admin.v1.CreateServiceAccount": "iam.serviceAccounts.create",
+    "google.iam.admin.v1.SetIamPolicy": "iam.serviceAccounts.setIamPolicy",
+    "SetIamPolicy": "resourcemanager.projects.setIamPolicy",
+    "google.logging.v2.LoggingServiceV2.WriteLogEntries": "logging.logEntries.create",
+    "google.logging.v2.LoggingServiceV2.ListLogEntries": "logging.logEntries.list",
+}
+
+# Resource label templates per resource type
+# Real GCP uses different label keys depending on the monitored resource type
+_RESOURCE_LABELS = {
+    "gce_instance": lambda zone: {"project_id": GCP_PROJECT, "instance_id": str(random.randint(1000000000000000, 9999999999999999)), "zone": zone},
+    "gcs_bucket": lambda zone: {"project_id": GCP_PROJECT, "bucket_name": random.choice(GCP_BUCKETS), "location": zone},
+    "cloud_function": lambda zone: {"project_id": GCP_PROJECT, "function_name": random.choice(GCP_FUNCTIONS), "region": zone},
+    "bigquery_dataset": lambda zone: {"project_id": GCP_PROJECT, "dataset_id": random.choice(["analytics", "reporting", "warehouse"])},
+    "service_account": lambda zone: {"project_id": GCP_PROJECT},
+    "project": lambda zone: {"project_id": GCP_PROJECT},
 }
 
 # User agent profiles for GCP API callers
@@ -81,19 +117,12 @@ def _pick_gcp_user():
 def should_tag_exfil(day: int, method_name: str, active_scenarios: list) -> bool:
     """Check if event should get exfil demo_id.
 
-    Exfil scenario: Days 8-14 are staging/exfil phase.
-    Tag storage access events during this period.
+    NOTE: Removed blanket tagging of all baseline storage events during exfil
+    days. Only actual attacker events (from ExfilScenario and dedicated scenario
+    hooks) get the demo_id=exfil tag. Tagging normal business storage operations
+    as exfil produces false signal and inflates scenario event counts.
     """
-    if "exfil" not in active_scenarios:
-        return False
-    # Staging: day 7-9 (0-indexed), Exfil: day 10-13
-    if day < 7 or day > 13:
-        return False
-    # Tag storage access, list, and delete operations
-    return method_name in [
-        "storage.objects.get", "storage.objects.list",
-        "storage.objects.create", "storage.objects.delete",
-    ]
+    return False
 
 
 # GCP baseline error definitions (3% of events)
@@ -157,14 +186,13 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
     Args:
         log_type: Either LOG_TYPE_ADMIN_ACTIVITY or LOG_TYPE_DATA_ACCESS
         resource_type: GCP resource type (gce_instance, gcs_bucket, cloud_function, bigquery_dataset)
+        caller_ip: Explicit caller IP. If None:
+            - Service accounts get "private" (GCP internal)
+            - Human users should always pass their IP explicitly
 
-    Field validation fixes applied:
-        - zone: Varies per resource type (compute=zone, storage=region, BQ=multi-region)
-        - callerSuppliedUserAgent: Varied (Console, gcloud, Python SDK, Go SDK, Terraform)
-        - authorizationInfo: Added with permission, resource, granted
-        - status: Added {code: 0, message: ""}
-        - receiveTimestamp: Added (event timestamp + small offset)
-        - severity: INFO for success (configurable for errors)
+    Severity convention (per real GCP):
+        - admin_activity: NOTICE (default), ERROR on failure
+        - data_access: INFO (default), ERROR on failure
     """
     # Determine zone/location based on resource type
     zone_options = _RESOURCE_ZONES.get(resource_type, [f"{GCP_REGION}-a"])
@@ -173,8 +201,8 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
     # Vary user agent
     user_agent = random.choice(_GCP_USER_AGENTS)
 
-    # Derive permission from method name (e.g., "storage.objects.get" → "storage.objects.get")
-    permission = method_name
+    # Map method name to IAM permission format
+    permission = _METHOD_TO_PERMISSION.get(method_name, method_name)
 
     ts = ts_gcp(base_date, day, hour, minute, second)
 
@@ -193,6 +221,23 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
         receive_dt = dt + timedelta(microseconds=delay_us)
         receive_ts = receive_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
+    # Service accounts calling from GCP infrastructure show "private" as callerIp
+    if caller_ip is None:
+        if principal.endswith(".iam.gserviceaccount.com"):
+            caller_ip = "private"
+        else:
+            caller_ip = get_internal_ip()
+
+    # Real GCP: admin_activity defaults to NOTICE, data_access defaults to INFO
+    default_severity = "NOTICE" if log_type == LOG_TYPE_ADMIN_ACTIVITY else "INFO"
+
+    # Build resource labels using per-type template
+    label_fn = _RESOURCE_LABELS.get(resource_type)
+    if label_fn:
+        resource_labels = label_fn(zone)
+    else:
+        resource_labels = {"project_id": GCP_PROJECT, "zone": zone}
+
     return {
         "protoPayload": {
             "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
@@ -207,7 +252,7 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
                 }
             ],
             "requestMetadata": {
-                "callerIp": caller_ip or get_internal_ip(),
+                "callerIp": caller_ip,
                 "callerSuppliedUserAgent": user_agent,
             },
             "resourceName": f"projects/{GCP_PROJECT}",
@@ -216,11 +261,11 @@ def gcp_base_event(base_date: str, day: int, hour: int, minute: int, second: int
         "insertId": uuid.uuid4().hex[:16],
         "resource": {
             "type": resource_type,
-            "labels": {"project_id": GCP_PROJECT, "zone": zone},
+            "labels": resource_labels,
         },
         "timestamp": ts,
         "receiveTimestamp": receive_ts,
-        "severity": "INFO",
+        "severity": default_severity,
         "logName": f"projects/{GCP_PROJECT}/logs/cloudaudit.googleapis.com%2F{log_type}",
     }
 
@@ -349,8 +394,9 @@ def gcp_iam_sa_key_create(base_date: str, day: int, hour: int) -> Dict[str, Any]
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.iam.admin.v1.CreateServiceAccountKey",
                            "iam.googleapis.com", principal,
-                           resource_type="gce_instance", caller_ip=caller_ip)
+                           resource_type="service_account", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/serviceAccounts/{target_sa}"
+    event["resource"]["labels"]["email_id"] = target_sa
     return _gcp_maybe_inject_error(event, "iam.serviceAccounts.keys.create")
 
 
@@ -397,7 +443,7 @@ def gcp_logging_write(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.logging.v2.LoggingServiceV2.WriteLogEntries",
                            "logging.googleapis.com", principal,
-                           resource_type="gce_instance", caller_ip=caller_ip)
+                           resource_type="project", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = log_name
     event["protoPayload"]["request"] = {
         "logName": log_name,
@@ -420,7 +466,7 @@ def gcp_logging_list(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.logging.v2.LoggingServiceV2.ListLogEntries",
                            "logging.googleapis.com", principal,
-                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance",
+                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="project",
                            caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}"
     event["protoPayload"]["request"] = {
@@ -520,8 +566,9 @@ def gcp_iam_set_policy(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.iam.admin.v1.SetIamPolicy",
                            "iam.googleapis.com", principal,
-                           resource_type="gce_instance", caller_ip=caller_ip)
+                           resource_type="service_account", caller_ip=caller_ip)
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}/serviceAccounts/{target_sa}"
+    event["resource"]["labels"]["email_id"] = target_sa
     event["protoPayload"]["request"] = {
         "policy": {
             "bindings": [{
@@ -556,9 +603,9 @@ def gcp_logging_list_exfil(base_date: str, day: int, hour: int) -> Dict[str, Any
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.logging.v2.LoggingServiceV2.ListLogEntries",
                            "logging.googleapis.com", mal_sa,
-                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="gce_instance")
+                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="project",
+                           caller_ip="185.220.101.42")
     event["protoPayload"]["resourceName"] = f"projects/{GCP_PROJECT}"
-    event["protoPayload"]["requestMetadata"]["callerIp"] = "185.220.101.42"
     event["protoPayload"]["request"] = {
         "resourceNames": [f"projects/{GCP_PROJECT}"],
         "filter": 'protoPayload.methodName="google.iam.admin.v1.CreateServiceAccountKey"',

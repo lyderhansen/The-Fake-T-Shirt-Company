@@ -4,6 +4,51 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~22:00 UTC -- GCP Generator Realism Audit (8 fixes)
+
+### Context
+
+Comprehensive audit of `generate_gcp.py` (888 lines). Cross-referenced all generated JSON fields against the official GCP Cloud Audit Log format ([Understanding audit logs](https://docs.cloud.google.com/logging/docs/audit/understanding-audit-logs), [AuditLog type reference](https://docs.cloud.google.com/logging/docs/reference/audit/auditlog/rest/Shared.Types/AuditLog)). Verified scenario injection (exfil, cpu_runaway), cross-generator correlation (employee IPs, principals, threat actor IP), and field-level accuracy.
+
+### Changes (8 fixes in generate_gcp.py)
+
+- **Fix 1 (CRITICAL): Severity wrong for admin_activity events.** Real GCP admin_activity audit logs default to severity `NOTICE`; data_access defaults to `INFO`. Generator was using `INFO` for everything. Added log_type-aware severity: `NOTICE` for admin_activity, `INFO` for data_access, `ERROR` for failures.
+
+- **Fix 2 (CRITICAL): authorizationInfo.permission used raw methodName instead of IAM permission format.** Real GCP uses IAM permission strings (e.g., `compute.instances.list`) in authorizationInfo, not the full method name (e.g., `v1.compute.instances.list`). Added `_METHOD_TO_PERMISSION` mapping for all 19 method names to their correct IAM permission format.
+
+- **Fix 3 (MODERATE): resource.labels used generic project_id+zone for all resource types.** Real GCP uses type-specific label keys: `gce_instance` has `instance_id`/`zone`, `gcs_bucket` has `bucket_name`/`location`, `bigquery_dataset` has `dataset_id`, `cloud_function` has `function_name`/`region`, `service_account` has `email_id`. Added `_RESOURCE_LABELS` template mapping per resource type.
+
+- **Fix 4 (MODERATE): IAM events used wrong resource type `gce_instance`.** `CreateServiceAccountKey` and `SetIamPolicy` events should use `service_account` resource type. Changed both to `service_account` and added `email_id` label.
+
+- **Fix 5 (MODERATE): Cloud Logging events used wrong resource type `gce_instance`.** `WriteLogEntries` and `ListLogEntries` events should use `project` resource type, not `gce_instance`. Changed both to `project`.
+
+- **Fix 6 (MODERATE): Service account callerIp was random employee IP.** Real GCP shows `"private"` for API calls from within GCP infrastructure (service accounts running on GCE/Cloud Functions). Added SA detection: if principal ends with `.iam.gserviceaccount.com` and no explicit caller_ip, use `"private"`.
+
+- **Fix 7 (MINOR): Baseline storage events incorrectly tagged with demo_id=exfil.** The `should_tag_exfil()` function was tagging ALL storage.objects.* events from ALL users during days 7-13, inflating exfil event count from ~29 real attacker events to ~3,300. Disabled blanket tagging; only actual attacker events (from ExfilScenario and dedicated scenario hooks) now get `demo_id=exfil`.
+
+- **Fix 8 (COSMETIC): GCP_HUMAN_USERS comments had wrong locations.** `angela.james` and `carlos.martinez` are in Atlanta (ATL), not Boston; `brandon.turner` is in Boston Engineering, not Atlanta. Fixed inline comments.
+
+### Verification
+
+**14-day run (`--sources=gcp --days=14 --scenarios=all`):**
+- Total events: 17,041
+- admin_activity: ~12,200 (severity=NOTICE) | data_access: ~4,850 (severity=INFO)
+- Errors: ~510 (3% baseline error rate)
+- Scenario events: exfil=29 (was 3,310 before Fix 7), cpu_runaway=6
+- Unique methods: 19
+- Service account callerIp: 8,480 "private" (was random employee IPs)
+- Human user IPs: all match company.py (jessica.brown=10.20.30.15, angela.james=10.20.30.23, etc.)
+- Exfil attacker events: correct principals (alex.miller, svc-gcs-sync, compute-admin), correct threat IP (185.220.101.42)
+- CPU runaway: 6 BigQuery RESOURCE_EXHAUSTED errors on Days 11-12
+- IAM permission format verified for all 19 method types
+- Resource labels verified per type: gce_instance has instance_id, gcs_bucket has bucket_name, etc.
+
+### Files Changed
+
+- `bin/generators/generate_gcp.py`
+
+---
+
 ## 2026-02-26 ~18:30 UTC -- AWS GuardDuty + Billing Generator Realism Audit (5 fixes)
 
 ### Context
