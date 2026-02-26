@@ -6,11 +6,12 @@ Generates realistic SAP audit log events correlated with existing order/product 
 Sourcetype: sap:auditlog (matches PowerConnect for SAP, Splunkbase #3153)
 
 Event categories:
-  - Transaction execution (VA01, MIGO, FB01, MM01, VL01N, VF01, etc.)
+  - Transaction execution (VA01, MIGO, FB01, MM01, VL01N, VF01, PA30, etc.)
   - User activity (login, logout, failed login, password change, auth check fail)
-  - Masterdata changes (price change, BOM update, vendor/customer status)
+  - Masterdata changes (price change, vendor/customer status)
   - Inventory events (goods receipt, goods issue, stock transfer)
-  - Financial postings (invoice, payment run, GL journal entry)
+  - Financial postings (invoice, payment run, GL journal entry, vendor payment)
+  - HCM events (personnel maintenance, time management, payroll)
   - Batch jobs (nightly MRP run, posting period close, report generation)
   - System events (transport import, background job schedule)
 
@@ -52,11 +53,11 @@ SAP_DB_HOST = "SAP-DB-01"
 SAP_CLIENT = "100"  # Production client
 
 # Base events per peak hour (before volume adjustments)
+# These are multiplied by the --scale factor at runtime
 BASE_TCODE_EVENTS = 80       # Transaction executions
 BASE_USER_EVENTS = 30        # Login/logout/auth events
 BASE_INVENTORY_EVENTS = 40   # Goods movements
 BASE_FINANCIAL_EVENTS = 15   # Financial postings
-BASE_MASTERDATA_EVENTS = 3   # Masterdata changes (low frequency, business hours only)
 
 # =============================================================================
 # SAP USER MAPPING
@@ -71,7 +72,7 @@ def _build_sap_users() -> Dict[str, Dict]:
     for u in get_users_by_department("Finance"):
         sap_users[u.username] = {
             "role": "FI_USER",
-            "tcodes": ["FB01", "F-28", "FK01", "FS00", "FBL1N", "FBL3N", "FBL5N"],
+            "tcodes": ["FB01", "F-28", "F-53", "FK01", "FS00", "FBL1N", "FBL3N", "FBL5N"],
             "department": "Finance",
         }
 
@@ -97,6 +98,14 @@ def _build_sap_users() -> Dict[str, Dict]:
             "role": "REPORTING",
             "tcodes": ["SE16", "FAGLL03", "KSB1", "S_ALR_87013611"],
             "department": "Executive",
+        }
+
+    # HR → HCM t-codes
+    for u in get_users_by_department("HR"):
+        sap_users[u.username] = {
+            "role": "HR_USER",
+            "tcodes": ["PA20", "PA30", "PT01", "PT60", "PU03"],
+            "department": "HR",
         }
 
     # IT → BASIS t-codes (pick 2-3 IT admins)
@@ -162,6 +171,14 @@ TCODE_CATALOG = {
     "FAGLL03": ("G/L Account Display", None, "fi"),
     "KSB1": ("Cost Center Actual Postings", None, "fi"),
     "S_ALR_87013611": ("Balance Sheet Report", None, "fi"),
+    # Finance — Vendor Payment (outgoing)
+    "F-53": ("Vendor Payment", "PAY", "fi"),
+    # HCM (Human Capital Management)
+    "PA20": ("Display HR Master Data", None, "hcm"),
+    "PA30": ("Maintain HR Master Data", None, "hcm"),
+    "PT01": ("Create Work Schedule", None, "hcm"),
+    "PT60": ("Display Time Statements", None, "hcm"),
+    "PU03": ("Change Payroll Status", None, "hcm"),
     # Basis / System
     "SM37": ("Background Job Overview", None, "basis"),
     "SM21": ("System Log", None, "basis"),
@@ -280,12 +297,15 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
         demo_id = order.get("scenario")
 
         # Parse actual order timestamp for precise timing
-        # Fixes bug where random minute/second caused SAP events before web checkout
+        # VA01 occurs 1-5 minutes AFTER web checkout (backend processing delay)
         order_ts = order.get("timestamp", "")
         if order_ts:
             odt = datetime.strptime(order_ts, "%Y-%m-%dT%H:%M:%SZ")
-            order_minute = odt.minute
-            order_second = odt.second
+            # Add 1-5 minute processing delay
+            sap_delay_min = random.randint(1, 5)
+            sap_delay_sec = random.randint(0, 59)
+            order_minute = odt.minute + sap_delay_min
+            order_second = sap_delay_sec
         else:
             order_minute = random.randint(0, 59)
             order_second = random.randint(0, 59)
@@ -294,9 +314,13 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
         username = _pick_sap_user("SD_USER")
 
         # --- VA01: Create Sales Order ---
-        minute = order_minute
+        # Adjust hour if minute overflows past 59
+        va01_hour = hour + order_minute // 60
+        minute = order_minute % 60
         second = order_second
-        ts_va01 = _fmt_ts(base_date, day, hour, minute, second)
+        if va01_hour >= 24:
+            continue  # Skip if VA01 would fall into next day
+        ts_va01 = _fmt_ts(base_date, day, va01_hour, minute, second)
         so_number = _next_doc_number("SO", year, doc_counter)
         details = f"Sales order for customer {cust_id}, {items} items, total ${total:.2f}, ref {web_order_id}, tshirtcid={tshirtcid}"
         events.append(_sap_event(
@@ -304,10 +328,10 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
             "Create Sales Order", so_number, details, demo_id=demo_id
         ))
 
-        # --- VL01N: Create Delivery (15-45 min later) ---
+        # --- VL01N: Create Delivery (15-45 min after VA01) ---
         dl_offset_min = random.randint(15, 45)
         dl_minute = minute + dl_offset_min
-        dl_hour = hour + dl_minute // 60
+        dl_hour = va01_hour + dl_minute // 60
         dl_minute = dl_minute % 60
         if dl_hour < 24:
             ts_dl = _fmt_ts(base_date, day, dl_hour, dl_minute, random.randint(0, 59))
@@ -319,11 +343,11 @@ def generate_order_lifecycle_events(base_date: str, day: int, hour: int,
                 demo_id=demo_id
             ))
 
-        # --- VF01: Create Billing Document (1-3 hours later) ---
+        # --- VF01: Create Billing Document (1-3 hours after VA01) ---
         inv_offset_hr = random.randint(1, 3)
-        inv_hour = hour + inv_offset_hr
+        inv_hour = va01_hour + inv_offset_hr
         if inv_hour < 24:
-            ts_inv = _fmt_ts(base_date, day, inv_hour, order_minute, random.randint(0, 59))
+            ts_inv = _fmt_ts(base_date, day, inv_hour, minute, random.randint(0, 59))
             inv_number = _next_doc_number("INV", year, doc_counter)
             events.append(_sap_event(
                 ts_inv, "DIA", username, "VF01", "S",
@@ -369,12 +393,11 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
         desc, doc_prefix, category = tcode_info
         dialog_type = "DIA"
 
-        # Generate document number if applicable
+        # Document number and details are set per-tcode below.
+        # Do NOT pre-allocate from doc_prefix — each branch allocates
+        # its own to avoid wasting (double-allocating) sequence numbers.
         doc_number = ""
         details = ""
-
-        if doc_prefix:
-            doc_number = _next_doc_number(doc_prefix, year, doc_counter)
 
         # Category-specific details
         if tcode == "VA01":
@@ -385,6 +408,8 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
             total = round(random.uniform(30, 500), 2)
             details = f"Sales order for customer C-{cust_num}, {items} items, total ${total:.2f}"
         elif tcode == "VA02":
+            # Change to existing order — reference existing doc number
+            doc_number = f"SO-{year}-{random.randint(1, max(1, doc_counter.get(f'SO-{year}', 1))):05d}"
             details = random.choice([
                 "Changed delivery date", "Updated quantity",
                 "Added discount condition", "Changed shipping point",
@@ -410,6 +435,11 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
             amount = round(random.uniform(100, 50000), 2)
             doc_number = _next_doc_number("PAY", year, doc_counter)
             details = f"Payment received ${amount:,.2f}"
+        elif tcode == "F-53":
+            vendor = random.choice(VENDORS)
+            amount = round(random.uniform(500, 30000), 2)
+            doc_number = _next_doc_number("PAY", year, doc_counter)
+            details = f"Vendor payment to {vendor[1]} ${amount:,.2f}"
         elif tcode == "MM02":
             mat = random.choice(MATERIAL_IDS)
             mat_info = MATERIAL_MASTER[mat]
@@ -429,10 +459,31 @@ def generate_tcode_events(base_date: str, day: int, hour: int,
             details = f"Billing document ${amount:,.2f}"
         elif tcode in ("VA03", "MM03", "ME23N", "MMBE", "MB52",
                         "FBL1N", "FBL3N", "FBL5N", "FAGLL03", "KSB1",
-                        "SE16", "S_ALR_87013611"):
+                        "SE16", "S_ALR_87013611",
+                        "PA20", "PT60"):
             # Display/report transactions — no document, no details
             details = "Display only"
             doc_number = ""
+        elif tcode == "PA30":
+            details = random.choice([
+                "Infotype 0001 (Org Assignment) updated",
+                "Infotype 0002 (Personal Data) updated",
+                "Infotype 0008 (Basic Pay) updated",
+                "Infotype 0014 (Recurring Deductions) updated",
+                "Infotype 0006 (Addresses) updated",
+            ])
+        elif tcode == "PT01":
+            details = random.choice([
+                "Work schedule created for employee",
+                "Shift assignment updated",
+                "Overtime schedule maintained",
+            ])
+        elif tcode == "PU03":
+            details = random.choice([
+                "Payroll status set to Released",
+                "Payroll status reset for correction",
+                "Retroactive accounting triggered",
+            ])
         elif tcode == "FK01":
             doc_number = _next_doc_number("V", year, doc_counter)
             details = f"Vendor created: {random.choice(VENDORS)[1]}"
@@ -627,12 +678,14 @@ def generate_financial_events(base_date: str, day: int, hour: int,
         )[0]
 
         if posting_type == "invoice":
+            # FB01 for financial invoice posting (VF01 is SD billing,
+            # handled by generate_order_lifecycle_events for Sales users)
             amount = round(random.uniform(50, 5000), 2)
-            doc_number = _next_doc_number("INV", year, doc_counter)
+            doc_number = _next_doc_number("DOC", year, doc_counter)
             events.append(_sap_event(
-                ts, "DIA", username, "VF01", "S",
-                "Create Invoice", doc_number,
-                f"Invoice posted ${amount:,.2f}, revenue account 400000"
+                ts, "DIA", username, "FB01", "S",
+                "Post Document", doc_number,
+                f"Invoice posting ${amount:,.2f}, revenue account 400000"
             ))
         elif posting_type == "payment":
             amount = round(random.uniform(100, 25000), 2)
@@ -660,11 +713,12 @@ def generate_financial_events(base_date: str, day: int, hour: int,
                 f"Cost center allocation ${amount:,.2f} to {cc}"
             ))
         elif posting_type == "vendor_payment":
+            # F-53 for vendor (outgoing) payment; F-28 is incoming only
             vendor = random.choice(VENDORS)
             amount = round(random.uniform(500, 30000), 2)
             doc_number = _next_doc_number("PAY", year, doc_counter)
             events.append(_sap_event(
-                ts, "DIA", username, "F-28", "S",
+                ts, "DIA", username, "F-53", "S",
                 "Vendor Payment", doc_number,
                 f"Payment to {vendor[1]} ${amount:,.2f}"
             ))
@@ -700,10 +754,13 @@ def generate_batch_events(base_date: str, day: int, hour: int,
     # Posting period close — first business day of each "month" (day 0 in our timeline)
     if day == 0 and hour == 3:
         ts = _fmt_ts(base_date, day, 3, 0, random.randint(0, 59))
+        # Reference the previous month/year dynamically
+        prev_month_dt = dt - timedelta(days=1)
+        prev_period = f"{prev_month_dt.month:02d}/{prev_month_dt.year}"
         events.append(_sap_event(
             ts, "BTC", "sap.batch", "SM37", "S",
             "Background Job Completed", "PERIOD_CLOSE",
-            "Posting period close completed for period 12/2025"
+            f"Posting period close completed for period {prev_period}"
         ))
 
     # Report generation — 5 AM daily
@@ -821,6 +878,21 @@ def generate_sap_logs(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Apply scale to base event volumes (module constants are unchanged;
+    # scaled values are passed into sub-functions via calc_natural_events
+    # which already handles hour/day variation). We scale the globals
+    # temporarily for this run and restore them at the end.
+    global BASE_TCODE_EVENTS, BASE_USER_EVENTS, BASE_INVENTORY_EVENTS, BASE_FINANCIAL_EVENTS
+    orig_tcode = BASE_TCODE_EVENTS
+    orig_user = BASE_USER_EVENTS
+    orig_inventory = BASE_INVENTORY_EVENTS
+    orig_financial = BASE_FINANCIAL_EVENTS
+    if scale != 1.0:
+        BASE_TCODE_EVENTS = max(1, int(BASE_TCODE_EVENTS * scale))
+        BASE_USER_EVENTS = max(1, int(BASE_USER_EVENTS * scale))
+        BASE_INVENTORY_EVENTS = max(1, int(BASE_INVENTORY_EVENTS * scale))
+        BASE_FINANCIAL_EVENTS = max(1, int(BASE_FINANCIAL_EVENTS * scale))
+
     # Load correlated orders
     order_queue = load_order_queue(start_date, days)
     if not quiet:
@@ -852,55 +924,67 @@ def generate_sap_logs(
         for day in range(days):
             if progress_callback:
                 progress_callback("sap", day + 1, days)
-            for hour in range(24):
-                all_events = []
 
+            # Collect ALL events for the entire day, then sort globally.
+            # Order lifecycle events (VL01N +15-45 min, VF01 +1-3 hr) can
+            # span across hour boundaries, so per-hour sorting left events
+            # out of chronological order in the file.
+            day_events = []
+
+            for hour in range(24):
                 # Get orders for this hour
                 hour_key = f"{day}-{hour}"
                 hour_orders = hourly_order_queues.get(hour_key, [])
 
-                # Order lifecycle events (VA01→VL01N→VF01 for each web order)
-                all_events.extend(generate_order_lifecycle_events(
+                # Order lifecycle events (VA01->VL01N->VF01 for each web order)
+                day_events.extend(generate_order_lifecycle_events(
                     start_date, day, hour, doc_counter, hour_orders
                 ))
 
                 # Baseline transaction executions (random SAP activity)
-                all_events.extend(generate_tcode_events(
+                day_events.extend(generate_tcode_events(
                     start_date, day, hour, doc_counter
                 ))
 
                 # User activity
-                all_events.extend(generate_user_events(
+                day_events.extend(generate_user_events(
                     start_date, day, hour
                 ))
 
                 # Inventory movements
-                all_events.extend(generate_inventory_events(
+                day_events.extend(generate_inventory_events(
                     start_date, day, hour, doc_counter
                 ))
 
                 # Financial postings
-                all_events.extend(generate_financial_events(
+                day_events.extend(generate_financial_events(
                     start_date, day, hour, doc_counter
                 ))
 
                 # Batch jobs
-                all_events.extend(generate_batch_events(
+                day_events.extend(generate_batch_events(
                     start_date, day, hour, doc_counter
                 ))
 
                 # System events
-                all_events.extend(generate_system_events(
+                day_events.extend(generate_system_events(
                     start_date, day, hour
                 ))
 
-                # Sort by timestamp for chronological output
-                all_events.sort()
+            # Sort all events for the day by timestamp (chronological)
+            day_events.sort()
 
-                for event in all_events:
-                    f.write(event + "\n")
+            for event in day_events:
+                f.write(event + "\n")
 
-                total_events += len(all_events)
+            total_events += len(day_events)
+
+    # Restore base volumes
+    if scale != 1.0:
+        BASE_TCODE_EVENTS = orig_tcode
+        BASE_USER_EVENTS = orig_user
+        BASE_INVENTORY_EVENTS = orig_inventory
+        BASE_FINANCIAL_EVENTS = orig_financial
 
     if not quiet:
         print(f"  SAP: Generated {total_events:,} events → {output_path}")

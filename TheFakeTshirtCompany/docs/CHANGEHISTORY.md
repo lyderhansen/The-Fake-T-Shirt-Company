@@ -4,6 +4,54 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-26 ~05:00 UTC -- SAP Generator Realism Audit (9 fixes)
+
+### Context
+
+Comprehensive audit of `generate_sap.py` (SAP S/4HANA Security Audit Log generator). This generator reads `order_registry.json` (created by `generate_access.py`) and produces SAP audit log events correlated with web orders (VA01/VL01N/VF01 lifecycle) plus baseline SAP activity (tcode executions, user logins, inventory movements, financial postings, batch jobs, system events). Cross-checked order correlation, timestamp ordering, department-to-tcode mapping, document number allocation, transaction code correctness, and scale parameter usage.
+
+### Changes (9 fixes)
+
+- **Fix 1 (CRITICAL): Events out of chronological order in output file.** Order lifecycle events (VL01N +15-45min, VF01 +1-3hr) could span across hour boundaries, but events were sorted per-hour then written sequentially. A VF01 at 02:59 from hour 0's batch was followed by hour 1's events starting at 01:05. Fixed by collecting all events for the entire day and performing a single global sort before writing.
+
+- **Fix 2 (REALISM): VA01 timestamps exactly matched web checkout timestamps.** SAP sales order creation (VA01) occurred at the identical second as the web checkout, which is unrealistically precise. In reality, backend processing introduces a 1-5 minute delay. Added a `random.randint(1, 5)` minute offset so VA01 always occurs 1-5 minutes after the web checkout. Verified: 0 events before checkout, 0 at exact same time, 921 within 1-6min window.
+
+- **Fix 3 (REALISM): Missing HR department mapping.** The SAP user pool mapped Finance, Sales, Operations, Executive, and IT departments but completely omitted HR (11 employees). Added HR users with HCM role and tcodes PA20 (Display HR Master), PA30 (Maintain HR Master), PT01 (Work Schedule), PT60 (Time Statements), PU03 (Payroll Status). Also added all 5 HCM tcodes to TCODE_CATALOG with appropriate details generation.
+
+- **Fix 4 (BUG): `scale` parameter accepted but never applied.** The `generate_sap_logs()` function accepted `--scale` but never used it to adjust event volumes. Fixed by applying the scale factor to BASE_TCODE_EVENTS, BASE_USER_EVENTS, BASE_INVENTORY_EVENTS, and BASE_FINANCIAL_EVENTS at the start of generation. Verified: scale=0.5 produces ~50% of scale=1.0 baseline events.
+
+- **Fix 5 (BUG): Finance users executing VF01 (billing).** The `generate_financial_events()` function used VF01 (Create Billing Document, an SD transaction) for invoice posting by Finance users. VF01 should only be executed by Sales users (handled by `generate_order_lifecycle_events`). Changed to FB01 (Post Document) which is the correct FI transaction for financial invoice postings.
+
+- **Fix 6 (BUG): F-28 used for vendor (outgoing) payment.** F-28 is "Incoming Payment" (customer pays us), but `generate_financial_events()` used it for vendor payments. Added F-53 ("Vendor Payment") to TCODE_CATALOG and Finance user tcode list. Changed vendor payment events from F-28 to F-53.
+
+- **Fix 7 (BUG): Double document number allocation wasting sequence numbers.** The `generate_tcode_events()` function pre-allocated a document number from `doc_prefix` (line 377), then each tcode-specific branch allocated ANOTHER number, wasting the first. This caused large gaps in all document number series (e.g., 192 missing SO numbers, 94 missing INV numbers). Fixed by removing the generic pre-allocation and letting each tcode branch handle its own. Verified: all 11 document series are now gap-free.
+
+- **Fix 8 (BUG): Hardcoded period close message "period 12/2025".** The batch job posting period close always referenced "period 12/2025" regardless of the actual start_date. Fixed by dynamically calculating the previous month/year from the actual date.
+
+- **Fix 9 (CLEANUP): Removed unused `BASE_MASTERDATA_EVENTS` constant.** The constant was defined but never referenced by any function. Masterdata changes are already generated within `generate_tcode_events()` as part of the normal tcode distribution.
+
+### Verification
+
+**3-day run (`--sources=access,sap --days=3 --scenarios=all`):**
+- Generator output: 6,370 events (was 6,241 pre-fix, increase from HR users)
+- Timestamp ordering violations: 0 (was 64)
+- VA01 before web checkout: 0
+- VA01 at exact same time: 0 (was 983)
+- VA01 within 1-6 min after checkout: 921 (of 1,024 correlated)
+- VF01 by Finance users: 0 (was mixed Finance/Sales)
+- F-28 used for vendor payment: 0
+- F-53 vendor payments: 87
+- Document number gaps: 0 across all 11 prefixes (was widespread)
+- HR tcode events: 240 (PA20=52, PA30=48, PT01=51, PT60=42, PU03=47)
+- Scale test: scale=0.5 produces 1,182 events vs scale=1.0 produces 2,378 events (ratio 0.497)
+- Period close message: "period 12/2025" (dynamically calculated for 2026-01-01 start)
+
+### Files Changed
+
+- `bin/generators/generate_sap.py` -- All 9 fixes applied
+
+---
+
 ## 2026-02-26 ~02:00 UTC -- ServiceBus Generator Realism Audit (7 fixes)
 
 ### Context
