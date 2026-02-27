@@ -4,6 +4,110 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-27 ~21:00 UTC -- Meraki P1: 3 New Event-Driven Sourcetypes
+
+Added 3 new Meraki sourcetypes to close the highest-value dashboard gaps: security, audit, and device availability.
+
+### New Sourcetypes
+
+| Sourcetype | Output File | Daily Volume | Purpose |
+|-----------|------------|-------------|---------|
+| `FAKE:meraki:organizationsecurity` | `meraki_org_security.json` | ~25-40 | IDS alerts + AMP file scans (org-level) |
+| `FAKE:meraki:audit` | `meraki_audit.json` | ~3-8 (weekdays) | Dashboard config change audit log |
+| `FAKE:meraki:devicesavailabilitieschangehistory` | `meraki_device_availability.json` | ~4-8 | Device online/offline status changes |
+
+### Files Changed
+
+- **`bin/generators/generate_meraki.py`**
+  - Added `import hashlib` for SHA256 file hashes in AMP events
+  - Added constants: `ORG_IDS_SIGNATURES` (10), `AMP_FILE_SAMPLES` (7), `AMP_CLEAN_NAMES` (4), `MERAKI_ADMIN_EMAILS` (7), `AUDIT_CHANGE_TEMPLATES` (20), `AVAILABILITY_OFFLINE_REASONS` (7)
+  - Added 4 event helpers: `org_security_ids_alert`, `org_security_file_scanned`, `audit_config_change`, `device_availability_change`
+  - Added 3 generator functions: `generate_org_security_hour` (hourly, org-level), `generate_audit_hour` (business hours/weekdays), `generate_device_availability_day` (day-level with scenario support)
+  - Updated `generate_meraki_logs`: new event lists, output files, day/hour loop calls, all_events dict, device_to_relpath, print statements (now "12 JSON files")
+- **`default/props.conf`** — 3 new stanzas with CIM field mappings (EVAL/FIELDALIAS)
+- **`default/inputs.conf`** — 3 new monitor stanzas
+
+### Scenario Integration
+
+- **DDoS (days 18-19):** MX-BOS-01 + MS-BOS-CORE-01 offline events tagged `demo_id=ddos_attack`
+- **Ransomware (days 8-9):** AP-AUS-1F-02 offline events tagged `demo_id=ransomware_attempt`
+
+### Verification (3-day test, `--scenarios=all`)
+
+- Generator completed: 195,549 total events across 12 JSON files
+- `meraki_org_security.json`: 33 events (IDS alerts + AMP file scans, valid JSON)
+- `meraki_audit.json`: 13 events (config changes, business hours only, valid JSON)
+- `meraki_device_availability.json`: 20 events (offline/online pairs, valid JSON)
+- All events have `organizationId` field
+- All fields match plan specification
+
+---
+
+## 2026-02-27 ~10:30 UTC -- Meraki Generator: TA Dashboard Alignment (5 phases)
+
+### Context
+
+The official `Splunk_TA_cisco_meraki` dashboards showed zero results against generated data. Root causes: missing fields, wrong field names, and missing event types the TA expects. This overhaul aligns our JSON events with the TA's props.conf/eventtypes.conf expectations.
+
+### Phase 1: Fix Existing Field Names (3 renames)
+
+1. `stp_change` → `stp_port_role_change` and `eventData.state` → `eventData.new_state` in `ms_stp_event()`
+2. `vpn_connectivity_change` → `vpn_registry_change` in `mx_vpn_event()`
+3. `eventData.status` → `eventData.new` in `ms_port_status_event()`
+4. Updated all corresponding `props.conf` EVAL statements
+
+### Phase 2: Add Missing Common Fields to All Events
+
+1. Added `organizationId` ("549236") and `networkName` to every event via `_enrich_event()` helper called in write loop
+2. Added `clientId` and `clientDescription` to 12 client-facing event helpers via `_enrich_client_event()`
+3. Added `eventData.client_mac`, `eventData.client_ip`, `eventData.last_known_client_ip` to 802.1X events (MR + MS)
+4. Added `clientMac` to `mx_firewall_event()`
+
+### Phase 3: Add 15 New TA Event Types
+
+- **MX (6):** `dhcp_lease`, `dhcp_problem`, `dhcp_blocked`, `cf_block`, `splash_auth`, `ids_start`/`ids_update`
+- **MR (5):** `wpa_deauth`, `splash_auth`, `auto_rf_channel_change`, `auto_tx_power_change`, `dfs_event`
+- **MS (2):** `port_bounce`, `poe_budget_change`
+- **MV (2):** `night_mode` (deterministic dawn/dusk for outdoor cameras), `update_user_settings`
+- Updated baseline generator weights for all 4 device types
+
+### Phase 4: Add 2 New Output Files
+
+1. `meraki_organizations.json` — static org data (critical for TA dashboard org dropdowns)
+2. `meraki_sensor_readings.json` — TA-format sensor readings with `ts`, `serial`, `network{id,name}`, top-level metric data
+
+### Phase 5: Update props.conf CIM Mappings + inputs.conf
+
+1. **[FAKE:meraki:securityappliances]** — added DHCP/cf_block/splash/IDS to all EVAL-action/dest/src/etc.
+2. **[FAKE:meraki:accesspoints]** — added wpa_deauth/splash/auto_rf/auto_tx/dfs; new EVAL-object_id
+3. **[FAKE:meraki:switches]** — added port_bounce/poe_budget_change to dest/src/object_id/status/etc.
+4. **[FAKE:meraki:cameras]** — added night_mode/update_user_settings; new EVAL-result, EVAL-user
+5. **New stanzas:** `[FAKE:meraki:organizations]`, `[FAKE:meraki:sensorreadingshistory]`
+6. **inputs.conf:** 2 new monitor stanzas for organizations and sensor readings files
+
+### Verification
+
+- 3-day test run: 202,561 events, no errors
+- Field renames: 0 old names in output (`stp_change`=0, `vpn_connectivity_change`=0)
+- `organizationId`="549236" on all events, `networkName` correct per site
+- `clientDescription` populated for client-facing events (user display_name or IP)
+- 802.1X `eventData.client_mac`/`client_ip`/`last_known_client_ip` present
+- `meraki_organizations.json` has correct static org JSON
+- `meraki_sensor_readings.json` uses `ts` timestamp, `serial`, nested `network` object
+- All 15 new event types generating at expected distribution rates
+- MX: dhcp_lease(280), cf_block(41), dhcp_problem(18), splash_auth(16), dhcp_blocked(4), ids_start(2)
+- MR: wpa_deauth(107), splash_auth(9), auto_rf(15), auto_tx(6), dfs(2)
+- MS: port_bounce(6), poe_budget(2)
+- MV: night_mode(30), update_user_settings(3)
+
+### Files Changed
+
+- `bin/generators/generate_meraki.py` — field renames, common field enrichment, 15 new event helpers, 2 new output files
+- `default/props.conf` — updated EVAL statements for all 4 device stanzas + 2 new stanzas
+- `default/inputs.conf` — 2 new monitor stanzas for organizations and sensor readings
+
+---
+
 ## 2026-02-27 ~00:30 UTC -- Port & Logic Audit (4 fixes)
 
 ### Context

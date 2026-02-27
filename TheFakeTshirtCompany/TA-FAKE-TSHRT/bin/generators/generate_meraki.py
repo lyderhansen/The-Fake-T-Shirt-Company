@@ -21,6 +21,7 @@ Event types:
 """
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -53,6 +54,18 @@ from scenarios.registry import expand_scenarios
 from scenarios.security import RansomwareAttemptScenario
 from scenarios.network.ddos_attack import DdosAttackScenario
 from shared.time_utils import TimeUtils
+
+# =============================================================================
+# MERAKI ORGANIZATION CONSTANTS
+# =============================================================================
+
+MERAKI_ORG_ID = "549236"
+MERAKI_ORG_NAME = "The FAKE T-Shirt Company"
+NETWORK_NAMES = {
+    "N_FakeTShirtCo_BOS": "FakeTShirtCo - Boston HQ",
+    "N_FakeTShirtCo_ATL": "FakeTShirtCo - Atlanta Hub",
+    "N_FakeTShirtCo_AUS": "FakeTShirtCo - Austin Office",
+}
 
 # =============================================================================
 # MERAKI DEVICE CONFIGURATION - MULTI-SITE
@@ -322,6 +335,96 @@ IDS_SIGNATURES = [
     {"sig": "1:2002911:6", "priority": 2, "msg": "ET SCAN Potential SSH Scan", "ports": [22]},
 ]
 
+# =============================================================================
+# ORG SECURITY CONSTANTS (organizationsecurity sourcetype)
+# =============================================================================
+
+# IDS signatures for org-level security events (distinct from per-MX IDS_SIGNATURES)
+ORG_IDS_SIGNATURES = [
+    {"sig": "1:41944:2", "priority": 1, "msg": "BROWSER-IE Microsoft Edge scripting engine security bypass attempt"},
+    {"sig": "1:39867:3", "priority": 3, "msg": "INDICATOR-COMPROMISE Suspicious .tk dns query"},
+    {"sig": "1:40688:5", "priority": 2, "msg": "MALWARE-CNC Win.Trojan.Agent outbound connection"},
+    {"sig": "1:49897:1", "priority": 3, "msg": "POLICY-OTHER Cryptocurrency mining pool DNS request"},
+    {"sig": "1:31408:9", "priority": 2, "msg": "SERVER-WEBAPP SQL injection attempt"},
+    {"sig": "1:19559:7", "priority": 1, "msg": "INDICATOR-SCAN Nmap TCP scan detected"},
+    {"sig": "1:42834:3", "priority": 2, "msg": "MALWARE-CNC Possible data exfiltration via DNS"},
+    {"sig": "1:45550:2", "priority": 1, "msg": "EXPLOIT-KIT Angler EK landing page detected"},
+    {"sig": "1:38907:4", "priority": 2, "msg": "FILE-OTHER Suspicious executable download"},
+    {"sig": "1:24017:6", "priority": 2, "msg": "SERVER-WEBAPP directory traversal attempt"},
+]
+
+# AMP file download samples for File Scanned events
+AMP_FILE_SAMPLES = [
+    {"uri": "https://cdn.example.com/downloads/report-Q4.xlsx", "fileType": "xlsx", "size_range": (50000, 250000)},
+    {"uri": "https://files.sharepoint.com/sites/docs/proposal.docx", "fileType": "docx", "size_range": (30000, 180000)},
+    {"uri": "https://github.com/releases/download/v2.1/installer.exe", "fileType": "exe", "size_range": (500000, 5000000)},
+    {"uri": "https://storage.googleapis.com/bucket/data-export.zip", "fileType": "zip", "size_range": (1000000, 10000000)},
+    {"uri": "https://update.vendor.com/patches/security-patch.msi", "fileType": "msi", "size_range": (2000000, 8000000)},
+    {"uri": "https://cdn.npm.io/packages/lodash-4.17.21.tgz", "fileType": "tgz", "size_range": (100000, 500000)},
+    {"uri": "https://pypi.org/packages/requests-2.31.0.tar.gz", "fileType": "tar.gz", "size_range": (80000, 400000)},
+]
+
+# Canonical malware names for quarantine events
+AMP_CLEAN_NAMES = [
+    "Win.Trojan.Agent-799538",
+    "Doc.Dropper.Emotet-9876543",
+    "Win.Ransomware.Locky-6544321",
+    "PUA.Win.Adware.BrowseFox-2",
+]
+
+# =============================================================================
+# AUDIT CONSTANTS (audit sourcetype)
+# =============================================================================
+
+# IT staff who make Meraki Dashboard config changes
+MERAKI_ADMIN_EMAILS = [
+    "jessica.brown@theTshirtCompany.com",
+    "mike.johnson@theTshirtCompany.com",
+    "david.robinson@theTshirtCompany.com",
+    "stephanie.barnes@theTshirtCompany.com",
+    "keith.butler@theTshirtCompany.com",
+    "nicholas.kelly@theTshirtCompany.com",
+    "christian.walker@theTshirtCompany.com",
+]
+
+# Config change templates: label, old value, new value
+AUDIT_CHANGE_TEMPLATES = [
+    {"label": "SSID 'FakeTShirtCo-Corp' enabled", "old": "false", "new": "true"},
+    {"label": "SSID 'FakeTShirtCo-Guest' splash page timeout", "old": "1440", "new": "720"},
+    {"label": "Firewall rule 'Block P2P' action", "old": "allow", "new": "deny"},
+    {"label": "Firewall rule 'Allow HTTPS outbound' logging", "old": "false", "new": "true"},
+    {"label": "Site-to-site VPN topology", "old": "star", "new": "mesh"},
+    {"label": "VPN subnet 10.10.30.0/24 advertised", "old": "false", "new": "true"},
+    {"label": "Firmware auto-upgrade window", "old": "02:00-04:00", "new": "03:00-05:00"},
+    {"label": "Firmware upgrade channel", "old": "stable", "new": "release_candidate"},
+    {"label": "IDS mode", "old": "detection", "new": "prevention"},
+    {"label": "IDS ruleset", "old": "balanced", "new": "security"},
+    {"label": "Alert email recipient added", "old": "", "new": "noc@theTshirtCompany.com"},
+    {"label": "Alert threshold for AP offline", "old": "5 min", "new": "2 min"},
+    {"label": "DHCP lease time (VLAN 30)", "old": "86400", "new": "43200"},
+    {"label": "DHCP DNS server updated", "old": "8.8.8.8", "new": "10.10.20.10"},
+    {"label": "Content filtering category 'Gambling' action", "old": "allow", "new": "deny"},
+    {"label": "Traffic shaping rule 'Video Streaming' bandwidth limit", "old": "unlimited", "new": "10 Mbps"},
+    {"label": "SNMP community string rotated", "old": "********", "new": "********"},
+    {"label": "Syslog server address", "old": "10.10.20.30", "new": "10.20.20.30"},
+    {"label": "Client VPN authentication", "old": "Meraki cloud", "new": "RADIUS"},
+    {"label": "Group Policy 'Contractors' VLAN", "old": "80", "new": "85"},
+]
+
+# =============================================================================
+# DEVICE AVAILABILITY CONSTANTS
+# =============================================================================
+
+AVAILABILITY_OFFLINE_REASONS = [
+    "Firmware upgrade in progress",
+    "Scheduled maintenance window",
+    "Power cycle detected",
+    "Uplink connectivity lost",
+    "Configuration push pending reboot",
+    "Hardware watchdog reset",
+    "Cloud connectivity timeout",
+]
+
 # SD-WAN VPN Peers
 SDWAN_PEERS = [
     ("MX-BOS-01", "MX-ATL-01"),
@@ -437,6 +540,40 @@ def generate_mac(user=None) -> str:
     return get_random_mac()
 
 
+def _enrich_event(event: dict) -> dict:
+    """Add organizationId and networkName to every Meraki event.
+
+    Called at the end of each event helper to add fields required by
+    the Splunk_TA_cisco_meraki dashboards.
+    """
+    event["organizationId"] = MERAKI_ORG_ID
+    network_id = event.get("networkId", "")
+    event["networkName"] = NETWORK_NAMES.get(network_id, MERAKI_ORG_NAME)
+    return event
+
+
+def _enrich_client_event(event: dict, client_mac: str = None,
+                         client_ip: str = None, client_desc: str = None) -> dict:
+    """Add clientId and clientDescription to client-facing events.
+
+    clientId = MAC address (same as clientMac)
+    clientDescription = resolved username or device hostname
+    """
+    if client_mac:
+        event["clientId"] = client_mac
+    elif event.get("clientMac"):
+        event["clientId"] = event["clientMac"]
+    if client_desc:
+        event["clientDescription"] = client_desc
+    elif client_ip:
+        user = get_user_by_ip(client_ip)
+        if user:
+            event["clientDescription"] = user.display_name
+        else:
+            event["clientDescription"] = client_ip
+    return event
+
+
 def get_random_internal_ip(location: str = None) -> str:
     """Get random internal IP for a location."""
     if location:
@@ -549,6 +686,7 @@ def mx_firewall_event(ts: str, device: str, src: str, dst: str,
         "category": "appliance",
         "deviceSerial": _get_serial(device),
         "deviceName": device,
+        "clientMac": mac,
         "eventData": {
             "src": src,
             "dst": dst,
@@ -559,6 +697,9 @@ def mx_firewall_event(ts: str, device: str, src: str, dst: str,
             "pattern": pattern
         }
     }
+    # Resolve client IP from src (format "ip" or "ip:port")
+    client_ip = src.split(":")[0] if ":" in src else src
+    _enrich_client_event(event, client_mac=mac, client_ip=client_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -591,6 +732,7 @@ def mx_url_event(ts: str, device: str, src_ip: str, src_port: int,
             "agent": agent
         }
     }
+    _enrich_client_event(event, client_mac=mac, client_ip=src_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -641,6 +783,7 @@ def mx_ids_event(ts: str, device: str, signature: dict, src_ip: str,
             "ruleId": f"meraki:intrusion/snort/GID/{gid}/SID/{sid}"
         }
     }
+    _enrich_client_event(event, client_mac=dst_mac, client_ip=dst_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -656,7 +799,7 @@ def mx_vpn_event(ts: str, device: str, vpn_type: str, connectivity: str,
     event = {
         "occurredAt": ts,
         "networkId": network_id,
-        "type": "vpn_connectivity_change",
+        "type": "vpn_registry_change",
         "description": "VPN tunnel status changed",
         "category": "appliance",
         "deviceSerial": _get_serial(device),
@@ -782,6 +925,7 @@ def mx_content_filtering_event(ts: str, device: str, client_ip: str,
             "action": action
         }
     }
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -815,6 +959,7 @@ def mx_amp_malware_event(ts: str, device: str, client_ip: str,
             "disposition": disposition  # "malicious", "clean", "unknown"
         }
     }
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
     if threat_name:
         event["eventData"]["threatName"] = threat_name
     if demo_id:
@@ -848,6 +993,278 @@ def mx_client_isolation_event(ts: str, device: str, client_ip: str,
             "reason": reason,
             "action": action  # "isolated", "released"
         }
+    }
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mx_dhcp_lease_event(ts: str, device: str, client_mac: str,
+                        client_ip: str, subnet: str, duration: int = 86400,
+                        location: str = None, demo_id: str = None) -> dict:
+    """Generate MX DHCP lease event (Dashboard API format)."""
+    loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+    mx_info = MERAKI_MX_DEVICES.get(device, {})
+    server_ip = mx_info.get("wan_ip", "10.10.20.1")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "dhcp_lease",
+        "description": f"DHCP lease for {client_ip}",
+        "category": "appliance",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "clientMac": client_mac,
+        "eventData": {
+            "ip": client_ip,
+            "mac": client_mac,
+            "server_ip": server_ip,
+            "server_mac": mx_info.get("mac", "00:18:0A:01:02:03"),
+            "subnet": subnet,
+            "duration": str(duration),
+        }
+    }
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mx_dhcp_problem_event(ts: str, device: str, client_mac: str,
+                          extra: str, vap: int = 0, vlan: int = 1,
+                          location: str = None, demo_id: str = None) -> dict:
+    """Generate MX DHCP problem event (Dashboard API format)."""
+    loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "dhcp_problem",
+        "description": f"DHCP problem: {extra}",
+        "category": "appliance",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "clientMac": client_mac,
+        "eventData": {
+            "extra": extra,
+            "vap": str(vap),
+            "vlan": str(vlan),
+            "mac": client_mac,
+        }
+    }
+    _enrich_client_event(event, client_mac=client_mac)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mx_dhcp_blocked_event(ts: str, device: str, client_mac: str,
+                          location: str = None, demo_id: str = None) -> dict:
+    """Generate MX DHCP blocked event (Dashboard API format)."""
+    loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "dhcp_blocked",
+        "description": "DHCP request blocked",
+        "category": "appliance",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "clientMac": client_mac,
+        "eventData": {
+            "mac": client_mac,
+        }
+    }
+    _enrich_client_event(event, client_mac=client_mac)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mx_cf_block_event(ts: str, device: str, client_ip: str,
+                      client_mac: str, url: str, category: str,
+                      server: str = None,
+                      location: str = None, demo_id: str = None) -> dict:
+    """Generate MX content filter block event (Dashboard API format).
+
+    cf_block is a distinct event type from security_event/content_filtering.
+    The TA maps it separately for CIM compliance.
+    """
+    loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+    if server is None:
+        server = get_random_external_ip()
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "cf_block",
+        "description": f"Content filter block: {category}",
+        "category": "appliance",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "clientMac": client_mac,
+        "eventData": {
+            "category": category,
+            "server": server,
+            "url": url,
+        }
+    }
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mx_splash_auth_event(ts: str, device: str, client_mac: str,
+                         client_ip: str = None, identity: str = None,
+                         location: str = None, demo_id: str = None) -> dict:
+    """Generate MX splash page authentication event (Dashboard API format)."""
+    loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "splash_auth",
+        "description": "Splash page authentication",
+        "category": "appliance",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "clientMac": client_mac,
+        "eventData": {}
+    }
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip,
+                         client_desc=identity)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mx_ids_alerted_event(ts: str, device: str, rules_count: int,
+                         alert_type: str = "ids_start",
+                         location: str = None, demo_id: str = None) -> dict:
+    """Generate MX IDS start/update event (Dashboard API format).
+
+    ids_start: IDS engine started with N rules loaded
+    ids_update: IDS rules updated to N rules
+    """
+    loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": alert_type,
+        "description": f"IDS {'started' if alert_type == 'ids_start' else 'updated'} with {rules_count} rules",
+        "category": "appliance",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "rules": str(rules_count),
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+# =============================================================================
+# ORG SECURITY EVENT HELPERS (organizationsecurity sourcetype)
+# =============================================================================
+
+def org_security_ids_alert(ts: str, src_ip: str, src_port: int, dst_ip: str,
+                           dst_port: int, signature: dict, blocked: bool,
+                           demo_id: str = None) -> dict:
+    """Generate org-level IDS alert event (organizationsecurity format)."""
+    event = {
+        "ts": ts,
+        "eventType": "IDS Alert",
+        "srcIp": f"{src_ip}:{src_port}",
+        "destIp": f"{dst_ip}:{dst_port}",
+        "blocked": "true" if blocked else "false",
+        "message": signature["msg"],
+        "signature": signature["sig"],
+        "priority": str(signature["priority"]),
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def org_security_file_scanned(ts: str, src_ip: str, client_name: str,
+                               file_sample: dict, file_hash: str,
+                               action: str, canonical_name: str = None,
+                               demo_id: str = None) -> dict:
+    """Generate org-level AMP file scanned event (organizationsecurity format)."""
+    size_min, size_max = file_sample["size_range"]
+    event = {
+        "ts": ts,
+        "eventType": "File Scanned",
+        "action": action,
+        "fileSizeBytes": random.randint(size_min, size_max),
+        "fileType": file_sample["fileType"],
+        "clientName": client_name,
+        "fileHash": file_hash,
+        "srcIp": src_ip,
+        "uri": file_sample["uri"],
+    }
+    if canonical_name:
+        event["canonicalName"] = canonical_name
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+# =============================================================================
+# AUDIT EVENT HELPERS (audit sourcetype)
+# =============================================================================
+
+def audit_config_change(ts: str, network_id: str, network_name: str,
+                        admin_email: str, label: str, old_value: str,
+                        new_value: str, demo_id: str = None) -> dict:
+    """Generate Meraki Dashboard audit config change event."""
+    event = {
+        "ts": ts,
+        "networkId": network_id,
+        "networkName": network_name,
+        "adminEmail": admin_email,
+        "label": label,
+        "oldValue": old_value,
+        "newValue": new_value,
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+# =============================================================================
+# DEVICE AVAILABILITY EVENT HELPERS (devicesavailabilitieschangehistory)
+# =============================================================================
+
+def device_availability_change(ts: str, device_name: str, device_serial: str,
+                                device_mac: str, device_model: str,
+                                product_type: str, network_id: str,
+                                network_name: str, new_status: str,
+                                demo_id: str = None) -> dict:
+    """Generate device availability status change event."""
+    event = {
+        "ts": ts,
+        "device.name": device_name,
+        "device.serial": device_serial,
+        "device.mac": device_mac,
+        "device.model": device_model,
+        "device.productType": product_type,
+        "details.new[].value": new_status,
+        "category": "availability",
+        "network.id": network_id,
+        "network.name": network_name,
     }
     if demo_id:
         event["demo_id"] = demo_id
@@ -889,6 +1306,7 @@ def mr_association_event(ts: str, device: str, client_mac: str,
     }
     if client_ip:
         event["clientIp"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -921,6 +1339,7 @@ def mr_disassociation_event(ts: str, device: str, client_mac: str,
     }
     if client_ip:
         event["clientIp"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -946,11 +1365,16 @@ def mr_8021x_success_event(ts: str, device: str, identity: str,
         "eventData": {
             "identity": identity,
             "vap": str(vap),
-            "radio": str(radio)
+            "radio": str(radio),
+            "client_mac": client_mac,
         }
     }
     if client_ip:
         event["clientIp"] = client_ip
+        event["eventData"]["client_ip"] = client_ip
+        event["eventData"]["last_known_client_ip"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip,
+                         client_desc=identity.split("@")[0] if "@" in identity else identity)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -976,11 +1400,16 @@ def mr_8021x_failure_event(ts: str, device: str, identity: str,
         "eventData": {
             "identity": identity,
             "vap": str(vap),
-            "radio": str(radio)
+            "radio": str(radio),
+            "client_mac": client_mac,
         }
     }
     if client_ip:
         event["clientIp"] = client_ip
+        event["eventData"]["client_ip"] = client_ip
+        event["eventData"]["last_known_client_ip"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip,
+                         client_desc=identity.split("@")[0] if "@" in identity else identity)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -1013,6 +1442,7 @@ def mr_wpa_auth_event(ts: str, device: str, client_mac: str,
     }
     if client_ip:
         event["clientIp"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
     if demo_id:
         event["demo_id"] = demo_id
     return event
@@ -1038,6 +1468,153 @@ def mr_rogue_ssid_event(ts: str, device: str, rogue_ssid: str,
             "bssid": rogue_bssid,
             "channel": str(channel),
             "rssi": str(rssi)
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mr_wpa_deauth_event(ts: str, device: str, client_mac: str,
+                        radio: int = 1, vap: int = 0, reason: int = 3,
+                        client_ip: str = None,
+                        location: str = None, demo_id: str = None) -> dict:
+    """Generate MR WPA deauthentication event (Dashboard API format)."""
+    loc = location or MERAKI_MR_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    # Realistic deauth reasons per IEEE 802.11
+    deauth_reasons = {
+        1: "Unspecified reason",
+        2: "Previous authentication no longer valid",
+        3: "Deauthenticated because sending station is leaving",
+        4: "Disassociated due to inactivity",
+        6: "Class 2 frame received from nonauthenticated station",
+        7: "Class 3 frame received from nonassociated station",
+        8: "Disassociated because sending station is leaving BSS",
+    }
+    reason_str = deauth_reasons.get(reason, f"Reason code {reason}")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "wpa_deauth",
+        "description": f"WPA deauthentication: {reason_str}",
+        "category": "wireless",
+        "clientMac": client_mac,
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "radio": str(radio),
+            "vap": str(vap),
+            "reason": str(reason),
+        }
+    }
+    if client_ip:
+        event["clientIp"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mr_splash_auth_event(ts: str, device: str, client_mac: str,
+                         identity: str = None, client_ip: str = None,
+                         location: str = None, demo_id: str = None) -> dict:
+    """Generate MR splash page authentication event (Dashboard API format)."""
+    loc = location or MERAKI_MR_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "splash_auth",
+        "description": "Splash page authentication",
+        "category": "wireless",
+        "clientMac": client_mac,
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {}
+    }
+    if identity:
+        event["eventData"]["identity"] = identity
+    if client_ip:
+        event["clientIp"] = client_ip
+    _enrich_client_event(event, client_mac=client_mac, client_ip=client_ip,
+                         client_desc=identity)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mr_auto_rf_channel_change_event(ts: str, device: str, channel: int,
+                                     old_channel: int, radio: int = 1,
+                                     location: str = None, demo_id: str = None) -> dict:
+    """Generate MR Auto RF channel change event (Dashboard API format)."""
+    loc = location or MERAKI_MR_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "auto_rf_channel_change",
+        "description": f"Auto RF changed channel from {old_channel} to {channel}",
+        "category": "wireless",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "channel": str(channel),
+            "old_channel": str(old_channel),
+            "radio": str(radio),
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mr_auto_tx_power_change_event(ts: str, device: str, power: int,
+                                   old_power: int, radio: int = 1,
+                                   location: str = None, demo_id: str = None) -> dict:
+    """Generate MR Auto RF TX power change event (Dashboard API format)."""
+    loc = location or MERAKI_MR_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "auto_tx_power_change",
+        "description": f"Auto RF changed TX power from {old_power} to {power} dBm",
+        "category": "wireless",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "power": str(power),
+            "old_power": str(old_power),
+            "radio": str(radio),
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mr_dfs_event(ts: str, device: str, channel: int,
+                 location: str = None, demo_id: str = None) -> dict:
+    """Generate MR DFS (Dynamic Frequency Selection) radar event (Dashboard API format)."""
+    loc = location or MERAKI_MR_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "dfs_event",
+        "description": f"DFS radar detected on channel {channel}",
+        "category": "wireless",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "channel": str(channel),
         }
     }
     if demo_id:
@@ -1298,7 +1875,7 @@ def ms_port_status_event(ts: str, device: str, port: int,
         "deviceName": device,
         "eventData": {
             "port": str(port),
-            "status": status
+            "new": status
         }
     }
     if prev_status:
@@ -1325,7 +1902,7 @@ def ms_stp_event(ts: str, device: str, port: int, role: str, state: str,
     event = {
         "occurredAt": ts,
         "networkId": network_id,
-        "type": "stp_change",
+        "type": "stp_port_role_change",
         "description": description,
         "category": "switch",
         "deviceSerial": _get_serial(device),
@@ -1333,7 +1910,7 @@ def ms_stp_event(ts: str, device: str, port: int, role: str, state: str,
         "eventData": {
             "port": str(port),
             "role": role,
-            "state": state
+            "new_state": state
         }
     }
     if prev_role:
@@ -1350,6 +1927,8 @@ def ms_8021x_port_auth_event(ts: str, device: str, port: int,
     loc = location or MERAKI_MS_DEVICES.get(device, {}).get("location", "BOS")
     network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
 
+    # Generate a plausible client MAC for the 802.1X client
+    client_mac = get_random_mac()
     event = {
         "occurredAt": ts,
         "networkId": network_id,
@@ -1361,7 +1940,59 @@ def ms_8021x_port_auth_event(ts: str, device: str, port: int,
         "eventData": {
             "port": str(port),
             "identity": identity,
-            "status": status
+            "status": status,
+            "client_mac": client_mac,
+        }
+    }
+    _enrich_client_event(event, client_mac=client_mac,
+                         client_desc=identity.split("@")[0] if "@" in identity else identity)
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def ms_port_bounce_event(ts: str, device: str, ports: str,
+                         location: str = None, demo_id: str = None) -> dict:
+    """Generate MS port bounce event (Dashboard API format).
+
+    ports: comma-separated port list, e.g. "1, 5, 12"
+    """
+    loc = location or MERAKI_MS_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "port_bounce",
+        "description": f"Port bounce on ports {ports}",
+        "category": "switch",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "ports": ports,
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def ms_poe_budget_change_event(ts: str, device: str, slot: int = 0,
+                                location: str = None, demo_id: str = None) -> dict:
+    """Generate MS PoE budget change event (Dashboard API format)."""
+    loc = location or MERAKI_MS_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "poe_budget_change",
+        "description": f"PoE budget changed on slot {slot}",
+        "category": "switch",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "slot": str(slot),
         }
     }
     if demo_id:
@@ -1474,6 +2105,59 @@ def mv_health_event(ts: str, device: str, status: str, disk_usage_pct: float,
             "status": status,
             "disk_usage_pct": round(disk_usage_pct, 1),
             "recording": recording
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mv_night_mode_event(ts: str, device: str, new_state: str,
+                        lux: float, location: str = None,
+                        demo_id: str = None) -> dict:
+    """Generate MV night mode transition event (Dashboard API format).
+
+    Outdoor cameras switch between day/night mode based on lux levels.
+    new_state: "on" (entering night mode) or "off" (returning to day mode)
+    """
+    loc = location or MERAKI_MV_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "night_mode",
+        "description": f"Night mode {'enabled' if new_state == 'on' else 'disabled'}",
+        "category": "camera",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "new_state": new_state,
+            "lux": round(lux, 1),
+        }
+    }
+    if demo_id:
+        event["demo_id"] = demo_id
+    return event
+
+
+def mv_update_user_settings_event(ts: str, device: str, user: str,
+                                   location: str = None,
+                                   demo_id: str = None) -> dict:
+    """Generate MV update user settings event (Dashboard API format)."""
+    loc = location or MERAKI_MV_DEVICES.get(device, {}).get("location", "BOS")
+    network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+
+    event = {
+        "occurredAt": ts,
+        "networkId": network_id,
+        "type": "update_user_settings",
+        "description": f"Camera settings updated by {user}",
+        "category": "camera",
+        "deviceSerial": _get_serial(device),
+        "deviceName": device,
+        "eventData": {
+            "user": user,
         }
     }
     if demo_id:
@@ -1652,11 +2336,17 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
     """Generate baseline MX firewall/SD-WAN events for one hour at a location.
 
     Event types:
-    - firewall: Standard firewall allow/deny events (60%)
-    - url: URL logging events (22%)
+    - firewall: Standard firewall allow/deny events (51%)
+    - url: URL logging events (20%)
     - vpn: VPN connectivity events (5%)
     - sdwan_health: SD-WAN health metrics (10%)
     - security_event: IDS, content filtering, AMP, client isolation (3%)
+    - dhcp_lease: DHCP lease assignments (8%)
+    - dhcp_problem: DHCP issues (0.5%)
+    - dhcp_blocked: DHCP requests blocked (0.1%)
+    - cf_block: Content filter block (1%)
+    - splash_auth: Splash page auth (0.3%)
+    - ids_alerted: IDS start/update (0.1%)
     """
     events = []
     mx_device = get_mx_for_location(location)
@@ -1684,14 +2374,34 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
         "ARP spoofing detected"
     ]
 
+    # DHCP problem messages
+    dhcp_problems = [
+        "DHCP lease pool exhausted",
+        "DHCP NAK received",
+        "No DHCP offers received",
+        "DHCP server unreachable",
+        "Duplicate IP address detected",
+    ]
+
+    # cf_block URLs/categories
+    cf_block_urls = [
+        ("http://gambling-site.tk/", "Gambling"),
+        ("http://torrent-site.cc/download", "File Sharing"),
+        ("http://adult-content.xyz/", "Adult Content"),
+        ("http://crypto-mining-pool.ru/", "Cryptocurrency Mining"),
+        ("http://proxy-bypass.net/", "Proxy Avoidance"),
+    ]
+
     for _ in range(events_per_hour):
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
         ts = ts_meraki(base_date, day, hour, minute, second)
 
         event_type = random.choices(
-            ["firewall", "url", "vpn", "sdwan_health", "security_event"],
-            weights=[60, 22, 5, 10, 3]
+            ["firewall", "url", "vpn", "sdwan_health", "security_event",
+             "dhcp_lease", "dhcp_problem", "dhcp_blocked", "cf_block",
+             "splash_auth", "ids_alerted"],
+            weights=[51, 20, 5, 10, 3, 8, 0.5, 0.1, 1, 0.3, 0.1]
         )[0]
 
         if event_type == "firewall":
@@ -1790,6 +2500,49 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
                     ts, mx_device, client_ip, client_mac, reason, "isolated"
                 ))
 
+        elif event_type == "dhcp_lease":
+            client_ip = get_random_internal_ip(location)
+            client_mac = get_mac_for_ip(client_ip) or generate_mac()
+            prefix = NETWORK_CONFIG[location]["prefix"]
+            subnet = f"{prefix}.30.0/23" if location == "BOS" else f"{prefix}.30.0/24"
+            events.append(mx_dhcp_lease_event(
+                ts, mx_device, client_mac, client_ip, subnet
+            ))
+
+        elif event_type == "dhcp_problem":
+            client_mac = generate_mac()
+            problem = random.choice(dhcp_problems)
+            events.append(mx_dhcp_problem_event(
+                ts, mx_device, client_mac, problem
+            ))
+
+        elif event_type == "dhcp_blocked":
+            client_mac = generate_mac()
+            events.append(mx_dhcp_blocked_event(ts, mx_device, client_mac))
+
+        elif event_type == "cf_block":
+            client_ip = get_random_internal_ip(location)
+            client_mac = get_mac_for_ip(client_ip) or generate_mac()
+            url, category = random.choice(cf_block_urls)
+            events.append(mx_cf_block_event(
+                ts, mx_device, client_ip, client_mac, url, category
+            ))
+
+        elif event_type == "splash_auth":
+            client_mac = generate_mac()
+            client_ip = get_random_internal_ip(location)
+            events.append(mx_splash_auth_event(
+                ts, mx_device, client_mac, client_ip=client_ip,
+                identity=f"guest-{random.randint(100,999)}@theFakeTshirtCompany.com"
+            ))
+
+        elif event_type == "ids_alerted":
+            alert_type = random.choice(["ids_start", "ids_update"])
+            rules_count = random.randint(28000, 35000)
+            events.append(mx_ids_alerted_event(
+                ts, mx_device, rules_count, alert_type=alert_type
+            ))
+
     return events
 
 
@@ -1841,8 +2594,9 @@ def generate_mr_baseline_hour(base_date: str, day: int, hour: int,
         # Health metrics (signal quality, channel utilization, etc.) are now
         # generated separately in generate_mr_health_metrics() for consistent coverage
         event_type = random.choices(
-            ["association", "disassociation", "8021x", "wpa"],
-            weights=[40, 20, 25, 15]
+            ["association", "disassociation", "8021x", "wpa",
+             "wpa_deauth", "splash_auth", "auto_rf", "auto_tx", "dfs"],
+            weights=[35, 17, 25, 15, 5, 2, 0.5, 0.3, 0.1]
         )[0]
 
         channel = random.choice([1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161])
@@ -1884,6 +2638,34 @@ def generate_mr_baseline_hour(base_date: str, day: int, hour: int,
                     ts, ap, client_mac, ssid_info["vap"], radio,
                     client_ip=client_ip
                 ))
+        elif event_type == "wpa_deauth":
+            reason = random.choice([1, 2, 3, 4, 6, 7, 8])
+            events.append(mr_wpa_deauth_event(
+                ts, ap, client_mac, radio, ssid_info["vap"], reason,
+                client_ip=client_ip
+            ))
+        elif event_type == "splash_auth":
+            # Splash auth is for guest SSID
+            if ssid_info["name"] == "FakeTShirtCo-Guest":
+                identity = f"guest-{random.randint(100,999)}@theFakeTshirtCompany.com"
+                events.append(mr_splash_auth_event(
+                    ts, ap, client_mac, identity=identity, client_ip=client_ip
+                ))
+        elif event_type == "auto_rf":
+            old_channel = random.choice([1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161])
+            new_channel = random.choice([c for c in [1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161] if c != old_channel])
+            events.append(mr_auto_rf_channel_change_event(
+                ts, ap, new_channel, old_channel, radio
+            ))
+        elif event_type == "auto_tx":
+            old_power = random.randint(5, 25)
+            new_power = random.randint(5, 25)
+            events.append(mr_auto_tx_power_change_event(
+                ts, ap, new_power, old_power, radio
+            ))
+        elif event_type == "dfs":
+            dfs_channel = random.choice([52, 56, 60, 64, 100, 104, 108, 112, 116, 132, 136, 140])
+            events.append(mr_dfs_event(ts, ap, dfs_channel))
 
     return events
 
@@ -2017,8 +2799,8 @@ def generate_ms_baseline_hour(base_date: str, day: int, hour: int,
         port = random.randint(1, switch_info["ports"])
 
         event_type = random.choices(
-            ["port_status", "stp", "8021x"],
-            weights=[70, 5, 25]  # STP rare in stable network (was 20, now 5)
+            ["port_status", "stp", "8021x", "port_bounce", "poe_budget"],
+            weights=[68, 4.5, 25, 2, 0.5]
         )[0]
 
         if event_type == "port_status":
@@ -2053,6 +2835,15 @@ def generate_ms_baseline_hour(base_date: str, day: int, hour: int,
                 identity = f"unknown@theFakeTshirtCompany.com"
             status = random.choices(["success", "failure"], weights=[90, 10])[0]
             events.append(ms_8021x_port_auth_event(ts, switch, port, identity, status))
+        elif event_type == "port_bounce":
+            # Bounce 1-3 random ports
+            bounce_count = random.randint(1, 3)
+            bounce_ports = sorted(random.sample(range(1, switch_info["ports"] + 1), min(bounce_count, switch_info["ports"])))
+            ports_str = ", ".join(str(p) for p in bounce_ports)
+            events.append(ms_port_bounce_event(ts, switch, ports_str))
+        elif event_type == "poe_budget":
+            slot = random.choice([0, 1])
+            events.append(ms_poe_budget_change_event(ts, switch, slot))
 
     return events
 
@@ -2188,6 +2979,17 @@ def generate_mv_baseline_hour(base_date: str, day: int, hour: int,
     if not cameras:
         return events
 
+    # Night mode transitions for outdoor cameras (2x/day: dusk ~19:00, dawn ~06:00)
+    outdoor_cameras = [c for c in cameras if MERAKI_MV_DEVICES[c].get("type") == "outdoor"]
+    if hour == 19:
+        for cam in outdoor_cameras:
+            ts_night = ts_meraki(base_date, day, hour, random.randint(0, 15), random.randint(0, 59))
+            events.append(mv_night_mode_event(ts_night, cam, "on", lux=random.uniform(5, 20)))
+    elif hour == 6:
+        for cam in outdoor_cameras:
+            ts_dawn = ts_meraki(base_date, day, hour, random.randint(30, 55), random.randint(0, 59))
+            events.append(mv_night_mode_event(ts_dawn, cam, "off", lux=random.uniform(200, 500)))
+
     for _ in range(events_per_hour):
         minute = random.randint(0, 59)
         second = random.randint(0, 59)
@@ -2197,8 +2999,8 @@ def generate_mv_baseline_hour(base_date: str, day: int, hour: int,
         cam_info = MERAKI_MV_DEVICES[camera]
 
         event_type = random.choices(
-            ["motion", "person", "analytics", "health"],
-            weights=[40, 30, 20, 10]
+            ["motion", "person", "analytics", "health", "update_user_settings"],
+            weights=[40, 30, 20, 10, 0.1]
         )[0]
 
         if event_type == "motion":
@@ -2233,6 +3035,11 @@ def generate_mv_baseline_hour(base_date: str, day: int, hour: int,
             events.append(mv_health_event(
                 ts, camera, status, disk_usage, True,
                 model=cam_info.get("model", "MV12")
+            ))
+        elif event_type == "update_user_settings":
+            admin_user = random.choice(["mike.johnson", "jessica.brown", "admin"])
+            events.append(mv_update_user_settings_event(
+                ts, camera, admin_user
             ))
 
     return events
@@ -2921,6 +3728,305 @@ def generate_dc_temp_spike(base_date: str, day: int, hour: int, demo_id: str = N
 
 
 # =============================================================================
+# ORG SECURITY GENERATOR (org-level, not per-location)
+# =============================================================================
+
+def generate_org_security_hour(base_date: str, day: int, hour: int,
+                                scale: float) -> List[dict]:
+    """Generate org-level security events for one hour.
+
+    IDS alerts: ~0.7/hour scaled by activity → ~10-20/day
+    File Scanned: ~0.5/hour scaled by activity → ~5-15/day
+    """
+    events = []
+    dt = date_add(base_date, day)
+    is_wknd = is_weekend(dt)
+    activity = get_hour_activity_level(hour, is_wknd)
+    hour_mult = activity / 100.0
+
+    # --- IDS Alerts ---
+    ids_rate = 0.7 * scale * hour_mult
+    ids_count = int(ids_rate) + (1 if random.random() < (ids_rate % 1) else 0)
+    for _ in range(ids_count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts = ts_meraki(base_date, day, hour, minute, second)
+        signature = random.choice(ORG_IDS_SIGNATURES)
+
+        # 70% external→internal, 30% internal→external
+        if random.random() < 0.7:
+            src_ip = get_random_external_ip()
+            dst_ip = get_random_internal_ip()
+        else:
+            src_ip = get_random_internal_ip()
+            dst_ip = get_random_external_ip()
+
+        src_port = random.randint(1024, 65535)
+        dst_port = random.choice([80, 443, 22, 53, 8080, 445, 3389, 1433])
+        blocked = random.random() < 0.3
+
+        events.append(org_security_ids_alert(
+            ts, src_ip, src_port, dst_ip, dst_port, signature, blocked
+        ))
+
+    # --- File Scanned (AMP) ---
+    amp_rate = 0.5 * scale * hour_mult
+    amp_count = int(amp_rate) + (1 if random.random() < (amp_rate % 1) else 0)
+    for _ in range(amp_count):
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        ts = ts_meraki(base_date, day, hour, minute, second)
+
+        user = get_random_user()
+        src_ip = user.ip_address
+        client_name = user.display_name
+        file_sample = random.choice(AMP_FILE_SAMPLES)
+
+        # SHA256 hash from ts + uri + random for uniqueness
+        hash_input = f"{ts}{file_sample['uri']}{random.random()}"
+        file_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+        # 95% clean, 5% quarantine
+        if random.random() < 0.05:
+            action = "quarantine"
+            canonical_name = random.choice(AMP_CLEAN_NAMES)
+        else:
+            action = "clean"
+            canonical_name = None
+
+        events.append(org_security_file_scanned(
+            ts, src_ip, client_name, file_sample, file_hash, action, canonical_name
+        ))
+
+    return events
+
+
+# =============================================================================
+# AUDIT GENERATOR (business hours, weekdays only)
+# =============================================================================
+
+def generate_audit_hour(base_date: str, day: int, hour: int,
+                        is_wknd: bool) -> List[dict]:
+    """Generate Meraki Dashboard audit events for one hour.
+
+    Business hours only (8-17), weekdays only.
+    ~0.5 probability per eligible hour → ~5/day average.
+    """
+    events = []
+
+    # Weekdays, business hours only
+    if is_wknd or hour < 8 or hour > 17:
+        return events
+
+    # ~0.5 probability per eligible hour
+    if random.random() > 0.5:
+        return events
+
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    ts = ts_meraki(base_date, day, hour, minute, second)
+
+    admin_email = random.choice(MERAKI_ADMIN_EMAILS)
+
+    # Pick a random network
+    network_ids = list(NETWORK_NAMES.keys())
+    network_id = random.choice(network_ids)
+    network_name = NETWORK_NAMES[network_id]
+
+    change = random.choice(AUDIT_CHANGE_TEMPLATES)
+
+    events.append(audit_config_change(
+        ts, network_id, network_name, admin_email,
+        change["label"], change["old"], change["new"]
+    ))
+
+    # 20% chance of second change in same hour (batch config updates)
+    if random.random() < 0.2:
+        minute2 = min(minute + random.randint(1, 5), 59)
+        second2 = random.randint(0, 59)
+        ts2 = ts_meraki(base_date, day, hour, minute2, second2)
+        change2 = random.choice(AUDIT_CHANGE_TEMPLATES)
+        events.append(audit_config_change(
+            ts2, network_id, network_name, admin_email,
+            change2["label"], change2["old"], change2["new"]
+        ))
+
+    return events
+
+
+# =============================================================================
+# DEVICE AVAILABILITY GENERATOR (day-level)
+# =============================================================================
+
+def generate_device_availability_day(base_date: str, day: int,
+                                      active_scenarios: list) -> List[dict]:
+    """Generate device availability change events for one day.
+
+    Baseline: 2-4 random devices go offline briefly.
+    Scenario-driven extras for DDoS and ransomware.
+    """
+    events = []
+
+    # Collect all devices into a unified pool
+    all_devices = []
+    for name, info in MERAKI_MX_DEVICES.items():
+        loc = info["location"]
+        all_devices.append({
+            "name": name, "serial": _get_serial(name),
+            "mac": info.get("mac", "00:18:0A:00:00:00"),
+            "model": info["model"], "productType": "appliance",
+            "network_id": NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS"),
+        })
+    for name, info in MERAKI_MR_DEVICES.items():
+        loc = info["location"]
+        all_devices.append({
+            "name": name, "serial": _get_serial(name),
+            "mac": info.get("mac", "00:18:0A:00:00:00"),
+            "model": info.get("model", "MR46"), "productType": "wireless",
+            "network_id": NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS"),
+        })
+    for name, info in MERAKI_MS_DEVICES.items():
+        loc = info["location"]
+        all_devices.append({
+            "name": name, "serial": _get_serial(name),
+            "mac": get_random_mac(),
+            "model": info.get("model", "MS225-48"), "productType": "switch",
+            "network_id": NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS"),
+        })
+    for name, info in MERAKI_MV_DEVICES.items():
+        loc = info["location"]
+        all_devices.append({
+            "name": name, "serial": _get_serial(name),
+            "mac": get_random_mac(),
+            "model": info.get("model", "MV12"), "productType": "camera",
+            "network_id": NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS"),
+        })
+    for name, info in MERAKI_MT_DEVICES.items():
+        loc = info["location"]
+        all_devices.append({
+            "name": name, "serial": _get_serial(name),
+            "mac": get_random_mac(),
+            "model": info.get("model", "MT10"), "productType": "sensor",
+            "network_id": NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS"),
+        })
+
+    # Baseline: 2-4 random devices go offline briefly
+    baseline_count = random.randint(2, 4)
+    chosen = random.sample(all_devices, min(baseline_count, len(all_devices)))
+    maintenance_hours = [2, 3, 4, 5]
+    daytime_hours = [10, 14, 22, 23]
+    possible_hours = maintenance_hours + daytime_hours
+
+    for dev in chosen:
+        offline_hour = random.choice(possible_hours)
+        offline_min = random.randint(0, 59)
+        offline_sec = random.randint(0, 59)
+        ts_off = ts_meraki(base_date, day, offline_hour, offline_min, offline_sec)
+
+        network_name = NETWORK_NAMES.get(dev["network_id"], MERAKI_ORG_NAME)
+
+        events.append(device_availability_change(
+            ts_off, dev["name"], dev["serial"], dev["mac"],
+            dev["model"], dev["productType"], dev["network_id"],
+            network_name, "offline"
+        ))
+
+        # Come back online 5-30 minutes later
+        online_offset = random.randint(5, 30)
+        online_min = offline_min + online_offset
+        online_hour = offline_hour + (online_min // 60)
+        online_min = online_min % 60
+        if online_hour >= 24:
+            online_hour = 23
+            online_min = 59
+        online_sec = random.randint(0, 59)
+        ts_on = ts_meraki(base_date, day, online_hour, online_min, online_sec)
+
+        events.append(device_availability_change(
+            ts_on, dev["name"], dev["serial"], dev["mac"],
+            dev["model"], dev["productType"], dev["network_id"],
+            network_name, "online"
+        ))
+
+    # Scenario-driven extras
+    # DDoS (days 18-19): MX-BOS-01 + MS-BOS-CORE-01 go offline briefly
+    if "ddos_attack" in active_scenarios and day in (17, 18):
+        for dev_name in ["MX-BOS-01", "MS-BOS-CORE-01"]:
+            if dev_name in MERAKI_MX_DEVICES:
+                info = MERAKI_MX_DEVICES[dev_name]
+                model = info["model"]
+                mac = info.get("mac", "00:18:0A:00:00:00")
+                p_type = "appliance"
+            elif dev_name in MERAKI_MS_DEVICES:
+                info = MERAKI_MS_DEVICES[dev_name]
+                model = info.get("model", "MS425-32")
+                mac = get_random_mac()
+                p_type = "switch"
+            else:
+                continue
+            loc = info["location"]
+            nid = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+            nname = NETWORK_NAMES.get(nid, MERAKI_ORG_NAME)
+            serial = _get_serial(dev_name)
+
+            off_hour = random.randint(10, 16)
+            off_min = random.randint(0, 59)
+            ts_off = ts_meraki(base_date, day, off_hour, off_min, random.randint(0, 59))
+            events.append(device_availability_change(
+                ts_off, dev_name, serial, mac, model, p_type,
+                nid, nname, "offline", demo_id="ddos_attack"
+            ))
+
+            on_offset = random.randint(5, 15)
+            on_min = off_min + on_offset
+            on_hour = off_hour + (on_min // 60)
+            on_min = on_min % 60
+            if on_hour >= 24:
+                on_hour = 23
+                on_min = 59
+            ts_on = ts_meraki(base_date, day, on_hour, on_min, random.randint(0, 59))
+            events.append(device_availability_change(
+                ts_on, dev_name, serial, mac, model, p_type,
+                nid, nname, "online", demo_id="ddos_attack"
+            ))
+
+    # Ransomware (days 8-9): AP-AUS-1F-02 goes offline briefly
+    if "ransomware_attempt" in active_scenarios and day in (7, 8):
+        dev_name = "AP-AUS-1F-02"
+        if dev_name in MERAKI_MR_DEVICES:
+            info = MERAKI_MR_DEVICES[dev_name]
+            loc = info["location"]
+            nid = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
+            nname = NETWORK_NAMES.get(nid, MERAKI_ORG_NAME)
+            serial = _get_serial(dev_name)
+            mac = info.get("mac", "00:18:0A:00:00:00")
+            model = info.get("model", "MR46")
+
+            off_hour = random.randint(9, 14)
+            off_min = random.randint(0, 59)
+            ts_off = ts_meraki(base_date, day, off_hour, off_min, random.randint(0, 59))
+            events.append(device_availability_change(
+                ts_off, dev_name, serial, mac, model, "wireless",
+                nid, nname, "offline", demo_id="ransomware_attempt"
+            ))
+
+            on_offset = random.randint(3, 10)
+            on_min = off_min + on_offset
+            on_hour = off_hour + (on_min // 60)
+            on_min = on_min % 60
+            if on_hour >= 24:
+                on_hour = 23
+                on_min = 59
+            ts_on = ts_meraki(base_date, day, on_hour, on_min, random.randint(0, 59))
+            events.append(device_availability_change(
+                ts_on, dev_name, serial, mac, model, "wireless",
+                nid, nname, "online", demo_id="ransomware_attempt"
+            ))
+
+    return events
+
+
+# =============================================================================
 # MAIN GENERATOR
 # =============================================================================
 
@@ -2974,6 +4080,11 @@ def generate_meraki_logs(
         "ms_health": output_dir / "meraki_ms_health.json", # Periodic port health metrics
         "mv": output_dir / "meraki_mv_camera.json",        # Dashboard API JSON
         "mt": output_dir / "meraki_mt_sensor.json",        # Dashboard API JSON
+        "orgs": output_dir / "meraki_organizations.json",  # Static org data for TA dropdowns
+        "sensor_readings": output_dir / "meraki_sensor_readings.json",  # TA-format sensor data
+        "org_security": output_dir / "meraki_org_security.json",        # Org security (IDS/AMP)
+        "audit": output_dir / "meraki_audit.json",                      # Dashboard audit log
+        "device_avail": output_dir / "meraki_device_availability.json", # Device availability
     }
 
     # Parse scenarios
@@ -3020,7 +4131,7 @@ def generate_meraki_logs(
         print(f"  MV: {len(MERAKI_MV_DEVICES)} | MT: {len(MERAKI_MT_DEVICES)}", file=sys.stderr)
         print(f"  Health: {health_interval}min interval ({health_str})", file=sys.stderr)
         print(f"  Scenarios: {', '.join(active_scenarios) if active_scenarios else 'none'}", file=sys.stderr)
-        print(f"  Output: {output_dir}/meraki_*.json (7 JSON files)", file=sys.stderr)
+        print(f"  Output: {output_dir}/meraki_*.json (12 JSON files)", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
 
     # Separate event lists per device type
@@ -3031,6 +4142,9 @@ def generate_meraki_logs(
     ms_health_events = []  # MS periodic port health metrics
     mv_events = []         # MV camera
     mt_events = []         # MT sensor
+    org_security_events = []   # Org-level security (IDS/AMP)
+    audit_events = []          # Dashboard audit log
+    device_avail_events = []   # Device availability changes
 
     for day in range(days):
         if progress_callback:
@@ -3043,6 +4157,9 @@ def generate_meraki_logs(
 
         # Generate SD-WAN tunnel events for the day (MX events)
         mx_events.extend(generate_sdwan_tunnel_events(start_date, day))
+
+        # Generate device availability changes for the day (day-level)
+        device_avail_events.extend(generate_device_availability_day(start_date, day, active_scenarios))
 
         for hour in range(24):
             activity = get_hour_activity_level(hour, is_wknd)
@@ -3102,6 +4219,10 @@ def generate_meraki_logs(
                     ddos_events = ddos_scenario.meraki_hour(day, hour, time_utils)
                     mx_events.extend(ddos_events.get("mx", []))
 
+            # Org-level events (not per-location)
+            org_security_events.extend(generate_org_security_hour(start_date, day, hour, scale))
+            audit_events.extend(generate_audit_hour(start_date, day, hour, is_wknd))
+
         if not quiet:
             print(f"  [Meraki] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)
 
@@ -3120,6 +4241,9 @@ def generate_meraki_logs(
         "ms_health": ms_health_events,
         "mv": mv_events,
         "mt": mt_events,
+        "org_security": org_security_events,
+        "audit": audit_events,
+        "device_avail": device_avail_events,
     }
 
     total_events = 0
@@ -3134,22 +4258,81 @@ def generate_meraki_logs(
         "ms_health": "network/meraki/meraki_ms_health.json",
         "mv": "network/meraki/meraki_mv_camera.json",
         "mt": "network/meraki/meraki_mt_sensor.json",
+        "orgs": "network/meraki/meraki_organizations.json",
+        "sensor_readings": "network/meraki/meraki_sensor_readings.json",
+        "org_security": "network/meraki/meraki_org_security.json",
+        "audit": "network/meraki/meraki_audit.json",
+        "device_avail": "network/meraki/meraki_device_availability.json",
     }
 
-    # Write all files as JSON (one JSON object per line)
+    # Write all event files as JSON (one JSON object per line)
+    # Enrich every event with organizationId + networkName (required by TA dashboards)
     for device_type, events in all_events.items():
         events.sort(key=sort_key_json)
         output_path = output_files[device_type]
         with open(output_path, "w") as f:
             for event in events:
+                _enrich_event(event)
                 f.write(json.dumps(event) + "\n")
         file_counts[device_to_relpath[device_type]] = len(events)
         total_events += len(events)
 
+    # Write static organizations file (required for TA dashboard org dropdowns)
+    org_event = {
+        "id": MERAKI_ORG_ID,
+        "name": MERAKI_ORG_NAME,
+        "url": f"https://dashboard.meraki.com/o/{MERAKI_ORG_ID}/manage/organization/overview",
+        "organizationId": MERAKI_ORG_ID,
+    }
+    with open(output_files["orgs"], "w") as f:
+        f.write(json.dumps(org_event) + "\n")
+    file_counts[device_to_relpath["orgs"]] = 1
+    total_events += 1
+
+    # Transform MT sensor events into TA sensorreadingshistory format
+    # The TA's meraki:sensorreadingshistory expects different JSON structure
+    sensor_readings = []
+    for event in mt_events:
+        if event.get("type") != "sensor_reading":
+            continue
+        trigger = event.get("trigger", {})
+        metric = trigger.get("metric", "")
+        network_id = event.get("networkId", "")
+        reading = {
+            "ts": event.get("occurredAt", ""),
+            "serial": event.get("deviceSerial", ""),
+            "organizationId": MERAKI_ORG_ID,
+            "network": {
+                "id": network_id,
+                "name": NETWORK_NAMES.get(network_id, MERAKI_ORG_NAME),
+            },
+            "metric": metric,
+        }
+        # Add metric-specific top-level data
+        if metric == "temperature":
+            reading["temperature"] = trigger.get("temperature", {})
+        elif metric == "humidity":
+            reading["humidity"] = trigger.get("humidity", {})
+        elif metric == "door":
+            reading["door"] = trigger.get("door", {})
+        elif metric == "water_leak":
+            reading["waterDetection"] = trigger.get("waterDetection", {})
+        sensor_readings.append(reading)
+
+    sensor_readings.sort(key=lambda e: e.get("ts", ""))
+    with open(output_files["sensor_readings"], "w") as f:
+        for reading in sensor_readings:
+            f.write(json.dumps(reading) + "\n")
+    file_counts[device_to_relpath["sensor_readings"]] = len(sensor_readings)
+    total_events += len(sensor_readings)
+
     if not quiet:
-        print(f"  [Meraki] Complete! {total_events:,} events written to 7 JSON files:", file=sys.stderr)
-        for device_type in ["mx", "mr", "mr_health", "ms", "ms_health", "mv", "mt"]:
-            print(f"    - {output_files[device_type].name}: {len(all_events[device_type]):,} events", file=sys.stderr)
+        print(f"  [Meraki] Complete! {total_events:,} events written to 12 JSON files:", file=sys.stderr)
+        for device_type in ["mx", "mr", "mr_health", "ms", "ms_health", "mv", "mt",
+                            "org_security", "audit", "device_avail",
+                            "orgs", "sensor_readings"]:
+            count = len(all_events[device_type]) if device_type in all_events else (1 if device_type == "orgs" else len(sensor_readings))
+            print(f"    - {output_files[device_type].name}: {count:,} events", file=sys.stderr)
 
     return {"total": total_events, "files": file_counts}
 
