@@ -4,6 +4,27 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-02-28 ~12:30 UTC -- Meraki P1 Bugfix: Nested JSON + props.conf completeness
+
+### Fixes
+
+1. **`device_availability_change()`** — Changed from flat dot-notation keys (`"device.name"`, `"details.new[].value"`) to proper nested JSON (`"device": {"name": ...}`, `"details": {"new": [{"value": ...}]}`). Splunk's `KV_MODE=JSON` requires nested objects to extract `device.name`, `device.serial`, etc.
+2. **props.conf** — Added missing standard fields to all 3 new stanzas: `TRANSFORMS-demo_id`, `EXTRACT-demo_id`, `CHARSET`, `LINE_BREAKER`, `NO_BINARY_CHECK`. Without these, `demo_id` field from scenarios was not extractable.
+3. **props.conf [FAKE:meraki:organizationsecurity]** — Fixed EVAL-dest, EVAL-dest_ip, EVAL-src, EVAL-src_ip, EVAL-user, EVAL-bytes_in, EVAL-file_hash, EVAL-file_name, EVAL-file_path, EVAL-signature, EVAL-signature_id to use `case(eventType==...)` guards so IDS-only fields don't bleed into File Scanned events and vice versa.
+
+### Verification
+
+- 3-day test run: 201,877 events, no errors
+- device_availability JSON now has proper nesting: `device.name`, `device.serial`, `details.new{}.value` all extractable by `KV_MODE=JSON`
+- org_security: 25 events (16 IDS + 9 AMP), audit: 13 events, device_avail: 22 events
+
+### Files Changed
+
+- `bin/generators/generate_meraki.py` — `device_availability_change()` nested JSON structure
+- `default/props.conf` — 3 stanzas: added standard fields + fixed EVAL guards
+
+---
+
 ## 2026-02-27 ~21:00 UTC -- Meraki P1: 3 New Event-Driven Sourcetypes
 
 Added 3 new Meraki sourcetypes to close the highest-value dashboard gaps: security, audit, and device availability.

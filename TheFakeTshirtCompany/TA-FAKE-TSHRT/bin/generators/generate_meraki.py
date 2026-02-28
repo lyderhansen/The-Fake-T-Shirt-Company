@@ -1256,15 +1256,23 @@ def device_availability_change(ts: str, device_name: str, device_serial: str,
     """Generate device availability status change event."""
     event = {
         "ts": ts,
-        "device.name": device_name,
-        "device.serial": device_serial,
-        "device.mac": device_mac,
-        "device.model": device_model,
-        "device.productType": product_type,
-        "details.new[].value": new_status,
+        "device": {
+            "name": device_name,
+            "serial": device_serial,
+            "mac": device_mac,
+            "model": device_model,
+            "productType": product_type,
+        },
+        "details": {
+            "new": [
+                {"value": new_status}
+            ],
+        },
         "category": "availability",
-        "network.id": network_id,
-        "network.name": network_name,
+        "network": {
+            "id": network_id,
+            "name": network_name,
+        },
     }
     if demo_id:
         event["demo_id"] = demo_id

@@ -119,6 +119,11 @@ GENERATOR_OUTPUT_FILES = {
         "network/meraki/meraki_ms_health.json",
         "network/meraki/meraki_mv_camera.json",
         "network/meraki/meraki_mt_sensor.json",
+        "network/meraki/meraki_organizations.json",
+        "network/meraki/meraki_sensor_readings.json",
+        "network/meraki/meraki_org_security.json",
+        "network/meraki/meraki_audit.json",
+        "network/meraki/meraki_device_availability.json",
     ],
     # Cloud
     "aws": ["cloud/aws/aws_cloudtrail.json"],
@@ -181,7 +186,7 @@ GENERATOR_OUTPUT_FILES = {
         "linux/auth.log",
     ],
     # Web / Retail
-    "access": ["web/access_combined.log"],
+    "access": ["web/access_combined.log", "web/web_session_registry.json"],
     "orders": ["retail/orders.json"],
     "servicebus": ["servicebus/servicebus_events.json"],
     # ITSM
