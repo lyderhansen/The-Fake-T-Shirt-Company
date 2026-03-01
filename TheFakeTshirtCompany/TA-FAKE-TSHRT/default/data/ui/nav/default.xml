@@ -32,16 +32,19 @@
     <collection label="Network">
       <view name="source_cisco_asa" />
       <view name="source_meraki" />
+      <view name="source_cisco_catalyst" />
+      <view name="source_cisco_aci" />
+      <view name="source_catalyst_center" />
     </collection>
-    <collection label="Cloud">
+    <collection label="Cloud &amp; Security">
       <view name="source_aws_cloudtrail" />
       <view name="source_gcp_audit" />
       <view name="source_entraid" />
+      <view name="source_secure_access" />
     </collection>
     <collection label="Collaboration">
       <view name="source_exchange" />
       <view name="source_o365_audit" />
-      <view name="source_webex" />
       <view name="source_webex_ta" />
       <view name="source_webex_api" />
     </collection>
@@ -57,6 +60,7 @@
       <view name="source_servicebus" />
       <view name="source_mssql" />
       <view name="source_servicenow" />
+      <view name="source_sap" />
     </collection>
   </collection>
   <a href="search">Search</a>

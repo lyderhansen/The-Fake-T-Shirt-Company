@@ -96,7 +96,6 @@ from generators.generate_perfmon import generate_perfmon_logs
 from generators.generate_orders import generate_orders
 from generators.generate_servicebus import generate_servicebus_logs
 from generators.generate_meraki import generate_meraki_logs
-from generators.generate_webex import generate_webex_logs
 from generators.generate_webex_ta import generate_webex_ta_logs
 from generators.generate_webex_api import generate_webex_api_logs
 from generators.generate_mssql import generate_mssql_logs
@@ -128,7 +127,6 @@ GENERATORS: Dict[str, Callable] = {
     "orders": generate_orders,
     "servicebus": generate_servicebus_logs,
     "meraki": generate_meraki_logs,
-    "webex": generate_webex_logs,
     "webex_ta": generate_webex_ta_logs,
     "webex_api": generate_webex_api_logs,
     "mssql": generate_mssql_logs,
@@ -161,23 +159,20 @@ SOURCE_GROUPS = {
     "office": ["office_audit", "exchange"],
     "email": ["exchange"],
     "retail": ["orders", "servicebus"],
-    "collaboration": ["webex", "webex_ta", "webex_api"],
+    "collaboration": ["webex_ta", "webex_api"],
+    "webex": ["webex_ta", "webex_api"],  # backward-compat alias
     "itsm": ["servicenow"],
     "erp": ["sap"],
 }
 
 # Dependencies: These generators must run AFTER their dependencies
 # orders and servicebus read from order_registry.json created by access
-# meraki needs webex to populate shared meeting schedule for sensor/meeting correlation
-# exchange needs webex to generate meeting invite/response emails from schedule
+# Meeting schedule is now built as a pre-processing step (build_meeting_schedule)
+# so meraki, exchange, webex_ta, webex_api no longer have generator dependencies
 GENERATOR_DEPENDENCIES = {
     "orders": ["access"],
     "servicebus": ["access"],
     "asa": ["access"],        # ASA reads web_session_registry.json for 1:1 correlation
-    "meraki": ["webex"],      # Meraki door sensors use Webex meeting schedule
-    "exchange": ["webex"],    # Exchange calendar emails use Webex meeting schedule
-    "webex_ta": ["webex"],    # Webex TA reads shared meeting schedule
-    "webex_api": ["webex"],   # Webex API reads shared meeting schedule
     "sap": ["access"],        # SAP reads order_registry.json for sales order correlation
 }
 
@@ -205,7 +200,6 @@ _EVENTS_PER_DAY = {
     "office_audit":      1_373,
     # Collaboration
     "exchange":          3_729,
-    "webex":             1_829,
     "webex_ta":            372,
     "webex_api":           736,
     # Windows
@@ -240,7 +234,6 @@ _THROUGHPUT_EPS = {
     "catalyst_center":  35_000,
     "office_audit":     45_000,
     "exchange":         45_000,
-    "webex":           120_000,
     "webex_ta":         50_000,
     "webex_api":        10_000,
     "perfmon":         700_000,
@@ -495,14 +488,15 @@ Source Groups:
   office        - office_audit, exchange
   email         - exchange
   retail        - orders, servicebus
-  collaboration - webex, webex_ta, webex_api
+  collaboration - webex_ta, webex_api
+  webex         - webex_ta, webex_api (alias for collaboration)
   itsm          - servicenow
   erp           - sap
 
 Individual Sources:
   asa, aws, aws_guardduty, aws_billing, gcp, entraid, exchange, office_audit,
   access, wineventlog, linux, perfmon, mssql, sysmon, orders, servicebus, meraki,
-  webex, webex_ta, webex_api, servicenow, sap, secure_access, catalyst, aci,
+  webex_ta, webex_api, servicenow, sap, secure_access, catalyst, aci,
   catalyst_center
 
 Scenarios:
@@ -790,6 +784,25 @@ Output Directories:
         "mr_health_enabled": mr_health,
         "ms_health_enabled": ms_health,
     }
+
+    # Pre-processing: build shared meeting schedule if any consumer is in the run list
+    SCHEDULE_CONSUMERS = {"meraki", "exchange", "webex_ta", "webex_api"}
+    all_generators = phase1_sources + phase2_sources
+    if SCHEDULE_CONSUMERS & set(all_generators):
+        from shared.meeting_schedule import build_meeting_schedule
+        if not args.quiet:
+            print("  Building shared meeting schedule...", end="", flush=True)
+        schedule_start = time.time()
+        meeting_count = build_meeting_schedule(
+            start_date=args.start_date,
+            days=args.days,
+            scale=args.scale,
+            scenarios=args.scenarios,
+            quiet=True,
+        )
+        schedule_dur = time.time() - schedule_start
+        if not args.quiet:
+            print(f" {_C_GREEN}✓{_C_RESET} {meeting_count:,} meetings {_C_DIM}({schedule_dur:.1f}s){_C_RESET}")
 
     # Run generators in two phases
     start_time = time.time()

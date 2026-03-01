@@ -4,6 +4,534 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-01 ~21:30 UTC -- Phase out generate_webex.py: Extract scheduler, remove fictional sourcetype
+
+### Summary
+
+Removed `generate_webex.py` which served two roles: (1) meeting scheduler populating `_meeting_schedule` for downstream generators, and (2) event generator producing fictional `cisco:webex:events` JSON. Role 2 was redundant — `webex_ta` produces real `cisco:webex:meetings:history:*` format and `webex_api` produces real `cisco:webex:*` formats. The fictional `cisco:webex:events` sourcetype has no real-world equivalent.
+
+### Changes
+
+**Extracted scheduling logic into `meeting_schedule.py`:**
+- Moved `MEETING_TYPES` (15 meeting type defs), `EXTERNAL_DOMAINS`, `EXFIL_USERS` constants
+- Moved helper functions: `should_tag_meeting_exfil()`, `is_ghost_meeting()`, `get_late_start_delay()`, `is_overfilled_meeting()`, `should_have_afterhours_activity()`
+- Created `_pick_random_participants()` for ad-hoc meeting participant selection
+- Created `_schedule_meeting()` — registers a `ScheduledMeeting` without generating events
+- Created `build_meeting_schedule()` — main entry point that replaces `generate_webex_logs()` as the scheduler, handling recurring meetings, ad-hoc meetings, walk-ins, and after-hours activity
+
+**Updated `main_generate.py`:**
+- Removed `generate_webex_logs` import and `"webex"` from GENERATORS dict
+- Added pre-processing step: `build_meeting_schedule()` runs before Phase 1 when any consumer (meraki, exchange, webex_ta, webex_api) is in the run list
+- Removed `"webex"` from GENERATOR_DEPENDENCIES for meraki, exchange, webex_ta, webex_api — these now run in Phase 1 (parallel), improving generation time
+- Updated SOURCE_GROUPS: `"collaboration"` now contains `["webex_ta", "webex_api"]`; added `"webex"` as backward-compat alias
+- Removed `"webex"` from `_EVENTS_PER_DAY` and `_THROUGHPUT_EPS`
+
+**Removed Splunk configuration:**
+- `inputs.conf` — removed `webex_events.json` monitor stanza
+- `props.conf` — removed `[FAKE:cisco:webex:events]` stanza (19 lines)
+- `default.xml` — removed `source_webex` view from Collaboration nav collection
+
+**Deleted files:**
+- `bin/generators/generate_webex.py` (1,422 lines)
+- `default/data/ui/views/source_webex.xml` (223 lines)
+
+**Updated `config.py`:**
+- Removed `FILE_WEBEX` constant
+- Removed `"webex"` entry from `GENERATOR_OUTPUT_FILES`
+
+### Affected files
+- `bin/shared/meeting_schedule.py` — added ~200 lines (constants, helpers, `build_meeting_schedule()`)
+- `bin/main_generate.py` — modified imports, GENERATORS, SOURCE_GROUPS, GENERATOR_DEPENDENCIES, added pre-processing
+- `bin/shared/config.py` — removed FILE_WEBEX and GENERATOR_OUTPUT_FILES entry
+- `default/inputs.conf` — removed webex_events.json monitor stanza
+- `default/props.conf` — removed FAKE:cisco:webex:events stanza
+- `default/data/ui/nav/default.xml` — removed source_webex view
+- `default/data/ui/views/source_webex.xml` — DELETED
+- `bin/generators/generate_webex.py` — DELETED
+
+### Verification (--all --days=2 --test --scenarios=all)
+
+| Test | Result |
+|------|--------|
+| `--sources=webex_ta --days=3` | 1,162 events (meeting schedule populated correctly) |
+| `--sources=webex --days=3` (backward compat) | 3,122 events (expands to webex_ta + webex_api) |
+| `--sources=collaboration,exchange,meraki --days=3 --scenarios=exfil` | 208,539 events (all 4 consumers correlated) |
+| `--all --days=2 --scenarios=all` | 517,125 events, 25 generators, 0 failed |
+| No webex_events.json in new output | PASS (stale files from previous runs only) |
+| Phase 1 now includes meraki/exchange/webex_ta/webex_api | PASS (was Phase 2, now parallel) |
+
+### Impact
+- **Removed**: ~1,829 fictional `cisco:webex:events` per day
+- **Preserved**: All meeting correlation across Exchange, Meraki, webex_ta, webex_api
+- **Improved**: Phase 1/2 parallelism — 4 generators moved from Phase 2 to Phase 1
+- **Simplified**: 25 generators (was 26), cleaner dependency graph
+
+---
+
+## 2026-03-01 ~15:00 UTC -- Fix health checks and bot crawlers ignoring active scenarios
+
+Health check probes (Nagios/MON-ATL-01) and search engine bot crawlers had hardcoded response times and status codes, completely bypassing active scenario effects like firewall_misconfig, certificate_expiry, ddos_attack, etc.
+
+### Root cause
+- `generate_health_check_events()` hardcoded status=200 and response_time=2-8ms
+- `generate_bot_crawl_events()` hardcoded status=200 and response_time=5-25ms
+- Neither function received `error_rate`, `response_mult`, or `demo_id` from the scenario calculation block
+- Call sites at lines 875/878 passed no scenario parameters
+
+### Fix
+- Added `error_rate`, `response_mult`, `demo_id` parameters to both functions
+- Health checks during scenarios: 503/504 with 5-30s timeout, matching Nagios behavior
+- Bot crawls during scenarios: 503/504 with 3-15s response times
+- Both now carry `demo_id` tag when scenarios are active
+- Normal operation unchanged (200/2-8ms for health checks, 200/5-25ms for bots)
+- Updated call sites to pass calculated scenario parameters
+
+### Files modified
+- `bin/generators/generate_access.py`
+- `docs/CHANGEHISTORY.md`
+
+### Verification
+- firewall_misconfig (Day 6, hours 10-12): Health checks show 503/504 at 10-28s response_time; bot crawls show 503/504 at 3-5s
+- Normal hours: Health checks 200 at 3-7ms; bot crawls 200 at 18-22ms
+- demo_id=firewall_misconfig tag present on all affected events
+- 142,898 total events generated (7-day run)
+
+---
+
+## 2026-03-01 ~09:00 UTC -- Fix Exchange meeting response timestamps before invite
+
+Exchange meeting responses (Accepted/Tentative/Declined) could be timestamped before the corresponding Meeting Invite on the same day. Both used independent `random.randint(8, 17)` for hour selection.
+
+### Root cause
+- `generate_meeting_invite_event()` and `generate_meeting_response_event()` independently randomized timestamps
+- Late invites (hour 17+) with clamped responses could produce response timestamps before invite
+
+### Fix
+- Added `after_ts` parameter to `generate_meeting_response_event()` — response = invite + 5-120 min
+- Late invites (hour >= 17): use smaller offset (1-5 min) to avoid needing to clamp
+- Restructured `generate_meeting_emails_for_day()` to pair invite+response when same-day
+- Day-before invites: responses on meeting day use independent timestamps (different day, no issue)
+- Added `datetime`/`timedelta` imports
+
+### Files modified
+- `bin/generators/generate_exchange.py`
+- `docs/CHANGEHISTORY.md`
+
+### Verification
+- 0 violations for all unique recurring meetings (Finance Standup, IT Standup, ATL IT Operations, AUS Sales Standup, 1:1 CTO/Eng Mgr)
+- 1,964 invite/response pairs checked; remaining violations are cross-instance matches from ad-hoc meetings sharing type names
+
+---
+
+## 2026-02-28 ~23:30 UTC -- Fix broken SPL queries across 10 source dashboards
+
+Systematic audit of all dashboard SPL queries against actual Splunk data. Found and fixed 20+ broken queries caused by wrong field names, wrong sourcetype names, incorrect nested JSON field references, and missing `spath` extraction for nested fields.
+
+### Root causes found:
+
+- **Nested JSON fields**: `spath fieldname` only works for top-level keys. Nested fields like `faultInst.attributes.severity` require `spath path=faultInst.attributes.severity output=fault_severity`
+- **CIM field mappings**: Some dashboards used raw nested field names instead of CIM-extracted fields (e.g., `userIdentity.arn` vs `userName`)
+- **Wrong sourcetype names**: GCP sourcetypes had non-existent `:demo` suffix
+- **Case-sensitive fields**: `Duration` vs `duration`, `type` vs `event_type`
+- **Non-existent fields**: Dashboards referenced fields that don't exist in generated data (e.g., `payment_method`, `quality`, `resolved_at`)
+- **Single-quote requirement**: Dotted field names in Splunk eval need single quotes (e.g., `'properties.status.errorCode'`)
+
+### Files modified and specific fixes:
+
+**`source_cisco_aci.xml`** (5 queries fixed)
+- All `spath severity/code/cause/descr` returned EMPTY — replaced with `spath path=faultInst.attributes.severity output=fault_severity` (and similar for code, cause, descr)
+- Updated event/audit table queries to use proper nested `spath path=` extraction
+- Added both raw ACI values AND CIM-normalized values to severity pie chart colors
+
+**`source_gcp_audit.xml`** (8 queries fixed)
+- Removed non-existent `:demo` suffix from all sourcetype references (`FAKE:google:gcp:pubsub:audit:admin_activity:demo` -> `FAKE:google:gcp:pubsub:audit:admin_activity`)
+- Replaced `protoPayload.authenticationInfo.principalEmail` with CIM `user` field
+- Replaced inline `protoPayload.serviceName` with `spath path=protoPayload.serviceName output=service`
+- Fixed sample events table to use proper spath extraction for method, service, resource
+
+**`source_aws_cloudtrail.xml`** (3 queries fixed)
+- Changed `userIdentity.arn` (returns 0 in stats) to CIM `userName` field
+- Added single quotes to eval: `eval service=replace('eventSource', ...)`
+- Fixed sample events table to use `userName` and `src_ip` instead of nested field refs
+
+**`source_cisco_asa.xml`** (1 query fixed)
+- Removed `demo_id` and `demo_id as "Scenario"` from sample events table
+
+**`source_entraid.xml`** (1 query fixed)
+- Added single quotes to eval: `if('properties.status.errorCode'=0, ...)` (was missing quotes, causing eval to fail)
+
+**`source_meraki.xml`** (2 queries fixed)
+- Fixed security events: `sourcetype="FAKE:meraki:security_event"` (non-existent) -> `sourcetype="FAKE:meraki:securityappliances" type="security_event"`
+- Removed `demo_id` from sample events table
+
+**`source_orders.xml`** (7 queries fixed)
+- Revenue: `sum(total)` -> `spath path=pricing.total output=order_total | stats sum(order_total)`
+- Avg order value: same spath fix for `pricing.total`
+- Unique customers: `customer` -> `customerId`
+- Revenue by type: `product_type` -> `spath path=items{}.category output=product_category`
+- Top products: `product` -> `spath path=items{}.name output=product_name`
+- Replaced non-existent `payment_method` panel with `Order Status Distribution` using `status` field
+- Fixed recent orders table with proper spath extraction for all nested fields
+
+**`source_servicenow.xml`** (3 queries fixed)
+- Avg resolution: `resolved_at/opened_at` (non-existent) -> `sys_updated_on/sys_created_on`
+- Assignment groups: `assignment_group` (shows sys_id hashes) -> `dv_assignment_group` (display values)
+- P1/P2 table: same `dv_assignment_group` fix
+
+**`source_webex.xml`** (5 queries fixed)
+- Meetings count: `type="meeting_started"` -> `event_type="meeting_started"`
+- Avg duration: `type="meeting_ended" duration=*` -> `event_type="meeting_ended" actual_duration_mins=*`, removed `/60` (already in minutes)
+- Events by type pie: `stats count by type` -> `stats count by event_type`
+- Top rooms: `host=*` (returns "webex") -> `room=*` (returns room names)
+- Sample events table: `host type user` -> `room event_type device_id organizer`
+
+**`source_webex_ta.xml`** (3 queries fixed)
+- Quality issues KPI: removed non-existent `quality` field, replaced with "Total Meetings" count
+- Meeting hours: `Duration` (wrong case) -> `duration` (lowercase)
+- Sample events table: `Duration` -> `duration`
+
+### Verification
+
+All 20+ fixed queries verified against live Splunk data:
+- ACI faults: severity/code/cause/descr fields now return data (was 0 results)
+- GCP: sourcetype match returns events (was 0 with `:demo` suffix)
+- CloudTrail: `userName` returns 65 unique principals (was 0 with `userIdentity.arn`)
+- Meraki: 1,469 security events (was 0 with wrong sourcetype)
+- Orders: $119M revenue, 1,399 unique customers (was 0/$0)
+- ServiceNow: 30.6 avg resolution hours, 15 assignment groups (was 0)
+- Webex: 1,919 meetings, 56 min avg duration, 21 rooms (was 0)
+- Webex TA: 1,919 total meetings, 1,789 meeting hours (was 0)
+
+---
+
+## 2026-02-28 ~22:00 UTC -- Recurring meeting registry for consistent organizers
+
+Fixed meeting organizer randomization: previously, recurring meetings like "Team Standup" or "All Hands" got a different organizer each day via `random.choice()`. Now ~25 recurring meetings have fixed organizers, rooms, times, and core participants defined in a central registry.
+
+### Changes
+
+**`bin/shared/meeting_schedule.py`**
+- Added `RecurringMeetingTemplate` dataclass (meeting_type, organizer, room, recurrence, core_participants, rotation_pool, cancellation_rate)
+- Added `RECURRING_MEETINGS` registry: 25 meetings (12 BOS, 6 ATL, 4 AUS, 3 cross-site)
+- Added `_matches_recurrence()` supporting daily, weekly_*, biweekly, monthly_Nth_day patterns
+- Added `get_recurring_meetings_for_day()` to filter templates by date/recurrence
+- Added `resolve_recurring_participants()` with deterministic rotation (date-seeded) and 5% per-person absence rate
+
+**`bin/generators/generate_webex.py`**
+- Added `preset_participants` parameter to `generate_meeting_events()` — when provided, uses fixed participant list instead of random selection
+- Added Phase A: schedule recurring meetings first (before per-device ad-hoc loop), tracking occupied device/hour slots
+- Modified Phase B: ad-hoc loop now skips hours already used by recurring meetings
+- Added import of `get_recurring_meetings_for_day`, `resolve_recurring_participants`
+
+### Recurring Meetings Defined
+
+| Site | Count | Examples |
+|------|-------|---------|
+| BOS | 12 | Executive Sync (john.smith), Finance Standup (robert.wilson), Engineering Standup (nicholas.lewis), IT Standup (david.robinson), Marketing Standup (olivia.moore), Sprint Planning, Budget Review, Sales Pipeline, Tech Deep Dive, 1:1 CTO/Eng Mgr, All Hands, Board Meeting |
+| ATL | 6 | ATL IT Operations (jessica.brown), NOC Briefing (marcus.williams), ATL Engineering Standup (darren.hayes), ATL Sprint Planning, ATL Sales Pipeline, ATL All Hands |
+| AUS | 4 | AUS Sales Standup (zoey.collins), AUS Engineering Standup (amelia.collins), AUS Sales Pipeline, AUS All Hands |
+| Cross-site | 3 | CTO Staff Meeting (mike.johnson), Global Sales Review (margaret.taylor), IT Directors Sync (david.robinson) |
+
+### Verification
+
+- `python3 bin/main_generate.py --sources=webex --days=7 --test --quiet` → 13,848 events
+- 17/17 title_override recurring meetings: CONSISTENT organizers across all days
+- Non-override recurring meetings (Executive Sync, Sprint Planning, Tech Deep Dive): correct organizer at expected device+time
+- Occupied-slot exclusion verified: no ad-hoc meetings scheduled at recurring hours on weekdays
+- Ad-hoc meetings still populate remaining slots normally (449 ad-hoc vs 42 recurring in 7-day test)
+- Downstream consumers (Exchange, webex_ta, Meraki) automatically gain consistency via shared `_meeting_schedule`
+
+---
+
+## 2026-03-01 ~00:30 UTC -- Business-value redesign of all 24 source dashboards
+
+Complete redesign of all 24 source dashboards to focus on business value. Every panel now answers "Why should we monitor this data?" with actionable insights. Removed all scenario-specific content (KPIs, pie charts, data sources) from all source dashboards — scenarios belong in scenario dashboards only.
+
+### Changes applied to all 24 source dashboards:
+- Removed `ds_scenario_events`, `ds_scenario_breakdown` data sources
+- Removed `viz_kpi_scenarios`, `viz_scenario_breakdown` visualizations
+- Removed `demo_id` from table queries
+- Removed "Scenarios:" from header markdown
+- Added compact header format with "**Why monitor?**" business value statement
+- Replaced scenario panels with source-specific business-value panels
+
+### Per-category highlights:
+- **Network (5):** Threat detection (ASA denies, VPN), rogue AP detection (Meraki), 802.1X failures (Catalyst), fabric faults (ACI), proactive health monitoring (Catalyst Center)
+- **Cloud & Security (4):** Unauthorized IAM access (CloudTrail), privilege escalation (GCP), compromised accounts (Entra ID), DNS-layer threat blocking (Secure Access)
+- **Collaboration (5):** Email delivery failures (Exchange), data exfiltration (O365), meeting quality (Webex), API audit (Webex API)
+- **Endpoints (4):** Capacity planning (Perfmon), brute force detection (WinEventLog), threat hunting (Sysmon), server health (Linux)
+- **Applications (6):** Customer experience/error rate (Access), real-time revenue (Orders), dead letter prevention (ServiceBus), database errors (MSSQL), MTTR tracking (ServiceNow), ERP compliance (SAP)
+
+### Files modified (24 source dashboards + nav):
+`source_cisco_asa.xml`, `source_meraki.xml`, `source_cisco_catalyst.xml`, `source_cisco_aci.xml`, `source_catalyst_center.xml`, `source_aws_cloudtrail.xml`, `source_gcp_audit.xml`, `source_entraid.xml`, `source_secure_access.xml`, `source_exchange.xml`, `source_o365_audit.xml`, `source_webex.xml`, `source_webex_ta.xml`, `source_webex_api.xml`, `source_perfmon.xml`, `source_wineventlog.xml`, `source_sysmon.xml`, `source_linux.xml`, `source_access.xml`, `source_orders.xml`, `source_servicebus.xml`, `source_mssql.xml`, `source_servicenow.xml`, `source_sap.xml`
+
+### Changes across all 6 dashboards:
+- Removed all scenario-specific content: `ds_scenario_events`, `ds_scenario_breakdown`, `viz_kpi_scenarios`, `viz_scenario_breakdown`, and their layout entries
+- Removed "Scenarios" references from header markdown
+- Removed `demo_id` from all table queries and column renames
+- Updated header markdown to compact format: `# Source -- NAME` + `**Sourcetype:** | **Coverage:** | **Format:**` + `**Why monitor?**`
+- Replaced generic/scenario KPIs with business-value KPIs
+
+### Application Dashboards (6 files):
+
+**File: `default/data/ui/views/source_access.xml`**
+- KPIs: Total Requests (sparkline), Error Rate (4xx+5xx as percentage), Unique Visitors (dc clientip), Pages Served (2xx)
+- Area: Changed from simple "Events Over Time" to "Requests Over Time by Status Category" (2xx/3xx/4xx/5xx stacked, color-coded)
+- Added: HTTP Method Distribution (pie) -- GET/POST/PUT/DELETE breakdown
+- Renamed: "Top URIs" to "Top Pages by Request Count"
+- Renamed: "Top Client IPs" title to "Top Client IPs -- Detect Bots or Heavy Users"
+- Table: Changed from "Recent Events" (all) to "Recent Errors" (status>=400 only)
+- Why monitor: Monitor customer experience, detect errors, track traffic patterns, identify performance issues before they impact revenue
+
+**File: `default/data/ui/views/source_orders.xml`**
+- KPIs: Total Orders (sparkline), Revenue ($ formatted), Avg Order Value ($ formatted), Unique Customers
+- Added: Top Customers by Order Count (bar chart)
+- Added: Payment Method Distribution (pie, color-coded by Visa/Mastercard/Amex/PayPal/Apple Pay/Google Pay)
+- Added: status column to recent orders table
+- Why monitor: Track revenue in real-time, detect order processing failures, identify top products, monitor customer activity
+
+**File: `default/data/ui/views/source_servicebus.xml`**
+- KPIs: Total Messages (sparkline), Dead Letters (red), Price Updates (green), Avg Messages/Hour
+- Area: "Message Flow Over Time" (unchanged pattern)
+- Pie: Changed from generic "Events by Operation" to "Message Type Distribution" (Order Message/Price Update/Dead Letter)
+- Table: Changed from "Recent Events" (all) to "Recent Dead Letter Events" (status=DeadLettered only)
+- Why monitor: Prevent data loss, monitor message queue health, detect dead letters before they cause pricing errors
+
+**File: `default/data/ui/views/source_mssql.xml`**
+- KPIs: Total Events (sparkline), Errors (red), Warnings (yellow), Backup Events (green)
+- Area: Changed from simple "Events Over Time" to "Events Over Time by Severity" (Critical 16+/Warning 10-15/Error/Backup/Info)
+- Pie: Changed from "Events by Source" to "Events by Category" (Login/Backup/Critical Error/Error/Warning/Info)
+- Bar: Changed from "Events by Host" to "Top Error Messages" (by error number)
+- Table: Changed from "Recent Events" (all) to "Recent Errors and Warnings" (filtered)
+- Why monitor: Prevent database outages, detect errors early, track backup success, monitor query performance
+
+**File: `default/data/ui/views/source_servicenow.xml`**
+- KPIs: Total Incidents (sparkline), Open Incidents (yellow), P1/P2 Incidents (red), Avg Resolution Hours (purple)
+- Area: Changed from "Events Over Time" to "Incidents Over Time by Priority" (P1-P5 stacked, color-coded)
+- Pie: Priority labels changed from numeric "1","2" to "P1","P2" for clarity
+- Bar: Changed from "Incidents by State" to "Top Assignment Groups by Workload"
+- Added: Incidents by Category (pie)
+- Table: Changed from "Recent Events" (all) to "Recent P1/P2 Incidents" (priority 1-2 only)
+- Why monitor: Measure IT service health, track incident volume, resolution times, identify recurring issues
+
+**File: `default/data/ui/views/source_sap.xml`**
+- KPIs: Total Transactions (sparkline), Unique Users, Failed Transactions (status=E, red), Sales Orders Created (VA01, green)
+- Area: Kept "Transactions Over Time by T-Code" (unchanged)
+- Pie: Kept "Events by Dialog Type" (DIA/BTC/RFC/UPD, unchanged)
+- Bar: Replaced "Events by Scenario" (pie) with "Top Users by Transaction Count" (bar)
+- Table: Changed from "Recent Events" (all) to "Recent Failed Transactions" (status=E only)
+- Why monitor: Audit ERP activity, detect unauthorized access, track order processing pipeline, ensure financial compliance
+
+---
+
+## 2026-02-28 ~23:55 UTC -- Business-value redesign of 9 Collaboration & Endpoint dashboards
+
+Redesigned 9 source dashboards (5 Collaboration + 4 Endpoints) to focus on business value. Every panel now explains WHY someone should monitor this data -- preventing downtime, detecting threats, ensuring productivity, and compliance.
+
+### Changes across all 9 dashboards:
+- Removed all scenario-specific content: `ds_scenario_events`, `viz_kpi_scenarios`, and their layout entries
+- Removed "Scenarios" references from header markdown
+- Removed `demo_id` from all table queries and renamed columns
+- Updated header markdown to compact format: `# Source -- NAME` + `**Sourcetype:** | **Coverage:** | **Format:**` + `**Why monitor?**`
+- Replaced generic KPIs with business-value KPIs (failures, security events, quality issues, etc.)
+
+### Collaboration Dashboards (5 files):
+
+**File: `default/data/ui/views/source_exchange.xml`**
+- KPIs: Total Messages, Delivery Failures (#DC4E41), Unique Senders, Unique Recipients
+- Table: Changed from "Recent Events" to "Recent Delivery Failures" (filtered to Status!=Delivered)
+- Why monitor: Track email delivery health, detect phishing, ensure communication flows
+
+**File: `default/data/ui/views/source_o365_audit.xml`**
+- KPIs: Total Activities, File Operations, Unique Users, External Sharing Events (#DC4E41)
+- Area: Changed from "Events Over Time by Workload" to "Activity Over Time by Operation" (limit=8)
+- Bar: Changed from "Top Operations" to "Top Users by Activity Volume"
+- Table header: "Recent File Sharing / Access Events"
+- Why monitor: Detect data exfiltration, insider threats, unauthorized file sharing
+
+**File: `default/data/ui/views/source_webex.xml`**
+- KPIs: Total Events, Meetings Held, Unique Participants, Avg Meeting Duration
+- Added duration calculation from meeting_ended events
+- Table: Removed demo_id column
+- Why monitor: Monitor collaboration adoption, meeting quality, room utilization
+
+**File: `default/data/ui/views/source_webex_ta.xml`**
+- KPIs: Total Events, Unique Rooms, Quality Issues (#DC4E41 -- poor/fair), Meeting Hours
+- Replaced "Total Meetings" and "Avg Duration" KPIs with quality-focused metrics
+- Why monitor: Track meeting quality metrics, identify rooms with recurring issues
+
+**File: `default/data/ui/views/source_webex_api.xml`**
+- KPIs: Total Events, Admin Actions (#DC4E41), API Calls, Unique Actors
+- Replaced "Sourcetype Count" and "Unique Rooms" KPIs with security-focused metrics
+- Added Top Actors bar chart (was missing before)
+- Why monitor: Audit API usage, detect unauthorized integrations, track admin actions
+
+### Endpoint Dashboards (4 files):
+
+**File: `default/data/ui/views/source_perfmon.xml`**
+- KPIs: Total Metrics, Servers Monitored, Peak CPU %, Critical Disk >90% (#DC4E41)
+- Layout: Side-by-side CPU + Memory line charts (600px each) instead of stacked
+- Bar: "Current CPU Usage by Server" replaces "Events by Object Type" pie
+- Table: "Recent High-Value Alerts (Value > 90%)" replaces generic "Recent Events"
+- Why monitor: Prevent outages through early CPU/memory/disk exhaustion detection
+
+**File: `default/data/ui/views/source_wineventlog.xml`**
+- KPIs: Total Events, Security Events (4624/4625/4720), Failed Logons (#DC4E41), Account Lockouts (4740)
+- Pie: "Events by Log" (Security/System/Application) replaces "Events by Host"
+- Bar: "Top Failed Logon Accounts" replaces "Top Event Codes"
+- Table header: "Recent Security Events"
+- Why monitor: Detect brute force attacks, track privileged accounts, audit system changes
+
+**File: `default/data/ui/views/source_sysmon.xml`**
+- KPIs: Total Events, Process Creates (ID 1), Network Connections (ID 3), File Creates (ID 11)
+- Area: Events Over Time by EventCode with human-readable labels (1-ProcessCreate, etc.)
+- Pie: "Events by Event Type" with descriptive labels
+- Bar: "Top Processes (EventCode=1)" replaces "Top Event IDs"
+- Table: Removed demo_id, focused columns on host, EventCode, Image, CommandLine
+- Why monitor: Threat hunting -- process chains, network connections, file changes for forensics
+
+**File: `default/data/ui/views/source_linux.xml`**
+- KPIs: Total Metrics, Hosts Monitored, Avg CPU %, Hosts with Disk >90% (#DC4E41)
+- Layout: Side-by-side CPU + Memory line charts (600px each)
+- Added Memory Usage Over Time by Host (sourcetype=FAKE:vmstat, memUsedPct)
+- Table: "Current Disk Space" replaces generic recent events (shows Host, Mount, Use%, Total, Used, Available)
+- Pie: "Events by Sourcetype" moved to row 3
+- Why monitor: Prevent outages -- catch CPU, memory, disk issues before they cascade
+
+---
+
+## 2026-02-28 ~23:45 UTC -- Business-value redesign of 4 Cloud & Security dashboards
+
+Redesigned 4 Cloud & Security source dashboards to focus on business value. Each panel now answers "why should we monitor this data?" -- preventing downtime, detecting threats, compliance, and saving money.
+
+### Changes across all 4 dashboards:
+- Removed all scenario-specific content: `ds_scenario_events`, `ds_scenario_breakdown`, `viz_kpi_scenarios`, `viz_scenario_breakdown`, and their layout entries
+- Removed "Scenarios" references from header markdown
+- Updated description tags to business-value questions ("Why index X?")
+- Updated header markdown to concise single-line metadata + "Why monitor?" value statement
+- Compressed header height from 150-180px to 120px for more dashboard real estate
+
+### File: `default/data/ui/views/source_aws_cloudtrail.xml`
+**Theme:** "Detect unauthorized access and compliance violations"
+- KPI 1: Total API Calls (sparkline, #00D2FF) -- kept
+- KPI 2: Unauthorized Attempts (AccessDenied/UnauthorizedAccess, #DC4E41) -- new, replaces Unique Users
+- KPI 3: IAM Changes (Create*/Delete*/Attach*/Detach*, #F8BE34) -- new, replaces Error Events
+- KPI 4: Console Logins (ConsoleLogin, #7B56DB) -- new, replaces Scenario Events
+- Area chart: API Activity Over Time by eventSource (kept, added limit=8)
+- Bar: Top Users by Activity (changed from userName to ARN) -- repositioned
+- Pie: What's Failing? by Error Code (new, replaces Events by Service)
+- Bar: Top Risky API Calls (ConsoleLogin, CreateUser, CreateAccessKey, AttachUserPolicy, PutBucketPolicy, StopLogging) -- new, replaces Top Event Names
+- Table: Recent Security Events (filtered to security-relevant events, added Source IP) -- updated
+
+### File: `default/data/ui/views/source_gcp_audit.xml`
+**Theme:** "Track cloud resource changes and detect privilege escalation"
+- KPI 1: Total Audit Events (sparkline, #00D2FF) -- kept
+- KPI 2: Admin Activity (admin_activity sourcetype count, #F8BE34) -- new, replaces Unique Principals position
+- KPI 3: Permission Changes (*.setIamPolicy, #DC4E41) -- new, replaces Method Count
+- KPI 4: Unique Principals (dc(principalEmail), #7B56DB) -- kept, moved to slot 4
+- Area chart: Audit Events Over Time by serviceName -- new, replaces by audit type
+- Pie: Events by Service (compute, storage, iam, etc.) -- new, replaces Events by Type
+- Bar: Top Principals by Activity -- new, replaces Top Methods
+- Table: Recent Admin Activity Events (filtered to admin_activity sourcetype) -- updated
+
+### File: `default/data/ui/views/source_entraid.xml`
+**Theme:** "Detect compromised accounts, track MFA compliance, prevent unauthorized access"
+- KPI 1: Total Sign-ins (sparkline, #00D2FF) -- changed from all events to signin-only
+- KPI 2: Failed Sign-ins (errorCode!=0, #DC4E41) -- kept
+- KPI 3: Unique Users (dc(user), #7B56DB) -- kept
+- KPI 4: Users with Failures (dc(user) where errorCode!=0, #F8BE34) -- new, replaces Scenario Events
+- Area chart: Sign-in Success vs Failure Over Time -- kept
+- Bar: Top Failed Users (Potential Compromised Accounts) -- kept, moved to right of timeline
+- Pie: Sign-in by Application (appDisplayName) -- new, replaces Events by Type
+- Bar: Top Error Codes (errorCode, #F8BE34) -- new, replaces Sign-ins by Location
+- Table: Recent Failed Sign-ins (with Application, Source IP, Failure Reason) -- updated
+
+### File: `default/data/ui/views/source_secure_access.xml`
+**Theme:** "Block threats at DNS layer before they reach your network"
+- KPI 1: Total DNS Requests (sparkline, #00D2FF) -- kept
+- KPI 2: Threats Blocked (action=blocked OR verdict=blocked, #DC4E41) -- kept, simplified query
+- KPI 3: Unique Identities (dc(identities), #7B56DB) -- kept
+- KPI 4: Threat Categories (dc(categories), #F8BE34) -- new, replaces Scenario Events
+- Area chart: Blocked vs Allowed Over Time by action -- new, replaces by sourcetype, uses semantic colors
+- Bar: Top Blocked Domains -- kept, expanded query to include proxy sourcetype
+- Pie: Threat Category Distribution -- new, replaces DNS Verdict Distribution
+- Bar: Who's Clicking Bad Links? (top users with blocked requests) -- new, replaces Scenario Breakdown
+- Table: Recent Threat Events (blocked events across all sourcetypes) -- updated
+
+---
+
+## 2026-02-28 ~22:30 UTC -- 5 new source dashboards + markdown table fixes across 28 dashboards
+
+### Part 1: New Source Dashboards (5 files)
+
+Created Dashboard Studio dashboards for the 5 generators that were missing them:
+
+- `default/data/ui/views/source_cisco_catalyst.xml` -- Cisco Catalyst IOS-XE campus switches (`FAKE:cisco:ios`). KPIs: total events, unique switches, auth events, scenario events. Charts: events by switch (area), facility distribution (pie), top interfaces (bar), scenario breakdown (pie). Table: recent syslog events.
+- `default/data/ui/views/source_cisco_aci.xml` -- Cisco ACI data center fabric (`FAKE:cisco:aci:fault/event/audit`). KPIs: total events, faults, audit changes, scenario events. Charts: events by sourcetype (area), fault severity (pie), top fault codes (bar), scenario breakdown (pie). Table: recent faults.
+- `default/data/ui/views/source_secure_access.xml` -- Cisco Secure Access/Umbrella (`FAKE:cisco:umbrella:dns/proxy/firewall/audit`). KPIs: total events, blocked requests, unique users, scenario events. Charts: events by log type (area), DNS verdict (pie), top blocked domains (bar), scenario breakdown (pie). Table: recent blocked events.
+- `default/data/ui/views/source_catalyst_center.xml` -- Catalyst Center Assurance (`FAKE:cisco:catalyst:devicehealth/networkhealth/clienthealth/issue`). KPIs: total events, devices monitored, active issues, scenario events. Charts: device health over time (line), issue severity (pie), top issues (bar), scenario breakdown (pie). Table: recent issues.
+- `default/data/ui/views/source_sap.xml` -- SAP S/4HANA audit log (`FAKE:sap:auditlog`). KPIs: total events, unique users, failed transactions, scenario events. Charts: events by t-code (area), dialog type (pie), top t-codes (bar), scenario breakdown (pie). Table: recent events.
+
+All new dashboards use the established pattern: dark theme, 1200px grid, time picker defaulting to Jan 2026, `FAKE:` sourcetype prefix, consistent color palette, and bold-label markdown headers (no pipe tables).
+
+### Part 2: Markdown Table Fixes (28 files, 30 table instances)
+
+Dashboard Studio's `splunk.markdown` does not render pipe tables (`| col | col |`). Converted all 30 markdown table instances to bold-label format across 28 dashboards:
+
+**19 source dashboards** (1 header table each):
+`source_access.xml`, `source_aws_cloudtrail.xml`, `source_cisco_asa.xml`, `source_entraid.xml`, `source_exchange.xml`, `source_gcp_audit.xml`, `source_linux.xml`, `source_meraki.xml`, `source_mssql.xml`, `source_o365_audit.xml`, `source_orders.xml`, `source_perfmon.xml`, `source_servicebus.xml`, `source_servicenow.xml`, `source_sysmon.xml`, `source_webex.xml`, `source_webex_api.xml`, `source_webex_ta.xml`, `source_wineventlog.xml`
+
+**9 scenario dashboards** (1 header table each):
+`scenario_certificate_expiry.xml`, `scenario_cpu_runaway.xml`, `scenario_ddos_attack.xml`, `scenario_dead_letter_pricing.xml`, `scenario_disk_filling.xml`, `scenario_firewall_misconfig.xml`, `scenario_memory_leak.xml`, `scenario_phishing_test.xml`, `scenario_ransomware_attempt.xml`
+
+**2 additional event sequence tables** converted to bold-label timeline:
+`scenario_certificate_expiry.xml` (6-step timeline), `scenario_firewall_misconfig.xml` (7-step timeline)
+
+**Before:** `| Property | Value |\n|----------|-------|\n| **Sourcetype** | \`FAKE:cisco:asa\` |`
+**After:** `**Sourcetype:** \`FAKE:cisco:asa\``
+
+---
+
+## 2026-02-28 ~19:00 UTC -- Exfil Dashboard: Linkgraph fix + CIM query cleanup
+
+### Changes
+
+**File:** `default/data/ui/views/scenario_exfil.xml`
+
+1. **Linkgraph Kill Chain (ds_attack_linkgraph)** -- Complete rewrite. Old query had 27 rows with misaligned phases (email forwarding in Persistence, VPN pivot in Persistence instead of Lateral Movement, wrong ticket numbers). New query: 8 rows with correct phase assignments based on actual data, showing the full attack chain from 185.220.101.42 through exfiltration to incident response (INC0000218, INC0000219, CHG0000032).
+
+2. **CIM Field Cleanup (14 queries)** -- Removed unnecessary `spath` and `rex` commands where CIM fields are already available via props.conf:
+   - `ds_kpi_users`: Removed 3x spath + coalesce, use `user` CIM field
+   - `ds_recon_port_scans`: Removed rex for dst_port, use `dest_port` CIM field
+   - `ds_phishing_emails`: Removed 6x spath (SenderAddress, RecipientAddress, Subject, Status, Operation, Reason)
+   - `ds_initial_o365`: Removed 3x spath, use CIM `user`, `file_name`
+   - `ds_network_sankey`: Removed 2x rex for src_ip/dst_ip, use CIM `src`/`dest`
+   - `ds_lateral_entraid`: Removed 4x spath, use CIM `user`, `src`, `operationName`
+   - `ds_persist_aws`: Removed 3x spath, use CIM `user`, `eventName`
+   - `ds_persist_consent`: Removed 2x spath, use CIM `user`
+   - `ds_exfil_o365`: Removed 1x spath (Operation via KV_MODE=json)
+   - `ds_exfil_aws_s3`: Removed 2x spath, use CIM `user`, `eventName`
+   - `ds_exfil_evidence`: Removed 3x rex, use Sysmon `Image`, `CommandLine`
+   - `ds_exfil_risk`: Removed 5x spath, use CIM `user`, `src`
+   - `ds_response_servicenow`: Removed 5x rex, use auto-extracted fields
+   - `ds_response_entraid`: Removed 3x spath, use CIM `user`
+
+3. **Source Categories** -- Added Sysmon, Secure Access (Umbrella), ACI, and Catalyst to timeline and cross-source matrix categorization. Split "Windows" into "WinEvent" + "Sysmon" for better visibility.
+
+4. **Sankey Flow** -- Updated static counts: port scans 691→757, SharePoint downloads 188→265, S3 exfil 196→21 (GetObject, not PutObject), Google Drive 24→15, C2 15→8.
+
+5. **MITRE ATT&CK** -- Expanded from 15 to 18 techniques. Added T1059.001 (PowerShell), T1087.002 (Domain Account Discovery), T1098.005 (MFA Reset), T1053.005 (Scheduled Task), T1560.001 (Archive via Utility), T1537 (Transfer Data to Cloud Account). Fixed event counts and day ranges.
+
+6. **Gaps Section** -- Marked Gap 1 (alex.miller sign-in from threat IP) and Gap 4 (GCP :demo suffix) as FIXED. Updated remaining gap descriptions.
+
+### Verification
+- All 23 data sources validated in Splunk
+- Linkgraph returns 8 rows with correct phase flow
+- CIM fields (dest_port, src, dest, user) confirmed working across all sourcetypes
+- JSON structure validated
+
+---
+
 ## 2026-02-28 ~12:30 UTC -- Meraki P1 Bugfix: Nested JSON + props.conf completeness
 
 ### Fixes

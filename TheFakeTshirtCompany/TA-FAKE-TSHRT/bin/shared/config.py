@@ -63,7 +63,6 @@ FILE_ENTRAID_AUDIT = "entraid/entraid_audit.json"
 FILE_EXCHANGE = "microsoft/exchange_message_trace.json"
 
 # Webex
-FILE_WEBEX = "webex/webex_events.json"
 FILE_WEBEX_TA_MEETINGUSAGE = "webex/webex_ta_meetingusage.json"
 FILE_WEBEX_TA_ATTENDEE = "webex/webex_ta_attendee.json"
 FILE_WEBEX_API_MEETINGS = "webex/webex_api_meetings.json"
@@ -149,8 +148,7 @@ GENERATOR_OUTPUT_FILES = {
         "cloud/catalyst_center/catalyst_center_clienthealth.json",
         "cloud/catalyst_center/catalyst_center_issues.json",
     ],
-    # Webex (3 generators, same subfolder)
-    "webex": ["cloud/webex/webex_events.json"],
+    # Webex (2 generators, same subfolder)
     "webex_ta": [
         "cloud/webex/webex_ta_meetingusage.json",
         "cloud/webex/webex_ta_attendee.json",
