@@ -1,0 +1,250 @@
+<dashboard version="2" theme="dark">
+  <label>Source - SAP S/4HANA</label>
+  <description>SAP S/4HANA audit log — ERP activity auditing, unauthorized access detection, and compliance monitoring</description>
+  <definition><![CDATA[
+{
+  "title": "Source — SAP S/4HANA",
+  "description": "SAP S/4HANA audit log — ERP activity auditing, unauthorized access detection, and compliance monitoring",
+  "dataSources": {
+    "ds_total_transactions": {
+      "type": "ds.search",
+      "name": "Total Transactions Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" by _time span=1h"
+      }
+    },
+    "ds_unique_users": {
+      "type": "ds.search",
+      "name": "Unique Users",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" | stats dc(user) as count"
+      }
+    },
+    "ds_failed_txns": {
+      "type": "ds.search",
+      "name": "Failed Transactions",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" status=E | stats count"
+      }
+    },
+    "ds_sales_orders": {
+      "type": "ds.search",
+      "name": "Sales Orders Created (VA01)",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" tcode=VA01 | stats count"
+      }
+    },
+    "ds_events_by_tcode": {
+      "type": "ds.search",
+      "name": "Transactions Over Time by T-Code",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" | timechart span=1h count by tcode limit=10"
+      }
+    },
+    "ds_by_dialog_type": {
+      "type": "ds.search",
+      "name": "Events by Dialog Type",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" | stats count by dialog_type | sort -count"
+      }
+    },
+    "ds_top_tcodes": {
+      "type": "ds.search",
+      "name": "Top Transaction Codes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" | stats count by tcode | sort -count | head 15 | rename tcode as \"T-Code\""
+      }
+    },
+    "ds_top_users": {
+      "type": "ds.search",
+      "name": "Top Users by Transaction Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" | stats count by user | sort -count | head 15 | rename user as \"User\""
+      }
+    },
+    "ds_recent_failures": {
+      "type": "ds.search",
+      "name": "Recent Failed Transactions",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:sap:auditlog\" status=E | table _time user tcode status description document_number | sort -_time | head 30 | rename user as \"User\" tcode as \"T-Code\" status as \"Status\" description as \"Description\" document_number as \"Document\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — SAP S/4HANA\n\n**Sourcetype:** `FAKE:sap:auditlog` | **Coverage:** SAP-PROD-01, SAP-DB-01 (Boston) | **Format:** Pipe-delimited\n\n**Why monitor?** Audit ERP activity — detect unauthorized access, track order processing pipeline, ensure financial compliance.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_transactions": {
+      "type": "splunk.singlevalue",
+      "title": "Total Transactions",
+      "dataSources": { "primary": "ds_total_transactions" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_users": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Users",
+      "dataSources": { "primary": "ds_unique_users" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_failed": {
+      "type": "splunk.singlevalue",
+      "title": "Failed Transactions",
+      "dataSources": { "primary": "ds_failed_txns" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_sales_orders": {
+      "type": "splunk.singlevalue",
+      "title": "Sales Orders (VA01)",
+      "dataSources": { "primary": "ds_sales_orders" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_by_tcode": {
+      "type": "splunk.area",
+      "title": "Transactions Over Time by T-Code",
+      "dataSources": { "primary": "ds_events_by_tcode" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Transactions / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF", "#FF677B", "#A2CC3E"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_by_dialog_type": {
+      "type": "splunk.pie",
+      "title": "Events by Dialog Type",
+      "dataSources": { "primary": "ds_by_dialog_type" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "DIA": "#00D2FF",
+          "BTC": "#7B56DB",
+          "RFC": "#53A051",
+          "UPD": "#F8BE34"
+        }
+      }
+    },
+    "viz_top_tcodes": {
+      "type": "splunk.bar",
+      "title": "Top Transaction Codes",
+      "dataSources": { "primary": "ds_top_tcodes" },
+      "options": {
+        "seriesColors": ["#00D2FF"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Executions",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_top_users": {
+      "type": "splunk.bar",
+      "title": "Top Users by Transaction Count",
+      "dataSources": { "primary": "ds_top_users" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Transactions",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_failures_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Failed Transactions",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_recent_failures": {
+      "type": "splunk.table",
+      "title": "Failed Transactions",
+      "dataSources": { "primary": "ds_recent_failures" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 130 } },
+      { "item": "viz_kpi_total_transactions", "type": "block", "position": { "x": 0, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_users", "type": "block", "position": { "x": 300, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_failed", "type": "block", "position": { "x": 600, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_sales_orders", "type": "block", "position": { "x": 900, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_events_by_tcode", "type": "block", "position": { "x": 0, "y": 250, "w": 750, "h": 350 } },
+      { "item": "viz_by_dialog_type", "type": "block", "position": { "x": 750, "y": 250, "w": 450, "h": 350 } },
+      { "item": "viz_top_tcodes", "type": "block", "position": { "x": 0, "y": 600, "w": 600, "h": 300 } },
+      { "item": "viz_top_users", "type": "block", "position": { "x": 600, "y": 600, "w": 600, "h": 300 } },
+      { "item": "viz_failures_header", "type": "block", "position": { "x": 0, "y": 900, "w": 1200, "h": 50 } },
+      { "item": "viz_recent_failures", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

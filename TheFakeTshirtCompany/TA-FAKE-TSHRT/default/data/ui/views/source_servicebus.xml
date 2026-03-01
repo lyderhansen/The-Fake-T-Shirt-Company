@@ -1,65 +1,65 @@
 <dashboard version="2" theme="dark">
   <label>Source - ServiceBus</label>
-  <description>Azure Service Bus messaging — order processing queue events</description>
+  <description>Azure Service Bus messaging — queue health, dead letters, and message flow monitoring</description>
   <definition><![CDATA[
 {
   "title": "Source - ServiceBus",
-  "description": "Azure Service Bus messaging — order processing queue events",
+  "description": "Azure Service Bus messaging — queue health, dead letters, and message flow monitoring",
   "dataSources": {
-    "ds_total_events": {
+    "ds_total_messages": {
       "type": "ds.search",
-      "name": "Total ServiceBus Events Over Time",
+      "name": "Total Messages Over Time",
       "options": {
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" by _time span=1h"
       }
     },
-    "ds_unique_queues": {
+    "ds_dead_letters": {
       "type": "ds.search",
-      "name": "Unique Queues",
+      "name": "Dead Letter Messages",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" queue=* | stats dc(queue) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" status=\"DeadLettered\" | stats count"
       }
     },
-    "ds_message_count": {
+    "ds_price_updates": {
       "type": "ds.search",
-      "name": "Total Messages",
+      "name": "Price Update Messages",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" messageId=* | stats dc(messageId) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" label=\"PriceUpdate\" OR eventType=\"PriceUpdate\" | stats count"
       }
     },
-    "ds_error_events": {
+    "ds_message_rate": {
       "type": "ds.search",
-      "name": "Error Events",
+      "name": "Avg Message Rate per Hour",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" status=error OR status=failed | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | timechart span=1h count | stats avg(count) as count | eval count=round(count,0)"
       }
     },
-    "ds_events_over_time": {
+    "ds_message_flow": {
       "type": "ds.search",
-      "name": "Events Over Time",
+      "name": "Message Flow Over Time",
       "options": {
         "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | timechart span=1h count"
       }
     },
-    "ds_events_by_operation": {
+    "ds_message_type_dist": {
       "type": "ds.search",
-      "name": "Events by Operation",
+      "name": "Message Type Distribution",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | stats count by operation | sort -count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | eval msg_type=case(status=\"DeadLettered\",\"Dead Letter\",label=\"PriceUpdate\" OR eventType=\"PriceUpdate\",\"Price Update\",1=1,\"Order Message\") | stats count by msg_type | sort -count"
       }
     },
-    "ds_queue_activity": {
+    "ds_top_queues": {
       "type": "ds.search",
-      "name": "Queue Activity",
+      "name": "Top Message Queues",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" queue=* | stats count by queue | sort -count | head 15 | rename queue as \"Queue\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" queueName=* | stats count by queueName | sort -count | head 15 | rename queueName as \"Queue\""
       }
     },
-    "ds_sample_events": {
+    "ds_recent_dead_letters": {
       "type": "ds.search",
-      "name": "Recent Events",
+      "name": "Recent Dead Letter Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" | table _time host operation queue messageId status | sort -_time | head 30 | rename operation as \"Operation\" queue as \"Queue\" messageId as \"Message ID\" status as \"Status\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:servicebus\" status=\"DeadLettered\" | table _time host queueName label messageId status | sort -_time | head 30 | rename queueName as \"Queue\" label as \"Message Type\" messageId as \"Message ID\" status as \"Status\""
       }
     }
   },
@@ -67,14 +67,14 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — ServiceBus\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:azure:servicebus` |\n| **Platform** | Azure Service Bus |\n| **Format** | JSON |\n| **Dependencies** | Generated from Apache access log order activity |\n| **Scenarios** | None (baseline messaging data) |",
+        "markdown": "# Source — ServiceBus\n\n**Sourcetype:** `FAKE:azure:servicebus` | **Coverage:** Azure Service Bus (order processing queues) | **Format:** JSON\n\n**Why monitor?** Prevent data loss — monitor message queue health, detect dead letters before they cause pricing errors.",
         "fontColor": "#C3CBD4"
       }
     },
-    "viz_kpi_total_events": {
+    "viz_kpi_total_messages": {
       "type": "splunk.singlevalue",
-      "title": "Total Events",
-      "dataSources": { "primary": "ds_total_events" },
+      "title": "Total Messages",
+      "dataSources": { "primary": "ds_total_messages" },
       "options": {
         "majorValue": "> sparklineValues | lastPoint()",
         "sparklineValues": "> primary | seriesByName('count')",
@@ -85,32 +85,10 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_queues": {
+    "viz_kpi_dead_letters": {
       "type": "splunk.singlevalue",
-      "title": "Unique Queues",
-      "dataSources": { "primary": "ds_unique_queues" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#7B56DB",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_messages": {
-      "type": "splunk.singlevalue",
-      "title": "Message Count",
-      "dataSources": { "primary": "ds_message_count" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#53A051",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_errors": {
-      "type": "splunk.singlevalue",
-      "title": "Error Events",
-      "dataSources": { "primary": "ds_error_events" },
+      "title": "Dead Letters",
+      "dataSources": { "primary": "ds_dead_letters" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#DC4E41",
@@ -118,17 +96,39 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_events_over_time": {
+    "viz_kpi_price_updates": {
+      "type": "splunk.singlevalue",
+      "title": "Price Updates",
+      "dataSources": { "primary": "ds_price_updates" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_message_rate": {
+      "type": "splunk.singlevalue",
+      "title": "Avg Messages / Hour",
+      "dataSources": { "primary": "ds_message_rate" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_message_flow": {
       "type": "splunk.area",
-      "title": "Events Over Time",
-      "dataSources": { "primary": "ds_events_over_time" },
+      "title": "Message Flow Over Time",
+      "dataSources": { "primary": "ds_message_flow" },
       "options": {
         "legendDisplay": "off",
         "nullValueDisplay": "zero",
         "areaOpacity": 0.7,
         "backgroundColor": "transparent",
         "xAxisTitleVisibility": "hide",
-        "yAxisTitleText": "Events / hour",
+        "yAxisTitleText": "Messages / hour",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
         "seriesColors": ["#00D2FF"]
@@ -136,41 +136,45 @@
       "showProgressBar": true,
       "showLastUpdated": true
     },
-    "viz_events_by_operation": {
+    "viz_message_type_dist": {
       "type": "splunk.pie",
-      "title": "Events by Operation",
-      "dataSources": { "primary": "ds_events_by_operation" },
+      "title": "Message Type Distribution",
+      "dataSources": { "primary": "ds_message_type_dist" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
-        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+        "seriesColorsByField": {
+          "Order Message": "#00D2FF",
+          "Price Update": "#53A051",
+          "Dead Letter": "#DC4E41"
+        }
       }
     },
-    "viz_queue_activity": {
+    "viz_top_queues": {
       "type": "splunk.bar",
-      "title": "Queue Activity",
-      "dataSources": { "primary": "ds_queue_activity" },
+      "title": "Top Message Queues",
+      "dataSources": { "primary": "ds_top_queues" },
       "options": {
         "seriesColors": ["#7B56DB"],
         "legendDisplay": "off",
-        "xAxisTitleText": "Events",
+        "xAxisTitleText": "Messages",
         "xAxisTitleVisibility": "show",
         "yAxisTitleVisibility": "hide",
         "backgroundColor": "transparent"
       },
       "showProgressBar": true
     },
-    "viz_sample_header": {
+    "viz_dead_letters_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Recent Events",
+        "markdown": "### Recent Dead Letter Events",
         "fontColor": "#C3CBD4"
       }
     },
-    "viz_sample_events": {
+    "viz_recent_dead_letters": {
       "type": "splunk.table",
-      "title": "Sample Events",
-      "dataSources": { "primary": "ds_sample_events" },
+      "title": "Dead Letter Events",
+      "dataSources": { "primary": "ds_recent_dead_letters" },
       "options": {
         "count": 20,
         "showRowNumbers": false
@@ -205,16 +209,16 @@
     "type": "grid",
     "globalInputs": ["input_global_trp"],
     "structure": [
-      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
-      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_queues", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_messages", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_errors", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
-      { "item": "viz_events_by_operation", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_queue_activity", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 130 } },
+      { "item": "viz_kpi_total_messages", "type": "block", "position": { "x": 0, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_dead_letters", "type": "block", "position": { "x": 300, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_price_updates", "type": "block", "position": { "x": 600, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_message_rate", "type": "block", "position": { "x": 900, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_message_flow", "type": "block", "position": { "x": 0, "y": 250, "w": 750, "h": 350 } },
+      { "item": "viz_message_type_dist", "type": "block", "position": { "x": 750, "y": 250, "w": 450, "h": 350 } },
+      { "item": "viz_top_queues", "type": "block", "position": { "x": 0, "y": 600, "w": 1200, "h": 300 } },
+      { "item": "viz_dead_letters_header", "type": "block", "position": { "x": 0, "y": 900, "w": 1200, "h": 50 } },
+      { "item": "viz_recent_dead_letters", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 400 } }
     ]
   }
 }

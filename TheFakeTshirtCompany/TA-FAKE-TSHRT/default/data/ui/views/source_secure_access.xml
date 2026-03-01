@@ -1,0 +1,251 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Cisco Secure Access</label>
+  <description>Why index Secure Access? Block threats at DNS layer before they reach your network</description>
+  <definition><![CDATA[
+{
+  "title": "Source — Cisco Secure Access",
+  "description": "Why index Secure Access? Block threats at DNS layer before they reach your network",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total DNS Requests Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\" OR sourcetype=\"FAKE:cisco:umbrella:firewall\" OR sourcetype=\"FAKE:cisco:umbrella:audit\") by _time span=1h"
+      }
+    },
+    "ds_blocked_count": {
+      "type": "ds.search",
+      "name": "Threats Blocked",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\" OR sourcetype=\"FAKE:cisco:umbrella:firewall\") (action=blocked OR verdict=blocked) | stats count"
+      }
+    },
+    "ds_unique_identities": {
+      "type": "ds.search",
+      "name": "Unique Identities",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:umbrella:dns\" | stats dc(identities) as count"
+      }
+    },
+    "ds_threat_categories": {
+      "type": "ds.search",
+      "name": "Threat Categories",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\") categories!=\"-\" categories!=\"\" categories=* | stats dc(categories) as count"
+      }
+    },
+    "ds_action_timeline": {
+      "type": "ds.search",
+      "name": "Blocked vs Allowed Over Time",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\" OR sourcetype=\"FAKE:cisco:umbrella:firewall\") | timechart span=1h count by action"
+      }
+    },
+    "ds_top_blocked_domains": {
+      "type": "ds.search",
+      "name": "Top Blocked Domains",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\") (action=blocked OR verdict=blocked) | stats count by domain | sort -count | head 15 | rename domain as \"Domain\""
+      }
+    },
+    "ds_threat_category_dist": {
+      "type": "ds.search",
+      "name": "Threat Category Distribution",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\") categories!=\"-\" categories!=\"\" categories=* | stats count by categories | sort -count | head 10"
+      }
+    },
+    "ds_top_blocked_users": {
+      "type": "ds.search",
+      "name": "Top Users with Blocked Requests",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\") (action=blocked OR verdict=blocked) | stats count by identities | sort -count | head 15 | rename identities as \"User\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Threat Events",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:umbrella:dns\" OR sourcetype=\"FAKE:cisco:umbrella:proxy\" OR sourcetype=\"FAKE:cisco:umbrella:firewall\") (action=blocked OR verdict=blocked) | table _time identities domain categories action | sort -_time | head 30 | rename identities as \"User\" domain as \"Domain\" categories as \"Category\" action as \"Action\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Cisco Secure Access\n\n**Sourcetypes:** `FAKE:cisco:umbrella:dns`, `FAKE:cisco:umbrella:proxy`, `FAKE:cisco:umbrella:firewall`, `FAKE:cisco:umbrella:audit` | **Coverage:** All users and locations | **Format:** CSV\n\n**Why monitor?** Block malware, phishing, and C2 callbacks at the DNS layer before they reach endpoints. Identify which users are clicking bad links and what threat categories are targeting your organization.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total DNS Requests",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_blocked": {
+      "type": "splunk.singlevalue",
+      "title": "Threats Blocked",
+      "dataSources": { "primary": "ds_blocked_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_identities": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Identities",
+      "dataSources": { "primary": "ds_unique_identities" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_threat_cats": {
+      "type": "splunk.singlevalue",
+      "title": "Threat Categories",
+      "dataSources": { "primary": "ds_threat_categories" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F8BE34",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_action_timeline": {
+      "type": "splunk.area",
+      "title": "Blocked vs Allowed Over Time",
+      "dataSources": { "primary": "ds_action_timeline" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Requests / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColorsByField": {
+          "logged": "#53A051",
+          "allowed": "#53A051",
+          "proxied": "#009CEB",
+          "blocked": "#DC4E41",
+          "denied": "#F1813F"
+        }
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_top_blocked_domains": {
+      "type": "splunk.bar",
+      "title": "Top Blocked Domains",
+      "dataSources": { "primary": "ds_top_blocked_domains" },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Blocked Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_threat_categories": {
+      "type": "splunk.pie",
+      "title": "Threat Category Distribution",
+      "dataSources": { "primary": "ds_threat_category_dist" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#F1813F", "#F8BE34", "#7B56DB", "#53A051", "#009CEB", "#00D2FF", "#A870EF", "#E0E0E0", "#B0B0B0"]
+      }
+    },
+    "viz_top_blocked_users": {
+      "type": "splunk.bar",
+      "title": "Who's Clicking Bad Links?",
+      "dataSources": { "primary": "ds_top_blocked_users" },
+      "options": {
+        "seriesColors": ["#F8BE34"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Blocked Requests",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Threat Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Recent Threat Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 120 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_blocked", "type": "block", "position": { "x": 300, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_identities", "type": "block", "position": { "x": 600, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_threat_cats", "type": "block", "position": { "x": 900, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_action_timeline", "type": "block", "position": { "x": 0, "y": 240, "w": 750, "h": 350 } },
+      { "item": "viz_top_blocked_domains", "type": "block", "position": { "x": 750, "y": 240, "w": 450, "h": 350 } },
+      { "item": "viz_threat_categories", "type": "block", "position": { "x": 0, "y": 590, "w": 400, "h": 300 } },
+      { "item": "viz_top_blocked_users", "type": "block", "position": { "x": 400, "y": 590, "w": 800, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 890, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 940, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

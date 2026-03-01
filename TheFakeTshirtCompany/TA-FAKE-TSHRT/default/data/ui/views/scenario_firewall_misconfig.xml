@@ -60,7 +60,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario — Firewall Misconfiguration\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `firewall_misconfig` |\n| **Category** | Network |\n| **Duration** | Day 7, 10:15–12:05 (2 hours) |\n| **Severity** | High |\n| **Target** | FW-EDGE-01 (Cisco ASA 5525-X) |\n| **Root Cause** | Admin accidentally blocks traffic TO WEB-01 instead of FROM threat |\n| **Outcome** | Config rollback at 12:03, traffic normalizes by 12:05 |\n\n**Scenario Summary:** Network admin logs into FW-EDGE-01 at 10:15 to block a threat IP but mistakenly creates an ACL that blocks all customer traffic to WEB-01 (203.0.113.10). ~90 customer connections denied over 2 hours. Admin realizes the error and issues rollback command at 12:03, saving config at 12:04. Traffic normalizes immediately.",
+        "markdown": "# Scenario — Firewall Misconfiguration\n\n**demo_id:** `firewall_misconfig`\n\n**Category:** Network\n\n**Duration:** Day 7, 10:15–12:05 (2 hours)\n\n**Severity:** High\n\n**Target:** FW-EDGE-01 (Cisco ASA 5525-X)\n\n**Root Cause:** Admin accidentally blocks traffic TO WEB-01 instead of FROM threat\n\n**Outcome:** Config rollback at 12:03, traffic normalizes by 12:05\n\n**Scenario Summary:** Network admin logs into FW-EDGE-01 at 10:15 to block a threat IP but mistakenly creates an ACL that blocks all customer traffic to WEB-01 (203.0.113.10). ~90 customer connections denied over 2 hours. Admin realizes the error and issues rollback command at 12:03, saving config at 12:04. Traffic normalizes immediately.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -168,7 +168,7 @@
     "viz_evidence_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Event Sequence\n\n| Time | Event |\n|------|-------|\n| 10:15 | Admin login (605005) |\n| 10:16 | Enter config mode (111008) |\n| 10:18 | Bad ACL added (111010) |\n| 10:20–12:02 | Customer traffic denied (106023) |\n| 12:03 | Rollback command |\n| 12:04 | Config saved |\n| 12:05 | Traffic normalizes |",
+        "markdown": "### Event Sequence\n\n**10:15** — Admin login (605005)\n\n**10:16** — Enter config mode (111008)\n\n**10:18** — Bad ACL added (111010)\n\n**10:20–12:02** — Customer traffic denied (106023)\n\n**12:03** — Rollback command\n\n**12:04** — Config saved\n\n**12:05** — Traffic normalizes",
         "fontColor": "#C3CBD4"
       }
     },

@@ -1,79 +1,72 @@
 <dashboard version="2" theme="dark">
   <label>Source - AWS CloudTrail</label>
-  <description>AWS CloudTrail API audit logs — IAM, S3, EC2, and management events</description>
+  <description>Why index AWS CloudTrail? Detect unauthorized access and compliance violations</description>
   <definition><![CDATA[
 {
   "title": "Source - AWS CloudTrail",
-  "description": "AWS CloudTrail API audit logs — IAM, S3, EC2, and management events",
+  "description": "Why index AWS CloudTrail? Detect unauthorized access and compliance violations",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
-      "name": "Total CloudTrail Events Over Time",
+      "name": "Total API Calls Over Time",
       "options": {
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" by _time span=1h"
       }
     },
-    "ds_unique_users": {
+    "ds_unauthorized": {
       "type": "ds.search",
-      "name": "Unique User Count",
+      "name": "Unauthorized Attempts",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | stats dc(userIdentity.userName) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" (errorCode=AccessDenied OR errorCode=UnauthorizedAccess) | stats count"
       }
     },
-    "ds_error_count": {
+    "ds_iam_changes": {
       "type": "ds.search",
-      "name": "Error Event Count",
+      "name": "IAM Changes",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" errorCode=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" (eventName=Create* OR eventName=Delete* OR eventName=Attach* OR eventName=Detach*) | stats count"
       }
     },
-    "ds_scenario_events": {
+    "ds_console_logins": {
       "type": "ds.search",
-      "name": "Scenario Event Count",
+      "name": "Console Logins",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" demo_id=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" eventName=ConsoleLogin | stats count"
       }
     },
     "ds_events_timeline": {
       "type": "ds.search",
-      "name": "Events Over Time by Service",
+      "name": "API Activity Over Time by eventSource",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace(eventSource, \"\\.amazonaws\\.com\", \"\") | timechart span=1h count by service"
-      }
-    },
-    "ds_top_events": {
-      "type": "ds.search",
-      "name": "Top Event Names",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | stats count by eventName | sort -count | head 15 | rename eventName as \"Event Name\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace('eventSource', \"\\.amazonaws\\.com\", \"\") | timechart span=1h count by service limit=8"
       }
     },
     "ds_top_users": {
       "type": "ds.search",
-      "name": "Top Users",
+      "name": "Top Users by Activity",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" userIdentity.userName=* | stats count by userIdentity.userName | sort -count | head 15 | rename userIdentity.userName as \"User\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" userName=* | stats count by userName | sort -count | head 15 | rename userName as \"User\""
       }
     },
-    "ds_by_service": {
+    "ds_by_error": {
       "type": "ds.search",
-      "name": "Events by AWS Service",
+      "name": "Events by Error Code",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace(eventSource, \"\\.amazonaws\\.com\", \"\") | stats count by service | sort -count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" errorCode!=null errorCode=* | stats count by errorCode | sort -count | head 10"
       }
     },
-    "ds_errors": {
+    "ds_risky_api": {
       "type": "ds.search",
-      "name": "Error Events",
+      "name": "Top Risky API Calls",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" errorCode=* | stats count by errorCode eventName | sort -count | head 15 | rename errorCode as \"Error\" eventName as \"Event\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" (eventName=ConsoleLogin OR eventName=CreateUser OR eventName=CreateAccessKey OR eventName=AttachUserPolicy OR eventName=PutBucketPolicy OR eventName=StopLogging) | stats count by eventName | sort -count | rename eventName as \"API Call\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
-      "name": "Recent Events",
+      "name": "Recent Security Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | eval service=replace(eventSource, \"\\.amazonaws\\.com\", \"\") | table _time userIdentity.userName eventName service errorCode demo_id | sort -_time | head 30 | rename userIdentity.userName as \"User\" eventName as \"Event\" service as \"Service\" errorCode as \"Error\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" (eventName=ConsoleLogin OR eventName=Create* OR eventName=Delete* OR eventName=Attach* OR eventName=Detach* OR errorCode=*) | table _time userName eventName eventSource errorCode src_ip | sort -_time | head 30 | rename userName as \"User\" eventName as \"Event\" eventSource as \"Service\" errorCode as \"Error\" src_ip as \"Source IP\""
       }
     }
   },
@@ -81,13 +74,13 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — AWS CloudTrail\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:aws:cloudtrail` |\n| **Account** | 123456789012 (us-east-1) |\n| **Format** | JSON |\n| **Scenarios** | exfil (backdoor IAM user `svc-datasync`, S3 data theft) |",
+        "markdown": "# Source — AWS CloudTrail\n\n**Sourcetype:** `FAKE:aws:cloudtrail` | **Account:** 123456789012 (us-east-1) | **Format:** JSON\n\n**Why monitor?** Detect unauthorized access attempts, track IAM changes for compliance, audit console logins, and identify risky API calls before they become breaches.",
         "fontColor": "#C3CBD4"
       }
     },
     "viz_kpi_total": {
       "type": "splunk.singlevalue",
-      "title": "Total Events",
+      "title": "Total API Calls",
       "dataSources": { "primary": "ds_total_events" },
       "options": {
         "majorValue": "> sparklineValues | lastPoint()", "sparklineValues": "> primary | seriesByName('count')",
@@ -95,70 +88,63 @@
         "backgroundColor": "transparent", "showSparklineAreaGraph": true, "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_users": {
+    "viz_kpi_unauthorized": {
       "type": "splunk.singlevalue",
-      "title": "Unique Users",
-      "dataSources": { "primary": "ds_unique_users" },
-      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#7B56DB", "backgroundColor": "transparent", "sparklineDisplay": "off" }
-    },
-    "viz_kpi_errors": {
-      "type": "splunk.singlevalue",
-      "title": "Error Events",
-      "dataSources": { "primary": "ds_error_count" },
+      "title": "Unauthorized Attempts",
+      "dataSources": { "primary": "ds_unauthorized" },
       "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#DC4E41", "backgroundColor": "transparent", "sparklineDisplay": "off" }
     },
-    "viz_kpi_scenarios": {
+    "viz_kpi_iam": {
       "type": "splunk.singlevalue",
-      "title": "Scenario Events",
-      "dataSources": { "primary": "ds_scenario_events" },
+      "title": "IAM Changes",
+      "dataSources": { "primary": "ds_iam_changes" },
       "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#F8BE34", "backgroundColor": "transparent", "sparklineDisplay": "off" }
+    },
+    "viz_kpi_logins": {
+      "type": "splunk.singlevalue",
+      "title": "Console Logins",
+      "dataSources": { "primary": "ds_console_logins" },
+      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#7B56DB", "backgroundColor": "transparent", "sparklineDisplay": "off" }
     },
     "viz_events_timeline": {
       "type": "splunk.area",
-      "title": "Events by AWS Service Over Time",
+      "title": "API Activity Over Time",
       "dataSources": { "primary": "ds_events_timeline" },
       "options": {
         "stackMode": "stacked", "legendDisplay": "right", "nullValueDisplay": "zero",
         "areaOpacity": 0.7, "backgroundColor": "transparent",
-        "xAxisTitleVisibility": "hide", "yAxisTitleText": "Events / hour", "yAxisTitleVisibility": "show",
-        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB"]
+        "xAxisTitleVisibility": "hide", "yAxisTitleText": "API calls / hour", "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#A870EF"]
       },
       "showProgressBar": true, "showLastUpdated": true
     },
-    "viz_by_service": {
-      "type": "splunk.pie",
-      "title": "Events by Service",
-      "dataSources": { "primary": "ds_by_service" },
-      "options": { "labelDisplay": "valuesAndPercentage", "showDonutHole": true, "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB"] }
-    },
-    "viz_top_events": {
-      "type": "splunk.bar",
-      "title": "Top Event Names",
-      "dataSources": { "primary": "ds_top_events" },
-      "options": { "seriesColors": ["#00D2FF"], "legendDisplay": "off", "xAxisTitleText": "Events", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
-      "showProgressBar": true
-    },
     "viz_top_users": {
       "type": "splunk.bar",
-      "title": "Top Users",
+      "title": "Top Users by Activity",
       "dataSources": { "primary": "ds_top_users" },
-      "options": { "seriesColors": ["#7B56DB"], "legendDisplay": "off", "xAxisTitleText": "Events", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
+      "options": { "seriesColors": ["#7B56DB"], "legendDisplay": "off", "xAxisTitleText": "API Calls", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
       "showProgressBar": true
     },
-    "viz_errors": {
-      "type": "splunk.table",
-      "title": "Error Events",
-      "dataSources": { "primary": "ds_errors" },
-      "options": { "count": 15, "showRowNumbers": false },
+    "viz_by_error": {
+      "type": "splunk.pie",
+      "title": "What's Failing? (by Error Code)",
+      "dataSources": { "primary": "ds_by_error" },
+      "options": { "labelDisplay": "valuesAndPercentage", "showDonutHole": true, "seriesColors": ["#DC4E41", "#F1813F", "#F8BE34", "#7B56DB", "#53A051", "#009CEB", "#00D2FF", "#A870EF", "#E0E0E0", "#B0B0B0"] }
+    },
+    "viz_risky_api": {
+      "type": "splunk.bar",
+      "title": "Top Risky API Calls",
+      "dataSources": { "primary": "ds_risky_api" },
+      "options": { "seriesColors": ["#F8BE34"], "legendDisplay": "off", "xAxisTitleText": "Calls", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
       "showProgressBar": true
     },
     "viz_sample_header": {
       "type": "splunk.markdown",
-      "options": { "markdown": "### Recent Events", "fontColor": "#C3CBD4" }
+      "options": { "markdown": "### Recent Security Events", "fontColor": "#C3CBD4" }
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Sample Events",
+      "title": "Recent Security Events",
       "dataSources": { "primary": "ds_sample_events" },
       "options": { "count": 20, "showRowNumbers": false },
       "showProgressBar": true, "showLastUpdated": true
@@ -178,18 +164,17 @@
     "type": "grid",
     "globalInputs": ["input_global_trp"],
     "structure": [
-      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
-      { "item": "viz_kpi_total", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_users", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_errors", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_events_timeline", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
-      { "item": "viz_by_service", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_top_events", "type": "block", "position": { "x": 0, "y": 620, "w": 400, "h": 300 } },
-      { "item": "viz_top_users", "type": "block", "position": { "x": 400, "y": 620, "w": 400, "h": 300 } },
-      { "item": "viz_errors", "type": "block", "position": { "x": 800, "y": 620, "w": 400, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 120 } },
+      { "item": "viz_kpi_total", "type": "block", "position": { "x": 0, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unauthorized", "type": "block", "position": { "x": 300, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_iam", "type": "block", "position": { "x": 600, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_logins", "type": "block", "position": { "x": 900, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_events_timeline", "type": "block", "position": { "x": 0, "y": 240, "w": 750, "h": 350 } },
+      { "item": "viz_top_users", "type": "block", "position": { "x": 750, "y": 240, "w": 450, "h": 350 } },
+      { "item": "viz_by_error", "type": "block", "position": { "x": 0, "y": 590, "w": 400, "h": 300 } },
+      { "item": "viz_risky_api", "type": "block", "position": { "x": 400, "y": 590, "w": 800, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 890, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 940, "w": 1200, "h": 400 } }
     ]
   }
 }

@@ -1,10 +1,10 @@
 <dashboard version="2" theme="dark">
   <label>Source - WinEventLog</label>
-  <description>Windows Event Logs — Security, System, and Application events</description>
+  <description>Windows Event Logs — detect brute force attacks, track privileged account usage, audit system changes</description>
   <definition><![CDATA[
 {
   "title": "Source - WinEventLog",
-  "description": "Windows Event Logs — Security, System, and Application events",
+  "description": "Windows Event Logs — detect brute force attacks, track privileged account usage, audit system changes",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
@@ -13,53 +13,53 @@
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" by _time span=1h"
       }
     },
-    "ds_unique_hosts": {
+    "ds_security_events": {
       "type": "ds.search",
-      "name": "Unique Hosts",
+      "name": "Security Events",
       "options": {
-        "query": "| tstats dc(host) as count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" (EventCode=4625 OR EventCode=4624 OR EventCode=4720) | stats count"
       }
     },
     "ds_failed_logons": {
       "type": "ds.search",
-      "name": "Failed Logon Events",
+      "name": "Failed Logons",
       "options": {
         "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" EventCode=4625 | stats count"
       }
     },
-    "ds_scenario_events": {
+    "ds_account_lockouts": {
       "type": "ds.search",
-      "name": "Scenario Event Count",
+      "name": "Account Lockouts",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" demo_id=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" EventCode=4740 | stats count"
       }
     },
-    "ds_events_by_logname": {
+    "ds_events_over_time": {
       "type": "ds.search",
-      "name": "Events Over Time by LogName",
+      "name": "Events Over Time by EventCode",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" | timechart span=1h count by source"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" | timechart span=1h count by EventCode limit=8"
       }
     },
-    "ds_top_event_codes": {
+    "ds_events_by_log": {
       "type": "ds.search",
-      "name": "Top Event Codes",
+      "name": "Events by Log",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" EventCode=* | stats count by EventCode | sort -count | head 15 | rename EventCode as \"Event Code\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" source=* | stats count by source | sort -count | rename source as \"Log\""
       }
     },
-    "ds_events_by_host": {
+    "ds_top_failed_accounts": {
       "type": "ds.search",
-      "name": "Events by Host",
+      "name": "Top Failed Logon Accounts",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" by host | sort -count | head 15"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" EventCode=4625 user=* | stats count by user | sort -count | head 15 | rename user as \"Account\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
-      "name": "Recent Events",
+      "name": "Recent Security Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" | table _time host EventCode source Message demo_id | sort -_time | head 30 | rename host as \"Host\" EventCode as \"Event Code\" source as \"LogName\" Message as \"Message\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" | table _time host EventCode user src Message | sort -_time | head 30 | rename host as \"Host\" EventCode as \"Event Code\" user as \"User\" src as \"Source IP\" Message as \"Message\""
       }
     }
   },
@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — WinEventLog\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:WinEventLog` |\n| **Format** | XML (Windows Event Log) |\n| **Log Names** | Security, System, Application |\n| **Scenarios** | exfil — failed logons, privilege escalation; ransomware — suspicious process execution |",
+        "markdown": "# Source — WinEventLog\n\n**Sourcetype:** `FAKE:WinEventLog` | **Coverage:** Security, System, Application logs across all Windows servers | **Format:** XML\n\n**Why monitor?** Detect brute force attacks through failed logon patterns, track privileged account usage for compliance, and audit system changes to catch unauthorized modifications.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -85,13 +85,13 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_unique_hosts": {
+    "viz_kpi_security_events": {
       "type": "splunk.singlevalue",
-      "title": "Unique Hosts",
-      "dataSources": { "primary": "ds_unique_hosts" },
+      "title": "Security Events",
+      "dataSources": { "primary": "ds_security_events" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#7B56DB",
+        "majorColor": "#F8BE34",
         "backgroundColor": "transparent",
         "sparklineDisplay": "off"
       }
@@ -107,21 +107,21 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_kpi_scenarios": {
+    "viz_kpi_lockouts": {
       "type": "splunk.singlevalue",
-      "title": "Scenario Events",
-      "dataSources": { "primary": "ds_scenario_events" },
+      "title": "Account Lockouts (4740)",
+      "dataSources": { "primary": "ds_account_lockouts" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#F8BE34",
+        "majorColor": "#7B56DB",
         "backgroundColor": "transparent",
         "sparklineDisplay": "off"
       }
     },
-    "viz_events_by_logname": {
+    "viz_events_over_time": {
       "type": "splunk.area",
-      "title": "Events Over Time by LogName",
-      "dataSources": { "primary": "ds_events_by_logname" },
+      "title": "Events Over Time by EventCode",
+      "dataSources": { "primary": "ds_events_over_time" },
       "options": {
         "stackMode": "stacked",
         "legendDisplay": "right",
@@ -132,29 +132,29 @@
         "yAxisTitleText": "Events / hour",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
-        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB"]
+        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#F1813F", "#00CDAF"]
       },
       "showProgressBar": true,
       "showLastUpdated": true
     },
-    "viz_events_by_host": {
+    "viz_events_by_log": {
       "type": "splunk.pie",
-      "title": "Events by Host",
-      "dataSources": { "primary": "ds_events_by_host" },
+      "title": "Events by Log",
+      "dataSources": { "primary": "ds_events_by_log" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
         "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#F1813F", "#00CDAF"]
       }
     },
-    "viz_top_event_codes": {
+    "viz_top_failed_accounts": {
       "type": "splunk.bar",
-      "title": "Top Event Codes",
-      "dataSources": { "primary": "ds_top_event_codes" },
+      "title": "Top Failed Logon Accounts",
+      "dataSources": { "primary": "ds_top_failed_accounts" },
       "options": {
-        "seriesColors": ["#00D2FF"],
+        "seriesColors": ["#DC4E41"],
         "legendDisplay": "off",
-        "xAxisTitleText": "Events",
+        "xAxisTitleText": "Failed Logons",
         "xAxisTitleVisibility": "show",
         "yAxisTitleVisibility": "hide",
         "backgroundColor": "transparent"
@@ -164,13 +164,13 @@
     "viz_sample_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Recent Events",
+        "markdown": "### Recent Security Events",
         "fontColor": "#C3CBD4"
       }
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Sample Events",
+      "title": "Recent Security Events",
       "dataSources": { "primary": "ds_sample_events" },
       "options": {
         "count": 20,
@@ -208,12 +208,12 @@
     "structure": [
       { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
       { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_unique_hosts", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_security_events", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
       { "item": "viz_kpi_failed_logons", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_events_by_logname", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
-      { "item": "viz_events_by_host", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_top_event_codes", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_kpi_lockouts", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_events_by_log", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_top_failed_accounts", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
       { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
       { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
     ]

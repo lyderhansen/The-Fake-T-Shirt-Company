@@ -1,10 +1,10 @@
 <dashboard version="2" theme="dark">
   <label>Source - Webex API</label>
-  <description>Cisco Webex REST API data — meetings, admin events, compliance, and room analytics</description>
+  <description>Cisco Webex REST API — audit API usage, detect unauthorized integrations, track admin actions</description>
   <definition><![CDATA[
 {
   "title": "Source - Webex API",
-  "description": "Cisco Webex REST API data — meetings, admin events, compliance, and room analytics",
+  "description": "Cisco Webex REST API — audit API usage, detect unauthorized integrations, track admin actions",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
@@ -13,25 +13,25 @@
         "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") by _time span=1h"
       }
     },
-    "ds_sourcetype_count": {
+    "ds_admin_actions": {
       "type": "ds.search",
-      "name": "Sourcetype Count",
+      "name": "Admin Actions",
       "options": {
-        "query": "| tstats dc(sourcetype) as count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\")"
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\") | stats count"
       }
     },
-    "ds_unique_users": {
+    "ds_api_calls": {
       "type": "ds.search",
-      "name": "Unique Users",
+      "name": "API Calls",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | stats count"
+      }
+    },
+    "ds_unique_actors": {
+      "type": "ds.search",
+      "name": "Unique Actors",
       "options": {
         "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval user=coalesce(hostEmail, actorEmail, user) | where isnotnull(user) | stats dc(user) as count"
-      }
-    },
-    "ds_unique_rooms": {
-      "type": "ds.search",
-      "name": "Unique Rooms",
-      "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval room=coalesce(title, roomId) | where isnotnull(room) | stats dc(room) as count"
       }
     },
     "ds_events_over_time": {
@@ -43,16 +43,23 @@
     },
     "ds_by_sourcetype": {
       "type": "ds.search",
-      "name": "Events by Sourcetype",
+      "name": "Events by Type",
       "options": {
         "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") by sourcetype"
+      }
+    },
+    "ds_top_actors": {
+      "type": "ds.search",
+      "name": "Top Actors",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval user=coalesce(hostEmail, actorEmail, user) | where isnotnull(user) | stats count by user | sort -count | head 15 | rename user as \"Actor\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval display_type=coalesce(type, title, action) | eval display_user=coalesce(hostEmail, actorEmail, user) | table _time sourcetype host display_type display_user | sort -_time | head 30 | rename sourcetype as \"Sourcetype\" display_type as \"Type/Title\" display_user as \"User/Host\""
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:webex:meetings\" OR sourcetype=\"FAKE:cisco:webex:admin:audit:events\" OR sourcetype=\"FAKE:cisco:webex:security:audit:events\" OR sourcetype=\"FAKE:cisco:webex:meeting:qualities\" OR sourcetype=\"FAKE:cisco:webex:call:detailed_history\") | eval display_type=coalesce(type, title, action) | eval display_user=coalesce(hostEmail, actorEmail, user) | table _time sourcetype host display_type display_user | sort -_time | head 30 | rename sourcetype as \"Sourcetype\" display_type as \"Type/Title\" display_user as \"Actor\""
       }
     }
   },
@@ -60,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Webex API\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings`, `FAKE:cisco:webex:admin:audit:events`, `FAKE:cisco:webex:security:audit:events`, `FAKE:cisco:webex:meeting:qualities`, `FAKE:cisco:webex:call:detailed_history` |\n| **Platform** | Cisco Webex REST API |\n| **Format** | JSON |\n| **Scenarios** | exfil (admin audit events) |",
+        "markdown": "# Source — Webex API\n\n**Sourcetypes:** `FAKE:cisco:webex:meetings`, `FAKE:cisco:webex:admin:audit:events`, `FAKE:cisco:webex:security:audit:events`, `FAKE:cisco:webex:meeting:qualities`, `FAKE:cisco:webex:call:detailed_history` | **Coverage:** Webex REST API data | **Format:** JSON\n\n**Why monitor?** Audit API usage patterns to detect unauthorized integrations, track admin configuration changes, and ensure compliance with collaboration security policies.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -78,10 +85,21 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_sourcetypes": {
+    "viz_kpi_admin_actions": {
       "type": "splunk.singlevalue",
-      "title": "Sourcetype Count",
-      "dataSources": { "primary": "ds_sourcetype_count" },
+      "title": "Admin Actions",
+      "dataSources": { "primary": "ds_admin_actions" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_api_calls": {
+      "type": "splunk.singlevalue",
+      "title": "API Calls",
+      "dataSources": { "primary": "ds_api_calls" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#53A051",
@@ -89,24 +107,13 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_kpi_users": {
+    "viz_kpi_actors": {
       "type": "splunk.singlevalue",
-      "title": "Unique Users",
-      "dataSources": { "primary": "ds_unique_users" },
+      "title": "Unique Actors",
+      "dataSources": { "primary": "ds_unique_actors" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#7B56DB",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_rooms": {
-      "type": "splunk.singlevalue",
-      "title": "Unique Rooms",
-      "dataSources": { "primary": "ds_unique_rooms" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#F8BE34",
         "backgroundColor": "transparent",
         "sparklineDisplay": "off"
       }
@@ -132,13 +139,27 @@
     },
     "viz_by_sourcetype": {
       "type": "splunk.pie",
-      "title": "Events by Sourcetype",
+      "title": "Events by Type",
       "dataSources": { "primary": "ds_by_sourcetype" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
         "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41"]
       }
+    },
+    "viz_top_actors": {
+      "type": "splunk.bar",
+      "title": "Top Actors",
+      "dataSources": { "primary": "ds_top_actors" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
     },
     "viz_sample_header": {
       "type": "splunk.markdown",
@@ -149,7 +170,7 @@
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Sample Events",
+      "title": "Recent Events",
       "dataSources": { "primary": "ds_sample_events" },
       "options": {
         "count": 20,
@@ -187,13 +208,14 @@
     "structure": [
       { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 160 } },
       { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 160, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_sourcetypes", "type": "block", "position": { "x": 300, "y": 160, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_users", "type": "block", "position": { "x": 600, "y": 160, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_rooms", "type": "block", "position": { "x": 900, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_admin_actions", "type": "block", "position": { "x": 300, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_api_calls", "type": "block", "position": { "x": 600, "y": 160, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_actors", "type": "block", "position": { "x": 900, "y": 160, "w": 300, "h": 120 } },
       { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 280, "w": 750, "h": 350 } },
       { "item": "viz_by_sourcetype", "type": "block", "position": { "x": 750, "y": 280, "w": 450, "h": 350 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 630, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 680, "w": 1200, "h": 400 } }
+      { "item": "viz_top_actors", "type": "block", "position": { "x": 0, "y": 630, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 930, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 980, "w": 1200, "h": 400 } }
     ]
   }
 }

@@ -27,6 +27,7 @@ import json
 import random
 import sys
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -559,7 +560,7 @@ def generate_meeting_emails_for_day(base_date: str, day: int) -> List[Dict[str, 
 
     For each meeting in the schedule:
     - Generate invite email from organizer to each participant (same day or day before)
-    - Generate response emails from participants (same day)
+    - Generate response emails from participants (same day, AFTER invite)
     - Ghost meetings: invites sent but no responses (people didn't show up)
 
     Note: For simplicity, invites are sent on meeting day or day before (realistic for
@@ -580,6 +581,7 @@ def generate_meeting_emails_for_day(base_date: str, day: int) -> List[Dict[str, 
             # Invites sent on meeting day or day before (0 or 1 day before)
             invite_day_offset = random.choice([0, 0, 0, 1])  # 75% same day, 25% day before
             invite_day = meeting_day - invite_day_offset
+            same_day = (invite_day == meeting_day)
 
             # Only generate if invite_day matches current day and meeting has organizer
             if invite_day == day and meeting.organizer_email and meeting.participants:
@@ -592,8 +594,17 @@ def generate_meeting_emails_for_day(base_date: str, day: int) -> List[Dict[str, 
                         if invite:
                             events.append(invite)
 
-            # Generate responses on the meeting day (not for ghost meetings)
-            if meeting_day == day and not meeting.is_ghost and meeting.participants:
+                            # Same-day invite+response: generate response AFTER invite
+                            if same_day and not meeting.is_ghost:
+                                response = generate_meeting_response_event(
+                                    base_date, day, meeting, participant_email,
+                                    after_ts=invite["Received"],
+                                )
+                                if response:
+                                    events.append(response)
+
+            # Responses for day-before invites (no timing constraint — different day)
+            if not same_day and meeting_day == day and not meeting.is_ghost and meeting.participants:
                 for participant_email in meeting.participants:
                     if participant_email and participant_email != meeting.organizer_email:
                         response = generate_meeting_response_event(
@@ -643,11 +654,28 @@ def generate_meeting_invite_event(base_date: str, day: int,
 
 def generate_meeting_response_event(base_date: str, day: int,
                                      meeting: ScheduledMeeting,
-                                     participant_email: str) -> Dict[str, Any]:
-    """Generate a meeting response email from a participant."""
-    hour = random.randint(8, 17)
-    minute, second = random.randint(0, 59), random.randint(0, 59)
-    ts = ts_iso(base_date, day, hour, minute, second)
+                                     participant_email: str,
+                                     after_ts: str = None) -> Dict[str, Any]:
+    """Generate a meeting response email from a participant.
+
+    Args:
+        after_ts: If provided (ISO timestamp of invite), response is 5-120 min after.
+            This ensures responses are never timestamped before the invite.
+    """
+    if after_ts:
+        # Parse invite timestamp and add offset (response always AFTER invite)
+        invite_dt = datetime.strptime(after_ts, "%Y-%m-%dT%H:%M:%SZ")
+        if invite_dt.hour >= 17:
+            # Late invite: use small offset (1-5 min) to stay close to business hours
+            offset_mins = random.randint(1, 5)
+        else:
+            offset_mins = random.randint(5, 120)
+        response_dt = invite_dt + timedelta(minutes=offset_mins)
+        ts = response_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        hour = random.randint(8, 17)
+        minute, second = random.randint(0, 59), random.randint(0, 59)
+        ts = ts_iso(base_date, day, hour, minute, second)
 
     # Pick response type based on weights
     response_type = random.choices(

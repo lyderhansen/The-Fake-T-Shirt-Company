@@ -88,7 +88,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario — CPU Runaway\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `cpu_runaway` |\n| **Category** | Operations |\n| **Duration** | Days 11–12 (~32 hours) |\n| **Severity** | High |\n| **Target** | SQL-PROD-01 (10.10.20.30, Boston) |\n| **Root Cause** | SQL backup job hits locked table, infinite retry loop |\n| **Outcome** | DBA kills job & restarts SQL service at Day 12 10:30 |\n\n**Scenario Summary:** SQL backup job starts at Day 11 02:00 and hits a locked table, entering an infinite retry loop. CPU climbs from 40% through 65% (warning), 78% (escalating), 88% (high), to 100% saturation by Day 12 08:00. Database connections fail, web errors cascade. DBA manually kills the stuck process and restarts SQL service at 10:30, CPU returns to normal by 18:00.",
+        "markdown": "# Scenario — CPU Runaway\n\n**demo_id:** `cpu_runaway`\n\n**Category:** Operations\n\n**Duration:** Days 11–12 (~32 hours)\n\n**Severity:** High\n\n**Target:** SQL-PROD-01 (10.10.20.30, Boston)\n\n**Root Cause:** SQL backup job hits locked table, infinite retry loop\n\n**Outcome:** DBA kills job & restarts SQL service at Day 12 10:30\n\n**Scenario Summary:** SQL backup job starts at Day 11 02:00 and hits a locked table, entering an infinite retry loop. CPU climbs from 40% through 65% (warning), 78% (escalating), 88% (high), to 100% saturation by Day 12 08:00. Database connections fail, web errors cascade. DBA manually kills the stuck process and restarts SQL service at 10:30, CPU returns to normal by 18:00.",
         "fontColor": "#C3CBD4"
       }
     },

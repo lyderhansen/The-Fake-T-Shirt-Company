@@ -74,7 +74,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario — Ransomware Attempt\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `ransomware_attempt` |\n| **Category** | Security |\n| **Duration** | Day 8 (~20 minutes active, Day 9 cleanup) |\n| **Severity** | High |\n| **Outcome** | ✅ **BLOCKED** — EDR detected and quarantined in 10 min |\n| **Target** | Brooklyn White (Sales Engineer, Austin) |\n| **C2 Server** | 194.26.29.42 (Russia) |\n\n**Attack Summary:** Phishing email delivers malicious Word macro (Invoice_Q4_2026.docm). Brooklyn White opens at 14:02, macro drops svchost_update.exe, C2 callback at 14:05, SMB lateral movement at 14:08. Windows Defender detects Trojan:Win32/Emotet.RPK!MTB at 14:12, Meraki isolates client at 14:15. Full containment in ~20 minutes.",
+        "markdown": "# Scenario — Ransomware Attempt\n\n**demo_id:** `ransomware_attempt`\n\n**Category:** Security\n\n**Duration:** Day 8 (~20 minutes active, Day 9 cleanup)\n\n**Severity:** High\n\n**Outcome:** BLOCKED — EDR detected and quarantined in 10 min\n\n**Target:** Brooklyn White (Sales Engineer, Austin)\n\n**C2 Server:** 194.26.29.42 (Russia)\n\n**Attack Summary:** Phishing email delivers malicious Word macro (Invoice_Q4_2026.docm). Brooklyn White opens at 14:02, macro drops svchost_update.exe, C2 callback at 14:05, SMB lateral movement at 14:08. Windows Defender detects Trojan:Win32/Emotet.RPK!MTB at 14:12, Meraki isolates client at 14:15. Full containment in ~20 minutes.",
         "fontColor": "#C3CBD4"
       }
     },

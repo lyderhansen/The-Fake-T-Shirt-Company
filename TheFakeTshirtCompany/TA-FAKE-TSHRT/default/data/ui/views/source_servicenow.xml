@@ -1,65 +1,72 @@
 <dashboard version="2" theme="dark">
   <label>Source - ServiceNow</label>
-  <description>ServiceNow ITSM — incident management and tracking</description>
+  <description>ServiceNow ITSM — incident volume, resolution tracking, and service health</description>
   <definition><![CDATA[
 {
   "title": "Source - ServiceNow",
-  "description": "ServiceNow ITSM — incident management and tracking",
+  "description": "ServiceNow ITSM — incident volume, resolution tracking, and service health",
   "dataSources": {
-    "ds_total_events": {
+    "ds_total_incidents": {
       "type": "ds.search",
-      "name": "Total ServiceNow Events Over Time",
+      "name": "Total Incidents Over Time",
       "options": {
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" by _time span=1h"
       }
     },
-    "ds_active_incidents": {
+    "ds_open_incidents": {
       "type": "ds.search",
-      "name": "Active Incidents",
+      "name": "Open Incidents",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" state!=\"Closed\" state!=\"Resolved\" | stats dc(number) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" (dv_state=\"New\" OR dv_state=\"In Progress\" OR dv_state=\"Assess\") | stats dc(number) as count"
       }
     },
-    "ds_unique_assignees": {
+    "ds_p1p2_incidents": {
       "type": "ds.search",
-      "name": "Unique Assignees",
+      "name": "P1/P2 Incidents",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" assigned_to_name=* | stats dc(assigned_to_name) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" (priority=1 OR priority=2) | stats dc(number) as count"
       }
     },
-    "ds_scenario_events": {
+    "ds_avg_resolution": {
       "type": "ds.search",
-      "name": "Scenario Event Count",
+      "name": "Avg Resolution Hours",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" demo_id=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" (dv_state=\"Resolved\" OR dv_state=\"Closed\") sys_updated_on=* sys_created_on=* | eval resolve_time=strptime(sys_updated_on,\"%Y-%m-%dT%H:%M:%SZ\") | eval open_time=strptime(sys_created_on,\"%Y-%m-%dT%H:%M:%SZ\") | eval hours=round((resolve_time-open_time)/3600,1) | stats avg(hours) as count | eval count=round(count,1)"
       }
     },
-    "ds_events_over_time": {
+    "ds_incidents_over_time": {
       "type": "ds.search",
-      "name": "Events Over Time",
+      "name": "Incidents Over Time by Priority",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | timechart span=1h count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | eval pri_label=\"P\".priority | timechart span=1h count by pri_label"
       }
     },
-    "ds_by_priority": {
+    "ds_priority_distribution": {
       "type": "ds.search",
       "name": "Incidents by Priority",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | stats count by priority | sort priority"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | eval pri_label=\"P\".priority | stats count by pri_label | sort pri_label"
       }
     },
-    "ds_by_state": {
+    "ds_top_assignment_groups": {
       "type": "ds.search",
-      "name": "Incidents by State",
+      "name": "Top Assignment Groups by Workload",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | stats count by state | sort -count | rename state as \"State\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" dv_assignment_group=* | stats count by dv_assignment_group | sort -count | head 15 | rename dv_assignment_group as \"Assignment Group\""
       }
     },
-    "ds_sample_events": {
+    "ds_by_category": {
       "type": "ds.search",
-      "name": "Recent Events",
+      "name": "Incidents by Category",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" | table _time number state priority short_description assignment_group assigned_to_name demo_id | sort -_time | head 30 | rename number as \"Number\" state as \"State\" priority as \"Priority\" short_description as \"Description\" assignment_group as \"Group\" assigned_to_name as \"Assignee\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" category=* | stats count by category | sort -count"
+      }
+    },
+    "ds_recent_p1p2": {
+      "type": "ds.search",
+      "name": "Recent P1/P2 Incidents",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:servicenow:incident\" (priority=1 OR priority=2) | table _time number priority short_description dv_assignment_group dv_state | sort -_time | head 30 | rename number as \"Number\" priority as \"Priority\" short_description as \"Description\" dv_assignment_group as \"Group\" dv_state as \"State\""
       }
     }
   },
@@ -67,14 +74,14 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — ServiceNow\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:servicenow:incident` |\n| **Platform** | ServiceNow ITSM |\n| **Format** | Key-Value pairs |\n| **Scenarios** | ransomware_attempt, firewall_misconfig, certificate_expiry |",
+        "markdown": "# Source — ServiceNow\n\n**Sourcetype:** `FAKE:servicenow:incident` | **Coverage:** IT Service Management (all locations) | **Format:** Key-Value pairs\n\n**Why monitor?** Measure IT service health — track incident volume, resolution times, and identify recurring issues.",
         "fontColor": "#C3CBD4"
       }
     },
-    "viz_kpi_total_events": {
+    "viz_kpi_total_incidents": {
       "type": "splunk.singlevalue",
-      "title": "Total Events",
-      "dataSources": { "primary": "ds_total_events" },
+      "title": "Total Incidents",
+      "dataSources": { "primary": "ds_total_incidents" },
       "options": {
         "majorValue": "> sparklineValues | lastPoint()",
         "sparklineValues": "> primary | seriesByName('count')",
@@ -85,32 +92,10 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_active": {
+    "viz_kpi_open": {
       "type": "splunk.singlevalue",
-      "title": "Active Incidents",
-      "dataSources": { "primary": "ds_active_incidents" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#DC4E41",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_assignees": {
-      "type": "splunk.singlevalue",
-      "title": "Unique Assignees",
-      "dataSources": { "primary": "ds_unique_assignees" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#7B56DB",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_scenarios": {
-      "type": "splunk.singlevalue",
-      "title": "Scenario Events",
-      "dataSources": { "primary": "ds_scenario_events" },
+      "title": "Open Incidents",
+      "dataSources": { "primary": "ds_open_incidents" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#F8BE34",
@@ -118,44 +103,73 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_events_over_time": {
-      "type": "splunk.area",
-      "title": "Events Over Time",
-      "dataSources": { "primary": "ds_events_over_time" },
+    "viz_kpi_p1p2": {
+      "type": "splunk.singlevalue",
+      "title": "P1/P2 Incidents",
+      "dataSources": { "primary": "ds_p1p2_incidents" },
       "options": {
-        "legendDisplay": "off",
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_resolution": {
+      "type": "splunk.singlevalue",
+      "title": "Avg Resolution Hours",
+      "dataSources": { "primary": "ds_avg_resolution" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_incidents_over_time": {
+      "type": "splunk.area",
+      "title": "Incidents Over Time by Priority",
+      "dataSources": { "primary": "ds_incidents_over_time" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
         "nullValueDisplay": "zero",
         "areaOpacity": 0.7,
         "backgroundColor": "transparent",
         "xAxisTitleVisibility": "hide",
-        "yAxisTitleText": "Events / hour",
+        "yAxisTitleText": "Incidents / hour",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
-        "seriesColors": ["#00D2FF"]
+        "seriesColorsByField": {
+          "P1": "#DC4E41",
+          "P2": "#F1813F",
+          "P3": "#F8BE34",
+          "P4": "#53A051",
+          "P5": "#00D2FF"
+        }
       },
       "showProgressBar": true,
       "showLastUpdated": true
     },
-    "viz_by_priority": {
+    "viz_priority_distribution": {
       "type": "splunk.pie",
       "title": "Incidents by Priority",
-      "dataSources": { "primary": "ds_by_priority" },
+      "dataSources": { "primary": "ds_priority_distribution" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
         "seriesColorsByField": {
-          "1": "#DC4E41",
-          "2": "#F1813F",
-          "3": "#F8BE34",
-          "4": "#53A051",
-          "5": "#00D2FF"
+          "P1": "#DC4E41",
+          "P2": "#F1813F",
+          "P3": "#F8BE34",
+          "P4": "#53A051",
+          "P5": "#00D2FF"
         }
       }
     },
-    "viz_by_state": {
+    "viz_top_assignment_groups": {
       "type": "splunk.bar",
-      "title": "Incidents by State",
-      "dataSources": { "primary": "ds_by_state" },
+      "title": "Top Assignment Groups by Workload",
+      "dataSources": { "primary": "ds_top_assignment_groups" },
       "options": {
         "seriesColors": ["#7B56DB"],
         "legendDisplay": "off",
@@ -166,17 +180,27 @@
       },
       "showProgressBar": true
     },
-    "viz_sample_header": {
+    "viz_by_category": {
+      "type": "splunk.pie",
+      "title": "Incidents by Category",
+      "dataSources": { "primary": "ds_by_category" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_p1p2_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Recent Events",
+        "markdown": "### Recent P1/P2 Incidents",
         "fontColor": "#C3CBD4"
       }
     },
-    "viz_sample_events": {
+    "viz_recent_p1p2": {
       "type": "splunk.table",
-      "title": "Sample Events",
-      "dataSources": { "primary": "ds_sample_events" },
+      "title": "P1/P2 Incidents",
+      "dataSources": { "primary": "ds_recent_p1p2" },
       "options": {
         "count": 20,
         "showRowNumbers": false
@@ -211,16 +235,17 @@
     "type": "grid",
     "globalInputs": ["input_global_trp"],
     "structure": [
-      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 140 } },
-      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_active", "type": "block", "position": { "x": 300, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_assignees", "type": "block", "position": { "x": 600, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 260, "w": 750, "h": 350 } },
-      { "item": "viz_by_priority", "type": "block", "position": { "x": 750, "y": 260, "w": 450, "h": 350 } },
-      { "item": "viz_by_state", "type": "block", "position": { "x": 0, "y": 610, "w": 1200, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 910, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 960, "w": 1200, "h": 400 } }
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 130 } },
+      { "item": "viz_kpi_total_incidents", "type": "block", "position": { "x": 0, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_open", "type": "block", "position": { "x": 300, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_p1p2", "type": "block", "position": { "x": 600, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_resolution", "type": "block", "position": { "x": 900, "y": 130, "w": 300, "h": 120 } },
+      { "item": "viz_incidents_over_time", "type": "block", "position": { "x": 0, "y": 250, "w": 750, "h": 350 } },
+      { "item": "viz_priority_distribution", "type": "block", "position": { "x": 750, "y": 250, "w": 450, "h": 350 } },
+      { "item": "viz_top_assignment_groups", "type": "block", "position": { "x": 0, "y": 600, "w": 600, "h": 300 } },
+      { "item": "viz_by_category", "type": "block", "position": { "x": 600, "y": 600, "w": 600, "h": 300 } },
+      { "item": "viz_p1p2_header", "type": "block", "position": { "x": 0, "y": 900, "w": 1200, "h": 50 } },
+      { "item": "viz_recent_p1p2", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 400 } }
     ]
   }
 }

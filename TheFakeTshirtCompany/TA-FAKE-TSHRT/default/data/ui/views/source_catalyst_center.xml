@@ -1,0 +1,242 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Catalyst Center</label>
+  <description>Network assurance — proactive issue detection, health scoring, and capacity planning</description>
+  <definition><![CDATA[
+{
+  "title": "Source — Catalyst Center",
+  "description": "Network assurance — proactive issue detection, health scoring, and capacity planning",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Catalyst Center Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:catalyst:devicehealth\" OR sourcetype=\"FAKE:cisco:catalyst:networkhealth\" OR sourcetype=\"FAKE:cisco:catalyst:clienthealth\" OR sourcetype=\"FAKE:cisco:catalyst:issue\") by _time span=1h"
+      }
+    },
+    "ds_devices_monitored": {
+      "type": "ds.search",
+      "name": "Devices Monitored",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:devicehealth\" | spath name | stats dc(name) as count"
+      }
+    },
+    "ds_active_issues": {
+      "type": "ds.search",
+      "name": "Active Issues",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:issue\" | spath status | search status=active | stats count"
+      }
+    },
+    "ds_high_severity_issues": {
+      "type": "ds.search",
+      "name": "HIGH Severity Issues",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:issue\" | spath issueSeverity | search issueSeverity=HIGH | stats count"
+      }
+    },
+    "ds_device_health": {
+      "type": "ds.search",
+      "name": "Device Health Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:devicehealth\" | spath name | spath overallHealth | timechart span=1h avg(overallHealth) by name"
+      }
+    },
+    "ds_issue_severity": {
+      "type": "ds.search",
+      "name": "Issue Severity Distribution",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:issue\" | spath issueSeverity | stats count by issueSeverity | sort -count"
+      }
+    },
+    "ds_top_issues": {
+      "type": "ds.search",
+      "name": "Top Issues by Name",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:issue\" | spath issueName | stats count by issueName | sort -count | head 15 | rename issueName as \"Issue Name\""
+      }
+    },
+    "ds_events_by_sourcetype": {
+      "type": "ds.search",
+      "name": "Events by Sourcetype",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:catalyst:devicehealth\" OR sourcetype=\"FAKE:cisco:catalyst:networkhealth\" OR sourcetype=\"FAKE:cisco:catalyst:clienthealth\" OR sourcetype=\"FAKE:cisco:catalyst:issue\") | stats count by sourcetype | sort -count"
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Issues",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:catalyst:issue\" | spath issueName | spath issueSeverity | spath issuePriority | spath issueDescription | spath status | table _time issueName issueSeverity issuePriority status issueDescription | sort -_time | head 30 | rename issueName as \"Issue\" issueSeverity as \"Severity\" issuePriority as \"Priority\" status as \"Status\" issueDescription as \"Description\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Catalyst Center\n\n**Sourcetypes:** `FAKE:cisco:catalyst:devicehealth/networkhealth/clienthealth/issue` | **Format:** JSON API\n\n**Why monitor?** Proactive network management — detect device health degradation, identify client connectivity issues, and resolve network problems before users notice.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_devices": {
+      "type": "splunk.singlevalue",
+      "title": "Devices Monitored",
+      "dataSources": { "primary": "ds_devices_monitored" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_issues": {
+      "type": "splunk.singlevalue",
+      "title": "Active Issues",
+      "dataSources": { "primary": "ds_active_issues" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_high_severity": {
+      "type": "splunk.singlevalue",
+      "title": "HIGH Severity Issues",
+      "dataSources": { "primary": "ds_high_severity_issues" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_device_health": {
+      "type": "splunk.line",
+      "title": "Device Health Score Over Time",
+      "dataSources": { "primary": "ds_device_health" },
+      "options": {
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Health Score (0-10)",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_issue_severity": {
+      "type": "splunk.pie",
+      "title": "Issue Severity Distribution",
+      "dataSources": { "primary": "ds_issue_severity" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "HIGH": "#DC4E41",
+          "MEDIUM": "#F8BE34",
+          "LOW": "#53A051"
+        }
+      }
+    },
+    "viz_top_issues": {
+      "type": "splunk.bar",
+      "title": "Top Issues by Name",
+      "dataSources": { "primary": "ds_top_issues" },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Occurrences",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_events_by_sourcetype": {
+      "type": "splunk.pie",
+      "title": "Events by Sourcetype",
+      "dataSources": { "primary": "ds_events_by_sourcetype" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#DC4E41"]
+      }
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Issues",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Recent Issues",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 180 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_devices", "type": "block", "position": { "x": 300, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_issues", "type": "block", "position": { "x": 600, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_high_severity", "type": "block", "position": { "x": 900, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_device_health", "type": "block", "position": { "x": 0, "y": 300, "w": 750, "h": 350 } },
+      { "item": "viz_issue_severity", "type": "block", "position": { "x": 750, "y": 300, "w": 450, "h": 350 } },
+      { "item": "viz_top_issues", "type": "block", "position": { "x": 0, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_events_by_sourcetype", "type": "block", "position": { "x": 400, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 1000, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

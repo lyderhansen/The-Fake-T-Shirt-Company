@@ -1,0 +1,241 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Cisco Catalyst</label>
+  <description>Campus switches — port security, network changes, and access control</description>
+  <definition><![CDATA[
+{
+  "title": "Source — Cisco Catalyst",
+  "description": "Campus switches — port security, network changes, and access control",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total Catalyst Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" by _time span=1h"
+      }
+    },
+    "ds_unique_switches": {
+      "type": "ds.search",
+      "name": "Unique Switches",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" | stats dc(host) as count"
+      }
+    },
+    "ds_auth_events": {
+      "type": "ds.search",
+      "name": "Authentication Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" (DOT1X OR MAB OR AUTHMGR) | stats count"
+      }
+    },
+    "ds_interface_changes": {
+      "type": "ds.search",
+      "name": "Interface Changes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" (LINEPROTO OR LINK) | stats count"
+      }
+    },
+    "ds_events_by_host": {
+      "type": "ds.search",
+      "name": "Events by Switch Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" | timechart span=1h count by host"
+      }
+    },
+    "ds_by_facility": {
+      "type": "ds.search",
+      "name": "Events by Facility",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" | rex \"%(?<facility>[A-Z_]+)-\\d-\" | stats count by facility | sort -count | head 15"
+      }
+    },
+    "ds_top_interfaces": {
+      "type": "ds.search",
+      "name": "Top Interfaces",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" | rex \"(?<interface>(?:GigabitEthernet|TenGigabitEthernet|Port-channel)\\S+)\" | search interface=* | stats count by interface | sort -count | head 15 | rename interface as \"Interface\""
+      }
+    },
+    "ds_events_by_severity": {
+      "type": "ds.search",
+      "name": "Events by Severity",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" | rex \"%[A-Z_]+-(?<severity>\\d)-\" | stats count by severity | sort severity"
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:ios\" | rex \"%(?<facility>[A-Z_]+)-(?<sev>\\d)-(?<mnemonic>\\S+)\" | table _time host facility sev mnemonic _raw | sort -_time | head 30 | rename facility as \"Facility\" sev as \"Sev\" mnemonic as \"Mnemonic\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Cisco Catalyst\n\n**Sourcetype:** `FAKE:cisco:ios` | **Devices:** IOS-XE 17.12.4 across 3 sites | **Format:** Syslog\n\n**Why monitor?** Detect unauthorized network access via 802.1X failures, track interface flaps that cause outages, and audit configuration changes.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_switches": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Switches",
+      "dataSources": { "primary": "ds_unique_switches" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_auth": {
+      "type": "splunk.singlevalue",
+      "title": "Auth Events",
+      "dataSources": { "primary": "ds_auth_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_interface_changes": {
+      "type": "splunk.singlevalue",
+      "title": "Interface Changes",
+      "dataSources": { "primary": "ds_interface_changes" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_by_host": {
+      "type": "splunk.area",
+      "title": "Events by Switch Over Time",
+      "dataSources": { "primary": "ds_events_by_host" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_by_facility": {
+      "type": "splunk.pie",
+      "title": "Events by Facility",
+      "dataSources": { "primary": "ds_by_facility" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
+      }
+    },
+    "viz_top_interfaces": {
+      "type": "splunk.bar",
+      "title": "Top Interfaces by Event Count",
+      "dataSources": { "primary": "ds_top_interfaces" },
+      "options": {
+        "seriesColors": ["#00D2FF"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_events_by_severity": {
+      "type": "splunk.pie",
+      "title": "Events by Severity",
+      "dataSources": { "primary": "ds_events_by_severity" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#F1813F", "#F8BE34", "#009CEB", "#53A051", "#00CDAF", "#7B56DB"]
+      }
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Sample Events",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 180 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_switches", "type": "block", "position": { "x": 300, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_auth", "type": "block", "position": { "x": 600, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_interface_changes", "type": "block", "position": { "x": 900, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_events_by_host", "type": "block", "position": { "x": 0, "y": 300, "w": 750, "h": 350 } },
+      { "item": "viz_by_facility", "type": "block", "position": { "x": 750, "y": 300, "w": 450, "h": 350 } },
+      { "item": "viz_top_interfaces", "type": "block", "position": { "x": 0, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_events_by_severity", "type": "block", "position": { "x": 400, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 1000, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

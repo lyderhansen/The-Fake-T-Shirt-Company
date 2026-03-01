@@ -81,7 +81,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario — Memory Leak\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `memory_leak` |\n| **Category** | Operations |\n| **Duration** | Days 6–9 (4 days) |\n| **Severity** | High |\n| **Target** | WEB-01 (172.16.1.10, Boston DMZ) |\n| **Outcome** | OOM crash at Day 9 14:00, auto-restart at 14:05 |\n\n**Scenario Summary:** Application memory leak on WEB-01 causes gradual memory consumption over 4 days. Memory climbs from ~55% (Day 6) through 75% (Day 7) and 90% (Day 8) to 99% (Day 9). Swap usage escalates from 0 to 25GB. OOM killer activates at 14:00 on Day 9, nginx service crashes, automatic restart at 14:05 restores service.",
+        "markdown": "# Scenario — Memory Leak\n\n**demo_id:** `memory_leak`\n\n**Category:** Operations\n\n**Duration:** Days 6–9 (4 days)\n\n**Severity:** High\n\n**Target:** WEB-01 (172.16.1.10, Boston DMZ)\n\n**Outcome:** OOM crash at Day 9 14:00, auto-restart at 14:05\n\n**Scenario Summary:** Application memory leak on WEB-01 causes gradual memory consumption over 4 days. Memory climbs from ~55% (Day 6) through 75% (Day 7) and 90% (Day 8) to 99% (Day 9). Swap usage escalates from 0 to 25GB. OOM killer activates at 14:00 on Day 9, nginx service crashes, automatic restart at 14:05 restores service.",
         "fontColor": "#C3CBD4"
       }
     },

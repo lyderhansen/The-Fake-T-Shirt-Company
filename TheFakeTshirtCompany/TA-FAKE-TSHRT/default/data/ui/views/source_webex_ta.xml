@@ -1,10 +1,10 @@
 <dashboard version="2" theme="dark">
   <label>Source - Webex TA</label>
-  <description>Cisco Webex Technical Add-on — meeting history and participant data</description>
+  <description>Cisco Webex Technical Add-on — meeting quality metrics and room utilization tracking</description>
   <definition><![CDATA[
 {
   "title": "Source - Webex TA",
-  "description": "Cisco Webex Technical Add-on — meeting history and participant data",
+  "description": "Cisco Webex Technical Add-on — meeting quality metrics and room utilization tracking",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
@@ -13,25 +13,25 @@
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" by _time span=1h"
       }
     },
-    "ds_total_meetings": {
+    "ds_unique_rooms": {
+      "type": "ds.search",
+      "name": "Unique Rooms",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" confName=* | stats dc(confName) as count"
+      }
+    },
+    "ds_quality_issues": {
       "type": "ds.search",
       "name": "Total Meetings",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | stats dc(confName) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | stats count"
       }
     },
-    "ds_unique_participants": {
+    "ds_meeting_hours": {
       "type": "ds.search",
-      "name": "Unique Participants",
+      "name": "Meeting Hours",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" hostEmail=* | stats dc(hostEmail) as count"
-      }
-    },
-    "ds_avg_duration": {
-      "type": "ds.search",
-      "name": "Average Duration",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" Duration=* | stats avg(Duration) as count | eval count=round(count,0).\" min\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" duration=* | stats sum(duration) as total_min | eval count=round(total_min/60,0).\" hrs\""
       }
     },
     "ds_events_over_time": {
@@ -48,9 +48,9 @@
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" by sourcetype"
       }
     },
-    "ds_top_hosts": {
+    "ds_top_rooms": {
       "type": "ds.search",
-      "name": "Top Meeting Hosts",
+      "name": "Top Meeting Rooms by Usage",
       "options": {
         "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" hostEmail=* | stats count by hostEmail | sort -count | head 15 | rename hostEmail as \"Host\""
       }
@@ -59,7 +59,7 @@
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | table _time confName hostEmail Duration peakAttendee | sort -_time | head 30 | rename confName as \"Meeting\" hostEmail as \"User\" Duration as \"Duration (min)\" peakAttendee as \"Attendees\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | table _time confName hostEmail duration peakAttendee | sort -_time | head 30 | rename confName as \"Meeting\" hostEmail as \"Host\" duration as \"Duration (min)\" peakAttendee as \"Attendees\""
       }
     }
   },
@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Webex TA\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:cisco:webex:meetings:history:meetingusagehistory`, `FAKE:cisco:webex:meetings:history:meetingattendeehistory` |\n| **Platform** | Cisco Webex (Technical Add-on format) |\n| **Format** | JSON |\n| **Scenarios** | None (baseline meeting data) |",
+        "markdown": "# Source — Webex TA\n\n**Sourcetypes:** `FAKE:cisco:webex:meetings:history:meetingusagehistory`, `FAKE:cisco:webex:meetings:history:meetingattendeehistory` | **Coverage:** Meeting history and participant data | **Format:** JSON\n\n**Why monitor?** Track meeting quality metrics to identify rooms with recurring audio/video issues, and optimize conference room utilization across all locations.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -85,21 +85,10 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_meetings": {
+    "viz_kpi_rooms": {
       "type": "splunk.singlevalue",
-      "title": "Total Meetings",
-      "dataSources": { "primary": "ds_total_meetings" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#53A051",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_participants": {
-      "type": "splunk.singlevalue",
-      "title": "Unique Participants",
-      "dataSources": { "primary": "ds_unique_participants" },
+      "title": "Unique Rooms",
+      "dataSources": { "primary": "ds_unique_rooms" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#7B56DB",
@@ -107,10 +96,21 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_kpi_duration": {
+    "viz_kpi_quality_issues": {
       "type": "splunk.singlevalue",
-      "title": "Avg Duration",
-      "dataSources": { "primary": "ds_avg_duration" },
+      "title": "Total Meetings",
+      "dataSources": { "primary": "ds_quality_issues" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#53A051",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_meeting_hours": {
+      "type": "splunk.singlevalue",
+      "title": "Meeting Hours",
+      "dataSources": { "primary": "ds_meeting_hours" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#F8BE34",
@@ -146,10 +146,10 @@
         "seriesColors": ["#00D2FF", "#7B56DB"]
       }
     },
-    "viz_top_hosts": {
+    "viz_top_rooms": {
       "type": "splunk.bar",
-      "title": "Top Meeting Hosts",
-      "dataSources": { "primary": "ds_top_hosts" },
+      "title": "Top Meeting Rooms by Usage",
+      "dataSources": { "primary": "ds_top_rooms" },
       "options": {
         "seriesColors": ["#53A051"],
         "legendDisplay": "off",
@@ -169,7 +169,7 @@
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Sample Events",
+      "title": "Recent Events",
       "dataSources": { "primary": "ds_sample_events" },
       "options": {
         "count": 20,
@@ -207,12 +207,12 @@
     "structure": [
       { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
       { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_meetings", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_participants", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_duration", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_rooms", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_quality_issues", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_meeting_hours", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
       { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
       { "item": "viz_by_sourcetype", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_top_hosts", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_top_rooms", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
       { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
       { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
     ]

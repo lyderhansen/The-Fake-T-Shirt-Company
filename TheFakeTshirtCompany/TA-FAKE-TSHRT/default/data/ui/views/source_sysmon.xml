@@ -1,10 +1,10 @@
 <dashboard version="2" theme="dark">
   <label>Source - Sysmon</label>
-  <description>Windows Sysmon (System Monitor) — process creation, network connections, and file operations</description>
+  <description>Windows Sysmon — threat hunting with process creation, network connections, and file change forensics</description>
   <definition><![CDATA[
 {
   "title": "Source - Sysmon",
-  "description": "Windows Sysmon (System Monitor) — process creation, network connections, and file operations",
+  "description": "Windows Sysmon — threat hunting with process creation, network connections, and file change forensics",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
@@ -13,53 +13,53 @@
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" by _time span=1h"
       }
     },
-    "ds_unique_hosts": {
+    "ds_process_creates": {
       "type": "ds.search",
-      "name": "Unique Hosts",
+      "name": "Process Creates",
       "options": {
-        "query": "| tstats dc(host) as count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=1 | stats count"
       }
     },
-    "ds_event_id_count": {
+    "ds_network_connections": {
       "type": "ds.search",
-      "name": "Event ID Count",
+      "name": "Network Connections",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=* | stats dc(EventCode) as count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=3 | stats count"
       }
     },
-    "ds_scenario_events": {
+    "ds_file_creates": {
       "type": "ds.search",
-      "name": "Scenario Event Count",
+      "name": "File Creates",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" demo_id=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=11 | stats count"
       }
     },
     "ds_events_over_time": {
       "type": "ds.search",
-      "name": "Events Over Time",
+      "name": "Events Over Time by EventCode",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" | timechart span=1h count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" | eval event_label=case(EventCode=1,\"1-ProcessCreate\", EventCode=3,\"3-NetworkConnect\", EventCode=5,\"5-ProcessTerminate\", EventCode=7,\"7-ImageLoaded\", EventCode=10,\"10-ProcessAccess\", EventCode=11,\"11-FileCreate\", EventCode=12,\"12-RegistryAdd\", EventCode=13,\"13-RegistrySet\", EventCode=22,\"22-DNSQuery\", 1=1, tostring(EventCode)) | timechart span=1h count by event_label limit=8"
       }
     },
-    "ds_top_event_ids": {
+    "ds_event_type_pie": {
       "type": "ds.search",
-      "name": "Top Event IDs",
+      "name": "Events by Event Type",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=* | eval event_label=case(EventCode=1,\"1 - Process Create\", EventCode=3,\"3 - Network Connect\", EventCode=5,\"5 - Process Terminate\", EventCode=7,\"7 - Image Loaded\", EventCode=10,\"10 - Process Access\", EventCode=11,\"11 - File Create\", EventCode=12,\"12 - Registry Add/Delete\", EventCode=13,\"13 - Registry Set\", EventCode=22,\"22 - DNS Query\", 1=1, tostring(EventCode)) | stats count by event_label | sort -count | head 15 | rename event_label as \"Event ID\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=* | eval event_label=case(EventCode=1,\"1 - Process Create\", EventCode=3,\"3 - Network Connect\", EventCode=5,\"5 - Process Terminate\", EventCode=7,\"7 - Image Loaded\", EventCode=10,\"10 - Process Access\", EventCode=11,\"11 - File Create\", EventCode=12,\"12 - Registry Add/Delete\", EventCode=13,\"13 - Registry Set\", EventCode=22,\"22 - DNS Query\", 1=1, tostring(EventCode)) | stats count by event_label | sort -count"
       }
     },
-    "ds_by_host": {
+    "ds_top_processes": {
       "type": "ds.search",
-      "name": "Events by Host",
+      "name": "Top Processes",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" by host | sort -count | head 15"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" EventCode=1 Image=* | stats count by Image | sort -count | head 15 | rename Image as \"Process\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
       "name": "Recent Events",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" | table _time host EventCode Image CommandLine demo_id | sort -_time | head 30 | rename EventCode as \"Event ID\" CommandLine as \"Command Line\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog:Sysmon\" | table _time host EventCode Image CommandLine | sort -_time | head 30 | rename EventCode as \"Event ID\" CommandLine as \"Command Line\""
       }
     }
   },
@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Sysmon\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:WinEventLog:Sysmon` |\n| **Platform** | Windows (Sysmon / System Monitor) |\n| **Format** | KV pairs (WinEventLog) |\n| **Scenarios** | exfil, ransomware_attempt |",
+        "markdown": "# Source — Sysmon\n\n**Sourcetype:** `FAKE:WinEventLog:Sysmon` | **Coverage:** Process creation, network connections, file/registry changes on Windows servers | **Format:** XML\n\n**Why monitor?** Threat hunting essential -- track process creation chains, outbound network connections, and file system changes to detect malware, lateral movement, and persistence mechanisms.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -85,10 +85,10 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_hosts": {
+    "viz_kpi_process_creates": {
       "type": "splunk.singlevalue",
-      "title": "Unique Hosts",
-      "dataSources": { "primary": "ds_unique_hosts" },
+      "title": "Process Creates (ID 1)",
+      "dataSources": { "primary": "ds_process_creates" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#7B56DB",
@@ -96,21 +96,10 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_kpi_event_ids": {
+    "viz_kpi_network_connections": {
       "type": "splunk.singlevalue",
-      "title": "Event ID Count",
-      "dataSources": { "primary": "ds_event_id_count" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#53A051",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_scenarios": {
-      "type": "splunk.singlevalue",
-      "title": "Scenario Events",
-      "dataSources": { "primary": "ds_scenario_events" },
+      "title": "Network Connections (ID 3)",
+      "dataSources": { "primary": "ds_network_connections" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#F8BE34",
@@ -118,12 +107,24 @@
         "sparklineDisplay": "off"
       }
     },
+    "viz_kpi_file_creates": {
+      "type": "splunk.singlevalue",
+      "title": "File Creates (ID 11)",
+      "dataSources": { "primary": "ds_file_creates" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
     "viz_events_over_time": {
       "type": "splunk.area",
-      "title": "Events Over Time",
+      "title": "Events Over Time by EventCode",
       "dataSources": { "primary": "ds_events_over_time" },
       "options": {
-        "legendDisplay": "off",
+        "stackMode": "stacked",
+        "legendDisplay": "right",
         "nullValueDisplay": "zero",
         "areaOpacity": 0.7,
         "backgroundColor": "transparent",
@@ -131,29 +132,29 @@
         "yAxisTitleText": "Events / hour",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
-        "seriesColors": ["#00D2FF"]
+        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#F1813F", "#00CDAF"]
       },
       "showProgressBar": true,
       "showLastUpdated": true
     },
-    "viz_by_host": {
+    "viz_event_type_pie": {
       "type": "splunk.pie",
-      "title": "Events by Host",
-      "dataSources": { "primary": "ds_by_host" },
+      "title": "Events by Event Type",
+      "dataSources": { "primary": "ds_event_type_pie" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
         "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#00CDAF"]
       }
     },
-    "viz_top_event_ids": {
+    "viz_top_processes": {
       "type": "splunk.bar",
-      "title": "Top Event IDs",
-      "dataSources": { "primary": "ds_top_event_ids" },
+      "title": "Top Processes (EventCode=1)",
+      "dataSources": { "primary": "ds_top_processes" },
       "options": {
         "seriesColors": ["#7B56DB"],
         "legendDisplay": "off",
-        "xAxisTitleText": "Events",
+        "xAxisTitleText": "Executions",
         "xAxisTitleVisibility": "show",
         "yAxisTitleVisibility": "hide",
         "backgroundColor": "transparent"
@@ -169,7 +170,7 @@
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Sample Events",
+      "title": "Recent Events",
       "dataSources": { "primary": "ds_sample_events" },
       "options": {
         "count": 20,
@@ -205,16 +206,16 @@
     "type": "grid",
     "globalInputs": ["input_global_trp"],
     "structure": [
-      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 140 } },
-      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_hosts", "type": "block", "position": { "x": 300, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_event_ids", "type": "block", "position": { "x": 600, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 140, "w": 300, "h": 120 } },
-      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 260, "w": 750, "h": 350 } },
-      { "item": "viz_by_host", "type": "block", "position": { "x": 750, "y": 260, "w": 450, "h": 350 } },
-      { "item": "viz_top_event_ids", "type": "block", "position": { "x": 0, "y": 610, "w": 1200, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 910, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 960, "w": 1200, "h": 400 } }
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_process_creates", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_network_connections", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_file_creates", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
+      { "item": "viz_event_type_pie", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
+      { "item": "viz_top_processes", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
     ]
   }
 }

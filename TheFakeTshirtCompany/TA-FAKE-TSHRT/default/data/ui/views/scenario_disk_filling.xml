@@ -81,7 +81,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario — Disk Filling\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `disk_filling` |\n| **Category** | Operations |\n| **Duration** | Days 1–5 (5 days) |\n| **Severity** | Medium → Critical |\n| **Target** | MON-ATL-01 (10.20.20.30, Atlanta) |\n| **Root Cause** | Excessive logging without log rotation policy |\n| **Outcome** | Automated cleanup at Day 5 10:00 frees 47GB |\n\n**Scenario Summary:** Atlanta monitoring server disk fills gradually over 5 days due to unrotated log files. Usage climbs from 45% (Day 1) through 65% (Day 2), 80% (Day 3), 85% (Day 4) to 97% (Day 5). IO wait increases, HTTP response times degrade. Automated cleanup cron job runs at Day 5 10:00, removing 47GB (1,247 files), returning to 45%.",
+        "markdown": "# Scenario — Disk Filling\n\n**demo_id:** `disk_filling`\n\n**Category:** Operations\n\n**Duration:** Days 1–5 (5 days)\n\n**Severity:** Medium → Critical\n\n**Target:** MON-ATL-01 (10.20.20.30, Atlanta)\n\n**Root Cause:** Excessive logging without log rotation policy\n\n**Outcome:** Automated cleanup at Day 5 10:00 frees 47GB\n\n**Scenario Summary:** Atlanta monitoring server disk fills gradually over 5 days due to unrotated log files. Usage climbs from 45% (Day 1) through 65% (Day 2), 80% (Day 3), 85% (Day 4) to 97% (Day 5). IO wait increases, HTTP response times degrade. Automated cleanup cron job runs at Day 5 10:00, removing 47GB (1,247 files), returning to 45%.",
         "fontColor": "#C3CBD4"
       }
     },

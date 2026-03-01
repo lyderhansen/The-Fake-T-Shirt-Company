@@ -31,35 +31,35 @@
       "type": "ds.search",
       "name": "Distinct Users",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | spath userIdentity.userName | spath userPrincipalName | spath identity | eval u=coalesce(user, userIdentity.userName, userPrincipalName, identity) | where isnotnull(u) | stats dc(u) as total"
+        "query": "index=fake_tshrt demo_id exfil | where isnotnull(user) | stats dc(user) as total"
       }
     },
     "ds_attack_flow_sankey": {
       "type": "ds.search",
       "name": "Attack Flow -- Threat Actor to Targets",
       "options": {
-        "query": "| makeresults | eval data=\"185.220.101.42,Port Scanning,691|185.220.101.42,Phishing,5|Phishing,jessica.brown (ATL),5|jessica.brown (ATL),Lateral Movement,45|Lateral Movement,alex.miller (BOS),45|alex.miller (BOS),SharePoint Downloads,188|alex.miller (BOS),AWS S3 Exfil,196|alex.miller (BOS),Google Drive Exfil,24|alex.miller (BOS),C2 Upload,15|SharePoint Downloads,Data Exfiltrated,188|AWS S3 Exfil,Data Exfiltrated,196|Google Drive Exfil,Data Exfiltrated,24|C2 Upload,185.220.101.42,15\" | makemv delim=\"|\" data | mvexpand data | rex field=data \"(?<source>[^,]+),(?<target>[^,]+),(?<value>\\d+)\" | eval value=tonumber(value) | table source target value"
+        "query": "| makeresults | eval data=\"185.220.101.42,Port Scanning,757|185.220.101.42,Phishing,6|Phishing,jessica.brown (ATL),2|jessica.brown (ATL),Lateral Movement,30|Lateral Movement,alex.miller (BOS),30|alex.miller (BOS),SharePoint Downloads,265|alex.miller (BOS),AWS S3 Exfil,21|alex.miller (BOS),Google Drive Exfil,15|alex.miller (BOS),C2 Upload,8|SharePoint Downloads,Data Exfiltrated,265|AWS S3 Exfil,Data Exfiltrated,21|Google Drive Exfil,Data Exfiltrated,15|C2 Upload,185.220.101.42,8\" | makemv delim=\"|\" data | mvexpand data | rex field=data \"(?<source>[^,]+),(?<target>[^,]+),(?<value>\\d+)\" | eval value=tonumber(value) | table source target value"
       }
     },
     "ds_attack_linkgraph": {
       "type": "ds.search",
       "name": "Attack Journey -- 6-Phase Kill Chain",
       "options": {
-        "query": "| makeresults count=27 | streamstats count as row | eval Recon=case(row=1,\"185.220.101.42\",row=2,\"185.220.101.42\",1=1,\"\") | eval Initial_Access=case(row=1,\"Port scan 3306/5432/1433\",row=2,\"Phishing rnicrosoft-security.com\",row=3,\"jessica.brown clicks link\",row=4,\"Credentials harvested\",1=1,\"\") | eval Lateral_Movement=case(row=1,\"FW-EDGE-01 (691 denies)\",row=2,\"jessica.brown (IT Admin)\",row=3,\"jessica.brown (IT Admin)\",row=4,\"jessica.brown (IT Admin)\",row=5,\"jessica.brown (IT Admin)\",row=6,\"jessica.brown (IT Admin)\",row=7,\"jessica.brown (IT Admin)\",row=8,\"jessica.brown (IT Admin)\",row=9,\"alex.miller (Finance BOS)\",row=10,\"alex.miller (Finance BOS)\",row=11,\"alex.miller (Finance BOS)\",1=1,\"\") | eval Persistence=case(row=2,\"Email fwd protonmail.com\",row=3,\"O365 FileAccessed x16\",row=4,\"VPN pivot ATL to BOS\",row=5,\"AD query Finance Dept (4688)\",row=6,\"Password reset (4724)\",row=7,\"MFA reset + re-register\",row=8,\"Login from Frankfurt (02:25)\",row=9,\"EntraID risk: maliciousIP\",row=10,\"AWS + GCP enumeration\",row=11,\"alex.miller (Finance BOS)\",row=12,\"IAM user svc-datasync\",row=13,\"Consent DataSync Service\",row=14,\"GCP SA key created\",row=15,\"C2 beacon 185.220.101.42\",row=16,\"SharePoint download x188\",row=17,\"rclone to Google Drive\",row=18,\"curl POST to C2 server\",row=19,\"AWS S3 PutObject x196\",1=1,\"\") | eval Exfiltration=case(row=12,\"AttachUserPolicy AdminAccess\",row=15,\"Data staging (backup.txt)\",row=16,\"188 finance docs stolen\",row=17,\"data_batch_4.zip exfiled\",row=18,\"backup.txt uploaded\",row=19,\"196 S3 objects exfiled\",row=20,\"del data_batch_*.zip\",1=1,\"\") | eval Response=case(row=20,\"Evidence cleanup detected\",row=21,\"INC0000208 P1 opened\",row=22,\"Confirm alex.miller compromised\",row=23,\"Revoke all sessions\",row=24,\"Remove-InboxRule jessica.brown\",row=25,\"CHG0000039 remediation\",row=26,\"Credentials rotated\",row=27,\"Endpoints isolated\",1=1,\"\") | where Recon!=\"\" OR Initial_Access!=\"\" OR Lateral_Movement!=\"\" OR Persistence!=\"\" OR Exfiltration!=\"\" OR Response!=\"\" | table Recon Initial_Access Lateral_Movement Persistence Exfiltration Response"
+        "query": "| makeresults count=35 | streamstats count as row | eval Recon=case(row=1,\"Threat actor 185.220.101.42 Frankfurt\",row=2,\"757 port scans: MySQL, RDP, SSH, SMB\",row=3,\"28 failed logons (EventID 4625)\",row=4,\"6 phishing emails from rnicrosoft.com\",row=5,\"DNS lookups against target domains\",1=1,\"\") | eval Initial_Access=case(row>=1 AND row<=6,\"Spearphishing via rnicrosoft-security.com\",row=7,\"jessica.brown clicks phishing link\",row=8,\"Encoded PowerShell downloads C2 agent\",row=9,\"C2 callback to 185.220.101.42:443\",row=10,\"O365 inbox rule created for persistence\",1=1,\"\") | eval Lateral_Movement=case(row>=6 AND row<=11,\"jessica.brown compromised (Atlanta)\",row=12,\"Email forwarding to protonmail.com\",row=13,\"AD recon: net view, net group admins\",row=14,\"Password reset for alex.miller account\",row=15,\"MFA auth method deleted + re-registered\",row=16,\"Cross-site pivot ATL 10.20 to BOS 10.10\",row=17,\"EntraID sign-in from Frankfurt 03:25\",1=1,\"\") | eval Persistence=case(row>=11 AND row<=18,\"alex.miller compromised (Boston)\",row=19,\"Scheduled task: WindowsHealthCheck\",row=20,\"AWS IAM user svc-datasync created\",row=21,\"AdminAccess policy attached svc-datasync\",row=22,\"GCP service account key exported\",row=23,\"Entra ID app consent: DataSync Service\",row=24,\"GetSecretValue prod/database/credentials\",1=1,\"\") | eval Data_Staging=case(row>=18 AND row<=25,\"Cloud + endpoint access established\",row=26,\"265 SharePoint files downloaded via O365\",row=27,\"7z.exe compresses data_batch_1-4.zip\",row=28,\"S3 bucket listing via svc-datasync\",row=29,\"AWS secrets + DB credentials harvested\",1=1,\"\") | eval Exfiltration=case(row>=25 AND row<=30,\"265 files + secrets staged for exfil\",row=31,\"AWS S3 GetObject x26 (03:00-05:30)\",row=32,\"rclone sync to gdrive:backup/finance/\",row=33,\"curl POST 185.220.101.42/upload x8\",row=34,\"Exfil across 3 nights Jan 12-14\",row=35,\"Cleanup: del /q data_batch*.zip\",1=1,\"\") | eval Response=case(row=30,\"INC0000218 P1: Unusual data transfer\",row=31,\"CHG0000032: Isolate endpoints\",row=32,\"INC0000219: alex.miller compromised\",row=33,\"All credentials rotated + MFA reset\",row=34,\"Endpoints isolated via Meraki policy\",row=35,\"Backdoor accts deleted AWS+GCP+Entra\",1=1,\"\") | where Recon!=\"\" OR Initial_Access!=\"\" OR Lateral_Movement!=\"\" OR Persistence!=\"\" OR Data_Staging!=\"\" OR Exfiltration!=\"\" OR Response!=\"\" | table Recon Initial_Access Lateral_Movement Persistence Data_Staging Exfiltration Response"
       }
     },
     "ds_attack_timeline": {
       "type": "ds.search",
       "name": "14-Day Attack Timeline by Source Category",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"Firewall (ASA)\", match(sourcetype,\"aws:cloudtrail\"), \"AWS CloudTrail\", match(sourcetype,\"google:gcp\"), \"GCP Audit\", match(sourcetype,\"azure:aad\"), \"Entra ID\", match(sourcetype,\"o365:management\"), \"M365 Activity\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"WinEventLog\"), \"Windows Events\", match(sourcetype,\"meraki\"), \"Meraki Network\", match(sourcetype,\"servicenow\"), \"ServiceNow\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux Metrics\", 1=1, \"Other\") | timechart span=1d count by source_cat"
+        "query": "index=fake_tshrt demo_id exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"Firewall (ASA)\", match(sourcetype,\"aws\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP Audit\", match(sourcetype,\"azure:aad\"), \"Entra ID\", match(sourcetype,\"o365:management\"), \"M365 Activity\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"Sysmon\"), \"Sysmon\", match(sourcetype,\"WinEventLog\"), \"Windows Events\", match(sourcetype,\"umbrella\"), \"Secure Access\", match(sourcetype,\"meraki\"), \"Meraki Network\", match(sourcetype,\"cisco:aci\"), \"ACI\", match(sourcetype,\"cisco:ios\"), \"Catalyst\", match(sourcetype,\"servicenow\"), \"ServiceNow\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux Metrics\", 1=1, \"Other\") | timechart span=1d count by source_cat"
       }
     },
     "ds_recon_port_scans": {
       "type": "ds.search",
       "name": "Reconnaissance Port Scan Targets",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | rex \"to\\s+\\w+:(?<dst_ip>[\\d.]+)\\/(?<dst_port>\\d+)\" | where isnotnull(dst_port) | stats count by dst_port | eval service=case(dst_port=\"3306\",\"MySQL (3306)\",dst_port=\"23\",\"Telnet (23)\",dst_port=\"5432\",\"PostgreSQL (5432)\",dst_port=\"1433\",\"MSSQL (1433)\",dst_port=\"22\",\"SSH (22)\",dst_port=\"445\",\"SMB (445)\",dst_port=\"3389\",\"RDP (3389)\",1=1,\"Port \".dst_port) | sort -count | head 10 | rename service as \"Target Service\" count as \"Scan Attempts\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | where isnotnull(dest_port) | stats count by dest_port | eval service=case(dest_port=\"3306\",\"MySQL (3306)\",dest_port=\"23\",\"Telnet (23)\",dest_port=\"5432\",\"PostgreSQL (5432)\",dest_port=\"1433\",\"MSSQL (1433)\",dest_port=\"22\",\"SSH (22)\",dest_port=\"445\",\"SMB (445)\",dest_port=\"3389\",\"RDP (3389)\",1=1,\"Port \".dest_port) | sort -count | head 10 | rename service as \"Target Service\" count as \"Scan Attempts\""
       }
     },
     "ds_recon_timeline": {
@@ -73,98 +73,98 @@
       "type": "ds.search",
       "name": "Phishing Email Evidence",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:reporting:messagetrace\" | spath SenderAddress | spath RecipientAddress | spath Subject | spath Status | spath Operation | spath Reason | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day SenderAddress RecipientAddress Subject Status Operation Reason | sort day | rename day as \"Time\" SenderAddress as \"From\" RecipientAddress as \"To\" Operation as \"Action\" Reason as \"Detail\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:reporting:messagetrace\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day SenderAddress RecipientAddress Subject Status | sort day | rename day as \"Time\" SenderAddress as \"From\" RecipientAddress as \"To\""
       }
     },
     "ds_initial_o365": {
       "type": "ds.search",
       "name": "Initial Access O365 Activity Day 5",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/05/2026:00:00:00\" latest=\"01/06/2026:00:00:00\" | spath Operation | spath UserId | spath SourceFileName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Operation UserId SourceFileName | sort day | rename day as \"Time\" UserId as \"User\" SourceFileName as \"File\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/05/2026:00:00:00\" latest=\"01/06/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Operation user file_name | sort day | rename day as \"Time\" file_name as \"File\""
       }
     },
     "ds_network_sankey": {
       "type": "ds.search",
       "name": "Network Traffic Flow -- ASA by Subnet",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" | rex \"for\\s+\\w+:(?<src_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)\\/\" | rex \"to\\s+\\w+:(?<dst_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)\\/\" | where isnotnull(src_ip) AND isnotnull(dst_ip) | eval src_net=case(match(src_ip,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(src_ip,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(src_ip,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(src_ip,\"^172\\.16\\.\"), \"DMZ\", match(src_ip,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | eval dst_net=case(match(dst_ip,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(dst_ip,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(dst_ip,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(dst_ip,\"^172\\.16\\.\"), \"DMZ\", match(dst_ip,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | stats count as value by src_net dst_net | rename src_net as source dst_net as target | sort -value"
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" | where isnotnull(src) AND isnotnull(dest) | eval src_net=case(match(src,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(src,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(src,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(src,\"^172\\.16\\.\"), \"DMZ\", match(src,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | eval dest_net=case(match(dest,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(dest,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(dest,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(dest,\"^172\\.16\\.\"), \"DMZ\", match(dest,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | stats count as value by src_net dest_net | rename src_net as source dest_net as target | sort -value"
       }
     },
     "ds_lateral_entraid": {
       "type": "ds.search",
       "name": "Lateral Movement Entra ID Events",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:*\" earliest=\"01/06/2026:00:00:00\" latest=\"01/09/2026:00:00:00\" | spath operationName | spath identity | spath callerIpAddress | spath properties.riskLevel | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype operationName identity callerIpAddress properties.riskLevel | sort day | rename day as \"Time\" sourcetype as \"Source\" operationName as \"Operation\" identity as \"Identity\" callerIpAddress as \"IP\" properties.riskLevel as \"Risk\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:*\" earliest=\"01/06/2026:00:00:00\" latest=\"01/09/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype operationName user src properties.riskLevel | sort day | rename day as \"Time\" sourcetype as \"Source\" operationName as \"Operation\" properties.riskLevel as \"Risk\""
       }
     },
     "ds_persist_aws": {
       "type": "ds.search",
       "name": "Persistence AWS CloudTrail Activity",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/09/2026:00:00:00\" latest=\"01/12/2026:00:00:00\" | spath eventName | spath userIdentity.userName | spath requestParameters.bucketName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day eventName userIdentity.userName requestParameters.bucketName | sort day | rename day as \"Time\" eventName as \"Event\" userIdentity.userName as \"User\" requestParameters.bucketName as \"Bucket\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/09/2026:00:00:00\" latest=\"01/12/2026:00:00:00\" NOT eventName=PutEvaluations | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | eval detail=coalesce(requestParameters.userName, requestParameters.policyArn, requestParameters.secretId, \"\") | table day eventName user detail src | sort day | rename day as \"Time\" eventName as \"Event\" user as \"User\" detail as \"Detail\" src as \"Source IP\""
       }
     },
     "ds_persist_consent": {
       "type": "ds.search",
       "name": "Persistence Entra ID Audit Actions",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | spath operationName | spath properties.initiatedBy.user.userPrincipalName | spath properties.targetResources{}.displayName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName properties.initiatedBy.user.userPrincipalName properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Operation\" properties.initiatedBy.user.userPrincipalName as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName user properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Operation\" user as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
       }
     },
     "ds_exfil_o365": {
       "type": "ds.search",
       "name": "Exfiltration M365 File Operations",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath Operation | timechart span=4h count by Operation"
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | timechart span=4h count by Operation"
       }
     },
     "ds_exfil_aws_s3": {
       "type": "ds.search",
       "name": "Exfiltration AWS S3 Operations",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath eventName | spath userIdentity.userName | stats count by eventName userIdentity.userName | sort -count | rename eventName as \"Operation\" userIdentity.userName as \"User\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" NOT eventName=PutEvaluations | timechart span=4h count by eventName"
       }
     },
     "ds_exfil_evidence": {
       "type": "ds.search",
       "name": "Exfiltration Endpoint Process Evidence",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil (sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\") earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | rex \"Process Command Line:\\s*(?<cmdline>[^\\n]+)\" | rex \"CommandLine:\\s*(?<cmdline2>[^\\n]+)\" | rex \"Image:\\s*(?<process>[^\\n]+)\" | eval command=coalesce(cmdline,cmdline2) | eval process_name=coalesce(process,\"unknown\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | where isnotnull(command) | table day process_name command | sort day | rename day as \"Time\" process_name as \"Process\" command as \"Command Line\""
+        "query": "index=fake_tshrt demo_id exfil (sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\") earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | where isnotnull(CommandLine) OR isnotnull(Image) | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Image CommandLine user dest | sort day | rename day as \"Time\" Image as \"Process\" CommandLine as \"Command Line\""
       }
     },
     "ds_exfil_risk": {
       "type": "ds.search",
       "name": "Exfiltration Entra ID Risk Detections",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:riskDetection\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath properties.riskEventType | spath properties.userDisplayName | spath properties.ipAddress | spath properties.riskLevel | spath properties.location.city | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day properties.userDisplayName properties.ipAddress properties.riskEventType properties.riskLevel properties.location.city | sort day | rename day as \"Time\" properties.userDisplayName as \"User\" properties.ipAddress as \"IP\" properties.riskEventType as \"Risk Type\" properties.riskLevel as \"Level\" properties.location.city as \"City\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:riskDetection\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day user src properties.riskEventType properties.riskLevel properties.location.city | sort day | rename day as \"Time\" user as \"User\" src as \"IP\" properties.riskEventType as \"Risk Type\" properties.riskLevel as \"Level\" properties.location.city as \"City\""
       }
     },
     "ds_response_servicenow": {
       "type": "ds.search",
       "name": "Incident Response ServiceNow Records",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:servicenow:*\" | rex \"number=\\\"(?<ticket>[^\\\"]+)\\\"\" | rex \"state=\\\"(?<state>[^\\\"]+)\\\"\" | rex \"close_notes=\\\"(?<notes>[^\\\"]+)\\\"\" | rex \"work_notes=\\\"(?<work>[^\\\"]+)\\\"\" | rex \"resolved_by_name=\\\"(?<resolver>[^\\\"]+)\\\"\" | eval detail=coalesce(notes,work,\"\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype ticket state resolver detail | sort day | rename day as \"Time\" sourcetype as \"Source\" ticket as \"Ticket\" state as \"State\" resolver as \"Resolved By\" detail as \"Details\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:servicenow:*\" | eval detail=coalesce(close_notes, work_notes, \"\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype number dv_state short_description dv_assigned_to detail | sort day | rename day as \"Time\" sourcetype as \"Source\" number as \"Ticket\" dv_state as \"State\" short_description as \"Description\" dv_assigned_to as \"Assigned To\" detail as \"Details\""
       }
     },
     "ds_response_entraid": {
       "type": "ds.search",
       "name": "Incident Response Entra ID Actions",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | spath operationName | spath properties.initiatedBy.user.userPrincipalName | spath properties.targetResources{}.displayName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName properties.initiatedBy.user.userPrincipalName properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Action\" properties.initiatedBy.user.userPrincipalName as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
+        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName user properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Action\" user as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
       }
     },
     "ds_cross_source_matrix": {
       "type": "ds.search",
       "name": "Cross-Source Correlation Matrix",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | eval day=strftime(_time,\"%Y-%m-%d\") | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"aws:cloudtrail\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP\", match(sourcetype,\"azure:aad\"), \"EntraID\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"WinEventLog\"), \"Windows\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux\", 1=1, \"Other\") | chart count over day by source_cat | sort day"
+        "query": "index=fake_tshrt demo_id exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"aws\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP\", match(sourcetype,\"azure:aad\"), \"EntraID\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"Sysmon\"), \"Sysmon\", match(sourcetype,\"WinEventLog\"), \"WinEvent\", match(sourcetype,\"umbrella\"), \"Umbrella\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"cisco:aci\"), \"ACI\", match(sourcetype,\"cisco:ios\"), \"Catalyst\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux\", 1=1, \"Other\") | timechart span=1d count by source_cat"
       }
     },
     "ds_mitre_mapping": {
       "type": "ds.search",
       "name": "MITRE ATT&CK Technique Mapping",
       "options": {
-        "query": "| makeresults | eval data=\"T1595.001|Reconnaissance|Active Scanning: Port Scanning|ASA deny logs from 185.220.101.42 -- 691 port scan events|Days 1-4,T1598|Reconnaissance|Phishing for Information|Webex login probes from external threat actor|Days 1-4,T1566.002|Initial Access|Phishing: Spearphishing Link|Email from rnicrosoft-security.com to jessica.brown|Day 5,T1078|Initial Access|Valid Accounts|Jessica Brown credentials compromised via phishing|Day 5,T1114.003|Initial Access|Email Forwarding Rule|Auto-forward to backup-jessica.brown@protonmail.com|Day 5,T1021|Lateral Movement|Remote Services|Cross-site connections ATL 10.20.x to BOS 10.10.x|Days 6-8,T1078.004|Lateral Movement|Valid Accounts: Cloud Accounts|Cloud service access with stolen credentials|Days 6-8,T1087|Lateral Movement|Account Discovery|Enumeration of AWS and GCP resources|Days 6-8,T1136.003|Persistence|Create Account: Cloud Account|AWS IAM user svc-datasync created by alex.miller|Days 9-11,T1098|Persistence|Account Manipulation|AttachUserPolicy and GCP SA grants|Days 9-11,T1071|Persistence|Application Layer Protocol|C2 beacons via HTTPS to 185.220.101.42|Days 9-11,T1213.002|Exfiltration|Data from SharePoint|188 FileDownloaded operations via M365|Days 12-14,T1567.002|Exfiltration|Exfil Over Web Service to Cloud Storage|rclone to Google Drive gdrive:backup/finance/|Days 12-14,T1041|Exfiltration|Exfil Over C2 Channel|curl POST to 185.220.101.42/upload|Days 12-14,T1070.004|Exfiltration|Indicator Removal: File Deletion|del /q data_batch_*.zip cleanup|Days 12-14\" | makemv delim=\",\" data | mvexpand data | rex field=data \"(?<technique_id>[^|]+)\\|(?<tactic>[^|]+)\\|(?<technique>[^|]+)\\|(?<evidence>[^|]+)\\|(?<days>[^|]+)\" | table technique_id tactic technique evidence days | rename technique_id as \"ID\" tactic as \"Tactic\" technique as \"Technique\" evidence as \"Evidence\" days as \"Days\""
+        "query": "| makeresults | eval data=\"T1595.001 Port Scanning|1 Reconnaissance|4,T1566.002 Spearphishing|2 Initial Access|1,T1078 Valid Accounts|2 Initial Access|1,T1059.001 PowerShell|2 Initial Access|1,T1114.003 Email Forwarding|3 Lateral Movement|3,T1021 Remote Services|3 Lateral Movement|3,T1078.004 Cloud Accounts|3 Lateral Movement|3,T1087.002 Domain Discovery|3 Lateral Movement|3,T1098.005 MFA Reset|3 Lateral Movement|3,T1136.003 Create Cloud Acct|4 Persistence|3,T1098 Account Manipulation|4 Persistence|3,T1053.005 Scheduled Task|4 Persistence|3,T1560.001 Archive Utility|4 Persistence|2,T1213.002 SharePoint Data|5 Exfiltration|3,T1567.002 Cloud Exfil|5 Exfiltration|3,T1041 C2 Exfil|5 Exfiltration|3,T1537 Cloud Transfer|5 Exfiltration|3,T1070.004 File Deletion|5 Exfiltration|3\" | makemv delim=\",\" data | mvexpand data | rex field=data \"(?<technique>[^|]+)\\|(?<tactic>[^|]+)\\|(?<days>\\d+)\" | eval days=tonumber(days) | chart max(days) over technique by tactic | fields technique \"1 Reconnaissance\" \"2 Initial Access\" \"3 Lateral Movement\" \"4 Persistence\" \"5 Exfiltration\""
       }
     }
   },
@@ -172,7 +172,7 @@
     "viz_header_md": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# ☠ Scenario -- Data Exfiltration (APT)\n\n**demo_id:** `exfil` | **Category:** Security -- Advanced Persistent Threat | **Duration:** 14 days (Jan 1-14, 2026) | **Severity:** Critical\n\n**Threat Actor:** 185.220.101.42 (Frankfurt, Germany | AS205100) -> **Initial Compromise:** Jessica Brown (IT Admin, Atlanta) -> **Primary Target:** Alex Miller (Sr. Financial Analyst, Boston)\n\nExternal threat actor conducts a 14-day APT campaign: port scanning and phishing (Days 1-4), credential harvesting (Day 5), lateral movement ATL->BOS (Days 6-8), cloud persistence via backdoor accounts (Days 9-11), and multi-channel data exfiltration via S3, Google Drive, and C2 upload (Days 12-14).",
+        "markdown": "# Scenario -- Data Exfiltration (APT)\n\n**demo_id:** `exfil` | **Category:** Security -- Advanced Persistent Threat | **Duration:** 14 days (Jan 1-14, 2026) | **Severity:** Critical\n\n**Threat Actor:** 185.220.101.42 (Frankfurt, Germany | AS205100) -> **Initial Compromise:** Jessica Brown (IT Admin, Atlanta) -> **Primary Target:** Alex Miller (Sr. Financial Analyst, Boston)\n\nExternal threat actor conducts a 14-day APT campaign: port scanning and phishing (Days 1-4), credential harvesting (Day 5), lateral movement ATL->BOS (Days 6-8), cloud persistence via backdoor accounts (Days 9-11), and multi-channel data exfiltration via S3, Google Drive, and C2 upload (Days 12-14).",
         "fontColor": "#C3CBD4",
         "backgroundColor": "#13141A"
       }
@@ -242,23 +242,33 @@
     },
     "viz_attack_linkgraph": {
       "type": "splunk.linkgraph",
-      "title": "🔗 Attack Journey -- Kill Chain by Phase (Recon -> Initial Access -> Lateral Movement -> Persistence -> Exfiltration -> Response)",
+      "title": "Attack Journey -- Kill Chain (Recon -> Access -> Lateral Move -> Persist -> Stage -> Exfil -> Response)",
       "dataSources": {
         "primary": "ds_attack_linkgraph"
       },
       "options": {
-        "fieldOrder": ["Recon", "Initial_Access", "Lateral_Movement", "Persistence", "Exfiltration", "Response"],
-        "nodeColor": "#2A2B36",
+        "fieldOrder": [
+          "Recon",
+          "Initial_Access",
+          "Lateral_Movement",
+          "Persistence",
+          "Data_Staging",
+          "Exfiltration",
+          "Response"
+        ],
+        "nodeColor": "#1E3A5F",
         "nodeHighlightColor": "#DC4E41",
-        "linkColor": "#DC4E41",
-        "linkWidth": 2,
-        "nodeWidth": 180,
-        "nodeHeight": 28,
-        "nodeSpacingX": 10,
-        "nodeSpacingY": 4,
+        "nodeTextColor": "#E0E4E8",
+        "nodeTextHighlightColor": "#FFFFFF",
+        "linkColor": "#F8BE34",
+        "linkWidth": 3,
+        "nodeWidth": 250,
+        "nodeHeight": 50,
+        "nodeSpacingX": 50,
+        "nodeSpacingY": 10,
         "showNodeCounts": true,
         "showValueCounts": true,
-        "resultLimit": 50,
+        "resultLimit": 60,
         "backgroundColor": "#13141A"
       }
     },
@@ -278,7 +288,18 @@
         "yAxisTitleText": "Events / day",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
-        "seriesColors": ["#DC4E41", "#7B56DB", "#53A051", "#00D2FF", "#009CEB", "#F8BE34", "#F1813F", "#00CDAF", "#FF677B", "#AE8CFF"]
+        "seriesColors": [
+          "#DC4E41",
+          "#7B56DB",
+          "#53A051",
+          "#00D2FF",
+          "#009CEB",
+          "#F8BE34",
+          "#F1813F",
+          "#00CDAF",
+          "#FF677B",
+          "#AE8CFF"
+        ]
       },
       "showProgressBar": true,
       "showLastUpdated": true
@@ -286,7 +307,7 @@
     "viz_phase1_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 🔍 Phase 1: Reconnaissance -- Days 1-4 (Jan 1-4)\n**MITRE ATT&CK:** T1595.001 (Active Scanning: Port Scanning) | T1598 (Phishing for Information)\n\nThreat actor at **185.220.101.42** (Frankfurt, Germany) conducts aggressive port scanning against public-facing infrastructure. Over 690 firewall deny events logged as the attacker probes database and remote access ports (MySQL 3306, Telnet 23, PostgreSQL 5432, MSSQL 1433). This reconnaissance maps the target network topology before initial access.",
+        "markdown": "## Phase 1: Reconnaissance -- Days 1-4 (Jan 1-4)\n**MITRE ATT&CK:** T1595.001 (Active Scanning: Port Scanning) | T1598 (Phishing for Information)\n\nThreat actor at **185.220.101.42** (Frankfurt, Germany) conducts aggressive port scanning against public-facing infrastructure. Over 690 firewall deny events logged as the attacker probes database and remote access ports (MySQL 3306, Telnet 23, PostgreSQL 5432, MSSQL 1433). This reconnaissance maps the target network topology before initial access.",
         "fontColor": "#F8BE34",
         "backgroundColor": "#13141A"
       }
@@ -298,7 +319,9 @@
         "primary": "ds_recon_port_scans"
       },
       "options": {
-        "seriesColors": ["#F8BE34"],
+        "seriesColors": [
+          "#F8BE34"
+        ],
         "backgroundColor": "#13141A",
         "xAxisTitleVisibility": "hide",
         "yAxisTitleText": "Scan Attempts",
@@ -316,7 +339,9 @@
       },
       "options": {
         "areaOpacity": 0.5,
-        "seriesColors": ["#F8BE34"],
+        "seriesColors": [
+          "#F8BE34"
+        ],
         "backgroundColor": "#13141A",
         "xAxisTitleVisibility": "hide",
         "yAxisTitleText": "Events",
@@ -328,7 +353,7 @@
     "viz_phase2_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 🎣 Phase 2: Initial Access -- Day 5 (Jan 5)\n**MITRE ATT&CK:** T1566.002 (Phishing: Spearphishing Link) | T1078 (Valid Accounts) | T1114.003 (Email Forwarding Rule)\n\nSpearphishing email delivered to **Jessica Brown** (IT Admin, Atlanta) from fake domain `rnicrosoft-security.com`. Credentials harvested on click. Attacker sets email forwarding rule to `backup-jessica.brown@protonmail.com` for persistent email access. Multiple O365 events confirm the attacker now has a foothold in the tenant.",
+        "markdown": "## Phase 2: Initial Access -- Day 5 (Jan 5)\n**MITRE ATT&CK:** T1566.002 (Phishing: Spearphishing Link) | T1078 (Valid Accounts) | T1114.003 (Email Forwarding Rule)\n\nSpearphishing email delivered to **Jessica Brown** (IT Admin, Atlanta) from fake domain `rnicrosoft-security.com`. Credentials harvested on click. Attacker sets email forwarding rule to `backup-jessica.brown@protonmail.com` for persistent email access. Multiple O365 events confirm the attacker now has a foothold in the tenant.",
         "fontColor": "#DC4E41",
         "backgroundColor": "#13141A"
       }
@@ -362,7 +387,7 @@
     "viz_phase3_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 🔀 Phase 3: Lateral Movement -- Days 6-8 (Jan 6-8)\n**MITRE ATT&CK:** T1021 (Remote Services) | T1078.004 (Cloud Accounts) | T1087 (Account Discovery)\n\nUsing Jessica Brown's credentials, the attacker pivots from **Atlanta (10.20.x.x)** to **Boston (10.10.x.x)**. The Sankey diagram shows network traffic flow through the ASA firewall -- note cross-site connections from ATL to BOS. Cloud resource enumeration begins on Day 8 as the attacker discovers AWS and GCP infrastructure.",
+        "markdown": "## Phase 3: Lateral Movement -- Days 6-8 (Jan 6-8)\n**MITRE ATT&CK:** T1021 (Remote Services) | T1078.004 (Cloud Accounts) | T1087 (Account Discovery)\n\nUsing Jessica Brown's credentials, the attacker pivots from **Atlanta (10.20.x.x)** to **Boston (10.10.x.x)**. The Sankey diagram shows network traffic flow through the ASA firewall -- note cross-site connections from ATL to BOS. Cloud resource enumeration begins on Day 8 as the attacker discovers AWS and GCP infrastructure.",
         "fontColor": "#009CEB",
         "backgroundColor": "#13141A"
       }
@@ -394,7 +419,7 @@
     "viz_phase4_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 🔒 Phase 4: Persistence -- Days 9-11 (Jan 9-11)\n**MITRE ATT&CK:** T1136.003 (Create Cloud Account) | T1098 (Account Manipulation) | T1071 (Application Layer Protocol)\n\nThe attacker establishes persistence across cloud platforms. In AWS, **alex.miller** creates backdoor IAM user `svc-datasync` with admin policies. In Entra ID, admin consent is granted to malicious app **DataSync Service** with `Mail.Read` and `Files.Read.All` permissions. GCP service accounts show unusual storage operations. C2 beacons maintain communication with 185.220.101.42.",
+        "markdown": "## Phase 4: Persistence -- Days 9-11 (Jan 9-11)\n**MITRE ATT&CK:** T1136.003 (Create Cloud Account) | T1098 (Account Manipulation) | T1071 (Application Layer Protocol)\n\nThe attacker establishes persistence across cloud platforms. In AWS, **alex.miller** creates backdoor IAM user `svc-datasync` with admin policies. In Entra ID, admin consent is granted to malicious app **DataSync Service** with `Mail.Read` and `Files.Read.All` permissions. GCP service accounts show unusual storage operations. C2 beacons maintain communication with 185.220.101.42.",
         "fontColor": "#7B56DB",
         "backgroundColor": "#13141A"
       }
@@ -428,7 +453,7 @@
     "viz_phase5_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 💀 Phase 5: Exfiltration -- Days 12-14 (Jan 12-14)\n**MITRE ATT&CK:** T1567.002 (Exfil to Cloud Storage) | T1041 (Exfil Over C2) | T1213.002 (Data from SharePoint) | T1070.004 (File Deletion)\n\nMulti-channel data exfiltration during nighttime hours (01:00-05:00 UTC). **188 files** downloaded from SharePoint via M365. Data staged, compressed, and exfiltrated via three channels: (1) **rclone** to Google Drive, (2) **curl** to C2 server 185.220.101.42/upload, (3) **AWS S3** PutObject. Post-exfil cleanup: `del /q data_batch_*.zip`.",
+        "markdown": "## Phase 5: Exfiltration -- Days 12-14 (Jan 12-14)\n**MITRE ATT&CK:** T1567.002 (Exfil to Cloud Storage) | T1041 (Exfil Over C2) | T1213.002 (Data from SharePoint) | T1070.004 (File Deletion)\n\nMulti-channel data exfiltration during nighttime hours (01:00-05:00 UTC). **188 files** downloaded from SharePoint via M365. Data staged, compressed, and exfiltrated via three channels: (1) **rclone** to Google Drive, (2) **curl** to C2 server 185.220.101.42/upload, (3) **AWS S3** PutObject. Post-exfil cleanup: `del /q data_batch_*.zip`.",
         "fontColor": "#DC4E41",
         "backgroundColor": "#13141A"
       }
@@ -441,7 +466,13 @@
       },
       "options": {
         "stackMode": "stacked",
-        "seriesColors": ["#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#53A051"],
+        "seriesColors": [
+          "#DC4E41",
+          "#F8BE34",
+          "#7B56DB",
+          "#009CEB",
+          "#53A051"
+        ],
         "backgroundColor": "#13141A",
         "xAxisTitleVisibility": "hide",
         "yAxisTitleText": "Events",
@@ -452,17 +483,20 @@
     },
     "viz_exfil_aws": {
       "type": "splunk.column",
-      "title": "AWS S3 Operations by User",
+      "title": "AWS S3 Exfiltration -- 3-Night Pattern",
       "dataSources": {
         "primary": "ds_exfil_aws_s3"
       },
       "options": {
-        "seriesColors": ["#7B56DB", "#DC4E41"],
+        "seriesColors": [
+          "#7B56DB"
+        ],
         "backgroundColor": "#13141A",
         "xAxisTitleVisibility": "hide",
-        "yAxisTitleText": "Count",
+        "yAxisTitleText": "GetObject Calls",
         "yAxisTitleVisibility": "show",
-        "legendDisplay": "off"
+        "legendDisplay": "off",
+        "nullValueDisplay": "zero"
       },
       "showProgressBar": true
     },
@@ -495,7 +529,7 @@
     "viz_response_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## ✅ Incident Response & Containment\n\nThe security team discovers the breach via Entra ID risk detections and initiates incident response. Sessions revoked, user confirmed compromised, credentials rotated, endpoints isolated via Meraki policy, and backdoor accounts deleted across AWS and Entra ID.",
+        "markdown": "## Incident Response & Containment\n\nThe security team discovers the breach via Entra ID risk detections and initiates incident response. Sessions revoked, user confirmed compromised, credentials rotated, endpoints isolated via Meraki policy, and backdoor accounts deleted across AWS and Entra ID.",
         "fontColor": "#53A051",
         "backgroundColor": "#13141A"
       }
@@ -529,28 +563,51 @@
     "viz_matrix_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 📊 Cross-Source Correlation Matrix\n\nEvents per source category per day across the 14-day attack -- identify which data sources activate during each phase.",
+        "markdown": "## Cross-Source Correlation Matrix\n\nEvents per source category per day across the 14-day attack -- identify which data sources activate during each phase.",
         "fontColor": "#C3CBD4",
         "backgroundColor": "#13141A"
       }
     },
     "viz_cross_source_matrix": {
-      "type": "splunk.table",
+      "type": "splunk.column",
       "title": "Events by Source Category per Day",
       "dataSources": {
         "primary": "ds_cross_source_matrix"
       },
       "options": {
-        "count": 20,
-        "showRowNumbers": false,
-        "backgroundColor": "transparent"
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "backgroundColor": "#13141A",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": [
+          "#DC4E41",
+          "#7B56DB",
+          "#53A051",
+          "#00D2FF",
+          "#009CEB",
+          "#F8BE34",
+          "#F1813F",
+          "#00CDAF",
+          "#FF677B",
+          "#AE8CFF",
+          "#A2CC3E",
+          "#ED8440",
+          "#33AADD",
+          "#CC5599",
+          "#6677AA",
+          "#779966"
+        ]
       },
       "showProgressBar": true
     },
     "viz_gaps_md": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## ⚠ Identified Gaps & Improvements\n\n**1. Missing alex.miller sign-in from threat IP** -- Risk detections exist for 185.220.101.42 but no correlated EntraID sign-in event. *Fix: Add failed/successful sign-in in generate_entraid.py*\n\n**2. Missing WinEventLog 4624/4625 logon events** -- Cannot correlate authentication to compromised workstation. *Fix: Add logon events in generate_wineventlog.py*\n\n**3. Webex events tagged but not attack-relevant** -- 490+ routine Webex events inflate the event count. *Fix: Remove demo_id=exfil from non-attack Webex events*\n\n**4. GCP sourcetypes have :demo suffix** -- Inconsistent with documented FAKE:google:gcp:pubsub:message pattern. *Fix: Align in generate_gcp.py*\n\n**5. Linux metrics are noise** -- 900+ cpu/iostat/vmstat events are system metrics, not attack indicators. *Fix: Remove demo_id=exfil from routine metrics*\n\n**6. No Meraki MR/MS events during lateral movement** -- Missing wireless and switch telemetry. *Fix: Add MR/MS events in generate_meraki.py*",
+        "markdown": "## Identified Gaps & Improvements\n\n**1. ~~Missing alex.miller sign-in from threat IP~~** -- FIXED: 10+ EntraID sign-in events from 185.220.101.42 now exist (failed during recon, success during lateral movement+)\n\n**2. Missing WinEventLog 4624 logon events** -- 4625 (failed logons, 28 events) exists, but 4624 (successful logon) not tagged with demo_id=exfil. *Fix: Add 4624 events in generate_wineventlog.py*\n\n**3. Webex events tagged but not attack-relevant** -- 640+ routine Webex events inflate the event count. *Fix: Remove demo_id=exfil from non-attack Webex events*\n\n**4. ~~GCP sourcetypes have :demo suffix~~** -- FIXED: GCP sourcetypes now use correct naming (admin_activity, data_access)\n\n**5. Linux metrics are noise** -- 850+ cpu/iostat/vmstat events are system metrics, not attack indicators. *Fix: Remove demo_id=exfil from routine metrics*\n\n**6. No Meraki MR/MS events during lateral movement** -- Missing wireless and switch telemetry for jessica.brown/alex.miller device activity. *Fix: Add MR/MS events in generate_meraki.py*",
         "fontColor": "#F8BE34",
         "backgroundColor": "#13141A"
       }
@@ -558,21 +615,32 @@
     "viz_mitre_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "## 🛡 MITRE ATT&CK Mapping\n\nTechniques observed across the 14-day campaign mapped to the MITRE ATT&CK framework. Each technique includes the evidence source and the day range in which activity was detected.",
+        "markdown": "## MITRE ATT&CK Mapping\n\n18 techniques across 5 tactics observed during the 14-day campaign. Bar length indicates number of days each technique was active, colored by kill chain phase.",
         "fontColor": "#C3CBD4",
         "backgroundColor": "#13141A"
       }
     },
-    "viz_mitre_table": {
-      "type": "splunk.table",
-      "title": "MITRE ATT&CK Technique Mapping",
+    "viz_mitre_punchcard": {
+      "type": "splunk.bar",
+      "title": "MITRE ATT&CK -- Techniques by Tactic (bar = days active)",
       "dataSources": {
         "primary": "ds_mitre_mapping"
       },
       "options": {
-        "count": 20,
-        "showRowNumbers": false,
-        "backgroundColor": "transparent"
+        "stackMode": "stacked",
+        "seriesColors": [
+          "#F8BE34",
+          "#DC4E41",
+          "#009CEB",
+          "#7B56DB",
+          "#53A051"
+        ],
+        "backgroundColor": "#13141A",
+        "xAxisTitleText": "Days Active",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "legendDisplay": "bottom",
+        "dataValuesDisplay": "all"
       },
       "showProgressBar": true
     }
@@ -601,172 +669,339 @@
   },
   "layout": {
     "type": "grid",
-    "globalInputs": ["input_global_trp"],
+    "globalInputs": [
+      "input_global_trp"
+    ],
     "structure": [
       {
         "item": "viz_header_md",
         "type": "block",
-        "position": { "x": 0, "y": 0, "w": 1200, "h": 200 }
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 200
+        }
       },
       {
         "item": "viz_kpi_events",
         "type": "block",
-        "position": { "x": 0, "y": 200, "w": 300, "h": 120 }
+        "position": {
+          "x": 0,
+          "y": 200,
+          "w": 300,
+          "h": 120
+        }
       },
       {
         "item": "viz_kpi_sourcetypes",
         "type": "block",
-        "position": { "x": 300, "y": 200, "w": 300, "h": 120 }
+        "position": {
+          "x": 300,
+          "y": 200,
+          "w": 300,
+          "h": 120
+        }
       },
       {
         "item": "viz_kpi_hosts",
         "type": "block",
-        "position": { "x": 600, "y": 200, "w": 300, "h": 120 }
+        "position": {
+          "x": 600,
+          "y": 200,
+          "w": 300,
+          "h": 120
+        }
       },
       {
         "item": "viz_kpi_users",
         "type": "block",
-        "position": { "x": 900, "y": 200, "w": 300, "h": 120 }
+        "position": {
+          "x": 900,
+          "y": 200,
+          "w": 300,
+          "h": 120
+        }
       },
       {
         "item": "viz_attack_flow_sankey",
         "type": "block",
-        "position": { "x": 0, "y": 320, "w": 1200, "h": 380 }
+        "position": {
+          "x": 0,
+          "y": 320,
+          "w": 1200,
+          "h": 380
+        }
       },
       {
         "item": "viz_attack_linkgraph",
         "type": "block",
-        "position": { "x": 0, "y": 700, "w": 1200, "h": 500 }
+        "position": {
+          "x": 0,
+          "y": 700,
+          "w": 1200,
+          "h": 650
+        }
       },
       {
         "item": "viz_attack_timeline",
         "type": "block",
-        "position": { "x": 0, "y": 1200, "w": 1200, "h": 350 }
+        "position": {
+          "x": 0,
+          "y": 1350,
+          "w": 1200,
+          "h": 350
+        }
       },
       {
         "item": "viz_phase1_header",
         "type": "block",
-        "position": { "x": 0, "y": 1550, "w": 1200, "h": 120 }
+        "position": {
+          "x": 0,
+          "y": 1700,
+          "w": 1200,
+          "h": 120
+        }
       },
       {
         "item": "viz_recon_ports",
         "type": "block",
-        "position": { "x": 0, "y": 1670, "w": 600, "h": 350 }
+        "position": {
+          "x": 0,
+          "y": 1820,
+          "w": 600,
+          "h": 350
+        }
       },
       {
         "item": "viz_recon_timeline",
         "type": "block",
-        "position": { "x": 600, "y": 1670, "w": 600, "h": 350 }
+        "position": {
+          "x": 600,
+          "y": 1820,
+          "w": 600,
+          "h": 350
+        }
       },
       {
         "item": "viz_phase2_header",
         "type": "block",
-        "position": { "x": 0, "y": 2020, "w": 1200, "h": 120 }
+        "position": {
+          "x": 0,
+          "y": 2170,
+          "w": 1200,
+          "h": 120
+        }
       },
       {
         "item": "viz_phishing_emails",
         "type": "block",
-        "position": { "x": 0, "y": 2140, "w": 600, "h": 300 }
+        "position": {
+          "x": 0,
+          "y": 2290,
+          "w": 600,
+          "h": 300
+        }
       },
       {
         "item": "viz_initial_o365",
         "type": "block",
-        "position": { "x": 600, "y": 2140, "w": 600, "h": 300 }
+        "position": {
+          "x": 600,
+          "y": 2290,
+          "w": 600,
+          "h": 300
+        }
       },
       {
         "item": "viz_phase3_header",
         "type": "block",
-        "position": { "x": 0, "y": 2440, "w": 1200, "h": 120 }
+        "position": {
+          "x": 0,
+          "y": 2590,
+          "w": 1200,
+          "h": 120
+        }
       },
       {
         "item": "viz_network_sankey",
         "type": "block",
-        "position": { "x": 0, "y": 2560, "w": 600, "h": 380 }
+        "position": {
+          "x": 0,
+          "y": 2710,
+          "w": 600,
+          "h": 380
+        }
       },
       {
         "item": "viz_lateral_entraid",
         "type": "block",
-        "position": { "x": 600, "y": 2560, "w": 600, "h": 380 }
+        "position": {
+          "x": 600,
+          "y": 2710,
+          "w": 600,
+          "h": 380
+        }
       },
       {
         "item": "viz_phase4_header",
         "type": "block",
-        "position": { "x": 0, "y": 2940, "w": 1200, "h": 120 }
+        "position": {
+          "x": 0,
+          "y": 3090,
+          "w": 1200,
+          "h": 120
+        }
       },
       {
         "item": "viz_persist_aws",
         "type": "block",
-        "position": { "x": 0, "y": 3060, "w": 600, "h": 350 }
+        "position": {
+          "x": 0,
+          "y": 3210,
+          "w": 600,
+          "h": 350
+        }
       },
       {
         "item": "viz_persist_consent",
         "type": "block",
-        "position": { "x": 600, "y": 3060, "w": 600, "h": 350 }
+        "position": {
+          "x": 600,
+          "y": 3210,
+          "w": 600,
+          "h": 350
+        }
       },
       {
         "item": "viz_phase5_header",
         "type": "block",
-        "position": { "x": 0, "y": 3410, "w": 1200, "h": 120 }
+        "position": {
+          "x": 0,
+          "y": 3560,
+          "w": 1200,
+          "h": 120
+        }
       },
       {
         "item": "viz_exfil_o365",
         "type": "block",
-        "position": { "x": 0, "y": 3530, "w": 400, "h": 280 }
+        "position": {
+          "x": 0,
+          "y": 3680,
+          "w": 400,
+          "h": 280
+        }
       },
       {
         "item": "viz_exfil_aws",
         "type": "block",
-        "position": { "x": 400, "y": 3530, "w": 400, "h": 280 }
+        "position": {
+          "x": 400,
+          "y": 3680,
+          "w": 400,
+          "h": 280
+        }
       },
       {
         "item": "viz_exfil_evidence",
         "type": "block",
-        "position": { "x": 800, "y": 3530, "w": 400, "h": 280 }
+        "position": {
+          "x": 800,
+          "y": 3680,
+          "w": 400,
+          "h": 280
+        }
       },
       {
         "item": "viz_exfil_risk",
         "type": "block",
-        "position": { "x": 0, "y": 3810, "w": 1200, "h": 280 }
+        "position": {
+          "x": 0,
+          "y": 3960,
+          "w": 1200,
+          "h": 280
+        }
       },
       {
         "item": "viz_response_header",
         "type": "block",
-        "position": { "x": 0, "y": 4090, "w": 1200, "h": 80 }
+        "position": {
+          "x": 0,
+          "y": 4240,
+          "w": 1200,
+          "h": 80
+        }
       },
       {
         "item": "viz_response_servicenow",
         "type": "block",
-        "position": { "x": 0, "y": 4170, "w": 600, "h": 300 }
+        "position": {
+          "x": 0,
+          "y": 4320,
+          "w": 600,
+          "h": 300
+        }
       },
       {
         "item": "viz_response_entraid",
         "type": "block",
-        "position": { "x": 600, "y": 4170, "w": 600, "h": 300 }
+        "position": {
+          "x": 600,
+          "y": 4320,
+          "w": 600,
+          "h": 300
+        }
       },
       {
         "item": "viz_matrix_header",
         "type": "block",
-        "position": { "x": 0, "y": 4470, "w": 1200, "h": 60 }
+        "position": {
+          "x": 0,
+          "y": 4620,
+          "w": 1200,
+          "h": 60
+        }
       },
       {
         "item": "viz_cross_source_matrix",
         "type": "block",
-        "position": { "x": 0, "y": 4530, "w": 1200, "h": 350 }
+        "position": {
+          "x": 0,
+          "y": 4680,
+          "w": 1200,
+          "h": 350
+        }
       },
       {
         "item": "viz_gaps_md",
         "type": "block",
-        "position": { "x": 0, "y": 4880, "w": 1200, "h": 300 }
+        "position": {
+          "x": 0,
+          "y": 5030,
+          "w": 1200,
+          "h": 300
+        }
       },
       {
         "item": "viz_mitre_header",
         "type": "block",
-        "position": { "x": 0, "y": 5180, "w": 1200, "h": 80 }
+        "position": {
+          "x": 0,
+          "y": 5330,
+          "w": 1200,
+          "h": 80
+        }
       },
       {
-        "item": "viz_mitre_table",
+        "item": "viz_mitre_punchcard",
         "type": "block",
-        "position": { "x": 0, "y": 5260, "w": 1200, "h": 420 }
+        "position": {
+          "x": 0,
+          "y": 5410,
+          "w": 1200,
+          "h": 600
+        }
       }
     ]
   }

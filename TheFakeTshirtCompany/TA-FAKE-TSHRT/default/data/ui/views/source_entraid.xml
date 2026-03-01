@@ -1,16 +1,23 @@
 <dashboard version="2" theme="dark">
   <label>Source - Entra ID</label>
-  <description>Microsoft Entra ID (Azure AD) — sign-in logs, audit events, and identity protection</description>
+  <description>Why index Entra ID? Detect compromised accounts, track MFA compliance, prevent unauthorized access</description>
   <definition><![CDATA[
 {
   "title": "Source - Entra ID",
-  "description": "Microsoft Entra ID (Azure AD) — sign-in logs, audit events, and identity protection",
+  "description": "Why index Entra ID? Detect compromised accounts, track MFA compliance, prevent unauthorized access",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
-      "name": "Total Entra ID Events Over Time",
+      "name": "Total Sign-ins Over Time",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:azure:aad:*\" by _time span=1h"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | bin _time span=1h | stats count by _time"
+      }
+    },
+    "ds_failed_logins": {
+      "type": "ds.search",
+      "name": "Failed Sign-in Count",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0 | stats count"
       }
     },
     "ds_unique_users": {
@@ -20,60 +27,46 @@
         "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | stats dc(user) as count"
       }
     },
-    "ds_failed_logins": {
+    "ds_risky_signins": {
       "type": "ds.search",
-      "name": "Failed Login Count",
+      "name": "Risky Sign-ins",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0 | stats count"
-      }
-    },
-    "ds_scenario_events": {
-      "type": "ds.search",
-      "name": "Scenario Event Count",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:*\" demo_id=* | stats count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0 | stats dc(user) as count"
       }
     },
     "ds_signin_timeline": {
       "type": "ds.search",
-      "name": "Sign-ins Over Time by Status",
+      "name": "Sign-in Success vs Failure Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | eval status=if(properties.status.errorCode=0, \"Success\", \"Failed\") | timechart span=1h count by status"
-      }
-    },
-    "ds_by_sourcetype": {
-      "type": "ds.search",
-      "name": "Events by Sourcetype",
-      "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:azure:aad:*\" by sourcetype | eval label=case(match(sourcetype,\"signin\"), \"Sign-in\", match(sourcetype,\"audit\"), \"Audit\", match(sourcetype,\"identity\"), \"Identity Protection\", 1=1, sourcetype) | stats sum(count) as count by label | sort -count"
-      }
-    },
-    "ds_top_users": {
-      "type": "ds.search",
-      "name": "Top Users by Sign-in Count",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" user=* | stats count by user | sort -count | head 15"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | eval status=if('properties.status.errorCode'=0, \"Success\", \"Failed\") | timechart span=1h count by status"
       }
     },
     "ds_failed_by_user": {
       "type": "ds.search",
-      "name": "Failed Logins by User",
+      "name": "Top Failed Users",
       "options": {
         "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0 user=* | stats count by user | sort -count | head 15"
       }
     },
-    "ds_auth_by_location": {
+    "ds_by_app": {
       "type": "ds.search",
-      "name": "Sign-ins by Location",
+      "name": "Sign-in by Application",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=location.city output=city | stats count by city | sort -count | head 10"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.appDisplayName output=appDisplayName | stats count by appDisplayName | sort -count | head 10"
+      }
+    },
+    "ds_top_errors": {
+      "type": "ds.search",
+      "name": "Top Error Codes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0 | stats count by properties.status.errorCode | sort -count | head 10 | rename properties.status.errorCode as \"Error Code\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
-      "name": "Recent Sign-in Events",
+      "name": "Recent Failed Sign-ins",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | eval status=if(properties.status.errorCode=0, \"Success\", \"Failed\") | spath path=location.city output=city | table _time user status city demo_id | sort -_time | head 30 | rename user as \"User\" status as \"Status\" city as \"City\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" properties.status.errorCode!=0 | spath path=properties.appDisplayName output=appDisplayName | spath path=properties.status.failureReason output=failureReason | table _time user appDisplayName src properties.status.errorCode failureReason | sort -_time | head 30 | rename user as \"User\" appDisplayName as \"Application\" src as \"Source IP\" properties.status.errorCode as \"Error Code\" failureReason as \"Failure Reason\""
       }
     }
   },
@@ -81,13 +74,13 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Entra ID (Azure AD)\n\n| Property | Value |\n|----------|-------|\n| **Sourcetypes** | `FAKE:azure:aad:signin`, `FAKE:azure:aad:audit`, `FAKE:azure:aad:identity` |\n| **Tenant** | theFakeTshirtCompany.com |\n| **Format** | JSON |\n| **Scenarios** | exfil (suspicious logins from Germany) |",
+        "markdown": "# Source — Entra ID (Azure AD)\n\n**Sourcetypes:** `FAKE:azure:aad:signin`, `FAKE:azure:aad:audit`, `FAKE:azure:aad:identity` | **Tenant:** theFakeTshirtCompany.com | **Format:** JSON\n\n**Why monitor?** Detect compromised accounts through failed sign-in patterns, identify brute-force attempts, track application access, and catch unauthorized logins before they escalate.",
         "fontColor": "#C3CBD4"
       }
     },
     "viz_kpi_total": {
       "type": "splunk.singlevalue",
-      "title": "Total Events",
+      "title": "Total Sign-ins",
       "dataSources": { "primary": "ds_total_events" },
       "options": {
         "majorValue": "> sparklineValues | lastPoint()",
@@ -96,27 +89,27 @@
         "backgroundColor": "transparent", "showSparklineAreaGraph": true, "sparklineStrokeColor": "#00D2FF"
       }
     },
+    "viz_kpi_failed": {
+      "type": "splunk.singlevalue",
+      "title": "Failed Sign-ins",
+      "dataSources": { "primary": "ds_failed_logins" },
+      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#DC4E41", "backgroundColor": "transparent", "sparklineDisplay": "off" }
+    },
     "viz_kpi_users": {
       "type": "splunk.singlevalue",
       "title": "Unique Users",
       "dataSources": { "primary": "ds_unique_users" },
       "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#7B56DB", "backgroundColor": "transparent", "sparklineDisplay": "off" }
     },
-    "viz_kpi_failed": {
+    "viz_kpi_risky": {
       "type": "splunk.singlevalue",
-      "title": "Failed Logins",
-      "dataSources": { "primary": "ds_failed_logins" },
-      "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#DC4E41", "backgroundColor": "transparent", "sparklineDisplay": "off" }
-    },
-    "viz_kpi_scenarios": {
-      "type": "splunk.singlevalue",
-      "title": "Scenario Events",
-      "dataSources": { "primary": "ds_scenario_events" },
+      "title": "Users with Failures",
+      "dataSources": { "primary": "ds_risky_signins" },
       "options": { "majorValue": "> primary | seriesByName('count') | lastPoint()", "majorColor": "#F8BE34", "backgroundColor": "transparent", "sparklineDisplay": "off" }
     },
     "viz_signin_timeline": {
       "type": "splunk.area",
-      "title": "Sign-ins Over Time",
+      "title": "Sign-in Success vs Failure Over Time",
       "dataSources": { "primary": "ds_signin_timeline" },
       "options": {
         "stackMode": "stacked", "legendDisplay": "right", "nullValueDisplay": "zero",
@@ -126,39 +119,33 @@
       },
       "showProgressBar": true, "showLastUpdated": true
     },
-    "viz_by_sourcetype": {
-      "type": "splunk.pie",
-      "title": "Events by Type",
-      "dataSources": { "primary": "ds_by_sourcetype" },
-      "options": { "labelDisplay": "valuesAndPercentage", "showDonutHole": true, "seriesColors": ["#00D2FF", "#7B56DB", "#F8BE34"] }
-    },
-    "viz_top_users": {
-      "type": "splunk.bar",
-      "title": "Top Users (Sign-ins)",
-      "dataSources": { "primary": "ds_top_users" },
-      "options": { "seriesColors": ["#00D2FF"], "legendDisplay": "off", "xAxisTitleText": "Sign-ins", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
-      "showProgressBar": true
-    },
     "viz_failed_by_user": {
       "type": "splunk.bar",
-      "title": "Failed Logins by User",
+      "title": "Top Failed Users (Potential Compromised Accounts)",
       "dataSources": { "primary": "ds_failed_by_user" },
       "options": { "seriesColors": ["#DC4E41"], "legendDisplay": "off", "xAxisTitleText": "Failures", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
       "showProgressBar": true
     },
-    "viz_by_location": {
+    "viz_by_app": {
       "type": "splunk.pie",
-      "title": "Sign-ins by Location",
-      "dataSources": { "primary": "ds_auth_by_location" },
-      "options": { "labelDisplay": "valuesAndPercentage", "showDonutHole": true, "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB"] }
+      "title": "Sign-in by Application",
+      "dataSources": { "primary": "ds_by_app" },
+      "options": { "labelDisplay": "valuesAndPercentage", "showDonutHole": true, "seriesColors": ["#00D2FF", "#7B56DB", "#53A051", "#F8BE34", "#DC4E41", "#009CEB", "#F1813F", "#A870EF", "#E0E0E0", "#B0B0B0"] }
+    },
+    "viz_top_errors": {
+      "type": "splunk.bar",
+      "title": "Top Error Codes",
+      "dataSources": { "primary": "ds_top_errors" },
+      "options": { "seriesColors": ["#F8BE34"], "legendDisplay": "off", "xAxisTitleText": "Occurrences", "xAxisTitleVisibility": "show", "yAxisTitleVisibility": "hide", "backgroundColor": "transparent" },
+      "showProgressBar": true
     },
     "viz_sample_header": {
       "type": "splunk.markdown",
-      "options": { "markdown": "### Recent Sign-in Events", "fontColor": "#C3CBD4" }
+      "options": { "markdown": "### Recent Failed Sign-ins", "fontColor": "#C3CBD4" }
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Sample Events",
+      "title": "Recent Failed Sign-ins",
       "dataSources": { "primary": "ds_sample_events" },
       "options": { "count": 20, "showRowNumbers": false },
       "showProgressBar": true, "showLastUpdated": true
@@ -178,18 +165,17 @@
     "type": "grid",
     "globalInputs": ["input_global_trp"],
     "structure": [
-      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
-      { "item": "viz_kpi_total", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_users", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_failed", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_signin_timeline", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
-      { "item": "viz_by_sourcetype", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_top_users", "type": "block", "position": { "x": 0, "y": 620, "w": 400, "h": 300 } },
-      { "item": "viz_failed_by_user", "type": "block", "position": { "x": 400, "y": 620, "w": 400, "h": 300 } },
-      { "item": "viz_by_location", "type": "block", "position": { "x": 800, "y": 620, "w": 400, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 120 } },
+      { "item": "viz_kpi_total", "type": "block", "position": { "x": 0, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_failed", "type": "block", "position": { "x": 300, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_users", "type": "block", "position": { "x": 600, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_risky", "type": "block", "position": { "x": 900, "y": 120, "w": 300, "h": 120 } },
+      { "item": "viz_signin_timeline", "type": "block", "position": { "x": 0, "y": 240, "w": 750, "h": 350 } },
+      { "item": "viz_failed_by_user", "type": "block", "position": { "x": 750, "y": 240, "w": 450, "h": 350 } },
+      { "item": "viz_by_app", "type": "block", "position": { "x": 0, "y": 590, "w": 400, "h": 300 } },
+      { "item": "viz_top_errors", "type": "block", "position": { "x": 400, "y": 590, "w": 800, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 890, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 940, "w": 1200, "h": 400 } }
     ]
   }
 }

@@ -1,0 +1,252 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Cisco ACI</label>
+  <description>Data center fabric — fault detection, health monitoring, and change audit</description>
+  <definition><![CDATA[
+{
+  "title": "Source — Cisco ACI",
+  "description": "Data center fabric — fault detection, health monitoring, and change audit",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total ACI Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt (sourcetype=\"FAKE:cisco:aci:fault\" OR sourcetype=\"FAKE:cisco:aci:event\" OR sourcetype=\"FAKE:cisco:aci:audit\") by _time span=1h"
+      }
+    },
+    "ds_fault_count": {
+      "type": "ds.search",
+      "name": "Total Faults",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:fault\" | stats count"
+      }
+    },
+    "ds_audit_count": {
+      "type": "ds.search",
+      "name": "Audit Changes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:audit\" | stats count"
+      }
+    },
+    "ds_critical_faults": {
+      "type": "ds.search",
+      "name": "Critical Faults",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:fault\" | spath path=faultInst.attributes.severity output=fault_severity | search fault_severity=critical | stats count"
+      }
+    },
+    "ds_events_by_sourcetype": {
+      "type": "ds.search",
+      "name": "Events by Sourcetype Over Time",
+      "options": {
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:cisco:aci:fault\" OR sourcetype=\"FAKE:cisco:aci:event\" OR sourcetype=\"FAKE:cisco:aci:audit\") | timechart span=1h count by sourcetype"
+      }
+    },
+    "ds_fault_severity": {
+      "type": "ds.search",
+      "name": "Fault Severity Distribution",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:fault\" | spath path=faultInst.attributes.severity output=fault_severity | stats count by fault_severity | sort -count | rename fault_severity as \"severity\""
+      }
+    },
+    "ds_top_fault_codes": {
+      "type": "ds.search",
+      "name": "Top Fault Codes",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:fault\" | spath path=faultInst.attributes.code output=fault_code | stats count by fault_code | sort -count | head 15 | rename fault_code as \"Fault Code\""
+      }
+    },
+    "ds_events_by_cause": {
+      "type": "ds.search",
+      "name": "Events by Cause",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:fault\" | spath path=faultInst.attributes.cause output=fault_cause | stats count by fault_cause | sort -count | head 10 | rename fault_cause as \"cause\""
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Faults",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:aci:fault\" | spath path=faultInst.attributes.severity output=fault_severity | spath path=faultInst.attributes.code output=fault_code | spath path=faultInst.attributes.cause output=fault_cause | spath path=faultInst.attributes.descr output=fault_descr | table _time fault_severity fault_code fault_cause fault_descr | sort -_time | head 30 | rename fault_severity as \"Severity\" fault_code as \"Code\" fault_cause as \"Cause\" fault_descr as \"Description\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Cisco ACI\n\n**Sourcetypes:** `FAKE:cisco:aci:fault`, `FAKE:cisco:aci:event`, `FAKE:cisco:aci:audit` | **Format:** JSON (APIC MIM)\n\n**Why monitor?** Detect fabric faults before they cause application outages, track endpoint mobility, and audit all configuration changes in the data center.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_faults": {
+      "type": "splunk.singlevalue",
+      "title": "Faults",
+      "dataSources": { "primary": "ds_fault_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_audits": {
+      "type": "splunk.singlevalue",
+      "title": "Audit Changes",
+      "dataSources": { "primary": "ds_audit_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_critical_faults": {
+      "type": "splunk.singlevalue",
+      "title": "Critical Faults",
+      "dataSources": { "primary": "ds_critical_faults" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_by_sourcetype": {
+      "type": "splunk.area",
+      "title": "Events by Type Over Time",
+      "dataSources": { "primary": "ds_events_by_sourcetype" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#DC4E41", "#00D2FF", "#7B56DB"]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_fault_severity": {
+      "type": "splunk.pie",
+      "title": "Fault Severity Distribution",
+      "dataSources": { "primary": "ds_fault_severity" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColorsByField": {
+          "critical": "#DC4E41",
+          "major": "#F1813F",
+          "minor": "#F8BE34",
+          "warning": "#009CEB",
+          "info": "#53A051",
+          "cleared": "#00CDAF",
+          "informational": "#53A051",
+          "high": "#DC4E41",
+          "medium": "#F8BE34",
+          "low": "#009CEB"
+        }
+      }
+    },
+    "viz_top_fault_codes": {
+      "type": "splunk.bar",
+      "title": "Top Fault Codes",
+      "dataSources": { "primary": "ds_top_fault_codes" },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Faults",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_events_by_cause": {
+      "type": "splunk.pie",
+      "title": "Events by Cause",
+      "dataSources": { "primary": "ds_events_by_cause" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#F1813F", "#F8BE34", "#009CEB", "#53A051", "#00CDAF", "#7B56DB", "#00D2FF", "#FF677B", "#F1813F"]
+      }
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Faults",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Recent Faults",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 180 } },
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_faults", "type": "block", "position": { "x": 300, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_audits", "type": "block", "position": { "x": 600, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_critical_faults", "type": "block", "position": { "x": 900, "y": 180, "w": 300, "h": 120 } },
+      { "item": "viz_events_by_sourcetype", "type": "block", "position": { "x": 0, "y": 300, "w": 750, "h": 350 } },
+      { "item": "viz_fault_severity", "type": "block", "position": { "x": 750, "y": 300, "w": 450, "h": 350 } },
+      { "item": "viz_top_fault_codes", "type": "block", "position": { "x": 0, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_events_by_cause", "type": "block", "position": { "x": 400, "y": 650, "w": 400, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 950, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 1000, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

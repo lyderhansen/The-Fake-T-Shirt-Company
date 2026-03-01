@@ -67,7 +67,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario -- Phishing Test\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `phishing_test` |\n| **Category** | Security (Authorized Simulation) |\n| **Duration** | Days 21-23 (3 days) |\n| **Severity** | Medium (Controlled) |\n| **Operator** | Ashley Griffin (Security Analyst) |\n| **Platform** | KnowBe4 Simulation (52.25.138.42) |\n| **Results** | 31% click rate, 10% credential submission, 20% reported |\n\n**Scenario Summary:** After the exfil incident (Days 1-14), IT Security runs a phishing awareness campaign targeting all 175 employees. Three waves are sent -- Boston at 09:00, Atlanta at 10:00, Austin at 11:00. The lure mimics a Microsoft 365 password expiration notice. 55 employees click the link, 18 submit credentials, 35 report to IT. Mandatory training assigned to all clickers on Day 23.",
+        "markdown": "# Scenario -- Phishing Test\n\n**demo_id:** `phishing_test`\n\n**Category:** Security (Authorized Simulation)\n\n**Duration:** Days 21-23 (3 days)\n\n**Severity:** Medium (Controlled)\n\n**Operator:** Ashley Griffin (Security Analyst)\n\n**Platform:** KnowBe4 Simulation (52.25.138.42)\n\n**Results:** 31% click rate, 10% credential submission, 20% reported\n\n**Scenario Summary:** After the exfil incident (Days 1-14), IT Security runs a phishing awareness campaign targeting all 175 employees. Three waves are sent -- Boston at 09:00, Atlanta at 10:00, Austin at 11:00. The lure mimics a Microsoft 365 password expiration notice. 55 employees click the link, 18 submit credentials, 35 report to IT. Mandatory training assigned to all clickers on Day 23.",
         "fontColor": "#C3CBD4"
       }
     },

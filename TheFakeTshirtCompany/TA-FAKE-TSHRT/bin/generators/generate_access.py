@@ -256,11 +256,16 @@ BOT_CRAWL_PATHS = [
 ]
 
 
-def generate_health_check_events(base_date: str, day: int, hour: int) -> List[str]:
+def generate_health_check_events(
+    base_date: str, day: int, hour: int,
+    error_rate: int = 0, response_mult: int = 100, demo_id: Optional[str] = None,
+) -> List[str]:
     """Generate monitoring health check probes from MON-ATL-01.
 
     ~2 probes per minute (every 30s), cycling through health endpoints.
-    Returns list of Apache combined log lines.
+    During active scenarios, health checks reflect degraded server state:
+    - response times scale with response_mult (same as user sessions)
+    - error_rate injects 503/504 failures (Nagios would alert on these)
     """
     events = []
     dt = date_add(base_date, day)
@@ -270,22 +275,38 @@ def generate_health_check_events(base_date: str, day: int, hour: int) -> List[st
             second = sec_offset + random.randint(0, 3)
             ts = format_apache_time(dt.replace(hour=hour, minute=minute, second=min(second, 59)))
             path = random.choice(HEALTH_PATHS)
-            # Health checks are fast and always succeed (unless scenario overrides)
-            rt = random.randint(2, 8)
+            # Base: fast health check (2-8ms), scaled by scenario multiplier
+            base_rt = random.randint(2, 8)
+            rt = max(1, base_rt * response_mult // 100)
+            # Status: 200 normally, errors during scenarios
+            status = 200
             size = random.randint(50, 200)
+            if error_rate > 0 and random.randint(1, 100) <= error_rate:
+                status = random.choice([503, 504])
+                size = 0
+                # Timeouts on error — Nagios sees connection timeout
+                rt = random.randint(5000, 30000)
             line = (
-                f'{HEALTH_CHECK_IP} - - {ts} "GET {path} HTTP/1.1" 200 {size} '
+                f'{HEALTH_CHECK_IP} - - {ts} "GET {path} HTTP/1.1" {status} {size} '
                 f'"-" "{HEALTH_CHECK_UA}" response_time={rt}'
             )
+            if demo_id:
+                line += f" demo_id={demo_id}"
             events.append(line)
 
     return events
 
 
-def generate_bot_crawl_events(base_date: str, day: int, hour: int) -> List[str]:
+def generate_bot_crawl_events(
+    base_date: str, day: int, hour: int,
+    error_rate: int = 0, response_mult: int = 100, demo_id: Optional[str] = None,
+) -> List[str]:
     """Generate search engine bot crawl requests.
 
     ~2-5 per hour for robots.txt, sitemap.xml, etc.
+    During active scenarios, bots see the same degradation as real users:
+    - slow responses (bots crawl through the same firewall/web stack)
+    - error pages during outages
     """
     events = []
     dt = date_add(base_date, day)
@@ -297,17 +318,26 @@ def generate_bot_crawl_events(base_date: str, day: int, hour: int) -> List[str]:
         ts = format_apache_time(dt.replace(hour=hour, minute=minute, second=second))
         path = random.choice(BOT_CRAWL_PATHS)
         ua = random.choice(BOT_AGENTS)
-        rt = random.randint(5, 25)
+        # Base: fast crawl (5-25ms), scaled by scenario multiplier
+        base_rt = random.randint(5, 25)
+        rt = max(1, base_rt * response_mult // 100)
         size = random.randint(200, 5000) if path != "/favicon.ico" else random.randint(1000, 4000)
         status = 200
-        # ~5% chance of 404 for bots hitting non-existent paths
-        if random.random() < 0.05:
+        # Scenario errors take priority over normal 404 chance
+        if error_rate > 0 and random.randint(1, 100) <= error_rate:
+            status = random.choice([503, 504])
+            size = random.randint(500, 2000)
+            rt = random.randint(3000, 15000)
+        elif random.random() < 0.05:
+            # ~5% chance of 404 for bots hitting non-existent paths
             status = 404
             size = random.randint(200, 500)
         line = (
             f'{"66.249." + str(random.randint(64, 95)) + "." + str(random.randint(1, 254))} '
             f'- - {ts} "GET {path} HTTP/1.1" {status} {size} "-" "{ua}" response_time={rt}'
         )
+        if demo_id:
+            line += f" demo_id={demo_id}"
         events.append(line)
 
     return events
@@ -872,10 +902,20 @@ def generate_access_logs(
                 ))
 
             # Health check probes from MON-ATL-01 (every 30s, all hours)
-            all_events.extend(generate_health_check_events(start_date, day, hour))
+            # These traverse the same network path as users, so they see scenario effects
+            all_events.extend(generate_health_check_events(
+                start_date, day, hour,
+                error_rate=error_rate, response_mult=response_mult,
+                demo_id=demo_id if error_rate > 0 else None,
+            ))
 
             # Search engine bot crawls (2-5 per hour)
-            all_events.extend(generate_bot_crawl_events(start_date, day, hour))
+            # Bots come through the internet/firewall, affected by same scenarios
+            all_events.extend(generate_bot_crawl_events(
+                start_date, day, hour,
+                error_rate=error_rate, response_mult=response_mult,
+                demo_id=demo_id if error_rate > 0 else None,
+            ))
 
         if not quiet:
             print(f"  [Access] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)

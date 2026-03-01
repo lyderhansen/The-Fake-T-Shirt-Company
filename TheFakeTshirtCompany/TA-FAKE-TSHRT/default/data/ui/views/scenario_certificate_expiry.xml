@@ -74,7 +74,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Scenario — Certificate Expiry\n\n| Property | Value |\n|----------|-------|\n| **demo_id** | `certificate_expiry` |\n| **Category** | Network |\n| **Duration** | Day 12, 00:00–07:00 (7 hours) |\n| **Severity** | High |\n| **Target** | FW-EDGE-01 + WEB-01/WEB-02 |\n| **Certificate** | *.theFakeTshirtCompany.com (DigiCert) |\n| **Outcome** | Emergency cert renewal at 07:00, service restored |\n\n**Scenario Summary:** Wildcard SSL certificate for *.theFakeTshirtCompany.com expires at midnight on Day 12. SSL handshake failures begin immediately, causing 502/503 errors for all HTTPS traffic. Low overnight traffic masks the issue for 6 hours. NOC engineer notices alerts at 06:15, identifies expired cert at 06:30, initiates emergency renewal at 06:45. New certificate installed at 07:00, services restore immediately. Preventable outage — no certificate monitoring/automation in place.",
+        "markdown": "# Scenario — Certificate Expiry\n\n**demo_id:** `certificate_expiry`\n\n**Category:** Network\n\n**Duration:** Day 12, 00:00–07:00 (7 hours)\n\n**Severity:** High\n\n**Target:** FW-EDGE-01 + WEB-01/WEB-02\n\n**Certificate:** *.theFakeTshirtCompany.com (DigiCert)\n\n**Outcome:** Emergency cert renewal at 07:00, service restored\n\n**Scenario Summary:** Wildcard SSL certificate for *.theFakeTshirtCompany.com expires at midnight on Day 12. SSL handshake failures begin immediately, causing 502/503 errors for all HTTPS traffic. Low overnight traffic masks the issue for 6 hours. NOC engineer notices alerts at 06:15, identifies expired cert at 06:30, initiates emergency renewal at 06:45. New certificate installed at 07:00, services restore immediately. Preventable outage — no certificate monitoring/automation in place.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -215,7 +215,7 @@
     "viz_evidence_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Event Sequence\n\n| Time | Event |\n|------|-------|\n| 00:00 | SSL certificate expires |\n| 00:00–06:00 | SSL failures (low traffic overnight) |\n| 06:15 | NOC engineer notices alerts |\n| 06:30 | Root cause identified |\n| 06:45 | Emergency cert renewal initiated |\n| 07:00 | New certificate installed, service restored |",
+        "markdown": "### Event Sequence\n\n**00:00** — SSL certificate expires\n\n**00:00–06:00** — SSL failures (low traffic overnight)\n\n**06:15** — NOC engineer notices alerts\n\n**06:30** — Root cause identified\n\n**06:45** — Emergency cert renewal initiated\n\n**07:00** — New certificate installed, service restored",
         "fontColor": "#C3CBD4"
       }
     },

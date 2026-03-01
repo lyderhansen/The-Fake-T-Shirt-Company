@@ -1,16 +1,23 @@
 <dashboard version="2" theme="dark">
   <label>Source - Exchange</label>
-  <description>Exchange Online message trace — email flow, sender/recipient analysis, and phishing detection</description>
+  <description>Exchange Online message trace — email flow, delivery health, and phishing detection</description>
   <definition><![CDATA[
 {
   "title": "Source - Exchange",
-  "description": "Exchange Online message trace — email flow, sender/recipient analysis, and phishing detection",
+  "description": "Exchange Online message trace — email flow, delivery health, and phishing detection",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
       "name": "Total Exchange Events Over Time",
       "options": {
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" by _time span=1h"
+      }
+    },
+    "ds_delivery_failures": {
+      "type": "ds.search",
+      "name": "Delivery Failures",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" Status!=\"Delivered\" Status=* | stats count"
       }
     },
     "ds_unique_senders": {
@@ -27,46 +34,32 @@
         "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" RecipientAddress=* | stats dc(RecipientAddress) as count"
       }
     },
-    "ds_scenario_events": {
-      "type": "ds.search",
-      "name": "Scenario Event Count",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" demo_id=* | stats count"
-      }
-    },
     "ds_events_over_time": {
       "type": "ds.search",
-      "name": "Events Over Time",
+      "name": "Message Flow Over Time",
       "options": {
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" by _time span=1h"
       }
     },
-    "ds_top_senders": {
-      "type": "ds.search",
-      "name": "Top Senders",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" SenderAddress=* | stats count by SenderAddress | sort -count | head 15 | rename SenderAddress as \"Sender\""
-      }
-    },
-    "ds_top_recipients": {
-      "type": "ds.search",
-      "name": "Top Recipients",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" RecipientAddress=* | stats count by RecipientAddress | sort -count | head 15 | rename RecipientAddress as \"Recipient\""
-      }
-    },
     "ds_status_breakdown": {
       "type": "ds.search",
-      "name": "Events by Status",
+      "name": "Delivery Status",
       "options": {
         "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" Status=* | stats count by Status | sort -count"
       }
     },
-    "ds_sample_events": {
+    "ds_top_senders": {
       "type": "ds.search",
-      "name": "Recent Events",
+      "name": "Top Senders by Volume",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" | table _time SenderAddress RecipientAddress Subject Status demo_id | sort -_time | head 30 | rename SenderAddress as \"Sender\" RecipientAddress as \"Recipient\" Status as \"Status\" demo_id as \"Scenario\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" SenderAddress=* | stats count by SenderAddress | sort -count | head 15 | rename SenderAddress as \"Sender\""
+      }
+    },
+    "ds_recent_failures": {
+      "type": "ds.search",
+      "name": "Recent Delivery Failures",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" Status!=\"Delivered\" | table _time SenderAddress RecipientAddress Subject Status | sort -_time | head 30 | rename SenderAddress as \"Sender\" RecipientAddress as \"Recipient\""
       }
     }
   },
@@ -74,13 +67,13 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Exchange\n\n| Property | Value |\n|----------|-------|\n| **Sourcetype** | `FAKE:o365:reporting:messagetrace` |\n| **Format** | CSV (message trace) |\n| **Scenarios** | exfil — phishing email delivery, mail forwarding rule creation |",
+        "markdown": "# Source — Exchange\n\n**Sourcetype:** `FAKE:o365:reporting:messagetrace` | **Coverage:** Exchange Online message trace for all email flow | **Format:** CSV\n\n**Why monitor?** Track email delivery health, detect phishing attempts reaching inboxes, and ensure business communication flows without disruption.",
         "fontColor": "#C3CBD4"
       }
     },
     "viz_kpi_total_events": {
       "type": "splunk.singlevalue",
-      "title": "Total Events",
+      "title": "Total Messages",
       "dataSources": { "primary": "ds_total_events" },
       "options": {
         "majorValue": "> sparklineValues | lastPoint()",
@@ -90,6 +83,17 @@
         "backgroundColor": "transparent",
         "showSparklineAreaGraph": true,
         "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_delivery_failures": {
+      "type": "splunk.singlevalue",
+      "title": "Delivery Failures",
+      "dataSources": { "primary": "ds_delivery_failures" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
       }
     },
     "viz_kpi_unique_senders": {
@@ -114,20 +118,9 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_kpi_scenarios": {
-      "type": "splunk.singlevalue",
-      "title": "Scenario Events",
-      "dataSources": { "primary": "ds_scenario_events" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#F8BE34",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
     "viz_events_over_time": {
       "type": "splunk.area",
-      "title": "Events Over Time",
+      "title": "Message Flow Over Time",
       "dataSources": { "primary": "ds_events_over_time" },
       "options": {
         "stackMode": "stacked",
@@ -136,7 +129,7 @@
         "areaOpacity": 0.7,
         "backgroundColor": "transparent",
         "xAxisTitleVisibility": "hide",
-        "yAxisTitleText": "Events / hour",
+        "yAxisTitleText": "Messages / hour",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
         "seriesColors": ["#00D2FF"]
@@ -146,17 +139,17 @@
     },
     "viz_status_breakdown": {
       "type": "splunk.pie",
-      "title": "Events by Status",
+      "title": "Delivery Status",
       "dataSources": { "primary": "ds_status_breakdown" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
-        "seriesColors": ["#53A051", "#00D2FF", "#DC4E41", "#F8BE34", "#7B56DB", "#009CEB", "#F1813F", "#00CDAF"]
+        "seriesColors": ["#53A051", "#DC4E41", "#F8BE34", "#7B56DB", "#00D2FF", "#009CEB", "#F1813F", "#00CDAF"]
       }
     },
     "viz_top_senders": {
       "type": "splunk.bar",
-      "title": "Top Senders",
+      "title": "Top Senders by Volume",
       "dataSources": { "primary": "ds_top_senders" },
       "options": {
         "seriesColors": ["#7B56DB"],
@@ -168,31 +161,17 @@
       },
       "showProgressBar": true
     },
-    "viz_top_recipients": {
-      "type": "splunk.bar",
-      "title": "Top Recipients",
-      "dataSources": { "primary": "ds_top_recipients" },
-      "options": {
-        "seriesColors": ["#53A051"],
-        "legendDisplay": "off",
-        "xAxisTitleText": "Messages Received",
-        "xAxisTitleVisibility": "show",
-        "yAxisTitleVisibility": "hide",
-        "backgroundColor": "transparent"
-      },
-      "showProgressBar": true
-    },
-    "viz_sample_header": {
+    "viz_failures_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Recent Events",
+        "markdown": "### Recent Delivery Failures",
         "fontColor": "#C3CBD4"
       }
     },
-    "viz_sample_events": {
+    "viz_recent_failures": {
       "type": "splunk.table",
-      "title": "Sample Events",
-      "dataSources": { "primary": "ds_sample_events" },
+      "title": "Recent Delivery Failures",
+      "dataSources": { "primary": "ds_recent_failures" },
       "options": {
         "count": 20,
         "showRowNumbers": false
@@ -229,15 +208,14 @@
     "structure": [
       { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
       { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_unique_senders", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_unique_recipients", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_scenarios", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_delivery_failures", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unique_senders", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
+      { "item": "viz_kpi_unique_recipients", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
       { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
       { "item": "viz_status_breakdown", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_top_senders", "type": "block", "position": { "x": 0, "y": 620, "w": 600, "h": 300 } },
-      { "item": "viz_top_recipients", "type": "block", "position": { "x": 600, "y": 620, "w": 600, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+      { "item": "viz_top_senders", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
+      { "item": "viz_failures_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
+      { "item": "viz_recent_failures", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
     ]
   }
 }
