@@ -8,6 +8,7 @@
     <divider />
     <collection label="Floor Plans">
       <view name="boston_-_floor_plan" />
+      <view name="floorplan_bos_3f" />
     </collection>
   </collection>
   <collection label="Scenarios">
@@ -45,6 +46,7 @@
     <collection label="Collaboration">
       <view name="source_exchange" />
       <view name="source_o365_audit" />
+      <view name="source_webex" />
       <view name="source_webex_ta" />
       <view name="source_webex_api" />
     </collection>

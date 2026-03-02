@@ -1,10 +1,10 @@
 <dashboard version="2" theme="dark">
   <label>Source - Webex TA</label>
-  <description>Cisco Webex Technical Add-on — meeting quality metrics and room utilization tracking</description>
+  <description>Cisco Webex Technical Add-on — meeting room utilization, ghost meeting tracking, and device quality</description>
   <definition><![CDATA[
 {
   "title": "Source - Webex TA",
-  "description": "Cisco Webex Technical Add-on — meeting quality metrics and room utilization tracking",
+  "description": "Cisco Webex Technical Add-on — meeting room utilization, ghost meeting tracking, and device quality",
   "dataSources": {
     "ds_total_events": {
       "type": "ds.search",
@@ -13,14 +13,7 @@
         "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" by _time span=1h"
       }
     },
-    "ds_unique_rooms": {
-      "type": "ds.search",
-      "name": "Unique Rooms",
-      "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" confName=* | stats dc(confName) as count"
-      }
-    },
-    "ds_quality_issues": {
+    "ds_total_meetings": {
       "type": "ds.search",
       "name": "Total Meetings",
       "options": {
@@ -31,35 +24,70 @@
       "type": "ds.search",
       "name": "Meeting Hours",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" duration=* | stats sum(duration) as total_min | eval count=round(total_min/60,0).\" hrs\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" duration=* | stats sum(duration) as total_min | eval count=round(total_min/60,0)"
+      }
+    },
+    "ds_ghost_rate": {
+      "type": "ds.search",
+      "name": "Ghost Meeting Rate",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | eval is_ghost=if(totalParticipants=\"0\",1,0) | stats sum(is_ghost) as ghosts, count as total | eval count=round(ghosts/total*100,1)"
+      }
+    },
+    "ds_room_devices": {
+      "type": "ds.search",
+      "name": "Room Devices",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingattendeehistory\" clientType=\"Telepresence\" | stats dc(attendeeName) as count"
+      }
+    },
+    "ds_unique_hosts": {
+      "type": "ds.search",
+      "name": "Unique Hosts",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | stats dc(hostEmail) as count"
+      }
+    },
+    "ds_ghost_vs_active": {
+      "type": "ds.search",
+      "name": "Ghost vs Active Meetings Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | eval status=if(totalParticipants=\"0\",\"Ghost (No-show)\",\"Active\") | timechart span=1d count by status"
       }
     },
     "ds_events_over_time": {
       "type": "ds.search",
       "name": "Events Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | timechart span=1h count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | eval st=replace(sourcetype,\"FAKE:cisco:webex:meetings:history:\",\"\") | timechart span=1h count by st"
       }
     },
-    "ds_by_sourcetype": {
+    "ds_room_utilization": {
       "type": "ds.search",
-      "name": "Events by Sourcetype",
+      "name": "Room Utilization by Device",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" by sourcetype"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingattendeehistory\" clientType=\"Telepresence\" | eval loc=case(match(attendeeName,\"BOS\"),\"Boston\",match(attendeeName,\"ATL\"),\"Atlanta\",match(attendeeName,\"AUS\"),\"Austin\",1=1,\"Unknown\") | stats dc(confID) as Meetings, avg(duration) as avg_dur, sum(duration) as total_min by attendeeName, loc | eval \"Avg Duration\"=round(avg_dur,0).\" min\" | eval \"Total Hours\"=round(total_min/60,1) | sort -Meetings | rename attendeeName as \"Room Device\", loc as \"Location\""
       }
     },
-    "ds_top_rooms": {
+    "ds_client_type": {
       "type": "ds.search",
-      "name": "Top Meeting Rooms by Usage",
+      "name": "Client Type Distribution",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" hostEmail=* | stats count by hostEmail | sort -count | head 15 | rename hostEmail as \"Host\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingattendeehistory\" | stats count by clientType | sort -count"
+      }
+    },
+    "ds_top_ghost_meetings": {
+      "type": "ds.search",
+      "name": "Top Ghost Meeting Types",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" totalParticipants=\"0\" | rex field=confName \"(?<meeting_type>.+?)\\s*\\(No-show\\)\" | eval meeting_type=coalesce(meeting_type, confName) | stats count as Ghosts by meeting_type | sort -Ghosts | head 15 | rename meeting_type as \"Meeting Type\""
       }
     },
     "ds_sample_events": {
       "type": "ds.search",
-      "name": "Recent Events",
+      "name": "Recent Meetings",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:*\" | table _time confName hostEmail duration peakAttendee | sort -_time | head 30 | rename confName as \"Meeting\" hostEmail as \"Host\" duration as \"Duration (min)\" peakAttendee as \"Attendees\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:webex:meetings:history:meetingusagehistory\" | eval status=if(totalParticipants=\"0\",\"Ghost\",\"Active\") | table _time confName hostEmail duration totalParticipants peakAttendee status meetingKey | sort -_time | head 30 | rename confName as \"Meeting\", hostEmail as \"Host\", duration as \"Duration\", totalParticipants as \"Participants\", peakAttendee as \"Peak\", status as \"Status\", meetingKey as \"Meeting Key\""
       }
     }
   },
@@ -67,7 +95,7 @@
     "viz_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "# Source — Webex TA\n\n**Sourcetypes:** `FAKE:cisco:webex:meetings:history:meetingusagehistory`, `FAKE:cisco:webex:meetings:history:meetingattendeehistory` | **Coverage:** Meeting history and participant data | **Format:** JSON\n\n**Why monitor?** Track meeting quality metrics to identify rooms with recurring audio/video issues, and optimize conference room utilization across all locations.",
+        "markdown": "# Source — Webex TA (Meeting History)\n\n**Sourcetypes:** `meetingusagehistory`, `meetingattendeehistory` | **Room Devices:** 21 Telepresence endpoints across BOS/ATL/AUS | **Ghost Tracking:** ~14% no-show rate\n\n**Cross-correlation:** `confID` / `meetingKey` shared with Webex API (`id` / `meetingNumber`) — enables cross-sourcetype joins for unified meeting analytics.",
         "fontColor": "#C3CBD4"
       }
     },
@@ -85,21 +113,10 @@
         "sparklineStrokeColor": "#00D2FF"
       }
     },
-    "viz_kpi_rooms": {
-      "type": "splunk.singlevalue",
-      "title": "Unique Rooms",
-      "dataSources": { "primary": "ds_unique_rooms" },
-      "options": {
-        "majorValue": "> primary | seriesByName('count') | lastPoint()",
-        "majorColor": "#7B56DB",
-        "backgroundColor": "transparent",
-        "sparklineDisplay": "off"
-      }
-    },
-    "viz_kpi_quality_issues": {
+    "viz_kpi_meetings": {
       "type": "splunk.singlevalue",
       "title": "Total Meetings",
-      "dataSources": { "primary": "ds_quality_issues" },
+      "dataSources": { "primary": "ds_total_meetings" },
       "options": {
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#53A051",
@@ -107,7 +124,7 @@
         "sparklineDisplay": "off"
       }
     },
-    "viz_kpi_meeting_hours": {
+    "viz_kpi_hours": {
       "type": "splunk.singlevalue",
       "title": "Meeting Hours",
       "dataSources": { "primary": "ds_meeting_hours" },
@@ -115,15 +132,51 @@
         "majorValue": "> primary | seriesByName('count') | lastPoint()",
         "majorColor": "#F8BE34",
         "backgroundColor": "transparent",
+        "sparklineDisplay": "off",
+        "unit": "hrs"
+      }
+    },
+    "viz_kpi_ghost_rate": {
+      "type": "splunk.singlevalue",
+      "title": "Ghost Rate",
+      "dataSources": { "primary": "ds_ghost_rate" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off",
+        "unit": "%"
+      }
+    },
+    "viz_kpi_devices": {
+      "type": "splunk.singlevalue",
+      "title": "Room Devices",
+      "dataSources": { "primary": "ds_room_devices" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#2ED6BB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_hosts": {
+      "type": "splunk.singlevalue",
+      "title": "Unique Hosts",
+      "dataSources": { "primary": "ds_unique_hosts" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
         "sparklineDisplay": "off"
       }
     },
     "viz_events_over_time": {
       "type": "splunk.area",
-      "title": "Events Over Time",
+      "title": "Events Over Time by Sourcetype",
       "dataSources": { "primary": "ds_events_over_time" },
       "options": {
-        "legendDisplay": "off",
+        "stackMode": "stacked",
+        "legendDisplay": "right",
         "nullValueDisplay": "zero",
         "areaOpacity": 0.7,
         "backgroundColor": "transparent",
@@ -131,29 +184,80 @@
         "yAxisTitleText": "Events / hour",
         "yAxisTitleVisibility": "show",
         "yAxisAbbreviation": "auto",
-        "seriesColors": ["#00D2FF"]
+        "seriesColors": ["#00D2FF", "#7B56DB"]
       },
       "showProgressBar": true,
       "showLastUpdated": true
     },
-    "viz_by_sourcetype": {
+    "viz_ghost_vs_active": {
+      "type": "splunk.column",
+      "title": "Ghost vs Active Meetings (Daily)",
+      "dataSources": { "primary": "ds_ghost_vs_active" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Meetings / day",
+        "yAxisTitleVisibility": "show",
+        "seriesColors": ["#53A051", "#DC4E41"],
+        "seriesColorsByField": {
+          "Active": "#53A051",
+          "Ghost (No-show)": "#DC4E41"
+        }
+      },
+      "showProgressBar": true
+    },
+    "viz_room_utilization": {
+      "type": "splunk.table",
+      "title": "Room Device Utilization",
+      "dataSources": { "primary": "ds_room_utilization" },
+      "options": {
+        "count": 21,
+        "showRowNumbers": false,
+        "columnFormat": {
+          "Meetings": {
+            "data": "> table | seriesByName('Meetings') | formatByType(MeetingsColumnFormatEditorConfig)",
+            "rowBackgroundColors": "> table | seriesByName('Meetings') | rangeValue(MeetingsColumnRangeEditorConfig)",
+            "rowColors": "> table | seriesByName('Meetings') | rangeValue(MeetingsColumnRowEditorConfig)"
+          }
+        }
+      },
+      "context": {
+        "MeetingsColumnFormatEditorConfig": {
+          "number": { "thousandSeparated": true, "unitPosition": "after" }
+        },
+        "MeetingsColumnRangeEditorConfig": [
+          { "value": "#1A2633", "to": 90 },
+          { "value": "#1A3326", "from": 90, "to": 110 },
+          { "value": "#33261A", "from": 110 }
+        ],
+        "MeetingsColumnRowEditorConfig": [
+          { "value": "#C3CBD4", "to": 90 },
+          { "value": "#53A051", "from": 90, "to": 110 },
+          { "value": "#F8BE34", "from": 110 }
+        ]
+      },
+      "showProgressBar": true
+    },
+    "viz_client_type": {
       "type": "splunk.pie",
-      "title": "Events by Sourcetype",
-      "dataSources": { "primary": "ds_by_sourcetype" },
+      "title": "Attendee Client Types",
+      "dataSources": { "primary": "ds_client_type" },
       "options": {
         "labelDisplay": "valuesAndPercentage",
         "showDonutHole": true,
-        "seriesColors": ["#00D2FF", "#7B56DB"]
+        "seriesColors": ["#00D2FF", "#2ED6BB", "#7B56DB", "#F8BE34", "#DC4E41", "#53A051"]
       }
     },
-    "viz_top_rooms": {
+    "viz_ghost_types": {
       "type": "splunk.bar",
-      "title": "Top Meeting Rooms by Usage",
-      "dataSources": { "primary": "ds_top_rooms" },
+      "title": "Ghost Meetings by Type",
+      "dataSources": { "primary": "ds_top_ghost_meetings" },
       "options": {
-        "seriesColors": ["#53A051"],
+        "seriesColors": ["#DC4E41"],
         "legendDisplay": "off",
-        "xAxisTitleText": "Meetings",
+        "xAxisTitleText": "Ghost Count",
         "xAxisTitleVisibility": "show",
         "yAxisTitleVisibility": "hide",
         "backgroundColor": "transparent"
@@ -163,13 +267,13 @@
     "viz_sample_header": {
       "type": "splunk.markdown",
       "options": {
-        "markdown": "### Recent Events",
+        "markdown": "### Recent Meetings",
         "fontColor": "#C3CBD4"
       }
     },
     "viz_sample_events": {
       "type": "splunk.table",
-      "title": "Recent Events",
+      "title": "Recent Meetings",
       "dataSources": { "primary": "ds_sample_events" },
       "options": {
         "count": 20,
@@ -206,15 +310,19 @@
     "globalInputs": ["input_global_trp"],
     "structure": [
       { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 150 } },
-      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_rooms", "type": "block", "position": { "x": 300, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_quality_issues", "type": "block", "position": { "x": 600, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_kpi_meeting_hours", "type": "block", "position": { "x": 900, "y": 150, "w": 300, "h": 120 } },
-      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 750, "h": 350 } },
-      { "item": "viz_by_sourcetype", "type": "block", "position": { "x": 750, "y": 270, "w": 450, "h": 350 } },
-      { "item": "viz_top_rooms", "type": "block", "position": { "x": 0, "y": 620, "w": 1200, "h": 300 } },
-      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 920, "w": 1200, "h": 50 } },
-      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 400 } }
+      { "item": "viz_kpi_total_events", "type": "block", "position": { "x": 0, "y": 150, "w": 200, "h": 120 } },
+      { "item": "viz_kpi_meetings", "type": "block", "position": { "x": 200, "y": 150, "w": 200, "h": 120 } },
+      { "item": "viz_kpi_hours", "type": "block", "position": { "x": 400, "y": 150, "w": 200, "h": 120 } },
+      { "item": "viz_kpi_ghost_rate", "type": "block", "position": { "x": 600, "y": 150, "w": 200, "h": 120 } },
+      { "item": "viz_kpi_devices", "type": "block", "position": { "x": 800, "y": 150, "w": 200, "h": 120 } },
+      { "item": "viz_kpi_hosts", "type": "block", "position": { "x": 1000, "y": 150, "w": 200, "h": 120 } },
+      { "item": "viz_events_over_time", "type": "block", "position": { "x": 0, "y": 270, "w": 600, "h": 300 } },
+      { "item": "viz_ghost_vs_active", "type": "block", "position": { "x": 600, "y": 270, "w": 600, "h": 300 } },
+      { "item": "viz_room_utilization", "type": "block", "position": { "x": 0, "y": 570, "w": 700, "h": 400 } },
+      { "item": "viz_client_type", "type": "block", "position": { "x": 700, "y": 570, "w": 500, "h": 400 } },
+      { "item": "viz_ghost_types", "type": "block", "position": { "x": 0, "y": 970, "w": 1200, "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0, "y": 1270, "w": 1200, "h": 50 } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0, "y": 1320, "w": 1200, "h": 400 } }
     ]
   }
 }

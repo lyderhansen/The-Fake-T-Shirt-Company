@@ -27,7 +27,8 @@ from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_o
 from shared.time_utils import date_add, get_hour_activity_level, is_weekend
 from shared.company import (
     USERS, get_random_user, LOCATIONS, get_users_by_location, NETWORK_CONFIG,
-    TENANT, WEBEX_CLIENT_PROFILES,
+    TENANT, WEBEX_CLIENT_PROFILES, MEETING_ROOMS, WEBEX_DEVICE_PROFILES,
+    get_device_voice_ip,
 )
 from shared.meeting_schedule import _meeting_schedule
 from scenarios.registry import expand_scenarios
@@ -122,6 +123,7 @@ class MeetingRecord:
     meeting_type: str = "MC"
     attendees: List[Dict] = field(default_factory=list)
     demo_id: Optional[str] = None
+    is_ghost: bool = False
 
     @property
     def duration_mins(self) -> int:
@@ -129,10 +131,14 @@ class MeetingRecord:
 
     @property
     def total_participants(self) -> int:
+        if self.is_ghost:
+            return 0
         return len(self.attendees) + 1  # +1 for host
 
     @property
     def peak_attendee(self) -> int:
+        if self.is_ghost:
+            return 0
         # Simulate peak (usually same or slightly less than total)
         return max(1, self.total_participants - random.randint(0, 2))
 
@@ -288,17 +294,19 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
     This ensures webex_ta records match the same meetings that appear in
     webex device events, Exchange calendar invites, and Meraki sensor data.
     """
-    # Skip ghost meetings (no-shows don't produce TA records)
-    if scheduled_meeting.is_ghost:
-        return None
     # Skip walk-ins (no Webex booking)
     if scheduled_meeting.is_walkin:
         return None
+
+    # Use shared meeting IDs (fall back to random for standalone mode)
+    conf_id = scheduled_meeting.meeting_uuid or generate_conf_id()
+    meeting_key = scheduled_meeting.meeting_number or generate_meeting_key()
 
     # Determine host info
     host_email = scheduled_meeting.organizer_email
     host_name = scheduled_meeting.organizer_name
     host_username = host_email.split("@")[0] if "@" in host_email else ""
+    location = scheduled_meeting.location_code
 
     # Determine demo_id
     demo_id = None
@@ -306,9 +314,26 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
         if host_username in EXFIL_USERS:
             demo_id = "exfil"
 
+    # Ghost meetings — produce minimal usage record (booked but no-show)
+    if scheduled_meeting.is_ghost:
+        return MeetingRecord(
+            conf_id=conf_id,
+            meeting_key=meeting_key,
+            conf_name=scheduled_meeting.meeting_title,
+            host_name=host_name,
+            host_email=host_email,
+            host_webex_id=host_username,
+            start_time=scheduled_meeting.start_time,
+            end_time=scheduled_meeting.start_time,  # duration = 0
+            location=location,
+            meeting_type=random.choices(MEETING_TYPES, weights=MEETING_TYPE_WEIGHTS, k=1)[0],
+            attendees=[],
+            demo_id=demo_id,
+            is_ghost=True,
+        )
+
     # Build attendee records from the shared participant list
     attendees = []
-    location = scheduled_meeting.location_code
 
     # Host as first attendee
     host_join = scheduled_meeting.start_time - timedelta(minutes=random.randint(1, 5))
@@ -394,24 +419,28 @@ def _convert_scheduled_meeting(scheduled_meeting, active_scenarios: List[str], d
             is_host=False,
         ))
 
-    # ~5% chance a Cisco Room Device joins (conference room with Webex device)
-    if random.random() < 0.05:
-        _loc_net = {"BOS": 10, "ATL": 20, "AUS": 30}.get(location, 10)
+    # Room device — add deterministic device for every scheduled room meeting
+    room_info = MEETING_ROOMS.get(scheduled_meeting.room) if scheduled_meeting.room else None
+    if room_info and room_info.get("device_model"):
+        device_model = room_info["device_model"]
+        device_profile = WEBEX_DEVICE_PROFILES.get(device_model, {})
+        device_name = room_info.get("device", f"WEBEX-{location}-ROOM")
+        device_ip = get_device_voice_ip(device_name, location)
         attendees.append(AttendeeRecord(
-            name="Conference Room Device",
-            email=f"room-device-{location.lower()}@{TENANT}",
+            name=device_name,
+            email=f"{device_name.lower()}@{TENANT}",
             join_time=scheduled_meeting.start_time - timedelta(seconds=random.randint(10, 60)),
             leave_time=scheduled_meeting.end_time + timedelta(seconds=random.randint(0, 30)),
-            ip_address=f"10.{_loc_net}.20.{random.randint(200, 220)}",
-            client_type="Cisco Room Device",
-            client_os="RoomOS 11",
+            ip_address=device_ip,
+            client_type="Telepresence",
+            client_os=f"RoomOS {device_profile.get('osVersion', '11.9.2.4')}",
             is_external=False,
             is_host=False,
         ))
 
     return MeetingRecord(
-        conf_id=generate_conf_id(),
-        meeting_key=generate_meeting_key(),
+        conf_id=conf_id,
+        meeting_key=meeting_key,
         conf_name=scheduled_meeting.meeting_title,
         host_name=host_name,
         host_email=host_email,
@@ -729,12 +758,13 @@ def generate_webex_ta_logs(
             )
 
             for meeting in meetings:
-                # Create meeting usage record
+                # Create meeting usage record (including ghost meetings)
                 meeting_usage_records.append(create_meeting_usage_record(meeting))
 
-                # Create attendee records
-                for attendee in meeting.attendees:
-                    attendee_records.append(create_attendee_record(meeting, attendee))
+                # Create attendee records (skip ghost meetings — no one joined)
+                if not meeting.is_ghost:
+                    for attendee in meeting.attendees:
+                        attendee_records.append(create_attendee_record(meeting, attendee))
 
         if not quiet:
             print(f"  [Webex TA] Day {day + 1}/{days} ({dt.strftime('%Y-%m-%d')})... done", file=sys.stderr)

@@ -428,6 +428,90 @@ WEBEX_CLIENT_PROFILES = [
     },
 ]
 
+# =============================================================================
+# WEBEX ROOM DEVICE PROFILES (device_model → hardware specs for Meeting Qualities)
+# =============================================================================
+# Maps device_model values from MEETING_ROOMS to realistic Webex device attributes.
+# Used by generate_webex_ta.py (attendee records) and generate_webex_api.py (quality records)
+# to add room devices as meeting participants with accurate hardware identifiers.
+# Field values based on actual Webex API response patterns (hardwareType and clientType
+# are free-form strings in the real API, not enums).
+
+WEBEX_DEVICE_PROFILES = {
+    "Room Kit Pro": {
+        "clientType": "Telepresence",
+        "osType": "RoomOS",
+        "osVersion": "11.9.2.4",
+        "hardwareType": "Cisco Room Kit Pro",
+        "camera": "Cisco Quad Camera",
+        "microphone": "Cisco 3-Mic Array",
+        "speaker": "Cisco Room Speaker",
+        "networkType": "ethernet",
+    },
+    "Room Kit": {
+        "clientType": "Telepresence",
+        "osType": "RoomOS",
+        "osVersion": "11.9.2.4",
+        "hardwareType": "Cisco Room Kit",
+        "camera": "Cisco TelePresence Camera",
+        "microphone": "Cisco 2-Mic Array",
+        "speaker": "Cisco Room Speaker",
+        "networkType": "ethernet",
+    },
+    "Room Kit Mini": {
+        "clientType": "Telepresence",
+        "osType": "RoomOS",
+        "osVersion": "11.9.2.4",
+        "hardwareType": "Cisco Room Kit Mini",
+        "camera": "Cisco Room Kit Mini Camera",
+        "microphone": "Built-in Microphone",
+        "speaker": "Built-in Speaker",
+        "networkType": "ethernet",
+    },
+    "Board Pro": {
+        "clientType": "Telepresence",
+        "osType": "RoomOS",
+        "osVersion": "11.9.2.4",
+        "hardwareType": "Cisco Board Pro",
+        "camera": "Cisco Board Pro Camera",
+        "microphone": "Built-in Microphone Array",
+        "speaker": "Built-in Speaker",
+        "networkType": "ethernet",
+    },
+    "Board 55": {
+        "clientType": "Telepresence",
+        "osType": "RoomOS",
+        "osVersion": "11.9.2.4",
+        "hardwareType": "Cisco Webex Board 55",
+        "camera": "Cisco Webex Board Camera",
+        "microphone": "Cisco 12-Mic Array",
+        "speaker": "Cisco Webex Board Speaker",
+        "networkType": "ethernet",
+    },
+    "Desk Pro": {
+        "clientType": "Telepresence",
+        "osType": "RoomOS",
+        "osVersion": "11.9.2.4",
+        "hardwareType": "Cisco Desk Pro",
+        "camera": "Cisco Desk Pro Camera",
+        "microphone": "Built-in Microphone Array",
+        "speaker": "Built-in Speaker",
+        "networkType": "ethernet",
+    },
+}
+
+
+def get_device_voice_ip(device_id: str, location_code: str) -> str:
+    """Deterministic Voice VLAN IP for a Webex room device.
+
+    Uses Voice VLAN (10.x.50.0/24) per location, with SHA256 hash-based
+    last octet for consistency across all generators.
+    """
+    loc_prefix = {"BOS": "10.10", "ATL": "10.20", "AUS": "10.30"}.get(location_code, "10.10")
+    h = int(hashlib.sha256(f"voice-ip:{device_id}".encode()).hexdigest()[:4], 16)
+    last_octet = (h % 200) + 10  # 10-209 range
+    return f"{loc_prefix}.50.{last_octet}"
+
 
 # =============================================================================
 # DATA CLASSES
@@ -1161,8 +1245,8 @@ MEETING_ROOMS = {
         "door_sensor_id": "MT-BOS-1F-DOOR-TOAD",
         "has_camera": False,
         "camera_id": None,
-        "has_temp_sensor": False,
-        "temp_sensor_id": None,
+        "has_temp_sensor": True,
+        "temp_sensor_id": "MT-BOS-1F-TEMP-TOAD",
         "quality_profile": "normal",
         "description": "Small visitor room near lobby",
     },
@@ -1287,8 +1371,8 @@ MEETING_ROOMS = {
         "door_sensor_id": "MT-ATL-2F-DOOR-PIKACHU",
         "has_camera": False,
         "camera_id": None,
-        "has_temp_sensor": False,
-        "temp_sensor_id": None,
+        "has_temp_sensor": True,
+        "temp_sensor_id": "MT-ATL-2F-TEMP-PIKACHU",
         "quality_profile": "normal",
         "description": "Quick meeting huddle space",
     },
@@ -1391,8 +1475,8 @@ MEETING_ROOMS = {
         "door_sensor_id": "MT-AUS-1F-DOOR-FOX",
         "has_camera": False,
         "camera_id": None,
-        "has_temp_sensor": False,
-        "temp_sensor_id": None,
+        "has_temp_sensor": True,
+        "temp_sensor_id": "MT-AUS-1F-TEMP-FOX",
         "quality_profile": "normal",
         "description": "Sales team quick meetings",
     },

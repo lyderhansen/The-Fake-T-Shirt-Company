@@ -4,6 +4,342 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-02 ~01:00 UTC -- Floor plan dashboard: migrated 13 Webex queries from dead sourcetype + ghost rate fix
+
+### Floor Plan Webex Migration
+- Replaced all 13 `sourcetype="FAKE:cisco:webex:events"` queries (non-existent sourcetype) with new TA attendee-based queries
+- 10 per-room meeting KPIs: Now use `sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory" clientType="Telepresence" attendeeName="WEBEX-BOS-{FLOOR}F-{ROOM}"` with `dc(confID)` for meeting count and `avg(duration)` for avg duration
+- 3 timeline charts: Now use same sourcetype with `eval room=replace(attendeeName,"WEBEX-BOS-\\d+F-","")` to extract human-readable room names
+
+### Ghost Meeting Rate Fix
+- Changed `is_ghost_meeting()` from flat 15% probability to type-aware rates
+- All Hands / Board Meeting: 2-3% (important, high-visibility — was producing unrealistic no-shows)
+- Recurring team meetings (Standup, Sprint Planning): 5-8%
+- Ad-hoc / external meetings (Client Call, Interview, Vendor): 18-20%
+- Verified: All Hands = 0% ghost (79 meetings), Board Meeting = 1.9%, Client Call = 27.4%
+
+### Files Changed
+- `default/data/ui/views/floorplan_bos_3f.xml` — 13 Webex query migrations
+- `bin/shared/meeting_schedule.py` — `GHOST_PROBABILITY_BY_TYPE` dict, updated `is_ghost_meeting(meeting_name)` signature + callers
+
+### Verification
+- Link room: 112 meetings, 55 min avg duration (confirmed in Splunk)
+- Floor 3 timeline: 5 rooms with daily meeting counts (weekday pattern, zero on weekends)
+- 0 remaining references to `FAKE:cisco:webex:events` in dashboard
+
+---
+
+## 2026-03-02 ~00:15 UTC -- Webex TA and API dashboards enhanced with room utilization, ghost tracking, device quality KPIs
+
+Rewrote both Webex dashboards to leverage the new room device correlation, ghost meeting tracking, and shared meeting IDs.
+
+### Webex TA Dashboard (`source_webex_ta`)
+- **6 KPIs** (was 4): Total Events (sparkline), Total Meetings, Meeting Hours, Ghost Rate %, Room Devices, Unique Hosts
+- **Ghost vs Active chart**: Stacked column showing daily ghost (red) vs active (green) meetings
+- **Room Device Utilization table**: All 21 rooms with meetings count, avg duration, total hours, location
+- **Client Type pie**: Distribution across Webex Desktop, Telepresence, Web Browser, Mobile iOS/Android, PSTN
+- **Ghost Meetings by Type bar**: Which meeting types have highest no-show rates
+- Updated recent events table to show Status (Ghost/Active) and Meeting Key columns
+
+### Webex API Dashboard (`source_webex_api`)
+- **6 KPIs** (was 4): Total Events (sparkline), Total Meetings, Admin/Security, Ghost Meetings, Device Sessions, Unique Actors
+- **Ghost vs Active chart**: Daily column chart from `state=missed` vs `state=ended`
+- **Meeting State pie**: ended (green) vs missed (red) distribution
+- **Hardware Type bar**: Meetings by hardware type (Cisco Room Kit, Desk Pro, Board 55, etc.)
+- **Room Device Quality table**: All 21 devices with hardware type, meeting count, avg join time
+- **Top Meeting Hosts bar**: Replaced generic "Top Actors" with specific meeting host ranking
+
+### Files Changed
+- `default/data/ui/views/source_webex_ta.xml` — Full rewrite with 12 data sources, 15 visualizations
+- `default/data/ui/views/source_webex_api.xml` — Full rewrite with 14 data sources, 17 visualizations
+
+---
+
+## 2026-03-01 ~23:30 UTC -- Webex room device correlation, shared meeting IDs, ghost meeting tracking
+
+Added cross-sourcetype meeting correlation, realistic room device participants, and ghost meeting (no-show) tracking for Webex data.
+
+### Shared Meeting IDs (cross-sourcetype correlation)
+- Added `meeting_uuid` (UUID v4) and `meeting_number` (9-digit) fields to `ScheduledMeeting` dataclass
+- Both generated once in `_schedule_meeting()`, consumed by webex_ta and webex_api generators
+- Correlation map:
+  - `meeting_uuid` → TA `confID` = API `id` = API qualities `meetingInstanceId`
+  - `meeting_number` → TA `meetingKey` = API `meetingNumber`
+- Enables SPL joins across all Webex sourcetypes via shared IDs
+
+### Room Device Participants (21 rooms)
+- Added `WEBEX_DEVICE_PROFILES` dict (6 device models: Room Kit Pro, Room Kit, Room Kit Mini, Board Pro, Board 55, Desk Pro)
+- Added `get_device_voice_ip()` helper — deterministic Voice VLAN IP (10.x.50.0/24) via SHA256 hash
+- **webex_ta**: Every non-ghost meeting gets a Telepresence attendee with real device name (e.g., "WEBEX-BOS-3F-LINK"), clientType="Telepresence", RoomOS version, Voice VLAN IP. Replaces old 5% random "Conference Room Device" with generic IP
+- **webex_api**: Every non-ghost meeting gets a device quality record with clientType="Telepresence", hardwareType (e.g., "Cisco Room Kit Pro"), premium audio/video quality metrics, lower CPU usage
+- Room identification via: `clientType="Telepresence"` + `attendeeName`/`webexUserName` = device name
+
+### Ghost Meeting Tracking (~15% of bookings)
+- **webex_ta**: Ghost meetings now produce meetingusage records with `totalParticipants: "0"`, `duration: "0"`, `peakAttendee: "0"` (previously filtered out)
+- **webex_api**: Ghost meetings now produce meeting records with `state: "missed"` (previously filtered out)
+- No attendee/quality records generated for ghost meetings
+
+### Room Field Fix
+- Fixed bug where `ScheduledMeeting.room` was always empty string (`device_info.get("room", "")` — key doesn't exist). Now passed explicitly as `room_name` parameter from callers
+
+### Verification (3-day test run)
+- webex_ta: 225 meetings (35 ghost), 1,265 attendees (190 Telepresence devices)
+- webex_api: 225 meetings (35 ghost), 1,202 quality records (190 Telepresence devices)
+- Cross-correlation: 225/225 meetingKey↔meetingNumber matches, 225/225 confID↔id UUID matches, 1,202/1,202 quality→meeting links
+- Regression: meraki (255K events) and exchange (9.8K events) generators pass with updated ScheduledMeeting
+
+### Files Changed
+- `bin/shared/company.py` — Added `WEBEX_DEVICE_PROFILES` dict (6 models), `get_device_voice_ip()` helper
+- `bin/shared/meeting_schedule.py` — Added `meeting_uuid`, `meeting_number` fields, `import uuid`, fixed `room` field bug, updated callers
+- `bin/generators/generate_webex_ta.py` — Shared IDs, deterministic room device attendees, ghost meeting records, `is_ghost` field on MeetingRecord
+- `bin/generators/generate_webex_api.py` — Shared IDs, `_generate_device_quality_record()`, ghost meeting records with `state="missed"`, `meeting_uuid`/`meeting_number`/`state` params on `generate_meeting_record()`
+
+### SPL Queries Enabled
+```spl
+| Cross-correlate TA and API for same meeting:
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
+| join meetingKey [search sourcetype="FAKE:cisco:webex:meetings" | rename meetingNumber as meetingKey]
+
+| Avg duration per room:
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingattendeehistory" clientType="Telepresence"
+| stats avg(duration) as avg_min dc(confID) as meetings by attendeeName
+
+| Ghost meeting rate:
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meetings:history:meetingusagehistory"
+| eval is_ghost=if(totalParticipants="0",1,0)
+| stats sum(is_ghost) as ghosts count as total by confName
+| eval ghost_pct=round(ghosts/total*100,1)
+
+| Room device quality:
+index=fake_tshrt sourcetype="FAKE:cisco:webex:meeting:qualities" clientType="Telepresence"
+| stats avg(joinMeetingTime) as avg_join_sec by hardwareType webexUserName
+```
+
+---
+
+## 2026-03-01 ~22:00 UTC -- Dashboard KPI improvements: sparklines, door closed KPIs, visual refinements
+
+Enhanced Boston floor plan dashboard with sparklines, new door closed KPIs, and improved visual design.
+
+### Sparklines Added (49 singlevalues)
+- **Temperature** (25): All temp singlevalues converted from `stats latest` to `timechart span=1h avg(temp_c)` with sparkline display
+- **Humidity** (2): MDF and Server Room humidity singlevalues converted similarly
+- **Door Opens** (16): All per-room door open singlevalues converted from `stats count` to `timechart span=1h count`
+- **Door Closes** (6): New KPIs (see below), all created with timechart + sparkline
+
+### New Door Closed KPIs (6)
+- Floor 3: CEO Office, CTO Office, MDF
+- Floor 2: CFO Office
+- Floor 1: Shipping, Server Room
+- Green color (#00CDAF) to indicate proper door operation
+- Existing door headers renamed from "DOOR" to "OPEN" for disambiguation
+
+### Visual Improvements
+- 16 sensor-equipped workspace rooms changed from gray (#3A4455) to teal (#2E7D6F) borders
+- Legend updated across all 3 floors to include teal border meaning and water leak info
+- 43 singlevalue heights increased to 75px minimum for readable sparkline display
+- Position adjustments for meeting room KPIs to prevent overlap after height increases
+
+### Dashboard Totals
+- 117 data sources, 287 visualizations across 3 floor tabs
+- Validated: 0 duplicates, 0 orphaned references, all sparkline queries correct
+
+### Files Changed
+- `default/data/ui/views/floorplan_bos_3f.xml` — sparklines, door closed KPIs, borders, legends, positions
+
+---
+
+## 2026-03-01 ~18:00 UTC -- All-rooms sensor coverage: 36 new sensors + 3 bug fixes + dashboard update
+
+Added sensors to every room across all 3 locations so floor plan dashboards have live data in every area. Fixed 3 meeting rooms (Toad, Pikachu, Fox) missing temperature sensors. Added water leak monitoring to critical infrastructure areas.
+
+### New Infrastructure Sensors (36 total)
+
+**Boston HQ (19 sensors):**
+- Floor 3 (8): Executive Reception temp, CEO door, CTO door, Exec Asst temp, Engineering temp, Break Room temp, Legal temp, MDF water leak
+- Floor 2 (7): Finance East temp, Finance West temp, CFO door, Marketing temp, HR temp, Cafeteria temp, Cafeteria water leak
+- Floor 1 (6): Operations temp, Shipping temp + door, Break Room temp, Server Room humidity + water leak
+
+**Atlanta Hub (10 sensors):**
+- Floor 1 (6): Reception temp, IT Ops temp, Training Lab temp, Staging temp, Break Room temp, DC water leak
+- Floor 2 (4): Engineering temp, Sales/Marketing temp, HR/Ops temp, Break Room temp
+
+**Austin Office (7 sensors):**
+- Floor 1 (7): Reception temp, Sales temp, Engineering temp, Break Room temp, Game Room temp, IDF humidity, IDF water leak
+
+### Meeting Room Bug Fixes (3)
+- **Toad** (BOS): Added missing temp sensor (MT-BOS-1F-TEMP-TOAD)
+- **Pikachu** (ATL): Added missing temp sensor (MT-ATL-2F-TEMP-PIKACHU)
+- **Fox** (AUS): Added missing temp sensor (MT-AUS-1F-TEMP-FOX)
+
+### Water Leak Monitoring (new sensor type)
+- 5 water leak sensors (MT14) added to critical areas: BOS MDF, BOS Server Room, BOS Cafeteria, ATL Data Center, AUS IDF Closet
+- Baseline generates 4 "clear" readings per hour per sensor (every ~15 min)
+- Dashboard shows 0 (green) for no leaks, or alert count (red) if detected
+
+### Boston Dashboard Update (22 new KPIs)
+- 22 new data sources, visualizations, and header labels added to floorplan_bos_3f.xml
+- Dashboard now has 111 data sources, 275 visualizations across 3 floor tabs
+- Water leak KPIs use green/red color coding (0=green, 1+=red)
+
+### Generation Stats
+- Total Meraki events: 1,182,552 (14 days)
+- BOS sensor events: 121,559 | ATL: 94,268 | AUS: 48,214
+- Water leak events: 6,720 (5 sensors × 4/hr × 24h × 14 days)
+
+### Files Changed
+- `bin/generators/generate_meraki.py` -- Added 36 entries to MERAKI_MT_DEVICES, added water leak baseline generation in generate_mt_baseline_hour()
+- `bin/shared/company.py` -- Fixed Toad/Pikachu/Fox: has_temp_sensor=True + temp_sensor_id
+- `default/data/ui/views/floorplan_bos_3f.xml` -- 22 new data sources, 44 new visualizations (22 values + 22 headers), 44 new layout items
+- `docs/CHANGEHISTORY.md` -- This entry
+
+---
+
+## 2026-03-01 ~12:00 UTC -- Floor plan: KPI header labels for room single values
+
+Added small header labels (TEMP, DOOR, CAM, HUMID) above each singlevalue KPI in meeting rooms and infrastructure areas across all 3 floors. Improves readability by making it clear what each number represents.
+
+### Changes
+
+- **29 new markdown labels**: Overlay labels positioned at the top of each singlevalue block using z-order (rendered last in structure array)
+- **Floor 3**: 15 labels (Link: temp/door/cam, Sonic: temp/door/cam, Kirby: temp/door, Luigi: temp/door, Yoshi: temp/door, MDF: temp/humid/door)
+- **Floor 2**: 6 labels (Zelda: temp/door, Samus: temp/door, Mario: temp/door)
+- **Floor 1**: 8 labels (Peach: temp/door/cam, Server Room: temp/door/cam, Toad: door, Lobby: cam)
+- **Style**: Bold extraSmall font, subtle gray (#778899) to avoid visual clutter
+
+### Files
+
+- **Modified:** `default/data/ui/views/floorplan_bos_3f.xml` (231 visualizations, 89 data sources)
+
+---
+
+## 2026-02-28 ~22:00 UTC -- Floor plan expanded to all 3 Boston HQ floors with tabbed layout
+
+Expanded the Boston HQ floor plan dashboard from a single Floor 3 view to a 3-tab layout covering all floors. Each tab is a full absolute-layout floor plan with live Meraki sensor, camera, WiFi, and Webex data.
+
+### Changes
+
+- **3-tab layout**: Converted single layout to `layoutDefinitions` + `tabs` with:
+  - **Floor 3 - Executive** (existing, renamed from `layout_main` to `layout_floor3`)
+  - **Floor 2 - Finance** (new, `layout_floor2`, 1920x2350)
+  - **Floor 1 - Operations** (new, `layout_floor1`, 1920x2700)
+- **Dashboard renamed**: Title changed to "Floor Plan - Boston HQ (All Floors)", file kept as `floorplan_bos_3f.xml`
+
+### Floor 2 - Finance / Marketing / HR / Sales (new)
+
+- **6 rooms**: Finance East (~11 staff, Alex Miller exfil target), CFO Office (Sarah Wilson), Finance West (~11 staff), Marketing (~12 staff), HR (~6 staff), Cafeteria
+- **3 meeting rooms**: Zelda (12-cap conference, Room Kit), Samus (8-cap marketing), Mario (10-cap general)
+- **6 MT sensors**: 3 temperature (Zelda/Samus/Mario) + 3 door (Zelda/Samus/Mario)
+- **5 WiFi APs**: AP-BOS-2F-01 through 05 (Finance East/West, Marketing, HR, Cafeteria)
+- **0 cameras**: Intentional -- privacy for finance floor
+- **23 new data sources**: temp/door/WiFi per room, meeting queries, KPIs, timelines, alert table
+- **~37 new visualizations**: room rectangles, labels, single values, KPI bar, legend, trend charts
+
+### Floor 1 - Operations / Visitor Services / Server Room (new)
+
+- **6 areas**: Reception, Lobby, Operations, Shipping, Break Room, Server Room/IDF
+- **2 meeting rooms**: Peach (6-cap visitor room), Toad (4-cap visitor huddle)
+- **5 MT sensors**: 2 temperature (Peach, Server Room) + 3 door (Peach, Toad, Server Room)
+- **5 WiFi APs**: AP-BOS-1F-01 through 05 (Reception, Lobby, Operations, Shipping, Break Room)
+- **3 cameras**: CAM-BOS-1F-01 (Security/Lobby), CAM-BOS-1F-03 (Server Room), MV-BOS-1F-PEACH (Peach meeting room)
+- **26 new data sources**: temp/door/camera/WiFi per room, meeting queries, KPIs, timelines, motion chart, alert table
+- **~58 new visualizations**: room rectangles, labels, single values, camera indicators, KPI bar, legend, trend charts
+
+### Files
+
+- **Modified:** `default/data/ui/views/floorplan_bos_3f.xml` (~2500 lines, up from ~950)
+
+### Verification
+
+All 89 data sources verified against Splunk (Jan 2026 time range):
+- Floor 2: 3 temp sensors (Zelda/Samus/Mario), 3 door sensors (1269 opens), 5 WiFi APs (avg health 83%), 3 Webex rooms (140 meetings), 14.6K sensor events, 2 alerts
+- Floor 1: 2 temp sensors (Peach/Server Room), 3 door sensors (1058 opens), 5 WiFi APs (avg health 84%), 2 Webex rooms (80 meetings), 3 cameras (491 motion/person events), 10.2K sensor events, 0 alerts
+- All WiFi health timelines return area-based series (Finance East/West, Marketing, HR, Cafeteria; Reception, Lobby, Operations, Shipping, Break Room)
+- All meeting timelines return daily counts by room
+- Floor 1 camera motion timeline returns 3 areas (Security/Lobby, Server Room, Peach)
+
+---
+
+## 2026-03-01 ~04:00 UTC -- Floor plan dashboard: WiFi health, Webex meetings, Celsius conversion
+
+Enhanced the Boston HQ Floor 3 floor plan dashboard with WiFi AP health indicators, Webex meeting room data, and Celsius temperature conversion.
+
+### Changes
+
+- **Celsius conversion**: All temperature queries, thresholds, units, and chart labels changed from Fahrenheit to Celsius (green <22C, yellow 22-26C, red >26C)
+- **6 WiFi AP health indicators**: Added per-AP health score single values (AP-BOS-3F-01 through 06) placed in their respective floor areas (Exec Reception, CEO Office, Engineering East/West, Legal, Break Room)
+- **WiFi health color coding**: Green >85%, yellow 70-85%, red <70% using `rangeValue(wifiColors)`
+- **Avg WiFi Health KPI**: New global KPI showing average health across all 6 Floor 3 APs (87%)
+- **WiFi Health Timeline chart**: Line chart showing per-area WiFi health over time (6 series by area name)
+- **5 Webex meeting KPIs**: Per-room meeting count + avg duration placed inside each meeting room (Link, Luigi, Kirby, Sonic, Yoshi)
+- **Webex Meetings by Room chart**: Stacked column chart showing daily meeting count by room
+- **Layout expanded**: Dashboard height 2350 -> 2700, charts section expanded from 4 to 6 charts (3x2 grid)
+- **Legend updated**: Added WiFi and Cyan AP color coding to legend
+- **Fixed WiFi timeline query**: `area` field is top-level (not inside `eventData`), removed incorrect `spath path=eventData.area`
+
+### Files
+
+- **Modified:** `default/data/ui/views/floorplan_bos_3f.xml`
+
+### Data sources added (15 new queries, 40 total)
+
+- 6 WiFi AP health queries (`deviceName="AP-BOS-3F-0x"` with `spath path=eventData.healthScore.performance`)
+- 5 Webex meeting queries (`event_type="meeting_ended" room="X"` with count + avg duration)
+- 1 Avg WiFi health KPI (avg across all 6 APs)
+- 1 WiFi health timeline (`timechart span=1h avg(health) by area`)
+- 1 Meeting room timeline (`timechart span=1d count by room`)
+- 1 existing Webex API meeting base query enhanced
+
+### Verification
+
+All 40 queries verified against Splunk (Jan 2026 time range):
+- Temperature: 5 rooms returning 20.0-21.3C (Celsius working correctly)
+- WiFi health: 6 APs returning 76-94% health scores, avg 87%
+- Webex meetings: 81-139 meetings per room, avg duration 37-67 min
+- WiFi timeline: 744 hourly data points across 6 areas
+- Meetings timeline: 32 daily data points across 5 rooms
+
+---
+
+## 2026-03-01 ~00:00 UTC -- Floor plan dashboard for Boston HQ Floor 3 (Meraki MT/MV)
+
+New absolute-layout floor plan dashboard showing real-time Meraki MT sensor and MV camera data for Boston HQ Floor 3 (Executive / Engineering / MDF).
+
+### Features
+
+- **Pixel-perfect floor plan** using absolute layout with `splunk.rectangle` for rooms and `splunk.singlevalue` for live KPIs
+- **5 meeting rooms** with live data: Link (20-cap boardroom), Luigi (8), Kirby (4, problem room), Sonic (8, collab/lab), Yoshi (6, huddle)
+- **Primary MDF** with temperature, humidity, door sensor, and camera events
+- **Color-coded temperature**: Green (<72F), Yellow (72-78F), Red (>78F)
+- **Room styling**: Blue border = meeting room with sensors, Orange border = problem room (Kirby), Red border = infrastructure (MDF), Gray = common areas
+- **4 global KPIs**: Total sensor events, temperature alerts fired, camera events, door opens
+- **4 trend charts**: Room temperature trends (line), door opens by room (stacked column), camera motion by area (stacked area), recent alerts table
+- **6 cameras covered**: MV-BOS-3F-LINK, MV-BOS-3F-SONIC (in-room), CAM-BOS-3F-01/02 (corridor), CAM-BOS-3F-03/04 (MDF)
+- **13 sensors covered**: 5 temp (per room), 6 door (5 rooms + MDF), 1 humidity (MDF), 1 MDF temp
+
+### Files
+
+- **Created:** `default/data/ui/views/floorplan_bos_3f.xml`
+- **Modified:** `default/data/ui/nav/default.xml` -- added to Floor Plans collection, also added missing `source_webex` to Collaboration nav
+
+### Data sources (25 SPL queries)
+
+- Per-room: temperature (latest fahrenheit), door opens (count), camera person/motion events
+- MDF: temperature, humidity, door opens, camera events (2 cameras combined)
+- Global KPIs: total sensor events, alerts fired, camera events, door opens
+- Timecharts: temperature trends, door opens over time, motion events by area
+- Alert table: recent alertFired=true events with room/metric/temp details
+
+### Verification
+
+All 25 queries verified against Splunk:
+- Temperature: 5 rooms returning 68-70F range (Sonic coolest at 68F)
+- Alerts: 268 temp alerts (mostly Link room at 264)
+- Camera events: 5,336 total (motion + person + analytics + health)
+- Door opens: ~4,636 across 6 doors (Yoshi busiest at 997)
+
+---
+
 ## 2026-03-01 ~21:30 UTC -- Phase out generate_webex.py: Extract scheduler, remove fictional sourcetype
 
 ### Summary

@@ -34,6 +34,7 @@ from shared.time_utils import date_add, get_hour_activity_level, is_weekend
 from shared.company import (
     USERS, get_random_user, LOCATIONS, get_users_by_location, NETWORK_CONFIG,
     TENANT, ORG_NAME, TENANT_ID, WEBEX_CLIENT_PROFILES,
+    MEETING_ROOMS, WEBEX_DEVICE_PROFILES, get_device_voice_ip,
 )
 from shared.meeting_schedule import _meeting_schedule
 from scenarios.registry import expand_scenarios
@@ -176,17 +177,21 @@ def generate_meeting_record(
     end_time: datetime,
     template: dict,
     demo_id: Optional[str] = None,
+    meeting_uuid: str = "",
+    meeting_number: str = "",
+    state: str = "ended",
 ) -> dict:
     """Generate a meeting record (cisco:webex:meetings)."""
-    meeting_number = str(random.randint(100000000, 999999999))
+    if not meeting_number:
+        meeting_number = str(random.randint(100000000, 999999999))
 
     record = {
-        "id": generate_uuid(),
+        "id": meeting_uuid or generate_uuid(),
         "meetingNumber": meeting_number,
         "title": template["name"],
         "agenda": template["agenda"],
         "meetingType": "scheduledMeeting",
-        "state": "ended",
+        "state": state,
         "timezone": "America/New_York",
         "start": ts_iso8601_simple(start_time),
         "end": ts_iso8601_simple(end_time),
@@ -394,6 +399,79 @@ def generate_meeting_quality_record(
     return record
 
 
+def _generate_device_quality_record(
+    meeting_id: str,
+    room_name: str,
+    location_code: str,
+    join_time: datetime,
+    leave_time: datetime,
+    demo_id: Optional[str] = None,
+) -> Optional[dict]:
+    """Generate a quality record for a room device (Telepresence endpoint).
+
+    Room devices have premium audio/video quality and lower CPU usage
+    compared to user endpoints.
+    """
+    room_info = MEETING_ROOMS.get(room_name)
+    if not room_info:
+        return None
+    device_model = room_info.get("device_model", "")
+    device_profile = WEBEX_DEVICE_PROFILES.get(device_model)
+    if not device_profile:
+        return None
+
+    device_name = room_info.get("device", f"WEBEX-{location_code}-ROOM")
+    device_ip = get_device_voice_ip(device_name, location_code)
+    duration_mins = max(1, int((leave_time - join_time).total_seconds() / 60))
+
+    audio_in, video_in = generate_quality_metrics(duration_mins)
+    # Room devices have better quality — lower packet loss, jitter
+    for sample in audio_in:
+        sample["packetLoss"] = [round(random.uniform(0, 0.5), 2) for _ in sample["packetLoss"]]
+        sample["jitter"] = [random.randint(1, 5) for _ in sample["jitter"]]
+    for sample in video_in:
+        sample["packetLoss"] = [round(random.uniform(0, 0.8), 2) for _ in sample["packetLoss"]]
+        sample["resolutionHeight"] = [1080 for _ in sample["resolutionHeight"]]
+        sample["frameRate"] = [30 for _ in sample["frameRate"]]
+        sample["mediaBitRate"] = [random.randint(3500, 5000) for _ in sample["mediaBitRate"]]
+
+    record = {
+        "meetingInstanceId": meeting_id,
+        "webexUserName": device_name,
+        "webexUserEmail": f"{device_name.lower()}@{TENANT}",
+        "joinTime": ts_iso8601(join_time),
+        "leaveTime": ts_iso8601(leave_time),
+        "joinMeetingTime": str(random.randint(2, 8)),
+        "clientType": "Telepresence",
+        "clientVersion": f"RoomOS/{device_profile['osVersion']}",
+        "osType": device_profile["osType"],
+        "osVersion": device_profile["osVersion"],
+        "hardwareType": device_profile["hardwareType"],
+        "speakerName": device_profile["speaker"],
+        "networkType": device_profile["networkType"],
+        "localIP": device_ip,
+        "publicIP": get_public_ip(),
+        "camera": device_profile["camera"],
+        "microphone": device_profile["microphone"],
+        "serverRegion": random.choice(SERVER_REGIONS),
+        "participantId": generate_uuid(),
+        "participantSessionId": generate_uuid(),
+        "audioIn": audio_in,
+        "videoIn": video_in,
+        "resources": {
+            "processAverageCPU": [random.randint(5, 15) for _ in range(min(5, duration_mins))],
+            "processMaxCPU": [random.randint(12, 25) for _ in range(min(5, duration_mins))],
+            "systemAverageCPU": [random.randint(10, 25) for _ in range(min(5, duration_mins))],
+            "systemMaxCPU": [random.randint(20, 40) for _ in range(min(5, duration_mins))],
+        },
+    }
+
+    if demo_id:
+        record["demo_id"] = demo_id
+
+    return record
+
+
 # =============================================================================
 # CALL HISTORY GENERATION
 # =============================================================================
@@ -552,8 +630,8 @@ def generate_events_for_day(
                 meeting_date = scheduled.start_time.date() if hasattr(scheduled.start_time, 'date') else scheduled.start_time
                 if meeting_date != target_date:
                     continue
-                # Skip ghosts and walk-ins
-                if scheduled.is_ghost or scheduled.is_walkin:
+                # Skip walk-ins (no Webex booking)
+                if scheduled.is_walkin:
                     continue
 
                 # Look up host user
@@ -562,13 +640,28 @@ def generate_events_for_day(
                 if not host_user:
                     continue
 
-                # Build meeting record from shared schedule data
                 meeting_demo_id = demo_id if host_username in EXFIL_USERS else None
                 agenda = _AGENDA_MAP.get(scheduled.meeting_title, _DEFAULT_AGENDA)
                 template_for_record = {"name": scheduled.meeting_title, "agenda": agenda}
+
+                # Ghost meetings — produce record with state="missed", no quality records
+                if scheduled.is_ghost:
+                    ghost_record = generate_meeting_record(
+                        host_user, scheduled.start_time, scheduled.start_time,
+                        template_for_record, demo_id=meeting_demo_id,
+                        meeting_uuid=scheduled.meeting_uuid,
+                        meeting_number=scheduled.meeting_number,
+                        state="missed",
+                    )
+                    meetings.append(ghost_record)
+                    continue
+
+                # Build meeting record from shared schedule data
                 meeting_record = generate_meeting_record(
                     host_user, scheduled.start_time, scheduled.end_time,
-                    template_for_record, demo_id=meeting_demo_id
+                    template_for_record, demo_id=meeting_demo_id,
+                    meeting_uuid=scheduled.meeting_uuid,
+                    meeting_number=scheduled.meeting_number,
                 )
                 meetings.append(meeting_record)
 
@@ -595,6 +688,21 @@ def generate_events_for_day(
                         meeting_qualities.append(generate_meeting_quality_record(
                             participant, meeting_record["id"], join_time, leave_time, demo_id=part_demo_id
                         ))
+
+                # Room device quality record (for every non-ghost meeting with a room)
+                if scheduled.room:
+                    device_join = scheduled.start_time - timedelta(seconds=random.randint(10, 60))
+                    device_leave = scheduled.end_time + timedelta(seconds=random.randint(0, 30))
+                    device_quality = _generate_device_quality_record(
+                        meeting_id=meeting_record["id"],
+                        room_name=scheduled.room,
+                        location_code=scheduled.location_code,
+                        join_time=device_join,
+                        leave_time=device_leave,
+                        demo_id=meeting_demo_id,
+                    )
+                    if device_quality:
+                        meeting_qualities.append(device_quality)
     else:
         # Fallback: independent generation (when running standalone without webex)
         if is_wknd:

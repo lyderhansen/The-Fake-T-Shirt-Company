@@ -233,6 +233,60 @@ MERAKI_MT_DEVICES = {
     # Austin Office
     "MT-AUS-TEMP-01": {"model": "MT10", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "temperature"},
     "MT-AUS-DOOR-01": {"model": "MT20", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "door"},
+
+    # =========================================================================
+    # ADDITIONAL INFRASTRUCTURE SENSORS (all rooms coverage)
+    # =========================================================================
+
+    # --- Boston HQ Floor 3 (8 new) ---
+    "MT-BOS-3F-TEMP-EXECRECPT": {"model": "MT10", "location": "BOS", "floor": 3, "area": "Executive Reception", "type": "temperature"},
+    "MT-BOS-3F-DOOR-CEO": {"model": "MT20", "location": "BOS", "floor": 3, "area": "CEO Office", "type": "door"},
+    "MT-BOS-3F-DOOR-CTO": {"model": "MT20", "location": "BOS", "floor": 3, "area": "CTO Office", "type": "door"},
+    "MT-BOS-3F-TEMP-EXECASST": {"model": "MT10", "location": "BOS", "floor": 3, "area": "Exec Asst Area", "type": "temperature"},
+    "MT-BOS-3F-TEMP-ENG": {"model": "MT10", "location": "BOS", "floor": 3, "area": "Engineering", "type": "temperature"},
+    "MT-BOS-3F-TEMP-BREAK": {"model": "MT10", "location": "BOS", "floor": 3, "area": "Break Room 3F", "type": "temperature"},
+    "MT-BOS-3F-TEMP-LEGAL": {"model": "MT10", "location": "BOS", "floor": 3, "area": "Legal", "type": "temperature"},
+    "MT-BOS-MDF-WATER-01": {"model": "MT14", "location": "BOS", "floor": 3, "area": "MDF", "type": "water_leak"},
+
+    # --- Boston HQ Floor 2 (7 new) ---
+    "MT-BOS-2F-TEMP-FINEAST": {"model": "MT10", "location": "BOS", "floor": 2, "area": "Finance East", "type": "temperature"},
+    "MT-BOS-2F-TEMP-FINWEST": {"model": "MT10", "location": "BOS", "floor": 2, "area": "Finance West", "type": "temperature"},
+    "MT-BOS-2F-DOOR-CFO": {"model": "MT20", "location": "BOS", "floor": 2, "area": "CFO Office", "type": "door"},
+    "MT-BOS-2F-TEMP-MARKETING": {"model": "MT10", "location": "BOS", "floor": 2, "area": "Marketing", "type": "temperature"},
+    "MT-BOS-2F-TEMP-HR": {"model": "MT10", "location": "BOS", "floor": 2, "area": "HR", "type": "temperature"},
+    "MT-BOS-2F-TEMP-CAFE": {"model": "MT10", "location": "BOS", "floor": 2, "area": "Cafeteria", "type": "temperature"},
+    "MT-BOS-2F-WATER-CAFE": {"model": "MT14", "location": "BOS", "floor": 2, "area": "Cafeteria", "type": "water_leak"},
+
+    # --- Boston HQ Floor 1 (6 new — Toad temp fix is in company.py) ---
+    "MT-BOS-1F-TEMP-OPS": {"model": "MT10", "location": "BOS", "floor": 1, "area": "Operations", "type": "temperature"},
+    "MT-BOS-1F-TEMP-SHIPPING": {"model": "MT10", "location": "BOS", "floor": 1, "area": "Shipping", "type": "temperature"},
+    "MT-BOS-1F-DOOR-SHIPPING": {"model": "MT20", "location": "BOS", "floor": 1, "area": "Shipping", "type": "door"},
+    "MT-BOS-1F-TEMP-BREAK": {"model": "MT10", "location": "BOS", "floor": 1, "area": "Break Room 1F", "type": "temperature"},
+    "MT-BOS-1F-HUMID-01": {"model": "MT11", "location": "BOS", "floor": 1, "area": "Server Room", "type": "humidity"},
+    "MT-BOS-1F-WATER-01": {"model": "MT14", "location": "BOS", "floor": 1, "area": "Server Room", "type": "water_leak"},
+
+    # --- Atlanta Hub Floor 1 (6 new) ---
+    "MT-ATL-1F-TEMP-RECV": {"model": "MT10", "location": "ATL", "floor": 1, "area": "Reception", "type": "temperature"},
+    "MT-ATL-1F-TEMP-ITOPS": {"model": "MT10", "location": "ATL", "floor": 1, "area": "IT Ops", "type": "temperature"},
+    "MT-ATL-1F-TEMP-TRAINING": {"model": "MT10", "location": "ATL", "floor": 1, "area": "Training Lab", "type": "temperature"},
+    "MT-ATL-1F-TEMP-STAGING": {"model": "MT10", "location": "ATL", "floor": 1, "area": "Staging", "type": "temperature"},
+    "MT-ATL-1F-TEMP-BREAK": {"model": "MT10", "location": "ATL", "floor": 1, "area": "Break Room 1F", "type": "temperature"},
+    "MT-ATL-DC-WATER-01": {"model": "MT14", "location": "ATL", "floor": 1, "area": "DC Entrance", "type": "water_leak"},
+
+    # --- Atlanta Hub Floor 2 (4 new — Pikachu temp fix is in company.py) ---
+    "MT-ATL-2F-TEMP-ENG": {"model": "MT10", "location": "ATL", "floor": 2, "area": "Engineering", "type": "temperature"},
+    "MT-ATL-2F-TEMP-SALES": {"model": "MT10", "location": "ATL", "floor": 2, "area": "Sales/Marketing", "type": "temperature"},
+    "MT-ATL-2F-TEMP-HROPS": {"model": "MT10", "location": "ATL", "floor": 2, "area": "HR/Ops", "type": "temperature"},
+    "MT-ATL-2F-TEMP-BREAK": {"model": "MT10", "location": "ATL", "floor": 2, "area": "Break Room 2F", "type": "temperature"},
+
+    # --- Austin Office Floor 1 (7 new — Fox temp fix is in company.py) ---
+    "MT-AUS-1F-TEMP-RECV": {"model": "MT10", "location": "AUS", "floor": 1, "area": "Reception", "type": "temperature"},
+    "MT-AUS-1F-TEMP-SALES": {"model": "MT10", "location": "AUS", "floor": 1, "area": "Sales", "type": "temperature"},
+    "MT-AUS-1F-TEMP-ENG": {"model": "MT10", "location": "AUS", "floor": 1, "area": "Engineering", "type": "temperature"},
+    "MT-AUS-1F-TEMP-BREAK": {"model": "MT10", "location": "AUS", "floor": 1, "area": "Break Room", "type": "temperature"},
+    "MT-AUS-1F-TEMP-GAME": {"model": "MT10", "location": "AUS", "floor": 1, "area": "Game Room", "type": "temperature"},
+    "MT-AUS-HUMID-01": {"model": "MT11", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "humidity"},
+    "MT-AUS-WATER-01": {"model": "MT14", "location": "AUS", "floor": 1, "area": "IDF Closet", "type": "water_leak"},
 }
 
 
@@ -3129,6 +3183,22 @@ def generate_mt_baseline_hour(base_date: str, day: int, hour: int,
                     location=location, area=sensor_info.get("area"),
                     model=sensor_info.get("model", "MT20")
                 ))
+
+    # Water leak sensors - periodic "clear" readings (4 per hour, every ~15 min)
+    water_sensors = [s for s in sensors if MERAKI_MT_DEVICES[s]["type"] == "water_leak"]
+    for sensor in water_sensors:
+        sensor_info = MERAKI_MT_DEVICES[sensor]
+        for interval in range(4):
+            minute = interval * 15 + random.randint(0, 3)
+            if minute >= 60:
+                minute = 59
+            second = random.randint(0, 59)
+            ts = ts_meraki(base_date, day, hour, minute, second)
+            events.append(mt_water_leak_event(
+                ts, sensor, "clear",
+                location=location, area=sensor_info.get("area"),
+                model=sensor_info.get("model", "MT14")
+            ))
 
     return events
 

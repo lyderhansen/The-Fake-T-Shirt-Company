@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import hashlib
 import random
+import uuid
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE
 from shared.time_utils import date_add, is_weekend
@@ -37,6 +38,9 @@ class ScheduledMeeting:
     meeting_title: str = ""      # Meeting title for logging
     is_walkin: bool = False      # Walk-in (no Webex booking)
     is_after_hours: bool = False # After-hours activity
+    # Shared meeting IDs for cross-sourcetype correlation
+    meeting_uuid: str = ""       # UUID v4 — used as REST API `id` and XML API `confID`
+    meeting_number: str = ""     # 9-digit — used as REST `meetingNumber` and XML `meetingKey`
     # New fields for Exchange calendar integration
     organizer_email: str = ""    # organizer@theFakeTshirtCompany.com
     organizer_name: str = ""     # "John Smith"
@@ -377,10 +381,45 @@ def should_tag_meeting_exfil(organizer_username: str, day: int, active_scenarios
     return None
 
 
-def is_ghost_meeting() -> bool:
-    """Check if this meeting will be a no-show (ghost meeting)."""
-    from shared.company import MEETING_BEHAVIOR
-    return random.random() < MEETING_BEHAVIOR.get("ghost_meeting_probability", 0.15)
+
+# Ghost probability by meeting name — large/important meetings rarely ghost,
+# ad-hoc and small meetings ghost more often.
+GHOST_PROBABILITY_BY_TYPE = {
+    # Near-zero: company-wide / executive / board
+    "All Hands": 0.02,
+    "Board Meeting": 0.03,
+    "Quarterly Review": 0.03,
+    # Low: recurring team meetings — people show up out of habit
+    "Team Standup": 0.05,
+    "Sprint Planning": 0.05,
+    "Executive Sync": 0.05,
+    "Sales Pipeline": 0.08,
+    # Medium: scheduled but skippable
+    "1:1 Meeting": 0.12,
+    "Project Review": 0.12,
+    "Training Session": 0.15,
+    "Design Review": 0.15,
+    "Budget Review": 0.15,
+    "Tech Deep Dive": 0.15,
+    # High: ad-hoc, external, easily forgotten
+    "Client Call": 0.18,
+    "Interview": 0.20,
+    "Vendor Meeting": 0.20,
+}
+# Default for ad-hoc meetings not in the map
+_DEFAULT_GHOST_PROBABILITY = 0.18
+
+
+def is_ghost_meeting(meeting_name: str = "") -> bool:
+    """Check if this meeting will be a no-show (ghost meeting).
+
+    Ghost probability depends on meeting type:
+    - All Hands / Board Meeting: ~2-3% (important, high-visibility)
+    - Recurring team meetings: ~5-8% (habitual attendance)
+    - Ad-hoc / external meetings: ~15-20% (easily forgotten)
+    """
+    prob = GHOST_PROBABILITY_BY_TYPE.get(meeting_name, _DEFAULT_GHOST_PROBABILITY)
+    return random.random() < prob
 
 
 def get_late_start_delay() -> int:
@@ -575,17 +614,22 @@ def _schedule_meeting(
     location: str,
     preset_participants: Optional[List] = None,
     demo_id: Optional[str] = None,
+    room_name: str = "",
 ) -> ScheduledMeeting:
     """Create and register a ScheduledMeeting without generating events."""
     from shared.company import MEETING_BEHAVIOR
 
     duration_mins = meeting_type["duration_mins"]
 
+    # Generate shared meeting IDs for cross-sourcetype correlation
+    mtg_uuid = str(uuid.uuid4())
+    mtg_number = str(random.randint(100000000, 999999999))
+
     # Ghost meeting - register as booked-but-empty
     if is_ghost:
         ghost_email = f"{organizer_user.username}@theFakeTshirtCompany.com"
         meeting = ScheduledMeeting(
-            room=device_info.get("room", ""),
+            room=room_name,
             location_code=location,
             device_id=device_id,
             start_time=start_ts,
@@ -595,6 +639,8 @@ def _schedule_meeting(
             is_ghost=True,
             late_start_mins=0,
             meeting_title=meeting_type.get("name", "Meeting") + " (No-show)",
+            meeting_uuid=mtg_uuid,
+            meeting_number=mtg_number,
             organizer_email=ghost_email,
             organizer_name=organizer_user.display_name,
             participants=[],
@@ -633,7 +679,7 @@ def _schedule_meeting(
     all_participant_emails = [organizer_email] + participant_emails
 
     meeting = ScheduledMeeting(
-        room=device_info.get("room", ""),
+        room=room_name,
         location_code=location,
         device_id=device_id,
         start_time=actual_start,
@@ -643,6 +689,8 @@ def _schedule_meeting(
         is_ghost=False,
         late_start_mins=late_start_mins,
         meeting_title=meeting_type.get("name", "Meeting"),
+        meeting_uuid=mtg_uuid,
+        meeting_number=mtg_number,
         organizer_email=organizer_email,
         organizer_name=organizer_user.display_name,
         participants=all_participant_emails,
@@ -1194,7 +1242,7 @@ def build_meeting_schedule(
                 demo_id = should_tag_meeting_exfil(
                     organizer.username, day_offset, active_scenarios,
                 )
-                ghost = is_ghost_meeting()
+                ghost = is_ghost_meeting(template.meeting_type)
                 late_delay = get_late_start_delay()
 
                 _schedule_meeting(
@@ -1209,6 +1257,7 @@ def build_meeting_schedule(
                     location=location,
                     preset_participants=participants,
                     demo_id=demo_id,
+                    room_name=template.room,
                 )
 
                 # Mark occupied hours (including multi-hour meetings)
@@ -1266,7 +1315,7 @@ def build_meeting_schedule(
                     meeting_type = random.choice(suitable_types)
                     organizer = random.choice(location_users) if location_users else get_random_user()
 
-                    ghost = is_ghost_meeting()
+                    ghost = is_ghost_meeting(meeting_type.get("name", ""))
                     late_delay = get_late_start_delay()
                     overfilled = is_overfilled_meeting()
                     demo_id = should_tag_meeting_exfil(organizer.username, day_offset, active_scenarios)
@@ -1282,6 +1331,7 @@ def build_meeting_schedule(
                         is_overfilled=overfilled,
                         location=location,
                         demo_id=demo_id,
+                        room_name=room_name,
                     )
                     total_meetings += 1
 
