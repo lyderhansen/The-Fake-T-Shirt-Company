@@ -18,6 +18,7 @@ from typing import Tuple, List, Optional, Dict
 from dataclasses import dataclass
 
 from shared.config import next_cid
+from shared.company import ASA_STATIC_NAT
 
 
 @dataclass
@@ -416,10 +417,12 @@ class MemoryLeakScenario:
         dur = f"0:{dur_mins}:{dur_secs}"
         bytes_val = random.randint(0, 500)  # Minimal — connection never completed
 
+        # Static NAT: show public VIP in parentheses for DMZ destination
+        dst_nat_ip = ASA_STATIC_NAT.get(self.cfg.host_ip, self.cfg.host_ip)
         built = (
             f'{pri6}{built_ts} FW-EDGE-01 %ASA-6-302013: Built inbound TCP connection {conn_id} '
             f'for outside:{customer_ip}/{customer_port} ({customer_ip}/{customer_port}) '
-            f'to dmz:{self.cfg.host_ip}/{server_port} ({self.cfg.host_ip}/{server_port}){suffix}'
+            f'to dmz:{self.cfg.host_ip}/{server_port} ({dst_nat_ip}/{server_port}){suffix}'
         )
         teardown = (
             f'{pri6}{teardown_ts} FW-EDGE-01 %ASA-6-302014: Teardown TCP connection {conn_id} '

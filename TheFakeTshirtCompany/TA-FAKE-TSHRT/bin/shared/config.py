@@ -412,13 +412,13 @@ def next_cid() -> int:
     """Return the next unique ASA connection ID.
 
     Monotonically increasing across the entire generation run (all days).
-    Wraps within the 100000-999999 range (900,000 unique IDs).
+    Wraps within the 1000000-9999999 range (9,000,000 unique IDs).
     With typical runs of 31 days * ~17,500 events/day = ~540K events,
-    this guarantees zero collisions.
+    this guarantees zero collisions even at high scale factors.
     """
     global _cid_counter
     _cid_counter += 1
-    return 100000 + (_cid_counter % 900000)
+    return 1000000 + (_cid_counter % 9000000)
 
 
 def reset_cid_allocator():

@@ -1761,9 +1761,20 @@ def get_random_mac(oui: str = None) -> str:
 
 ASA_WEB_PORTS = [80, 443, 8080, 8443]
 ASA_SCAN_PORTS = [22, 23, 25, 110, 143, 445, 3389, 5432, 3306, 5900]
-ASA_TEARDOWN_REASONS = ["TCP FINs", "TCP Reset-I", "TCP Reset-O", "idle timeout"]
+ASA_TEARDOWN_REASONS = ["TCP FINs", "TCP Reset-I", "TCP Reset-O", "idle timeout", "SYN Timeout", "Flow deleted by inspection"]
 ASA_EXT_ACLS = ["outside_access_in", "acl_outside", "implicit-deny"]
 ASA_INT_ACLS = ["internal_segmentation", "server_segment_acl", "workstation_restrictions"]
+
+# NAT pool for dynamic PAT (outbound inside->outside connections)
+# Employees get PAT'd to one of these public IPs (deterministic per src_ip via hash)
+ASA_NAT_POOL = [f"203.0.113.{i}" for i in range(1, 11)]
+
+# Static NAT for DMZ servers (inbound outside->dmz connections)
+# Maps real DMZ IP -> public VIP that external clients connect to
+ASA_STATIC_NAT = {
+    "172.16.1.10": "203.0.113.50",   # WEB-01 public VIP
+    "172.16.1.11": "203.0.113.51",   # WEB-02 public VIP
+}
 
 
 # =============================================================================

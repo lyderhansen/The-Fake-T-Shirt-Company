@@ -20,7 +20,10 @@ from typing import List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+import hashlib
+
 from shared.config import next_cid
+from shared.company import ASA_NAT_POOL
 
 
 @dataclass
@@ -136,10 +139,13 @@ class RansomwareAttemptScenario:
         conn_id = next_cid()
 
         # Outbound C2 connection (inside → outside)
+        # Deterministic PAT: same src_ip always maps to same NAT pool IP
+        nat_idx = int(hashlib.md5(self.cfg.target_ip.encode()).hexdigest(), 16) % len(ASA_NAT_POOL)
+        nat_ip = ASA_NAT_POOL[nat_idx]
         src_port = random.randint(49152, 65535)
         events.append(
             f"{c2_ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {conn_id} "
-            f"for inside:{self.cfg.target_ip}/{src_port} (203.0.113.10/{src_port}) "
+            f"for inside:{self.cfg.target_ip}/{src_port} ({nat_ip}/{src_port}) "
             f"to outside:{self.cfg.c2_ip}/{self.cfg.c2_port} ({self.cfg.c2_ip}/{self.cfg.c2_port})"
             f"{self._demo_suffix_syslog()}"
         )
@@ -153,7 +159,7 @@ class RansomwareAttemptScenario:
                 beacon_src_port = random.randint(49152, 65535)
                 events.append(
                     f"{beacon_ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {conn_id} "
-                    f"for inside:{self.cfg.target_ip}/{beacon_src_port} (203.0.113.10/{beacon_src_port}) "
+                    f"for inside:{self.cfg.target_ip}/{beacon_src_port} ({nat_ip}/{beacon_src_port}) "
                     f"to outside:{self.cfg.c2_ip}/{self.cfg.c2_port} ({self.cfg.c2_ip}/{self.cfg.c2_port})"
                     f"{self._demo_suffix_syslog()}"
                 )

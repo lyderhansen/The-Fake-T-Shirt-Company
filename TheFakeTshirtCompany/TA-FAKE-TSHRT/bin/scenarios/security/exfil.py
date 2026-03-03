@@ -23,8 +23,10 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import hashlib
+
 from shared.config import Config, next_cid
-from shared.company import Company
+from shared.company import Company, ASA_NAT_POOL, ASA_STATIC_NAT
 from shared.time_utils import TimeUtils
 from scenarios.registry import get_phase
 
@@ -114,6 +116,10 @@ class ExfilScenario:
         self.company = company
         self.time_utils = time_utils
         self.cfg = exfil_config or ExfilConfig()
+
+        # Deterministic PAT address for compromised workstation (outbound NAT)
+        nat_idx = int(hashlib.md5(self.cfg.comp_ws_ip.encode()).hexdigest(), 16) % len(ASA_NAT_POOL)
+        self._comp_nat_ip = ASA_NAT_POOL[nat_idx]
 
         # Lateral movement targets - real server IPs only
         # OS-appropriate probe ports per server (attacker scans common ports, ACL blocks them)
@@ -310,7 +316,7 @@ class ExfilScenario:
 
         return [
             f'{pri6}{ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {cid} '
-            f'for inside:{self.cfg.comp_ws_ip}/{sp} (203.0.113.1/{sp}) '
+            f'for inside:{self.cfg.comp_ws_ip}/{sp} ({self._comp_nat_ip}/{sp}) '
             f'to outside:{cloud}/443 ({cloud}/443){suffix}'
         ]
 
@@ -358,7 +364,7 @@ class ExfilScenario:
             ts_built = self.time_utils.ts_syslog(day, hour, start_min, start_sec)
             events.append(
                 f'{pri6}{ts_built} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {cid} '
-                f'for inside:{self.cfg.comp_ws_ip}/{sp} (203.0.113.1/{sp}) '
+                f'for inside:{self.cfg.comp_ws_ip}/{sp} ({self._comp_nat_ip}/{sp}) '
                 f'to outside:{self.cfg.threat_ip}/443 ({self.cfg.threat_ip}/443){suffix}'
             )
 
@@ -413,7 +419,7 @@ class ExfilScenario:
 
         events.append(
             f'{pri6}{ts} FW-EDGE-01 %ASA-6-302013: Built outbound TCP connection {cid} '
-            f'for inside:{self.cfg.comp_ws_ip}/{sp} (203.0.113.1/{sp}) '
+            f'for inside:{self.cfg.comp_ws_ip}/{sp} ({self._comp_nat_ip}/{sp}) '
             f'to outside:{self.cfg.threat_ip}/443 ({self.cfg.threat_ip}/443){suffix}'
         )
         events.append(

@@ -4,6 +4,80 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-03 ~16:00 UTC -- fix(asa): Realism audit - DMZ IPs, direction labels, scan targets, durations, CID range, DNS paths, teardown reasons
+
+### Problems Fixed (7 issues from ASA realism audit)
+
+1. **Phantom DMZ IPs (Critical):** Registry-driven web sessions and `asa_tcp_session()` produced 41 phantom DMZ IPs (172.16.1.10-50). Only WEB-01 (.10) and WEB-02 (.11) exist.
+2. **Wrong direction on same-zone traffic (High):** 9,067 events said "Built inbound" for inside->inside traffic. Real ASA omits direction for same-security-level zones.
+3. **External scan deny targeting internal IPs (High):** 106023 deny events from external scanners targeted `inside:10.x.x.x`. External scanners cannot reach RFC1918 IPs through a perimeter firewall.
+4. **Zero-duration sessions with bytes (Medium):** 585 Teardown events had `duration 0:0:0` with >0 bytes transferred. Impossible.
+5. **CID range too small (Medium):** CID range of 900K (100000-999999) could wrap on large/high-scale runs.
+6. **All DNS to external (Low):** 100% of DNS went to 8.8.8.8/1.1.1.1. Real networks resolve 70% via internal DC DNS, 30% DC forwards to external.
+7. **Only 4 teardown reasons (Low):** Missing realistic reasons like "SYN Timeout" and "Flow deleted by inspection".
+
+### Changes
+
+- **`bin/generators/generate_asa.py`:**
+  - Added `ZONE_SECURITY` dict and `get_built_direction()` helper. Same-security zones produce no direction label; lower-to-higher = "inbound"; higher-to-lower = "outbound"
+  - Added `TEARDOWN_WEIGHTS` and `weighted_teardown_reason()` for realistic distribution: TCP FINs (40%), Reset-I (20%), Reset-O (15%), idle timeout (15%), SYN Timeout (7%), Flow deleted by inspection (3%)
+  - Updated ALL 10 Built-event functions to use `get_built_direction()` instead of hardcoded "inbound"/"outbound": `asa_tcp_session`, `asa_dns_query`, `asa_web_session`, `asa_web_session_from_registry`, `asa_dc_traffic`, `asa_internal_app_traffic`, `asa_site_to_site`, `asa_backup_traffic`, `asa_new_server_traffic`, `asa_icmp_ping`
+  - Updated ALL Teardown-producing functions to use `weighted_teardown_reason()` instead of `random.choice(ASA_TEARDOWN_REASONS)`
+  - `asa_web_session_from_registry()`: Clamp registry `dst` IPs in 172.16.1.x range to WEB-01/WEB-02 via hash of session IP
+  - `asa_tcp_session()`: Replaced `get_dmz_ip()` with `random.choice(WEB_SERVERS)` for DMZ-bound sessions
+  - `asa_deny_internal()`: Replaced `get_dmz_ip()` with `random.choice(WEB_SERVERS)` for DMZ targets
+  - `asa_deny_external()`: Changed destinations from internal IPs to 60% NAT pool/public IPs (outside zone), 30% DMZ servers (dmz zone), 10% ASA outside interface
+  - `asa_dns_query()`: Split DNS: 70% internal client -> DC DNS (inside->inside), 30% DC forwarding to external DNS (inside->outside)
+  - Added `bytes_val > 0 and duration_secs == 0` guard to all Teardown-producing functions
+- **`bin/shared/company.py`:**
+  - Expanded `ASA_TEARDOWN_REASONS` from 4 to 6 reasons: added "SYN Timeout" and "Flow deleted by inspection"
+- **`bin/shared/config.py`:**
+  - `next_cid()`: Changed CID range from 900K (100000-999999) to 9M (1000000-9999999)
+
+### Verification
+
+- Generator runs: `--sources=asa --days=1 --scenarios=none` = 56,656 events (PASS)
+- Generator runs: `--sources=asa --days=2 --scenarios=all` = 115,431 events (PASS)
+- Phantom DMZ IPs (172.16.1.12-50): **0** (PASS)
+- "Built inbound" for inside->inside: **0** (PASS)
+- "Built outbound" for inside->inside: **0** (PASS)
+- "Built TCP connection" (no direction) for inside->inside: **3,835** (PASS)
+- Baseline external deny targeting `dst inside:`: **0** (PASS -- 377 from exfil scenario recon are expected)
+- Duration `0:0:0` with bytes > 0: **0** (PASS)
+- New teardown reasons present: SYN Timeout (1,018), Flow deleted by inspection (418) (PASS)
+- DNS to inside (DC): **1,749** (~75%), DNS to outside (external): **574** (~25%) (PASS)
+- CID range: 7-digit IDs starting at 1,000,001+ (PASS)
+
+---
+
+## 2026-03-03 ~12:00 UTC -- fix(asa): Add realistic NAT addresses to Built events
+
+### Problem
+Every 302013/302015 Built event showed parenthetical NAT addresses identical to the real addresses (e.g., `for inside:10.20.30.96/49529 (10.20.30.96/49529)`). Real ASA behavior: parenthetical addresses show the **post-NAT** (translated) addresses.
+
+### Changes
+- **`bin/shared/company.py`**: Added `ASA_NAT_POOL` (dynamic PAT pool `203.0.113.{1-10}`) and `ASA_STATIC_NAT` dict mapping DMZ server real IPs to public VIPs (`172.16.1.10` -> `203.0.113.50`, `172.16.1.11` -> `203.0.113.51`)
+- **`bin/generators/generate_asa.py`**: Added `get_nat_addresses()` helper function that computes post-NAT addresses based on zone pair:
+  - Outbound (inside->outside): Source gets deterministic PAT from NAT pool (hash of src_ip)
+  - Inbound to DMZ (outside->dmz): Destination shows public VIP via ASA_STATIC_NAT
+  - Same-zone (inside->inside, dmz->inside, inside->management): Identity NAT (unchanged)
+- Updated 5 baseline Built event locations: `asa_tcp_session()` (outbound + inbound), `asa_dns_query()`, `asa_web_session()`, `asa_web_session_from_registry()`
+- Teardown events (302014/302016) left unchanged (real ASA does not show NAT in Teardown)
+- **`bin/scenarios/security/exfil.py`**: Replaced hardcoded `203.0.113.1` with deterministic PAT address computed from `comp_ws_ip` hash
+- **`bin/scenarios/security/ransomware_attempt.py`**: Replaced hardcoded `203.0.113.10` with deterministic PAT address computed from `target_ip` hash
+- **`bin/scenarios/ops/memory_leak.py`**: Added static NAT lookup for DMZ destination (WEB-01 -> 203.0.113.50)
+
+### Verification
+- Generator runs: `--sources=asa --days=1 --scenarios=none` = 56,422 events (PASS)
+- Generator runs: `--sources=asa --days=14 --scenarios=all` = 844,236 events (PASS)
+- Outbound Built: `inside:10.10.30.104/51059 (203.0.113.5/51059)` -- NAT differs from real (PASS)
+- Inbound DMZ Built: `dmz:172.16.1.10/443 (203.0.113.50/443)` -- Static NAT to public VIP (PASS)
+- Inside->inside Built: `inside:10.20.20.20/57905 (10.20.20.20/57905)` -- Identity NAT correct (PASS)
+- Teardown events: No parenthetical addresses -- unchanged (PASS)
+- Scenario events: exfil, ransomware, memory_leak all use correct deterministic NAT (PASS)
+
+---
+
 ## 2026-03-02 ~01:00 UTC -- Floor plan dashboard: migrated 13 Webex queries from dead sourcetype + ghost rate fix
 
 ### Floor Plan Webex Migration

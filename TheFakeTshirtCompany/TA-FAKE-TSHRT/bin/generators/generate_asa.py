@@ -42,6 +42,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -56,6 +57,7 @@ from shared.time_utils import TimeUtils, ts_syslog, date_add, calc_natural_event
 from shared.company import Company, ASA_PERIMETER, DNS_SERVERS, THREAT_IP, TENANT
 from shared.company import (
     ASA_WEB_PORTS, ASA_SCAN_PORTS, ASA_TEARDOWN_REASONS, ASA_EXT_ACLS, ASA_INT_ACLS,
+    ASA_NAT_POOL, ASA_STATIC_NAT,
     VPN_USERS, USERS, SERVERS, INTERNAL_DNS_SERVERS,
     get_internal_ip, get_us_ip, get_external_ip, get_dmz_ip, get_world_ip,
     get_random_user,
@@ -67,6 +69,46 @@ ASA_HOSTNAME = ASA_PERIMETER["hostname"]  # FW-EDGE-01
 # Web suppression context: set per-hour by generate_baseline_hour() so that
 # asa_tcp_session() can reduce its outside->dmz Built events during scenarios
 _web_suppression_ctx = 0.0
+
+# =============================================================================
+# ZONE SECURITY LEVELS & DIRECTION HELPER
+# =============================================================================
+# Real ASA omits direction for same-security-level zone traffic.
+# Direction is "inbound" (low->high security) or "outbound" (high->low).
+
+ZONE_SECURITY = {"outside": 0, "dmz": 50, "inside": 100, "management": 100}
+
+
+def get_built_direction(src_zone: str, dst_zone: str) -> str:
+    """Compute the direction label for ASA 302013/302015 Built events.
+
+    Returns a string WITH trailing space for clean f-string interpolation:
+      - ""          for same-security-level zones (no direction label)
+      - "inbound "  when traffic goes from lower to higher security
+      - "outbound " when traffic goes from higher to lower security
+    """
+    src_sec = ZONE_SECURITY.get(src_zone, 0)
+    dst_sec = ZONE_SECURITY.get(dst_zone, 0)
+    if src_sec == dst_sec:
+        return ""  # No direction for same security level
+    elif src_sec < dst_sec:
+        return "inbound "
+    else:
+        return "outbound "
+
+
+# =============================================================================
+# TEARDOWN REASON WEIGHTS
+# =============================================================================
+# Weighted selection for realistic teardown reason distribution.
+# Corresponds to ASA_TEARDOWN_REASONS order in company.py:
+# ["TCP FINs", "TCP Reset-I", "TCP Reset-O", "idle timeout", "SYN Timeout", "Flow deleted by inspection"]
+TEARDOWN_WEIGHTS = [40, 20, 15, 15, 7, 3]
+
+
+def weighted_teardown_reason() -> str:
+    """Pick a teardown reason using realistic weighted distribution."""
+    return random.choices(ASA_TEARDOWN_REASONS, weights=TEARDOWN_WEIGHTS, k=1)[0]
 
 # Syslog PRI calculation: PRI = Facility × 8 + Severity
 # Cisco ASA uses local4 (facility 20)
@@ -87,6 +129,52 @@ def asa_pri(severity: int) -> str:
     """
     pri = ASA_FACILITY * 8 + severity
     return f"<{pri}>"
+
+
+def get_nat_addresses(src_ip: str, dst_ip: str, src_zone: str, dst_zone: str,
+                      src_port: int, dst_port: int) -> tuple:
+    """Compute post-NAT (translated) addresses for ASA Built events.
+
+    Real ASA behavior: parenthetical addresses in Built events show the
+    **post-NAT** translated address.  Translation rules:
+
+    - **Outbound (inside/dmz -> outside):**
+      Source gets PAT'd to a public IP from ASA_NAT_POOL (deterministic
+      per src_ip via hash). Port stays the same (PAT overload).
+      Destination stays unchanged (external IP is already routable).
+
+    - **Inbound to DMZ (outside -> dmz):**
+      Source stays unchanged (external client IP is real).
+      Destination shows the public VIP from ASA_STATIC_NAT that the
+      client originally connected to (reverse static NAT).
+
+    - **Same-zone / higher-to-lower security (inside->inside, dmz->inside,
+      inside->management):**
+      Identity NAT — translated == real addresses.
+
+    Returns:
+        (src_nat_ip, src_nat_port, dst_nat_ip, dst_nat_port)
+    """
+    src_nat_ip = src_ip
+    src_nat_port = src_port
+    dst_nat_ip = dst_ip
+    dst_nat_port = dst_port
+
+    if dst_zone == "outside":
+        # Outbound: PAT the source to a public IP from the NAT pool
+        # Use hash for deterministic mapping (same src_ip always maps to same NAT IP)
+        pool_index = int(hashlib.md5(src_ip.encode()).hexdigest(), 16) % len(ASA_NAT_POOL)
+        src_nat_ip = ASA_NAT_POOL[pool_index]
+        # Port stays the same (PAT overload uses original ephemeral port)
+
+    elif src_zone == "outside" and dst_zone == "dmz":
+        # Inbound to DMZ: static NAT — show the public VIP the client connected to
+        dst_nat_ip = ASA_STATIC_NAT.get(dst_ip, dst_ip)
+        # Port stays the same (static NAT is 1:1)
+
+    # All other zone combinations: identity NAT (translated == real)
+    return (src_nat_ip, src_nat_port, dst_nat_ip, dst_nat_port)
+
 
 # Import scenarios
 from scenarios.security import ExfilScenario, RansomwareAttemptScenario
@@ -132,7 +220,7 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     sp = random.randint(49152, 65535)
     dst = get_external_ip()
     dp = random.choice(ASA_WEB_PORTS)
-    reason = random.choice(ASA_TEARDOWN_REASONS)
+    reason = weighted_teardown_reason()
 
     # Realistic byte distribution:
     # 40% small (1-50 KB), 35% medium (50-500 KB), 20% large (500 KB-5 MB), 5% downloads (5-50 MB)
@@ -152,6 +240,10 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     min_duration = random.randint(1, 30)
     jitter = base_duration * random.randint(-20, 20) // 100
     duration_secs = max(1, base_duration + min_duration + jitter)
+
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
 
     # Calculate teardown time
     total_start_secs = minute * 60 + second
@@ -173,43 +265,69 @@ def asa_tcp_session(base_date: str, day: int, hour: int, minute: int, second: in
     dmz_probability = 0.5 * (1.0 - _web_suppression_ctx)
     pri6 = asa_pri(6)  # info
     if random.random() >= dmz_probability:
-        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built outbound TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to outside:{dst}/{dp} ({dst}/{dp})")
+        direction = get_built_direction("inside", "outside")
+        sni, snp, dni, dnp = get_nat_addresses(src, dst, "inside", "outside", sp, dp)
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for inside:{src}/{sp} ({sni}/{snp}) to outside:{dst}/{dp} ({dni}/{dnp})")
         events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to outside:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
     else:
         us = get_us_ip()
-        dmz = get_dmz_ip()
+        dmz = random.choice(WEB_SERVERS)  # Only WEB-01/WEB-02 exist in DMZ
         dmz_dp = random.choice(WEB_PORTS)  # HTTPS only for DMZ web servers
-        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for outside:{us}/{sp} ({us}/{sp}) to dmz:{dmz}/{dmz_dp} ({dmz}/{dmz_dp})")
+        direction = get_built_direction("outside", "dmz")
+        sni, snp, dni, dnp = get_nat_addresses(us, dmz, "outside", "dmz", sp, dmz_dp)
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for outside:{us}/{sp} ({sni}/{snp}) to dmz:{dmz}/{dmz_dp} ({dni}/{dnp})")
         events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{us}/{sp} to dmz:{dmz}/{dmz_dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
 
 
 def asa_dns_query(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
-    """Generate DNS query (UDP Built + Teardown)."""
+    """Generate DNS query (UDP Built + Teardown).
+
+    Split: 70% internal client -> DC DNS, 30% DC forwarding to external DNS.
+    Real networks resolve via AD-integrated DNS first; DCs forward externally
+    only for domains they don't own.
+    """
     events = []
 
     cid = next_cid()
-    employee = get_random_user()
-    src = employee.ip_address  # Deterministic employee IP for cross-generator correlation
     sp = random.randint(49152, 65535)
-    dns = random.choice(DNS_SERVERS)
+
+    if random.random() < 0.70:
+        # Internal client -> DC DNS
+        employee = get_random_user()
+        src_ip = employee.ip_address
+        src_zone = "inside"
+        dst_ip = random.choice(["10.10.20.10", "10.10.20.11", "10.20.20.10"])
+        dst_zone = "inside"
+    else:
+        # DC forwarding to external DNS
+        src_ip = random.choice(["10.10.20.10", "10.10.20.11", "10.20.20.10"])
+        src_zone = "inside"
+        dst_ip = random.choice(DNS_SERVERS)  # 8.8.8.8 / 1.1.1.1
+        dst_zone = "outside"
 
     duration_secs = random.randint(0, 2)
+    bytes_val = random.randint(64, 464)
+
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
     end_sec = second + duration_secs
     end_min = minute
     if end_sec >= 60:
         end_min = min(59, minute + 1)
         end_sec = end_sec - 60
 
-    bytes_val = random.randint(64, 464)
-
     start_ts = ts_syslog(base_date, day, hour, minute, second)
     teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
     pri6 = asa_pri(6)  # info
-    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302015: Built outbound UDP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to outside:{dns}/53 ({dns}/53)")
-    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302016: Teardown UDP connection {cid} for outside:{dns}/53 to inside:{src}/{sp} duration 0:0:{duration_secs} bytes {bytes_val}")
+    direction = get_built_direction(src_zone, dst_zone)
+    sni, snp, dni, dnp = get_nat_addresses(src_ip, dst_ip, src_zone, dst_zone, sp, 53)
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302015: Built {direction}UDP connection {cid} for {src_zone}:{src_ip}/{sp} ({sni}/{snp}) to {dst_zone}:{dst_ip}/53 ({dni}/{dnp})")
+    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302016: Teardown UDP connection {cid} for {dst_zone}:{dst_ip}/53 to {src_zone}:{src_ip}/{sp} duration 0:0:{duration_secs} bytes {bytes_val}")
 
     return events
 
@@ -276,16 +394,34 @@ def asa_admin(base_date: str, day: int, hour: int, minute: int, second: int) -> 
 
 
 def asa_deny_external(base_date: str, day: int, hour: int, minute: int, second: int) -> str:
-    """Generate denied external connection."""
+    """Generate denied external connection.
+
+    External scanners can only reach public-facing IPs and DMZ servers.
+    They cannot reach internal 10.x.x.x IPs through the perimeter firewall.
+    Distribution: 60% NAT pool/public IPs, 30% DMZ servers, 10% ASA outside interface.
+    """
     ts = ts_syslog(base_date, day, hour, minute, second)
     srcip = get_world_ip()
     acl = random.choice(ASA_EXT_ACLS)
-    tgt = get_internal_ip()
     port = random.choice(ASA_SCAN_PORTS)
     sport = random.randint(40000, 50000)
 
+    roll = random.random()
+    if roll < 0.60:
+        # NAT pool / public IPs (what scanners see as live hosts)
+        tgt = f"203.0.113.{random.randint(1, 10)}" if random.random() < 0.8 else random.choice(["203.0.113.50", "203.0.113.51"])
+        dst_zone = "outside"
+    elif roll < 0.90:
+        # DMZ servers (WEB-01, WEB-02)
+        tgt = random.choice(["172.16.1.10", "172.16.1.11"])
+        dst_zone = "dmz"
+    else:
+        # ASA outside interface itself
+        tgt = "203.0.113.1"
+        dst_zone = "outside"
+
     pri4 = asa_pri(4)  # warning
-    return f'{pri4}{ts} {ASA_HOSTNAME} %ASA-4-106023: Deny tcp src outside:{srcip}/{sport} dst inside:{tgt}/{port} by access-group "{acl}" [0x0, 0x0]'
+    return f'{pri4}{ts} {ASA_HOSTNAME} %ASA-4-106023: Deny tcp src outside:{srcip}/{sport} dst {dst_zone}:{tgt}/{port} by access-group "{acl}" [0x0, 0x0]'
 
 
 # =============================================================================
@@ -351,15 +487,20 @@ def asa_dc_traffic(base_date: str, day: int, hour: int, minute: int, second: int
     start_ts = ts_syslog(base_date, day, hour, minute, second)
     teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
     pri6 = asa_pri(6)
+    direction = get_built_direction("inside", "inside")  # same-zone = no direction
 
     if proto == "UDP":
-        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302015: Built outbound UDP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dc_ip}/{dp} ({dc_ip}/{dp})")
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302015: Built {direction}UDP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dc_ip}/{dp} ({dc_ip}/{dp})")
         events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302016: Teardown UDP connection {cid} for inside:{dc_ip}/{dp} to inside:{src}/{sp} duration 0:0:{duration_secs} bytes {bytes_val}")
     else:
         dur = f"0:0:{duration_secs}"
-        reason = random.choice(ASA_TEARDOWN_REASONS)
-        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dc_ip}/{dp} ({dc_ip}/{dp})")
+        reason = weighted_teardown_reason()
+        events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dc_ip}/{dp} ({dc_ip}/{dp})")
         events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to inside:{dc_ip}/{dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
@@ -406,7 +547,7 @@ def asa_deny_internal(base_date: str, day: int, hour: int, minute: int, second: 
         server = random.choice(list(SERVERS.values()))
         dst = server.ip
     elif dst_type == "dmz":
-        dst = get_dmz_ip()
+        dst = random.choice(WEB_SERVERS)  # Only WEB-01/WEB-02 exist in DMZ
     else:
         dst = get_internal_ip()
 
@@ -463,8 +604,12 @@ def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, sec
     end_min = min(59, total_end_secs // 60)
     end_sec = total_end_secs % 60 if end_min < 59 else 59
 
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
     dur = f"0:0:{duration_secs}"
-    reason = random.choice(ASA_TEARDOWN_REASONS)
+    reason = weighted_teardown_reason()
 
     start_ts = ts_syslog(base_date, day, hour, minute, second)
     teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
@@ -478,7 +623,8 @@ def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, sec
         dst_zone = "inside"
 
     pri6 = asa_pri(6)
-    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for {src_zone}:{src}/{sp} ({src}/{sp}) to {dst_zone}:{dst}/{dp} ({dst}/{dp})")
+    direction = get_built_direction(src_zone, dst_zone)
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for {src_zone}:{src}/{sp} ({src}/{sp}) to {dst_zone}:{dst}/{dp} ({dst}/{dp})")
     events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for {src_zone}:{src}/{sp} to {dst_zone}:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
@@ -504,6 +650,10 @@ def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, s
     bytes1 = random.randint(2000, 100000)  # API call (request + response)
     duration1 = random.randint(1, 5)  # Fast internal call
 
+    # Fix zero-duration with bytes
+    if bytes1 > 0 and duration1 == 0:
+        duration1 = 1
+
     total_start = minute * 60 + second
     total_end1 = total_start + duration1
     end_min1 = min(59, total_end1 // 60)
@@ -512,7 +662,8 @@ def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, s
     ts1_start = ts_syslog(base_date, day, hour, minute, second)
     ts1_end = ts_syslog(base_date, day, hour, end_min1, end_sec1)
 
-    events.append(f"{pri6}{ts1_start} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid1} for dmz:{web_src}/{web_sp} ({web_src}/{web_sp}) to inside:{APP_SERVER_IP}/{app_dp} ({APP_SERVER_IP}/{app_dp})")
+    direction1 = get_built_direction("dmz", "inside")  # dmz(50) -> inside(100) = inbound
+    events.append(f"{pri6}{ts1_start} {ASA_HOSTNAME} %ASA-6-302013: Built {direction1}TCP connection {cid1} for dmz:{web_src}/{web_sp} ({web_src}/{web_sp}) to inside:{APP_SERVER_IP}/{app_dp} ({APP_SERVER_IP}/{app_dp})")
     events.append(f"{pri6}{ts1_end} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid1} for dmz:{web_src}/{web_sp} to inside:{APP_SERVER_IP}/{app_dp} duration 0:0:{duration1} bytes {bytes1} TCP FINs")
 
     # --- Leg 2: APP-BOS-01 (inside) -> SQL-PROD-01 (inside) on 1433 ---
@@ -521,6 +672,10 @@ def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, s
     cid2 = next_cid()
     bytes2 = random.randint(500, 50000)  # DB query (smaller)
     duration2 = random.randint(1, 3)  # DB call is fast
+
+    # Fix zero-duration with bytes
+    if bytes2 > 0 and duration2 == 0:
+        duration2 = 1
 
     # Starts slightly after leg 1 (staggered by 1 second)
     second2 = min(59, second + 1)
@@ -531,7 +686,8 @@ def asa_internal_app_traffic(base_date: str, day: int, hour: int, minute: int, s
     ts2_start = ts_syslog(base_date, day, hour, minute, second2)
     ts2_end = ts_syslog(base_date, day, hour, end_min2, end_sec2)
 
-    events.append(f"{pri6}{ts2_start} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid2} for inside:{APP_SERVER_IP}/{app_sp} ({APP_SERVER_IP}/{app_sp}) to inside:{SQL_SERVER_IP}/1433 ({SQL_SERVER_IP}/1433)")
+    direction2 = get_built_direction("inside", "inside")  # same-zone = no direction
+    events.append(f"{pri6}{ts2_start} {ASA_HOSTNAME} %ASA-6-302013: Built {direction2}TCP connection {cid2} for inside:{APP_SERVER_IP}/{app_sp} ({APP_SERVER_IP}/{app_sp}) to inside:{SQL_SERVER_IP}/1433 ({SQL_SERVER_IP}/1433)")
     events.append(f"{pri6}{ts2_end} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid2} for inside:{APP_SERVER_IP}/{app_sp} to inside:{SQL_SERVER_IP}/1433 duration 0:0:{duration2} bytes {bytes2} TCP FINs")
 
     return events
@@ -555,7 +711,8 @@ def asa_icmp_ping(base_date: str, day: int, hour: int, minute: int, second: int)
     dst = random.choice(targets)
 
     pri6 = asa_pri(6)
-    return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-302020: Built inbound ICMP connection for inside:{mon_ip}/0 ({mon_ip}/0) to inside:{dst}/0 ({dst}/0)"
+    direction = get_built_direction("inside", "inside")  # same-zone = no direction
+    return f"{pri6}{ts} {ASA_HOSTNAME} %ASA-6-302020: Built {direction}ICMP connection for inside:{mon_ip}/0 ({mon_ip}/0) to inside:{dst}/0 ({dst}/0)"
 
 
 # =============================================================================
@@ -594,6 +751,10 @@ def asa_web_session(base_date: str, day: int, hour: int, minute: int, second: in
     # Duration based on bytes
     duration_secs = max(1, bytes_val // 500000 + random.randint(1, 10))
 
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
     total_start_secs = minute * 60 + second
     total_end_secs = total_start_secs + duration_secs
     end_min = min(59, total_end_secs // 60)
@@ -606,10 +767,12 @@ def asa_web_session(base_date: str, day: int, hour: int, minute: int, second: in
     start_ts = ts_syslog(base_date, day, hour, minute, second)
     teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
-    reason = random.choice(ASA_TEARDOWN_REASONS)
+    reason = weighted_teardown_reason()
 
     pri6 = asa_pri(6)
-    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for outside:{src}/{sp} ({src}/{sp}) to dmz:{dst}/{dp} ({dst}/{dp})")
+    direction = get_built_direction("outside", "dmz")
+    sni, snp, dni, dnp = get_nat_addresses(src, dst, "outside", "dmz", sp, dp)
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for outside:{src}/{sp} ({sni}/{snp}) to dmz:{dst}/{dp} ({dni}/{dnp})")
     events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{src}/{sp} to dmz:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
@@ -692,6 +855,10 @@ def asa_site_to_site(base_date: str, day: int, hour: int, minute: int, second: i
     bytes_val = random.randint(5000, 500000)
     duration_secs = random.randint(1, 60)
 
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
     total_start_secs = minute * 60 + second
     total_end_secs = total_start_secs + duration_secs
     end_min = min(59, total_end_secs // 60)
@@ -704,11 +871,12 @@ def asa_site_to_site(base_date: str, day: int, hour: int, minute: int, second: i
     start_ts = ts_syslog(base_date, day, hour, minute, second)
     teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
-    reason = random.choice(ASA_TEARDOWN_REASONS)
+    reason = weighted_teardown_reason()
 
     # Site-to-site VPN traffic transits ASA on inside zone (all sites terminate on inside)
     pri6 = asa_pri(6)
-    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dst}/{dp} ({dst}/{dp})")
+    direction = get_built_direction("inside", "inside")  # same-zone = no direction
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to inside:{dst}/{dp} ({dst}/{dp})")
     events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to inside:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
@@ -899,8 +1067,9 @@ def asa_backup_traffic(base_date: str, day: int, hour: int) -> List[str]:
         teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
 
         # ATL -> BOS cross-site SMB backup traffic (inside→inside via VPN)
+        direction = get_built_direction("inside", "inside")  # same-zone = no direction
         events.append(
-            f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP "
+            f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP "
             f"connection {cid} for inside:{BACKUP_SRC}/{sp} ({BACKUP_SRC}/{sp}) "
             f"to inside:{BACKUP_DST}/445 ({BACKUP_DST}/445)"
         )
@@ -1013,11 +1182,21 @@ def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
 
     Creates ASA firewall events that match EXACTLY with the access log session:
     same source IP, same destination web server, same timestamps.
+
+    Registry dst IPs are clamped to WEB-01/WEB-02 (172.16.1.10/11) since
+    those are the only real DMZ servers.
     """
     events = []
 
     src = session["ip"]
-    dst = session["dst"]
+
+    # Task 2: Clamp phantom DMZ IPs to actual web servers
+    raw_dst = session.get("dst", "172.16.1.10")
+    if raw_dst.startswith("172.16.1."):
+        dst_ip = WEB_SERVERS[hash(session.get("ip", "")) % len(WEB_SERVERS)]
+    else:
+        dst_ip = raw_dst
+
     dp = session["dst_port"]
     bytes_val = session.get("bytes", 5000)
 
@@ -1039,6 +1218,11 @@ def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
     start_total_sec = start_hour * 3600 + start_min * 60 + start_sec
     end_total_sec = end_hour * 3600 + end_min * 60 + end_sec
     duration_secs = max(1, end_total_sec - start_total_sec)
+
+    # Fix zero-duration with bytes: impossible to transfer data in 0 seconds
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
     dur_mins = duration_secs // 60
     dur_secs = duration_secs % 60
     dur = f"0:{dur_mins}:{dur_secs}"
@@ -1054,11 +1238,13 @@ def asa_web_session_from_registry(base_date: str, session: Dict) -> List[str]:
     built_ts = ts_syslog(base_date, day, start_hour, start_min, start_sec)
     teardown_ts = ts_syslog(base_date, day, end_hour, end_min, end_sec)
 
-    reason = random.choice(ASA_TEARDOWN_REASONS)
+    reason = weighted_teardown_reason()
     pri6 = asa_pri(6)
+    direction = get_built_direction("outside", "dmz")
 
-    events.append(f"{pri6}{built_ts} {ASA_HOSTNAME} %ASA-6-302013: Built inbound TCP connection {cid} for outside:{src}/{sp} ({src}/{sp}) to dmz:{dst}/{dp} ({dst}/{dp})")
-    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{src}/{sp} to dmz:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
+    sni, snp, dni, dnp = get_nat_addresses(src, dst_ip, "outside", "dmz", sp, dp)
+    events.append(f"{pri6}{built_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for outside:{src}/{sp} ({sni}/{snp}) to dmz:{dst_ip}/{dp} ({dni}/{dnp})")
+    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for outside:{src}/{sp} to dmz:{dst_ip}/{dp} duration {dur} bytes {bytes_val} {reason}")
 
     return events
 
