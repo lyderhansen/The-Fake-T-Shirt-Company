@@ -225,7 +225,29 @@ def outbound_message(base_date: str, day: int, hour: int) -> Dict[str, Any]:
 
     sender = get_random_user()
     domain = random.choice(EXTERNAL_MAIL_DOMAINS + PARTNER_DOMAINS)
-    recipient = f"{random.choice(['contact', 'info', 'orders'])}@{domain}"
+
+    # 60% personal name addresses, 40% generic prefixes
+    if random.random() < 0.60:
+        _first_names = [
+            "james", "mary", "john", "patricia", "robert", "jennifer",
+            "michael", "linda", "david", "elizabeth", "william", "barbara",
+            "richard", "susan", "joseph", "jessica", "thomas", "sarah",
+            "daniel", "karen", "matthew", "nancy", "andrew", "lisa",
+        ]
+        _last_names = [
+            "smith", "johnson", "williams", "brown", "jones", "garcia",
+            "miller", "davis", "rodriguez", "martinez", "hernandez", "lopez",
+            "gonzalez", "wilson", "anderson", "thomas", "taylor", "moore",
+            "jackson", "martin", "lee", "perez", "thompson", "white",
+        ]
+        sep = random.choice([".", "_", ""])
+        recipient = f"{random.choice(_first_names)}{sep}{random.choice(_last_names)}@{domain}"
+    else:
+        _generic_prefixes = [
+            "contact", "info", "sales", "support", "orders",
+            "billing", "procurement", "hr", "accounts", "enquiries",
+        ]
+        recipient = f"{random.choice(_generic_prefixes)}@{domain}"
 
     subject = random.choice(EMAIL_SUBJECTS_INTERNAL)
     msg_id = generate_message_id()
@@ -683,7 +705,8 @@ def generate_meeting_response_event(base_date: str, day: int,
         weights=[r[1] for r in CALENDAR_RESPONSES]
     )[0]
 
-    subject = f"{response_type}: {meeting.meeting_title}"
+    room_info = f" - {meeting.room}" if meeting.room else ""
+    subject = f"{response_type}: {meeting.meeting_title}{room_info}"
 
     msg_id = generate_message_id()
     size = random.randint(5000, 15000)
@@ -705,6 +728,8 @@ def generate_meeting_response_event(base_date: str, day: int,
         "ContentType": "text/calendar",
         "ResponseType": response_type,
         "MeetingTitle": meeting.meeting_title,
+        "MeetingRoom": meeting.room,
+        "MeetingLocation": meeting.location_code,
     }
 
 
@@ -712,18 +737,19 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
                            ooo_users: set = None) -> List[Dict[str, Any]]:
     """Generate baseline events for one hour.
 
-    Updated event distribution for realistic email volume:
-    - 34% Internal email
-    - 19% Inbound external (with SPF/DKIM/DMARC results)
+    Calendar invites and responses are handled by generate_meeting_emails_for_day()
+    (correlated with Webex meeting schedule), so they are NOT generated here.
+
+    Event distribution (baseline only):
+    - 39% Internal email
+    - 22% Inbound external (with SPF/DKIM/DMARC results)
     - 14% Outbound external (delivered)
-    - 8% Distribution list / announcements
+    - 11% Distribution list / announcements
     - 7% External system notifications
-    - 6% Calendar invites (basic, non-Webex)
-    - 5% Calendar responses
     - 3% Failed outbound (bounces, NDRs, rejected)
     - 2% Auto-replies (OOO)
     - 1% Spam filtered
-    - 1% Failed inbound (DMARC reject)
+    - 1% Internal system notifications
     """
     events = []
 
@@ -733,27 +759,21 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
     for _ in range(event_count):
         event_type = random.randint(1, 100)
 
-        if event_type <= 34:
+        if event_type <= 39:
             # Internal email
             events.append(internal_message(base_date, day, hour))
-        elif event_type <= 53:
+        elif event_type <= 61:
             # Inbound external (with SPF/DKIM/DMARC)
             events.append(inbound_message(base_date, day, hour))
-        elif event_type <= 67:
+        elif event_type <= 75:
             # Outbound external (delivered)
             events.append(outbound_message(base_date, day, hour))
-        elif event_type <= 75:
+        elif event_type <= 86:
             # Distribution list / announcements
             events.append(distribution_list_email(base_date, day, hour))
-        elif event_type <= 82:
+        elif event_type <= 93:
             # External system notifications (AWS, Azure, Jira, etc.)
             events.append(external_system_notification(base_date, day, hour))
-        elif event_type <= 88:
-            # Calendar invites (basic, for non-Webex meetings)
-            events.append(calendar_invite(base_date, day, hour))
-        elif event_type <= 93:
-            # Calendar responses
-            events.append(calendar_response(base_date, day, hour))
         elif event_type <= 96:
             # Failed outbound delivery (bounces, NDRs)
             events.append(failed_outbound_message(base_date, day, hour))
@@ -769,8 +789,8 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
             # Spam filtered
             events.append(spam_filtered(base_date, day, hour))
         else:
-            # Spam with DMARC failure (hard reject)
-            events.append(spam_filtered(base_date, day, hour))
+            # Internal system notifications
+            events.append(system_notification(base_date, day, hour))
 
     return events
 
@@ -860,6 +880,10 @@ def generate_exchange_logs(
 
         for hour in range(24):
             hour_events = calc_natural_events(base_events_per_peak_hour, start_date, day, hour, "email")
+            # Add per-hour variation to prevent flat overnight counts
+            hour_rng = random.Random(hash(f"exchange-hour:{start_date}:{day}:{hour}"))
+            hour_noise = hour_rng.uniform(0.80, 1.20)  # ±20% per-hour variation
+            hour_events = max(1, int(hour_events * hour_noise))
             all_events.extend(generate_baseline_hour(start_date, day, hour, hour_events, ooo_users))
 
             # Generate hour-level scenario events

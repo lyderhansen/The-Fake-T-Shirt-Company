@@ -1701,11 +1701,54 @@ PARTNER_DOMAINS = [
 ]
 
 EMAIL_SUBJECTS_INTERNAL = [
-    "RE: Q4 Budget Review", "Meeting Notes - Project Sync",
-    "FW: Updated Policy Document", "Team Lunch Friday?",
-    "RE: Action Items from Yesterday", "Quick Question",
-    "Out of Office: Back Monday", "RE: Invoice Approval Needed",
-    "Weekly Status Update", "FW: Customer Feedback",
+    # Replies and follow-ups
+    "RE: Q4 Budget Review", "RE: Action Items from Yesterday",
+    "RE: Invoice Approval Needed", "RE: Project Timeline Update",
+    "RE: Can we reschedule?", "RE: Headcount Request for Q2",
+    "RE: Draft Proposal - Please Review", "RE: VPN Issue This Morning",
+    "RE: Quick Follow-Up from Our Call", "RE: New Vendor Onboarding",
+    "RE: Updated Org Chart", "RE: Feedback on Presentation",
+    "FW: Updated Policy Document", "FW: Customer Feedback",
+    "FW: Important Announcement from Legal", "FW: FYI - Industry Article",
+    "FW: Travel Reimbursement Form", "FW: Compliance Training Reminder",
+    # Direct questions
+    "Quick Question", "Can you review this before EOD?",
+    "Do you have 5 minutes?", "Who owns the pricing spreadsheet?",
+    "Any update on the server migration?", "Have you seen the new dashboard?",
+    # Meeting-related
+    "Meeting Notes - Project Sync", "Agenda for Tomorrow's Standup",
+    "Action Items from Today's Review", "Can we push the 2pm to 3pm?",
+    "Room Change - Moving to Conference Room B", "Canceling Friday's 1:1",
+    # Status updates
+    "Weekly Status Update", "Sprint 14 Retrospective Notes",
+    "Deployment Complete - v2.4.1 Live", "Monthly KPI Report Attached",
+    "Release Notes - January Patch", "QA Sign-Off: Ready for Prod",
+    # Social and HR
+    "Team Lunch Friday?", "Happy Birthday!",
+    "Welcome to the Team!", "Farewell and Thank You",
+    "Potluck Sign-Up Sheet", "Volunteer Day - Sign Up by Thursday",
+    "Out of Office: Back Monday", "PTO Request - March 15-19",
+    # Project-specific (dev, IT, infra)
+    "CI Pipeline Failures - Need Eyes", "Jira Board Cleanup This Week",
+    "Terraform Plan Review Needed", "Splunk License Usage Warning",
+    "SSL Cert Renewal - Expires Feb 28", "DNS Change Request - thefaketshirtcompany.com",
+    "GitHub PR #412 - Ready for Review", "Docker Image Size Optimization",
+    # Administrative (invoices, PTO, equipment)
+    "Expense Report - January 2026", "New Laptop Request",
+    "Parking Pass Renewal", "Office Supply Order",
+    "Updated Seating Chart", "Badge Access Request - Server Room",
+    # Customer and vendor
+    "Customer Escalation - CUST-00142", "Vendor Contract Renewal - Q2",
+    "Partner Demo Scheduled for Next Week", "RFP Response Draft",
+    "Customer Success Review - Top 10 Accounts", "Supplier Invoice Discrepancy",
+    # IT and operations
+    "Scheduled Maintenance Window - Saturday", "Network Outage Post-Mortem",
+    "Patch Tuesday Summary", "New Hire Laptop Provisioning",
+    "MFA Enrollment Reminder", "Firewall Rule Change Request",
+    # General notices
+    "Reminder: Timesheets Due Friday", "Building Fire Drill - Wednesday 2pm",
+    "Updated Wi-Fi Password", "Kitchen Fridge Clean-Out Notice",
+    "All-Hands Meeting Recap", "Q1 Planning Kickoff",
 ]
 
 EMAIL_SUBJECTS_EXTERNAL = [

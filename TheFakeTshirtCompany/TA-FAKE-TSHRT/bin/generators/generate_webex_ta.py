@@ -203,7 +203,13 @@ def create_meeting_usage_record(meeting: MeetingRecord) -> dict:
     call_in_toll = random.randint(0, 3)
     call_in_tollfree = random.randint(0, 2)
     call_out_domestic = random.randint(0, 1)
-    call_out_intl = 0
+
+    # International call-out: ~20% chance when meeting has external participants
+    has_external = any(
+        a.email and not a.email.endswith(f"@{TENANT}")
+        for a in meeting.attendees
+    )
+    call_out_intl = 1 if has_external and random.random() < 0.20 else 0
 
     record = {
         "confID": meeting.conf_id,

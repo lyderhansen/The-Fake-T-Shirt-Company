@@ -4,6 +4,53 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-04 ~12:00 UTC -- fix(exchange,webex): Realism audit - subject diversity, recipient addresses, calendar correlation, volume patterns, timezones, server regions, call legs
+
+### Exchange Fixes (5 findings)
+
+| Finding | Fix | File |
+|---------|-----|------|
+| F1: Only 10 internal email subjects | Expanded to 76 diverse subjects across 10 categories | `bin/shared/company.py` |
+| F2: Only 77 outbound recipients | Added personal names (60%) + expanded prefixes (40%), now 3,500+ unique | `bin/generators/generate_exchange.py` |
+| F3: Calendar response missing room name | Added room to response subject + MeetingRoom/MeetingLocation fields | `bin/generators/generate_exchange.py` |
+| F4: Flat overnight volume (identical hourly counts) | Added per-hour deterministic ±20% noise | `bin/generators/generate_exchange.py` |
+| F5: Weekend ratio only 1.3% | Increased email weekend factor from 15% to 75%, now 4.6% | `bin/shared/config.py` |
+| F11: Duplicate baseline calendar events | Removed baseline calendar (11%), redistributed to internal/inbound/DL | `bin/generators/generate_exchange.py` |
+
+### Webex Fixes (5 findings)
+
+| Finding | Fix | File |
+|---------|-----|------|
+| F6: All meetings America/New_York | Added LOCATION_TIMEZONES mapping, Austin uses Central | `bin/generators/generate_webex_api.py` |
+| F7: Server regions uniform 20% each | Weighted: San Jose 45%, Chicago 40%, international 15% | `bin/generators/generate_webex_api.py` |
+| F8: Call Direction always ORIGINATING | Added TERMINATING leg for answered calls (shared Correlation ID) | `bin/generators/generate_webex_api.py` |
+| F9: Call answer rate 90% | Reduced to 75% | `bin/generators/generate_webex_api.py` |
+| F10: International calls always 0 | 20% chance of 1 intl call-out for meetings with external participants | `bin/generators/generate_webex_ta.py` |
+
+### Verification (full regression)
+
+- **All generators:** 25/25 pass, 3,698,044 events, 0 failures
+- **F1:** 76 unique internal subjects (was 10), max repeats 282 (was 3,400)
+- **F2:** 3,589 unique outbound recipients (was 77), 2,305 personal names
+- **F3:** Calendar responses include room name, 0 orphaned calendar events
+- **F4:** Overnight hours all distinct counts (was identical)
+- **F5:** Weekend ratio 4.6% (was 1.3%)
+- **F6:** America/New_York 871, America/Chicago 199
+- **F7:** San Jose 45%, Chicago 40%, London 7%, Frankfurt 5%, Tokyo 3%
+- **F8:** 514 ORIGINATING + 374 TERMINATING, answer rate 73%
+- **F10:** 16 meetings with international call-out (was 0)
+
+### Files Changed
+
+- `bin/shared/company.py` — EMAIL_SUBJECTS_INTERNAL expanded to 76 subjects
+- `bin/shared/config.py` — VOLUME_WEEKEND_FACTORS email: 15 → 75
+- `bin/generators/generate_exchange.py` — Outbound recipients, calendar response correlation, baseline distribution, per-hour noise
+- `bin/generators/generate_webex_api.py` — LOCATION_TIMEZONES, weighted server regions, TERMINATING call legs, answer rate 75%
+- `bin/generators/generate_webex_ta.py` — International call-out for external meetings
+- `docs/plans/2026-03-04-exchange-webex-realism-audit.md` — Audit plan
+
+---
+
 ## 2026-03-03 ~16:00 UTC -- fix(asa): Realism audit - DMZ IPs, direction labels, scan targets, durations, CID range, DNS paths, teardown reasons
 
 ### Problems Fixed (7 issues from ASA realism audit)

@@ -207,7 +207,7 @@ VOLUME_WEEKEND_FACTORS = {
     "cloud": 30,        # AWS/GCP/Azure: 30% (automated jobs)
     "auth": 20,         # Entra ID signin: 20% (critical only)
     "firewall": 80,     # ASA: 80% (e-commerce web traffic + automated systems)
-    "email": 15,        # Exchange: 15% (minimal email)
+    "email": 75,        # Exchange: 75% (system notifications, auto-replies, auto-forwards still flow)
     "web": 110,         # Access logs: 110% (e-commerce has MORE weekend traffic!)
     "windows": 25,      # WinEventLog: 25%
 }

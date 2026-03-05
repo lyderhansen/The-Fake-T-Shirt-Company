@@ -113,6 +113,40 @@ CLIENT_VERSIONS = ["43.12.0.1234", "43.11.0.5678", "43.10.0.9012", "44.1.0.3456"
 NETWORK_TYPES = ["wifi", "ethernet", "cellular"]
 SERVER_REGIONS = ["San Jose, USA", "Chicago, USA", "London, UK", "Frankfurt, DE", "Tokyo, JP"]
 
+# Location-to-timezone mapping
+LOCATION_TIMEZONES = {
+    "BOS": "America/New_York",
+    "ATL": "America/New_York",    # Atlanta is Eastern
+    "AUS": "America/Chicago",     # Austin is Central
+}
+
+# Weighted server region selection based on participant geography
+# US-based participants route to nearby US data centers
+US_REGION_WEIGHTS = [
+    ("San Jose, USA", 45),
+    ("Chicago, USA", 40),
+    ("London, UK", 7),
+    ("Frankfurt, DE", 5),
+    ("Tokyo, JP", 3),
+]
+
+# External participants more geographically distributed
+EXTERNAL_REGION_WEIGHTS = [
+    ("San Jose, USA", 25),
+    ("Chicago, USA", 20),
+    ("London, UK", 25),
+    ("Frankfurt, DE", 20),
+    ("Tokyo, JP", 10),
+]
+
+
+def _pick_server_region(is_internal: bool = True) -> str:
+    """Pick a server region weighted by participant geography."""
+    weights_table = US_REGION_WEIGHTS if is_internal else EXTERNAL_REGION_WEIGHTS
+    regions = [r[0] for r in weights_table]
+    weights = [r[1] for r in weights_table]
+    return random.choices(regions, weights=weights, k=1)[0]
+
 # User agents
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -180,10 +214,16 @@ def generate_meeting_record(
     meeting_uuid: str = "",
     meeting_number: str = "",
     state: str = "ended",
+    location_code: str = "",
 ) -> dict:
     """Generate a meeting record (cisco:webex:meetings)."""
     if not meeting_number:
         meeting_number = str(random.randint(100000000, 999999999))
+
+    # Determine timezone from location; fall back to host user's location
+    tz = LOCATION_TIMEZONES.get(location_code) or LOCATION_TIMEZONES.get(
+        getattr(user, "location", ""), "America/New_York"
+    )
 
     record = {
         "id": meeting_uuid or generate_uuid(),
@@ -192,7 +232,7 @@ def generate_meeting_record(
         "agenda": template["agenda"],
         "meetingType": "scheduledMeeting",
         "state": state,
-        "timezone": "America/New_York",
+        "timezone": tz,
         "start": ts_iso8601_simple(start_time),
         "end": ts_iso8601_simple(end_time),
         "hostUserId": generate_webex_id("PEOPLE"),
@@ -338,6 +378,7 @@ def generate_meeting_quality_record(
     join_time: datetime,
     leave_time: datetime,
     demo_id: Optional[str] = None,
+    is_internal: bool = True,
 ) -> dict:
     """Generate a meeting quality record (cisco:webex:meeting:qualities)."""
     duration_mins = int((leave_time - join_time).total_seconds() / 60)
@@ -380,7 +421,7 @@ def generate_meeting_quality_record(
         "publicIP": get_public_ip(),
         "camera": cam,
         "microphone": mic,
-        "serverRegion": random.choice(SERVER_REGIONS),
+        "serverRegion": _pick_server_region(is_internal),
         "participantId": generate_uuid(),
         "participantSessionId": generate_uuid(),
         "audioIn": audio_in,
@@ -453,7 +494,7 @@ def _generate_device_quality_record(
         "publicIP": get_public_ip(),
         "camera": device_profile["camera"],
         "microphone": device_profile["microphone"],
-        "serverRegion": random.choice(SERVER_REGIONS),
+        "serverRegion": _pick_server_region(is_internal=True),
         "participantId": generate_uuid(),
         "participantSessionId": generate_uuid(),
         "audioIn": audio_in,
@@ -476,45 +517,94 @@ def _generate_device_quality_record(
 # CALL HISTORY GENERATION
 # =============================================================================
 
-def generate_call_history_record(
+def generate_call_history_records(
     caller_user,
     called_user,
     start_time: datetime,
     duration_secs: int,
     demo_id: Optional[str] = None,
-) -> dict:
-    """Generate a call history record (cisco:webex:call:detailed_history)."""
-    answered = random.random() > 0.1  # 90% answer rate
+) -> List[dict]:
+    """Generate call history records (cisco:webex:call:detailed_history).
 
-    record = {
+    Returns a list of 1 or 2 records:
+    - ORIGINATING leg (caller side) — always present
+    - TERMINATING leg (callee side) — only when call is answered
+    """
+    answered = random.random() < 0.75  # 75% answer rate
+
+    # Shared fields for both legs
+    correlation_id = generate_uuid()
+    call_type = random.choice(["SIP_ENTERPRISE", "SIP_NATIONAL", "WEBEX_CALLING"])
+    caller_number = f"+1555{random.randint(1000000, 9999999)}"
+    called_number = f"+1555{random.randint(1000000, 9999999)}"
+    dialed_digits = f"555{random.randint(1000, 9999)}"
+    answer_time_dt = start_time + timedelta(seconds=random.randint(5, 20)) if answered else None
+    answer_time_str = ts_iso8601(answer_time_dt) if answer_time_dt else ""
+
+    # ORIGINATING leg (caller side)
+    originating = {
         "Call ID": f"SSE{random.randint(10**18, 10**19 - 1)}@{get_user_ip(caller_user)}",
         "Call outcome": "Success" if answered else "NoAnswer",
         "Call outcome reason": "Normal" if answered else "NoAnswer",
-        "Call type": random.choice(["SIP_ENTERPRISE", "SIP_NATIONAL", "WEBEX_CALLING"]),
+        "Call type": call_type,
         "Called line ID": called_user.display_name,
-        "Called number": f"+1555{random.randint(1000000, 9999999)}",
+        "Called number": called_number,
         "Calling line ID": caller_user.display_name,
-        "Calling number": f"+1555{random.randint(1000000, 9999999)}",
+        "Calling number": caller_number,
         "Client type": random.choice(_CALL_CLIENT_TYPES),
         "Client version": random.choice(CLIENT_VERSIONS),
-        "Correlation ID": generate_uuid(),
+        "Correlation ID": correlation_id,
         "Department ID": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dept:{caller_user.department}")),
-        "Device MAC": caller_user.mac_address.replace(":", ""),  # Webex API format: no colons
-        "Dialed digits": f"555{random.randint(1000, 9999)}",
+        "Device MAC": caller_user.mac_address.replace(":", ""),
+        "Dialed digits": dialed_digits,
         "Direction": "ORIGINATING",
         "Duration": duration_secs if answered else 0,
         "Start time": ts_iso8601(start_time),
-        "Answer time": ts_iso8601(start_time + timedelta(seconds=random.randint(5, 20))) if answered else "",
+        "Answer time": answer_time_str,
         "Answer indicator": "Yes" if answered else "No",
         "Answered": "Yes" if answered else "No",
         "User": f"{caller_user.username}@{TENANT}",
-        "User type": "User"
+        "User type": "User",
     }
 
     if demo_id:
-        record["demo_id"] = demo_id
+        originating["demo_id"] = demo_id
 
-    return record
+    records = [originating]
+
+    # TERMINATING leg (callee side) — only when answered
+    if answered:
+        terminating = {
+            "Call ID": f"SSE{random.randint(10**18, 10**19 - 1)}@{get_user_ip(called_user)}",
+            "Call outcome": "Success",
+            "Call outcome reason": "Normal",
+            "Call type": call_type,
+            "Called line ID": caller_user.display_name,
+            "Called number": caller_number,
+            "Calling line ID": called_user.display_name,
+            "Calling number": called_number,
+            "Client type": random.choice(_CALL_CLIENT_TYPES),
+            "Client version": random.choice(CLIENT_VERSIONS),
+            "Correlation ID": correlation_id,
+            "Department ID": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dept:{called_user.department}")),
+            "Device MAC": called_user.mac_address.replace(":", ""),
+            "Dialed digits": dialed_digits,
+            "Direction": "TERMINATING",
+            "Duration": duration_secs,
+            "Start time": ts_iso8601(start_time),
+            "Answer time": answer_time_str,
+            "Answer indicator": "Yes",
+            "Answered": "Yes",
+            "User": f"{called_user.username}@{TENANT}",
+            "User type": "User",
+        }
+
+        if demo_id:
+            terminating["demo_id"] = demo_id
+
+        records.append(terminating)
+
+    return records
 
 
 # =============================================================================
@@ -652,6 +742,7 @@ def generate_events_for_day(
                         meeting_uuid=scheduled.meeting_uuid,
                         meeting_number=scheduled.meeting_number,
                         state="missed",
+                        location_code=scheduled.location_code,
                     )
                     meetings.append(ghost_record)
                     continue
@@ -662,6 +753,7 @@ def generate_events_for_day(
                     template_for_record, demo_id=meeting_demo_id,
                     meeting_uuid=scheduled.meeting_uuid,
                     meeting_number=scheduled.meeting_number,
+                    location_code=scheduled.location_code,
                 )
                 meetings.append(meeting_record)
 
@@ -722,7 +814,10 @@ def generate_events_for_day(
             end_time = start_time + timedelta(minutes=duration_mins)
 
             meeting_demo_id = demo_id if user.username in EXFIL_USERS else None
-            meeting_record = generate_meeting_record(user, start_time, end_time, template, demo_id=meeting_demo_id)
+            meeting_record = generate_meeting_record(
+                user, start_time, end_time, template, demo_id=meeting_demo_id,
+                location_code=getattr(user, "location", ""),
+            )
             meetings.append(meeting_record)
 
             # Generate quality records for participants
@@ -762,7 +857,7 @@ def generate_events_for_day(
                 duration = random.randint(30, 600)  # 30 seconds to 10 minutes
 
                 call_demo_id = demo_id if caller.username in EXFIL_USERS else None
-                call_histories.append(generate_call_history_record(
+                call_histories.extend(generate_call_history_records(
                     caller, called, start_time, duration, demo_id=call_demo_id
                 ))
 
