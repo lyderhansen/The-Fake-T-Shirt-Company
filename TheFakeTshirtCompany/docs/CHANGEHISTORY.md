@@ -4,6 +4,49 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-05 ~18:00 UTC — Fix CIM action/status extraction for new Meraki firewall pattern format
+
+**Affected files:**
+- `default/props.conf` — EVAL-action and EVAL-status for `FAKE:meraki:securityappliances`
+
+**What changed:**
+The Meraki realism audit (below) changed firewall patterns from `"allow all"/"deny all"` to real Meraki compiled expressions (`"0 tcp && dst port 443"`, `"1 all"`). The CIM EVAL-action and EVAL-status used `match('eventData.pattern', "allow")` which no longer matched the numeric prefix format.
+
+Updated regex to match both formats:
+- Allow: `match('eventData.pattern', "^0 ")` OR `match('eventData.pattern', "allow")`
+- Deny: `match('eventData.pattern', "^1 ")` OR `match('eventData.pattern', "deny")`
+
+This ensures CIM `action` field correctly resolves to `"allowed"`/`"blocked"` and `status` to `"success"`/`"failure"` for both legacy and new pattern formats.
+
+---
+
+## 2026-03-05 ~17:00 UTC — Meraki realism audit: 9 fixes verified against real Meraki API documentation
+
+**Affected files:**
+- `bin/generators/generate_meraki.py` — All 9 fixes
+
+**Findings and fixes:**
+
+| # | Finding | Fix |
+|---|---------|-----|
+| F1 | MX firewall only 2 ACL patterns ("allow all"/"deny all") | Real Meraki compiled expressions: `0 tcp && dst port 443`, `1 all`, `0 (tcp \|\| udp) && dst port 53` |
+| F2 | Destination ports uniformly distributed (all ~2,150 each) | Weighted: 443 at 50%, 80 at 15%, 53 at 12%; port-aware deny rates; protocol matches port |
+| F3 | "Firewall flow denyed" typo + unrealistic description | Real Meraki format: `Firewall allow tcp src=x dst=y` / `Firewall deny tcp src=x dst=y` |
+| F4 | Single hardcoded user agent on all URL events | Added 6 diverse browser UAs (Chrome, Edge, Safari, Firefox) — confirmed real MX includes `agent` field |
+| F5 | MR association events had ssidName added | Reverted — real Meraki events only have `ssidNumber`, not `ssidName` (enrichment is done externally) |
+| F6 | Switch health 49.6% of all Meraki (1.18M events) | Change-based reporting matches real syslog behavior (event-driven, not polling). 1.18M → 124K |
+| F7 | MR wireless only 0.7% of all Meraki (17K events) | Increased base from 50 to 175 events/hr. 17K → 30K — verified realistic for 36 APs / 175 users |
+| F8 | URL destination IPs random, unrelated to URL domain | 16 service-matched IP prefixes (Google 142.250.x, Microsoft 13.107.x, etc.) — matches real MX `dst` field |
+| F9 | Weekend camera motion 57% of weekday | Weekend: health checks dominate, motion/person near zero — matches real MV behavior in empty offices |
+
+**Realism verification:** All 9 fixes validated against Meraki Dashboard API docs, syslog format docs, and community examples.
+
+**Volume impact:** Total Meraki 1.87M → 746K. Switch health no longer dominates (17% vs 49.6%).
+
+**Verification:** Full regression 3.25M events, all 25 generators pass.
+
+**Plan:** `docs/plans/2026-03-05-meraki-realism-audit.md`
+
 ## 2026-03-04 ~12:00 UTC -- fix(exchange,webex): Realism audit - subject diversity, recipient addresses, calendar correlation, volume patterns, timezones, server regions, call legs
 
 ### Exchange Fixes (5 findings)

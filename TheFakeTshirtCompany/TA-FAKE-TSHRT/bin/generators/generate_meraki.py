@@ -188,6 +188,15 @@ MERAKI_MS_DEVICES = {
     "MS-AUS-02": {"model": "MS225-24", "location": "AUS", "floor": 1, "role": "access", "ports": 24},
 }
 
+# Port state tracking for change-based reporting (F6 realism audit)
+_ms_port_states = {}  # {(switch_name, port_number): last_status}
+
+
+def clear_ms_port_states():
+    """Clear port state tracking (call at start of generation)."""
+    _ms_port_states.clear()
+
+
 # MV Cameras - Per Location
 MERAKI_MV_DEVICES = {
     # Boston HQ
@@ -370,6 +379,56 @@ MERAKI_SSIDS = [
     {"name": "FakeTShirtCo-Guest", "vap": 1, "auth": "PSK"},
     {"name": "FakeTShirtCo-IoT", "vap": 2, "auth": "PSK"},
     {"name": "FakeTShirtCo-Voice", "vap": 3, "auth": "802.1X"},
+]
+
+# MX L3 firewall rule patterns — real Meraki compiled expression format
+# Real examples: "allow all", "1 all", "0 tcp && dst port 443"
+# 0 = allow, 1 = deny in numeric format; text "allow"/"deny" also used
+MX_FIREWALL_RULES = {
+    443: "0 tcp && dst port 443",
+    80: "0 tcp && dst port 80",
+    53: "0 (tcp || udp) && dst port 53",
+    8080: "0 tcp && dst port 8080",
+    25: "0 tcp && dst port 25",
+    587: "0 tcp && dst port 587",
+    445: "0 tcp && dst port 445",
+    389: "0 (tcp || udp) && dst port 389",
+    636: "0 tcp && dst port 636",
+    88: "0 (tcp || udp) && dst port 88",
+    135: "0 tcp && dst port 135",
+    1433: "0 tcp && dst port 1433",
+    "deny_ssh": "1 tcp && dst port 22",
+    "deny_rdp": "1 tcp && dst port 3389",
+    "deny_default": "1 all",
+}
+
+MX_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+]
+
+# URL destinations with service-matched IP prefixes for realistic dst addresses
+MX_URL_DESTINATIONS = [
+    {"url": "https://www.google.com/search?q=test", "dst_prefix": "142.250.", "port": 443, "weight": 15},
+    {"url": "https://www.microsoft.com/en-us/", "dst_prefix": "13.107.", "port": 443, "weight": 8},
+    {"url": "https://login.microsoftonline.com/", "dst_prefix": "20.190.", "port": 443, "weight": 8},
+    {"url": "https://outlook.office365.com/", "dst_prefix": "52.96.", "port": 443, "weight": 10},
+    {"url": "https://github.com/", "dst_prefix": "140.82.", "port": 443, "weight": 5},
+    {"url": "https://slack.com/", "dst_prefix": "54.239.", "port": 443, "weight": 7},
+    {"url": "https://app.webex.com/", "dst_prefix": "170.72.", "port": 443, "weight": 6},
+    {"url": "https://docs.google.com/", "dst_prefix": "142.250.", "port": 443, "weight": 5},
+    {"url": "https://cdn.shopify.com/assets/{}", "dst_prefix": "23.227.", "port": 443, "weight": 4},
+    {"url": "https://api.salesforce.com/", "dst_prefix": "136.147.", "port": 443, "weight": 3},
+    {"url": "https://jira.atlassian.net/", "dst_prefix": "104.192.", "port": 443, "weight": 4},
+    {"url": "https://www.amazon.com/", "dst_prefix": "54.239.", "port": 443, "weight": 4},
+    {"url": "http://www.example{}.com/page", "dst_prefix": None, "port": 80, "weight": 8},
+    {"url": "https://cdn.example.com/assets/{}", "dst_prefix": None, "port": 443, "weight": 6},
+    {"url": "https://api.service.com/v1/data", "dst_prefix": None, "port": 443, "weight": 4},
+    {"url": "https://zoom.us/j/{}", "dst_prefix": "3.7.", "port": 443, "weight": 3},
 ]
 
 # IDS Signatures (real Snort SID ranges with matched dest ports)
@@ -724,19 +783,21 @@ def get_meeting_room_cameras() -> Dict[str, dict]:
 def mx_firewall_event(ts: str, device: str, src: str, dst: str,
                       protocol: str, sport: int, dport: int,
                       action: str = "allow", mac: str = None,
+                      pattern: str = None,
                       location: str = None, demo_id: str = None) -> dict:
     """Generate MX firewall flow event (Dashboard API format)."""
     if mac is None:
         mac = generate_mac()
     loc = location or MERAKI_MX_DEVICES.get(device, {}).get("location", "BOS")
     network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
-    pattern = "allow all" if action == "allow" else "deny all"
+    if pattern is None:
+        pattern = "allow all" if action == "allow" else "1 all"
 
     event = {
         "occurredAt": ts,
         "networkId": network_id,
         "type": "firewall",
-        "description": f"Firewall flow {action}ed",
+        "description": f"Firewall {'allow' if action == 'allow' else 'deny'} {protocol} src={src} dst={dst}",
         "category": "appliance",
         "deviceSerial": _get_serial(device),
         "deviceName": device,
@@ -2478,31 +2539,52 @@ def generate_mx_baseline_hour(base_date: str, day: int, hour: int,
                     "10.10.20.40",  # APP-BOS-01
                 ])
                 dport = random.choice([445, 389, 636, 88, 135, 1433, 443])
+                action = "allow"
+                protocol = random.choice(["tcp", "udp"]) if dport in (88, 389) else "tcp"
             else:
                 dst = get_random_external_ip()
-                dport = random.choice([80, 443, 53, 8080, 3389, 22, 25, 587])
-            protocol = random.choice(["tcp", "udp"])
+                dport = random.choices(
+                    [443, 80, 53, 8080, 25, 587, 22, 3389],
+                    weights=[50, 15, 12, 8, 5, 4, 3, 3]
+                )[0]
+                if dport in (22, 3389):
+                    action = "deny" if random.random() < 0.6 else "allow"
+                elif dport in (25, 587):
+                    action = "deny" if random.random() < 0.15 else "allow"
+                else:
+                    action = "allow" if random.random() < 0.98 else "deny"
+                # Protocol matches port: DNS can be TCP/UDP, rest is TCP
+                protocol = random.choice(["tcp", "udp"]) if dport == 53 else "tcp"
             sport = random.randint(1024, 65535)
-            action = "allow" if random.random() < 0.95 else "deny"
             mac = get_mac_for_ip(src) or generate_mac()
-            events.append(mx_firewall_event(ts, mx_device, src, dst, protocol, sport, dport, action, mac=mac))
+            if action == "allow":
+                # Build pattern from actual protocol and port
+                if dport in (53, 88, 389):
+                    pattern = f"0 (tcp || udp) && dst port {dport}"
+                else:
+                    pattern = f"0 {protocol} && dst port {dport}"
+            else:
+                if dport == 22:
+                    pattern = MX_FIREWALL_RULES["deny_ssh"]
+                elif dport == 3389:
+                    pattern = MX_FIREWALL_RULES["deny_rdp"]
+                else:
+                    pattern = MX_FIREWALL_RULES["deny_default"]
+            events.append(mx_firewall_event(ts, mx_device, src, dst, protocol, sport, dport, action, mac=mac, pattern=pattern))
 
         elif event_type == "url":
             src_ip = get_random_internal_ip(location)
             src_port = random.randint(1024, 65535)
-            dst_ip = get_random_external_ip()
-            dst_port = random.choice([80, 443, 8080])
             mac = get_mac_for_ip(src_ip) or generate_mac()
-            url = random.choice([
-                f"http://www.example{random.randint(1,100)}.com/page",
-                f"https://cdn.example.com/assets/{random.randint(1000,9999)}",
-                f"https://api.service.com/v1/data",
-                "https://www.google.com/search?q=test",
-                "https://www.microsoft.com/en-us/",
-                "https://github.com/",
-                "https://slack.com/",
-            ])
-            events.append(mx_url_event(ts, mx_device, src_ip, src_port, dst_ip, dst_port, mac, url))
+            url_entry = random.choices(MX_URL_DESTINATIONS, weights=[e["weight"] for e in MX_URL_DESTINATIONS])[0]
+            url = url_entry["url"].format(random.randint(1, 9999)) if "{}" in url_entry["url"] else url_entry["url"]
+            dst_port = url_entry["port"]
+            if url_entry["dst_prefix"]:
+                dst_ip = f"{url_entry['dst_prefix']}{random.randint(1, 254)}.{random.randint(1, 254)}"
+            else:
+                dst_ip = get_random_external_ip()
+            agent = random.choice(MX_USER_AGENTS)
+            events.append(mx_url_event(ts, mx_device, src_ip, src_port, dst_ip, dst_port, mac, url, agent=agent))
 
         elif event_type == "vpn":
             vpn_type = random.choice(["site-to-site", "client"])
@@ -2914,10 +2996,12 @@ def generate_ms_port_health(base_date: str, day: int, hour: int,
                             location: str, interval: int = 5) -> List[dict]:
     """Generate periodic MS switch port health metrics for one hour at a location.
 
-    This generates port status data at the specified interval per switch (all ports),
-    providing consistent coverage for speed, duplex, traffic, and PoE metrics.
-    Output goes to a separate file with sourcetype cisco:meraki:switch:health.
+    Uses change-based reporting: only emits events when port status changes,
+    plus a full baseline snapshot at the first interval of each day. Uplinks
+    are always reported. Transitional hours (8-9, 17-18) have a higher sample
+    rate to capture employee arrival/departure patterns.
 
+    Output goes to a separate file with sourcetype cisco:meraki:switch:health.
     Based on Meraki Dashboard API: getDeviceSwitchPortsStatuses
 
     Args:
@@ -2931,12 +3015,19 @@ def generate_ms_port_health(base_date: str, day: int, hour: int,
 
     # Generate health reports at specified interval per switch
     for minute in range(0, 60, interval):
+        is_first_of_day = (hour == 0 and minute == 0)
+        is_transition = hour in (8, 9, 17, 18)
+
         for switch in switches:
             switch_info = MERAKI_MS_DEVICES.get(switch, {})
             num_ports = switch_info.get("ports", 48)
             loc = switch_info.get("location", "BOS")
             network_id = NETWORK_IDS.get(loc, "N_FakeTShirtCo_BOS")
             role = switch_info.get("role", "access")
+
+            # Deterministic seed per switch+day+hour — ports stay stable within
+            # the same hour and only change at hour boundaries (realistic behavior)
+            port_rng = random.Random(hash(f"port_state:{switch}:{base_date}:{day}:{hour}"))
 
             # Add small random offset within the 5-minute window
             actual_minute = minute + random.randint(0, 2)
@@ -2951,19 +3042,36 @@ def generate_ms_port_health(base_date: str, day: int, hour: int,
                 # Determine port characteristics based on port number and switch role
                 is_uplink = port <= 4 and role in ["core", "dc_core"]
 
-                # Port status - most ports are connected during business hours
+                # Port status - deterministic per interval using port_rng
                 if is_uplink:
                     # Uplinks are always connected
                     status = "Connected"
                     speed = "10 Gbps" if role == "dc_core" else "1 Gbps"
                 elif is_business_hours:
                     # ~70% of access ports connected during business hours
-                    status = random.choices(["Connected", "Disconnected"], weights=[70, 30])[0]
-                    speed = random.choice(["100 Mbps", "1 Gbps"]) if status == "Connected" else None
+                    status = port_rng.choices(["Connected", "Disconnected"], weights=[70, 30])[0]
+                    speed = port_rng.choice(["100 Mbps", "1 Gbps"]) if status == "Connected" else None
                 else:
                     # ~30% connected after hours
-                    status = random.choices(["Connected", "Disconnected"], weights=[30, 70])[0]
-                    speed = random.choice(["100 Mbps", "1 Gbps"]) if status == "Connected" else None
+                    status = port_rng.choices(["Connected", "Disconnected"], weights=[30, 70])[0]
+                    speed = port_rng.choice(["100 Mbps", "1 Gbps"]) if status == "Connected" else None
+
+                # Change-based reporting: only emit when status changes or at daily baseline
+                state_key = (switch, port)
+                prev_status = _ms_port_states.get(state_key)
+
+                should_emit = (
+                    is_first_of_day
+                    or prev_status is None
+                    or status != prev_status
+                    or is_uplink
+                    or (is_transition and port_rng.random() < 0.15)
+                )
+
+                _ms_port_states[state_key] = status
+
+                if not should_emit:
+                    continue
 
                 # Build port status event
                 event = {
@@ -3034,7 +3142,8 @@ def generate_ms_port_health(base_date: str, day: int, hour: int,
 
 
 def generate_mv_baseline_hour(base_date: str, day: int, hour: int,
-                              location: str, events_per_hour: int) -> List[dict]:
+                              location: str, events_per_hour: int,
+                              is_wknd: bool = False) -> List[dict]:
     """Generate baseline MV camera events for one hour at a location."""
     events = []
     cameras = get_cameras_for_location(location)
@@ -3060,10 +3169,17 @@ def generate_mv_baseline_hour(base_date: str, day: int, hour: int,
         camera = random.choice(cameras)
         cam_info = MERAKI_MV_DEVICES[camera]
 
-        event_type = random.choices(
-            ["motion", "person", "analytics", "health", "update_user_settings"],
-            weights=[40, 30, 20, 10, 0.1]
-        )[0]
+        # Weekend: mostly health checks, very little motion/person (empty office)
+        if is_wknd:
+            event_type = random.choices(
+                ["motion", "person", "analytics", "health", "update_user_settings"],
+                weights=[5, 2, 8, 85, 0.1]
+            )[0]
+        else:
+            event_type = random.choices(
+                ["motion", "person", "analytics", "health", "update_user_settings"],
+                weights=[40, 30, 20, 10, 0.1]
+            )[0]
 
         if event_type == "motion":
             confidence = random.uniform(0.6, 0.99)
@@ -4192,7 +4308,8 @@ def generate_meraki_logs(
     if not quiet:
         # Calculate estimated health events
         mr_health_per_day = (36 * (60 // health_interval) * 24) if mr_health_enabled else 0
-        ms_health_per_day = (440 * (60 // health_interval) * 24) if ms_health_enabled else 0
+        # MS uses change-based reporting (~21% of all-port-every-interval)
+        ms_health_per_day = int(440 * (60 // health_interval) * 24 * 0.21) if ms_health_enabled else 0
         total_health = mr_health_per_day + ms_health_per_day
         health_status = []
         if mr_health_enabled:
@@ -4211,6 +4328,9 @@ def generate_meraki_logs(
         print(f"  Scenarios: {', '.join(active_scenarios) if active_scenarios else 'none'}", file=sys.stderr)
         print(f"  Output: {output_dir}/meraki_*.json (12 JSON files)", file=sys.stderr)
         print("=" * 70, file=sys.stderr)
+
+    # Clear port state tracking for change-based MS health reporting
+    clear_ms_port_states()
 
     # Separate event lists per device type
     mx_events = []         # MX firewall/SD-WAN
@@ -4246,7 +4366,7 @@ def generate_meraki_logs(
             for location, loc_scale in location_scale.items():
                 # Calculate events for this hour at this location
                 mx_count = int(80 * scale * loc_scale * hour_mult)
-                mr_count = int(50 * scale * loc_scale * hour_mult)
+                mr_count = int(175 * scale * loc_scale * hour_mult)
                 ms_count = int(15 * scale * loc_scale * hour_mult)
                 mv_count = int(20 * scale * loc_scale * hour_mult)
                 mt_count = 1  # Sensors report regularly regardless of activity
@@ -4259,7 +4379,7 @@ def generate_meraki_logs(
                 ms_events.extend(generate_ms_baseline_hour(start_date, day, hour, location, ms_count))
                 if ms_health_enabled:
                     ms_health_events.extend(generate_ms_port_health(start_date, day, hour, location, health_interval))
-                mv_events.extend(generate_mv_baseline_hour(start_date, day, hour, location, mv_count))
+                mv_events.extend(generate_mv_baseline_hour(start_date, day, hour, location, mv_count, is_wknd=is_wknd))
                 mt_events.extend(generate_mt_baseline_hour(start_date, day, hour, location, mt_count))
 
                 # Generate meeting room sensor events (correlated with Webex) - MT events
