@@ -1827,7 +1827,7 @@ def generate_entraid_logs(
     if "phishing_test" in active_scenarios:
         try:
             from scenarios.security.phishing_test import PhishingTestScenario
-            phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True)
+            phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True, start_date=start_date)
         except ImportError:
             pass
 

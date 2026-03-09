@@ -838,7 +838,7 @@ def generate_exchange_logs(
 
     phishing_test_scenario = None
     if include_phishing_test:
-        phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True)
+        phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True, start_date=start_date)
 
     # 8x increase from 50 to 400 for realistic email volume
     # ~175 employees sending/receiving 20-30 emails/day each

@@ -2048,7 +2048,7 @@ def generate_wineventlog(
 
     phishing_test_scenario = None
     if "phishing_test" in active_scenarios:
-        phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True)
+        phishing_test_scenario = PhishingTestScenario(demo_id_enabled=True, start_date=start_date)
 
     base_logons_per_peak_hour = max(1, int(5 * scale))
     base_system_events_per_peak_hour = max(1, int(30 * scale))  # ~30 System events/peak hour

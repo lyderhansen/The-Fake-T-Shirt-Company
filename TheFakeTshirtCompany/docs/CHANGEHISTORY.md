@@ -4,6 +4,21 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-09 ~12:00 UTC — Fix hardcoded dates in phishing_test scenario
+
+**Affected files:**
+- `bin/scenarios/security/phishing_test.py` — Replaced hardcoded `"2026-01-"` timestamps with dynamic `ts_iso(self.start_date, ...)` and `date_add(self.start_date, ...)` in `entraid_signin_hour()` and `winevent_hour()`. Added `start_date` parameter to constructor. Fixed debug print and MockTimeUtils.
+- `bin/generators/generate_entraid.py` — Pass `start_date` to `PhishingTestScenario()`
+- `bin/generators/generate_wineventlog.py` — Pass `start_date` to `PhishingTestScenario()`
+- `bin/generators/generate_exchange.py` — Pass `start_date` to `PhishingTestScenario()`
+- `bin/generators/generate_office_audit.py` — Pass `start_date` to `PhishingTestScenario()`
+
+**Root cause:** `entraid_signin_hour()` built timestamps with `f"2026-01-{...}"` and `winevent_hour()` used `datetime(2026, 1, 1)`, ignoring `--start-date`. Events always appeared in January regardless of start date.
+
+**Verification:** Generated with `--start-date=2026-02-01 --days=28 --scenarios=phishing_test` — all phishing_test events now correctly appear in February (day 20+ from start_date). Exit code 0, no errors.
+
+---
+
 ## 2026-03-05 ~23:00 UTC — Full project realism audit: props.conf, ServiceBus, Orders, Catalyst, ACI + regression
 
 **Affected files:**

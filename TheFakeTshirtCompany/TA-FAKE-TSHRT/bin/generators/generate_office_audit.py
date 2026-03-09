@@ -674,7 +674,7 @@ def _phishing_test_events_for_hour(start_date: str, day: int, hour: int) -> List
     # Day 20-21: SafeLinks click events for clickers
     if day in (20, 21):
         # Reconstruct clickers with same seed
-        scenario = PhishingTestScenario(demo_id_enabled=True)
+        scenario = PhishingTestScenario(demo_id_enabled=True, start_date=start_date)
 
         for username, click_day, click_hour, click_minute in scenario.clickers:
             if day != click_day or hour != click_hour:

@@ -37,6 +37,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.company import USERS, USER_KEYS, TENANT, TENANT_ID, LOCATIONS
+from shared.time_utils import ts_iso, date_add
+from shared.config import DEFAULT_START_DATE
 
 
 # =============================================================================
@@ -99,9 +101,11 @@ class PhishingTestScenario:
     (browser launches), and Office 365 Audit (SafeLinks clicks).
     """
 
-    def __init__(self, config: PhishingTestConfig = None, demo_id_enabled: bool = True):
+    def __init__(self, config: PhishingTestConfig = None, demo_id_enabled: bool = True,
+                 start_date: str = DEFAULT_START_DATE):
         self.cfg = config or PhishingTestConfig()
         self.demo_id_enabled = demo_id_enabled
+        self.start_date = start_date
         # Pre-select participants with deterministic seed
         self._select_participants()
 
@@ -302,7 +306,7 @@ class PhishingTestScenario:
             second = random.randint(0, 59)
 
             cid = str(uuid.uuid4())
-            ts = f"2026-01-{self.cfg.start_day + 1 + (day - self.cfg.start_day):02d}T{hour:02d}:{submit_minute:02d}:{second:02d}Z"
+            ts = ts_iso(self.start_date, day, hour, submit_minute, second)
 
             event = {
                 "time": ts,
@@ -394,7 +398,7 @@ class PhishingTestScenario:
 
             second = rng.randint(0, 59)
             # Build timestamp as datetime
-            base = datetime(2026, 1, 1) + timedelta(days=day)
+            base = date_add(self.start_date, day)
             ts = base.replace(hour=click_hour, minute=click_minute, second=second)
 
             process_id = rng.randint(1000, 65535)
@@ -496,7 +500,7 @@ Process Information:
         """Print scenario timeline for debugging."""
         print(f"\n{'='*70}")
         print(f"  Phishing Test Scenario Timeline")
-        print(f"  Days: {self.cfg.start_day}-{self.cfg.end_day} (Jan {self.cfg.start_day+1}-{self.cfg.end_day+1})")
+        print(f"  Days: {self.cfg.start_day}-{self.cfg.end_day} (day index, start_date={self.start_date})")
         print(f"  Operator: {self.cfg.operator_display_name} ({self.cfg.operator_email})")
         print(f"{'='*70}")
 
@@ -538,9 +542,10 @@ if __name__ == "__main__":
 
     # Test exchange events
     print("  Exchange events test (Day 20, hour 9):")
-    class MockTimeUtils:
-        def ts_iso(self, day, hour, minute, second):
-            return f"2026-01-{day+1:02d}T{hour:02d}:{minute:02d}:{second:02d}Z"
+    from shared.time_utils import TimeUtils
+    class MockTimeUtils(TimeUtils):
+        def __init__(self):
+            super().__init__(DEFAULT_START_DATE)
 
     tu = MockTimeUtils()
     events = scenario.exchange_hour(20, 9, tu)
