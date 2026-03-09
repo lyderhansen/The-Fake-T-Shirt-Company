@@ -230,7 +230,10 @@ def aws_s3_get_object(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     event = aws_iam_user_event(base_date, day, hour, minute, second, "GetObject", "s3.amazonaws.com", user,
                                event_category="Data")
     event["requestParameters"] = {"bucketName": bucket, "key": key}
-    event["responseElements"] = None
+    event["responseElements"] = {
+        "x-amz-server-side-encryption": "AES256",
+        "content-type": "application/octet-stream",
+    }
     event["resources"] = [
         {"type": "AWS::S3::Object", "ARN": f"arn:aws:s3:::{bucket}/{key}"},
         {"type": "AWS::S3::Bucket", "ARN": f"arn:aws:s3:::{bucket}", "accountId": AWS_ACCOUNT_ID},
@@ -655,14 +658,17 @@ def aws_get_secret_exfil(base_date: str, day: int, hour: int) -> Dict[str, Any]:
     minute = random.randint(15, 45)
     second = random.randint(0, 59)
 
+    svc_principal = "AIDA" + uuid.uuid5(uuid.NAMESPACE_DNS, "svc-datasync").hex[:16].upper()
+    svc_access_key = "AKIA" + uuid.uuid5(uuid.NAMESPACE_DNS, "svc-datasync-key").hex[:16].upper()
+
     event = {
         "eventVersion": "1.08",
         "userIdentity": {
             "type": "IAMUser",
-            "principalId": "AIDAMALICIOUS001",
+            "principalId": svc_principal,
             "arn": f"arn:aws:iam::{AWS_ACCOUNT_ID}:user/svc-datasync",
             "accountId": AWS_ACCOUNT_ID,
-            "accessKeyId": "AKIAMALICIOUS001",
+            "accessKeyId": svc_access_key,
             "userName": "svc-datasync",
         },
         "eventTime": ts_iso(base_date, day, hour, minute, second),

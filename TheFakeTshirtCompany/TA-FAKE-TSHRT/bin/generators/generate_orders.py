@@ -44,7 +44,7 @@ from scenarios.ops.dead_letter_pricing import DeadLetterPricingScenario
 
 BASE_SHIPPING_COST = 8      # USD domestic
 INTL_SHIPPING_COST = 15     # USD international
-FREE_SHIPPING_THRESHOLD = 50
+FREE_SHIPPING_THRESHOLD = 75
 
 PAYMENT_METHODS = ["Visa", "Mastercard", "American Express", "PayPal", "Apple Pay", "Google Pay"]
 
@@ -342,9 +342,9 @@ def generate_order_events(registry_entry: Dict,
             "lineTotal": cart_total
         })
 
-    # Pricing (round tax to nearest dollar, matching standard e-commerce rounding)
+    # Pricing (round tax to cents, matching standard e-commerce rounding)
     tax_rate = customer_data["tax_rate"]
-    tax = round(subtotal * tax_rate / 100)
+    tax = round(subtotal * tax_rate / 100, 2)
 
     if customer_data["country"] == "United States":
         shipping = BASE_SHIPPING_COST

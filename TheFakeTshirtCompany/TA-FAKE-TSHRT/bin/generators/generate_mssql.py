@@ -71,7 +71,6 @@ DBA_USERS = [
 BACKUP_SPID = 22
 BACKUP_PATH = "G:\\Backup"
 DATA_PATH = "G:\\Data"
-BACKUP_PAGES = 45280
 BACKUP_DURATION_SEC = 23.456
 
 
@@ -169,7 +168,7 @@ def generate_backup_event(base_date: datetime, day: int,
 
     date_str = ts.strftime("%Y%m%d")
     duration = round(BACKUP_DURATION_SEC + random.uniform(-3, 5), 3)
-    pages = BACKUP_PAGES + random.randint(-500, 500)
+    pages = random.randint(280000, 350000)
     mb_sec = round(pages * 8 / 1024 / duration, 3)
 
     events.append(format_mssql_event(
@@ -412,8 +411,8 @@ def generate_cpu_runaway_events(base_date: datetime, day: int, hour: int,
             date_str = (base_date + timedelta(days=cfg.start_day)).strftime("%Y%m%d")
             events.append(format_mssql_event(
                 ts, "spid67",
-                error=19406, severity=16, state=1,
-                message=f"The backup set in file '{BACKUP_PATH}\\{PRIMARY_DB}_full_{date_str}.bak' was created by BACKUP DATABASE and cannot be used for this restore operation.",
+                error=17883, severity=18, state=1,
+                message=f"Process {random.randint(50, 200)} appears to be non-yielding on Scheduler {random.randint(0, 3)}. Thread creation time: {ts.strftime('%Y-%m-%dT%H:%M:%S')}.{random.randint(0, 999):03d}. Approx Thread CPU Used: kernel {random.randint(5000, 30000)} ms, user {random.randint(10000, 60000)} ms.",
                 demo_id=demo_id
             ))
 

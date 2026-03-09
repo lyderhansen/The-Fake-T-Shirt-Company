@@ -24,10 +24,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.config import DEFAULT_START_DATE, DEFAULT_DAYS, DEFAULT_SCALE, get_output_path, Config
 from shared.time_utils import ts_winevent, date_add, calc_natural_events, TimeUtils
-from shared.company import USERS, USER_KEYS, WINDOWS_SERVERS, get_random_user, get_internal_ip, Company
+from shared.company import USERS, USER_KEYS, WINDOWS_SERVERS, get_random_user, get_internal_ip, Company, get_users_by_department
 from scenarios.security import RansomwareAttemptScenario
 from scenarios.security.phishing_test import PhishingTestScenario
 from scenarios.registry import expand_scenarios
+
+# IT department usernames — used to determine admin/elevated token status
+IT_USERNAMES = frozenset(u.username for u in get_users_by_department("IT"))
 
 # =============================================================================
 # LOCATION HELPER
@@ -94,10 +97,32 @@ def _insert_demo_id(event: str, demo_id: str) -> str:
 
 
 def event_4624(base_date: str, day: int, hour: int, minute: int, second: int,
-               computer: str, user: str, logon_type: int, source_ip: str) -> str:
+               computer: str, user: str, logon_type: int, source_ip: str,
+               is_admin: bool = False) -> str:
     """Generate successful logon event (4624)."""
     ts = ts_winevent(base_date, day, hour, minute, second)
     record = get_record_number()
+
+    # Subject section: SYSTEM for network logons (type 3), empty for interactive/RDP
+    if logon_type == 3:
+        subject_sid = "S-1-5-18"
+        subject_name = "SYSTEM"
+        subject_domain = "NT AUTHORITY"
+        subject_logon_id = "0x3E7"
+    else:
+        subject_sid = "S-1-0-0"
+        subject_name = "-"
+        subject_domain = "-"
+        subject_logon_id = "0x0"
+
+    # Elevated Token: Yes only for admin users with interactive/RDP logons
+    # Network logons (type 3) never elevate
+    if logon_type == 3:
+        elevated_token = "No"
+    elif is_admin:
+        elevated_token = "Yes"
+    else:
+        elevated_token = "No"
 
     return f"""{ts}
 LogName=Security
@@ -112,16 +137,16 @@ Keywords=Audit Success
 Message=An account was successfully logged on.
 
 Subject:
-\tSecurity ID:\t\tS-1-0-0
-\tAccount Name:\t\t-
-\tAccount Domain:\t\t-
-\tLogon ID:\t\t0x0
+\tSecurity ID:\t\t{subject_sid}
+\tAccount Name:\t\t{subject_name}
+\tAccount Domain:\t\t{subject_domain}
+\tLogon ID:\t\t{subject_logon_id}
 
 Logon Information:
 \tLogon Type:\t\t{logon_type}
 \tRestricted Admin Mode:\t-
 \tVirtual Account:\t\tNo
-\tElevated Token:\t\tYes
+\tElevated Token:\t\t{elevated_token}
 
 New Logon:
 \tSecurity ID:\t\tS-1-5-21-{random.randint(1000000000, 9999999999)}-{random.randint(1000000000, 9999999999)}-{random.randint(1000, 9999)}
@@ -1059,7 +1084,8 @@ def generate_baseline_logons(base_date: str, day: int, hour: int, count: int) ->
         source_ip = user.get_ip()
 
         events.append(event_4624(base_date, day, hour, minute, second,
-                                 computer, user.username, logon_type, source_ip))
+                                 computer, user.username, logon_type, source_ip,
+                                 is_admin=user.username in IT_USERNAMES))
 
     return events
 
@@ -1621,7 +1647,8 @@ def generate_client_logon(base_date: str, day: int, hour: int, client) -> list:
     events.append(event_4624(
         base_date, day, hour, minute, second,
         computer, client.username, logon_type=2,
-        source_ip="127.0.0.1"  # Interactive logon = local
+        source_ip="127.0.0.1",  # Interactive logon = local
+        is_admin=client.username in IT_USERNAMES
     ))
 
     return events
@@ -1689,7 +1716,8 @@ def generate_client_network_logons(base_date: str, day: int, hour: int, client) 
     events.append(event_4624(
         base_date, day, hour, minute, second,
         target_server, client.username, logon_type=3,
-        source_ip=client.ip_address
+        source_ip=client.ip_address,
+        is_admin=client.username in IT_USERNAMES
     ))
 
     return events
@@ -2178,7 +2206,8 @@ def format_scenario_event(base_date: str, day: int, hour: int, event_dict: dict,
     if event_id == 4624:
         return event_4624(base_date, day, hour, minute, second, computer, user,
                           event_dict.get("logon_type", 3),
-                          event_dict.get("source_ip", "10.10.30.50"))
+                          event_dict.get("source_ip", "10.10.30.50"),
+                          is_admin=user in IT_USERNAMES)
     elif event_id == 4625:
         event = event_4625(base_date, day, hour, minute, second, computer, user,
                           event_dict.get("source_ip", "10.10.30.50"),

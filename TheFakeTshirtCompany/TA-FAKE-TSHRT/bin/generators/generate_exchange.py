@@ -648,7 +648,7 @@ def generate_meeting_invite_event(base_date: str, day: int,
 
     # Include room info in subject for Webex room meetings
     room_info = f" - {meeting.room}" if meeting.room else ""
-    subject = f"Meeting Invite: {meeting.meeting_title}{room_info}"
+    subject = f"{meeting.meeting_title}{room_info}"
 
     msg_id = generate_message_id()
     size = random.randint(15000, 50000)  # Calendar items with ICS attachment

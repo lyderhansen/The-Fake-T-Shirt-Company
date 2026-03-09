@@ -614,11 +614,11 @@ def gcp_bigquery_export_exfil(base_date: str, day: int, hour: int) -> Dict[str, 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "google.cloud.bigquery.v2.TableDataService.List",
                            "bigquery.googleapis.com", mal_sa,
-                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="bigquery_dataset")
+                           log_type=LOG_TYPE_DATA_ACCESS, resource_type="bigquery_dataset",
+                           caller_ip="185.220.101.42")
     event["protoPayload"]["resourceName"] = (
         f"projects/{GCP_PROJECT}/datasets/warehouse/tables/customer_database"
     )
-    event["protoPayload"]["requestMetadata"]["callerIp"] = "185.220.101.42"
     event["demo_id"] = "exfil"
     return event
 
@@ -642,11 +642,11 @@ def gcp_storage_delete_exfil(base_date: str, day: int, hour: int) -> Dict[str, A
 
     event = gcp_base_event(base_date, day, hour, minute, second,
                            "storage.objects.delete", "storage.googleapis.com", mal_sa,
-                           resource_type="gcs_bucket")
+                           resource_type="gcs_bucket",
+                           caller_ip="185.220.101.42")
     event["protoPayload"]["resourceName"] = (
         f"projects/_/buckets/{ORG_NAME_LOWER}-exports/objects/{staging_file}"
     )
-    event["protoPayload"]["requestMetadata"]["callerIp"] = "185.220.101.42"
     event["demo_id"] = "exfil"
     return event
 

@@ -95,14 +95,19 @@ NET_ADMINS = [
     "david.robinson",     # IT Director
 ]
 
-# VTY source IPs (management workstations)
-VTY_SOURCES = {
-    "patrick.gonzalez": "10.10.30.182",
-    "stephanie.barnes": "10.10.30.183",
-    "keith.butler": "10.20.30.18",
-    "jessica.brown": "10.20.30.15",
-    "david.robinson": "10.10.30.180",
-}
+# VTY source IPs (management workstations) — dynamically resolved from company.py
+_VTY_ADMIN_NAMES = [
+    "patrick.gonzalez",
+    "stephanie.barnes",
+    "keith.butler",
+    "jessica.brown",
+    "david.robinson",
+]
+VTY_SOURCES = {}
+for _name in _VTY_ADMIN_NAMES:
+    _user = USERS.get(_name)
+    if _user:
+        VTY_SOURCES[_name] = _user.ip_address
 
 # Local7 facility (23) -- PRI = facility * 8 + severity
 # Severity: 0=Emergency, 1=Alert, 2=Critical, 3=Error, 4=Warning, 5=Notice, 6=Info, 7=Debug

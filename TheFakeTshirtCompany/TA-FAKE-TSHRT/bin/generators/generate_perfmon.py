@@ -54,6 +54,13 @@ MIN_CLIENT_INTERVAL = 5
 MAX_CLIENT_INTERVAL = 60
 SCENARIO_CLIENT_INTERVAL = 5  # 5 minutes for scenario-relevant clients
 
+# Server-role-to-disk mapping (servers with additional data drives)
+SERVER_DISK_INSTANCES = {
+    "SQL-PROD-01": ["C:", "G:"],      # OS + data/backup
+    "FILE-BOS-01": ["C:", "D:"],      # OS + file shares
+}
+# Default: ["C:"] for all other servers
+
 # Scenario-relevant users (always use 5-minute intervals)
 SCENARIO_USERS = {
     "alex.miller",      # exfil target (Finance)
@@ -144,26 +151,29 @@ def memory_metric(ts: str, host: str, ram_min: int, ram_max: int,
 
 def disk_metric(ts: str, host: str, total_gb: int, hour_mult: float,
                 demo_id: str = None, disk_busy: bool = False, io_mult: int = 100) -> List[str]:
-    """Generate logical disk performance counters."""
+    """Generate logical disk performance counters for all disk instances on a host."""
     events = []
-    used_pct = random.uniform(40, 70)
-    free_mb = int((total_gb * 1024) * (1 - used_pct / 100))
+    disk_instances = SERVER_DISK_INSTANCES.get(host, ["C:"])
 
-    read_bytes = int(random.uniform(100000, 5000000) * hour_mult * io_mult / 100)
-    write_bytes = int(random.uniform(50000, 2000000) * hour_mult * io_mult / 100)
-    disk_time = random.uniform(5, 40) * hour_mult
-    if disk_busy:
-        disk_time = min(95, disk_time * 3)  # High disk time during scenario
+    for instance in disk_instances:
+        used_pct = random.uniform(40, 70)
+        free_mb = int((total_gb * 1024) * (1 - used_pct / 100))
 
-    # Current Disk Queue Length: 0-2 normal, >5 = bottleneck
-    disk_queue = random.uniform(0, 2) * hour_mult
-    if disk_busy:
-        disk_queue = random.uniform(5, 20)  # Heavy queuing during scenario
+        read_bytes = int(random.uniform(100000, 5000000) * hour_mult * io_mult / 100)
+        write_bytes = int(random.uniform(50000, 2000000) * hour_mult * io_mult / 100)
+        disk_time = random.uniform(5, 40) * hour_mult
+        if disk_busy:
+            disk_time = min(95, disk_time * 3)  # High disk time during scenario
 
-    events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "% Free Space", "C:", 100 - used_pct, demo_id))
-    events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "Free Megabytes", "C:", free_mb, demo_id))
-    events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "% Disk Time", "C:", disk_time, demo_id))
-    events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "Current Disk Queue Length", "C:", disk_queue, demo_id))
+        # Current Disk Queue Length: 0-2 normal, >5 = bottleneck
+        disk_queue = random.uniform(0, 2) * hour_mult
+        if disk_busy:
+            disk_queue = random.uniform(5, 20)  # Heavy queuing during scenario
+
+        events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "% Free Space", instance, 100 - used_pct, demo_id))
+        events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "Free Megabytes", instance, free_mb, demo_id))
+        events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "% Disk Time", instance, disk_time, demo_id))
+        events.append(format_perfmon_event(ts, host, "LogicalDisk", "LogicalDisk", "Current Disk Queue Length", instance, disk_queue, demo_id))
 
     return events
 

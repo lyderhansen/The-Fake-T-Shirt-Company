@@ -4,6 +4,123 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-05 ~23:00 UTC — Full project realism audit: props.conf, ServiceBus, Orders, Catalyst, ACI + regression
+
+**Affected files:**
+- `default/props.conf` — T1: Added TRANSFORMS-demo_id + EXTRACT-demo_id to 7 sourcetype stanzas (Catalyst Center 4, ACI 3)
+- `bin/generators/generate_servicebus.py` — T4: Fixed inventory quantity hardcoded to 1
+- `bin/generators/generate_orders.py` — T10: Tax precision (cents), free shipping threshold $50->$75
+- `bin/generators/generate_catalyst.py` — T12: Admin VTY IPs from company.py instead of hardcoded
+- `bin/generators/generate_aci.py` — T13: Atlanta leaf node IDs 401/402->302/303 per Cisco convention
+
+**T1 — Missing demo_id extraction (default/props.conf):**
+7 sourcetypes lacked TRANSFORMS-demo_id, breaking scenario filtering. Added to: FAKE:cisco:catalyst:devicehealth/networkhealth/clienthealth/issue, FAKE:cisco:aci:fault/event/audit. Count: 59->66.
+
+**T4 — ServiceBus inventory quantity (generate_servicebus.py):**
+InventoryReserved events hardcoded quantity=1. Changed to item.get("qty", 1) to reflect actual order quantities.
+
+**T10 — Orders tax and shipping (generate_orders.py):**
+Tax rounded to nearest dollar -> cents (round(x, 2)). FREE_SHIPPING_THRESHOLD raised from $50 to $75.
+
+**T11 — ASA 3-tier baseline: Already implemented (no change needed).**
+
+**T12 — Catalyst VTY admin IPs (generate_catalyst.py):**
+Replaced 5 hardcoded VTY_SOURCES IPs with USERS.get(name).ip_address lookups from company.py.
+
+**T13 — ACI Atlanta leaf node IDs (generate_aci.py):**
+Changed LEAF-ATL-01 from node-401->node-302 and LEAF-ATL-02 from node-402->node-303 per Cisco ACI pod-2 convention.
+
+**Verification:** Full regression 3,283,874 events, all 25 generators pass.
+
+---
+
+## 2026-03-05 ~22:30 UTC — Realism audit: Exchange invite prefix, Sysmon DNS failures, Perfmon disk instances (T16/T17/T18)
+
+**Affected files:**
+- `bin/generators/generate_exchange.py` — T16: Remove "Meeting Invite:" prefix from calendar invite subjects
+- `bin/generators/generate_sysmon.py` — T17: Add ~5% DNS query failures to baseline EID 22 events
+- `bin/generators/generate_perfmon.py` — T18: Add G: and D: disk instances for SQL-PROD-01 and FILE-BOS-01
+
+**What changed:**
+
+**T16 — Exchange calendar invite subject format (generate_exchange.py):**
+Removed the `"Meeting Invite: "` prefix from `generate_meeting_invite_event()`. Real Outlook sends just the meeting title as the subject (e.g., "Sprint Planning - Room-BOS-2F-Link"), not "Meeting Invite: Sprint Planning". One occurrence at line 651.
+
+**T17 — Sysmon DNS query status variety (generate_sysmon.py):**
+All three baseline DNS call sites (server baseline ~line 1095, workstation baseline ~line 1218, client profile DNS ~line 1404) now have ~5% chance of DNS failure. Failed queries use status codes 3 (NXDOMAIN), 5 (REFUSED), or 9501 (TIMEOUT) with empty query_results. Scenario-specific DNS calls (exfil, ransomware) are unchanged — they always succeed as intended.
+
+**T18 — Perfmon SQL/File server disk instances (generate_perfmon.py):**
+Added `SERVER_DISK_INSTANCES` mapping: SQL-PROD-01 gets ["C:", "G:"] (OS + data/backup), FILE-BOS-01 gets ["C:", "D:"] (OS + file shares). All other servers default to ["C:"]. The `disk_metric()` function now loops over all instances for the host, generating a full set of LogicalDisk counters (% Free Space, Free Megabytes, % Disk Time, Current Disk Queue Length) per disk.
+
+---
+
+## 2026-03-05 ~21:00 UTC — Realism audit: WinEventLog 4624 Elevated Token and Subject section
+
+**Affected files:**
+- `bin/generators/generate_wineventlog.py` — T5: Dynamic Elevated Token and Subject section in Event 4624
+
+**What changed:**
+
+**T5 — Event 4624 Elevated Token and Subject realism (generate_wineventlog.py):**
+Two issues fixed in the 4624 (successful logon) event template:
+
+1. **Elevated Token** was hardcoded to `Yes` for all logons. Now dynamic based on logon type and user role:
+   - Logon type 3 (Network): Always `No` — network logons never elevate
+   - Logon type 2 (Interactive) and 10 (RDP): `Yes` only for IT department users (admins), `No` for everyone else
+   - Added `is_admin` parameter to `event_4624()` function; all 4 call sites updated to pass `user.username in IT_USERNAMES`
+
+2. **Subject section** was always empty (`S-1-0-0` / `-` / `-` / `0x0`) regardless of logon type. Now dynamic:
+   - Logon type 3 (Network): Shows `S-1-5-18` / `SYSTEM` / `NT AUTHORITY` / `0x3E7` (the machine account initiating the network logon)
+   - Logon type 2/10 (Interactive/RDP): Keeps the anonymous `S-1-0-0` / `-` / `-` / `0x0` (correct for user-initiated logons)
+
+Added `IT_USERNAMES` frozenset at module level built from `get_users_by_department("IT")` for O(1) admin lookups.
+
+---
+
+## 2026-03-05 ~20:00 UTC — Realism audit: GCP callerIp override, AWS fake IAM IDs, AWS S3 responseElements
+
+**Affected files:**
+- `bin/generators/generate_gcp.py` — T7: Pass caller_ip to gcp_base_event() instead of post-creation override
+- `bin/generators/generate_aws.py` — T8: Replace hardcoded MALICIOUS IAM IDs with UUID5-based generation
+- `bin/generators/generate_aws.py` — T14: Add encryption headers to S3 GetObject responseElements
+
+**What changed:**
+
+**T7 — GCP exfil callerIp override (generate_gcp.py, lines ~614-649):**
+Two exfil functions (`gcp_bigquery_export_exfil` and `gcp_storage_delete_exfil`) were overriding `event["protoPayload"]["requestMetadata"]["callerIp"]` after event creation. The `gcp_base_event()` function already accepts a `caller_ip` parameter. Changed both functions to pass `caller_ip="185.220.101.42"` as a parameter to `gcp_base_event()` and removed the post-creation override lines.
+
+**T8 — AWS fake IAM principal IDs (generate_aws.py, line ~662):**
+The `aws_get_secret_exfil()` function used obviously fake IDs `"AIDAMALICIOUS001"` and `"AKIAMALICIOUS001"` which do not match real AWS ID format (20 chars after prefix). Replaced with deterministic UUID5-based generation: `"AIDA" + uuid.uuid5(NAMESPACE_DNS, "svc-datasync").hex[:16].upper()` and similar for the access key. Produces consistent, realistic-looking IDs.
+
+**T9 — Entra ID spray attack (generate_entraid.py): NO CHANGE NEEDED.**
+The `signin_spray_noise()` function already uses per-geo IPs from each entry's `ip_prefix` field, not the shared threat actor IP. The issue described in the audit plan was already resolved.
+
+**T14 — AWS S3 GetObject responseElements (generate_aws.py, line ~233):**
+S3 GetObject events had `responseElements = None` but real AWS events include encryption headers. Changed to `{"x-amz-server-side-encryption": "AES256", "content-type": "application/octet-stream"}`.
+
+No volume or timing changes. Data regeneration required for fixes to take effect.
+
+---
+
+## 2026-03-05 ~19:00 UTC — Meraki realism audit: fix Webex API call legs and Office 365 audit operations
+
+**Affected files:**
+- `bin/generators/generate_webex_api.py` — Fixed swapped Caller/Called fields in TERMINATING call leg
+- `bin/generators/generate_office_audit.py` — Replaced non-existent O365 audit operations
+
+**What changed:**
+
+**T2 — Webex API TERMINATING leg (generate_webex_api.py, line ~582):**
+The TERMINATING leg had "Called line ID" and "Calling line ID" swapped. From the callee's perspective, "Calling line ID" should be the original caller (who called them), not themselves. Swapped the fields so both ORIGINATING and TERMINATING legs now consistently use Called=called_user and Calling=caller_user. The ORIGINATING leg was already correct.
+
+**T3 — Office 365 audit operations (generate_office_audit.py, lines ~577 and ~634):**
+- Changed `"FileSyncDownloadedFull"` to `"FileDownloaded"` — the former is not a real O365 audit operation
+- Changed `"FileRestored"` to `"FileUploaded"` — the former is not a real O365 audit operation
+
+Both appear in exfil/ransomware scenario event injection. No volume or timing changes.
+
+---
+
 ## 2026-03-05 ~18:00 UTC — Fix CIM action/status extraction for new Meraki firewall pattern format
 
 **Affected files:**

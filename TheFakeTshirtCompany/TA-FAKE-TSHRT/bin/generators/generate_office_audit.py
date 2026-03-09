@@ -574,7 +574,7 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
             for _ in range(od_count):
                 event = generate_onedrive_event(
                     start_date, day, hour,
-                    user=alex, operation="FileSyncDownloadedFull", demo_id="exfil"
+                    user=alex, operation="FileDownloaded", demo_id="exfil"
                 )
                 event["ClientIP"] = THREAT_IP
                 finance_files = _get_files_for_department("Finance")
@@ -631,7 +631,7 @@ def _ransomware_events_for_hour(start_date: str, day: int, hour: int) -> List[Di
             for _ in range(count):
                 event = generate_onedrive_event(
                     start_date, day, hour,
-                    user=jessica, operation="FileRestored", demo_id="ransomware_attempt"
+                    user=jessica, operation="FileUploaded", demo_id="ransomware_attempt"
                 )
                 # Point to Brooklyn's OneDrive
                 brooklyn_od = f"{SP_BASE_URL}/personal/brooklyn_white_{ORG_NAME_LOWER}_com"

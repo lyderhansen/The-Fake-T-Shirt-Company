@@ -1095,14 +1095,20 @@ def _generate_server_event(ts: datetime, server_name: str, server_info: dict) ->
     elif eid == 22:
         # DNS Query
         query = random.choice(DNS_INTERNAL + DNS_EXTERNAL)
-        # Resolve to a plausible IP
-        if "theFakeTshirtCompany.com" in query:
-            result = f"::ffff:{server_ip};"
-        else:
-            result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
         dns_image = "C:\\Windows\\System32\\svchost.exe"
+        # ~5% DNS query failures (NXDOMAIN, REFUSED, TIMEOUT)
+        if random.random() < 0.05:
+            query_status = str(random.choice([3, 5, 9501]))
+            result = ""
+        else:
+            query_status = "0"
+            # Resolve to a plausible IP
+            if "theFakeTshirtCompany.com" in query:
+                result = f"::ffff:{server_ip};"
+            else:
+                result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
         return sysmon_eid22(ts, computer, SYSTEM_USER, dns_image, query,
-                            query_results=result,
+                            query_status=query_status, query_results=result,
                             process_guid=proc_guid, process_id=pid)
 
     return ""
@@ -1219,9 +1225,15 @@ def _generate_workstation_event(ts: datetime, user_obj) -> str:
         # DNS Query
         query = random.choice(DNS_EXTERNAL + DNS_INTERNAL[:2])
         dns_image = "C:\\Windows\\System32\\svchost.exe"
-        result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
+        # ~5% DNS query failures (NXDOMAIN, REFUSED, TIMEOUT)
+        if random.random() < 0.05:
+            query_status = str(random.choice([3, 5, 9501]))
+            result = ""
+        else:
+            query_status = "0"
+            result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
         return sysmon_eid22(ts, computer, user_str, dns_image, query,
-                            query_results=result,
+                            query_status=query_status, query_results=result,
                             process_guid=proc_guid, process_id=pid)
 
     return ""
@@ -1402,10 +1414,16 @@ def _client_dns_query(ts: datetime, client, profile: dict,
     if not dns_pool:
         dns_pool = DNS_EXTERNAL
     query = random.choice(dns_pool)
-    result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
     dns_image = "C:\\Windows\\System32\\svchost.exe"
+    # ~5% DNS query failures (NXDOMAIN, REFUSED, TIMEOUT)
+    if random.random() < 0.05:
+        query_status = str(random.choice([3, 5, 9501]))
+        result = ""
+    else:
+        query_status = "0"
+        result = f"::ffff:{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)};"
     events.append(sysmon_eid22(ts, computer, user_str, dns_image, query,
-                               query_results=result,
+                               query_status=query_status, query_results=result,
                                process_guid=process_guid, process_id=process_id))
     return events
 

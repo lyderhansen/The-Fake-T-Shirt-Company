@@ -392,7 +392,7 @@ def generate_inventory_reserved(order_id: str, tshirtcid: str, customer_id: str,
         delivery_count = random.randint(2, 5)
 
     # Transform items for inventory
-    inv_items = [{"sku": item["sku"], "quantity": 1, "reserved": reserved} for item in items]
+    inv_items = [{"sku": item["sku"], "quantity": item.get("qty", 1), "reserved": reserved} for item in items]
 
     ttl = _SB_TTL_SECONDS.get("InventoryReserved", 86400)
 
@@ -634,7 +634,7 @@ def generate_servicebus_logs(
         ts = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
 
         # Convert products to items format
-        items = [{"sku": p["slug"], "price": p["price"]} for p in products]
+        items = [{"sku": p["slug"], "price": p["price"], "qty": p.get("qty", 1)} for p in products]
 
         # Use scenario from registry or override
         order_scenario = scenario if scenario else (scenarios if scenarios != "none" else None)

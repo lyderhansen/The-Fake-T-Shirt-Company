@@ -75,8 +75,8 @@ ACI_FABRIC = {
             {"name": "SPINE-ATL-01", "id": 301, "model": "N9K-C9336C-FX2", "dn": "topology/pod-2/node-301"},
         ],
         "leafs": [
-            {"name": "LEAF-ATL-01", "id": 401, "model": "N9K-C93180YC-FX", "dn": "topology/pod-2/node-401"},
-            {"name": "LEAF-ATL-02", "id": 402, "model": "N9K-C93180YC-FX", "dn": "topology/pod-2/node-402"},
+            {"name": "LEAF-ATL-01", "id": 302, "model": "N9K-C93180YC-FX", "dn": "topology/pod-2/node-302"},
+            {"name": "LEAF-ATL-02", "id": 303, "model": "N9K-C93180YC-FX", "dn": "topology/pod-2/node-303"},
         ],
         "epgs": [
             {"name": "EPG-ATLServers", "dn": "uni/tn-TShirtCo-Prod/ap-Atlanta/epg-ATLServers", "vlan": 100},
