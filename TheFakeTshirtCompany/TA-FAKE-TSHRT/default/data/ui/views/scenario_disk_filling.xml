@@ -62,11 +62,11 @@
         "query": "index=fake_tshrt demo_id=disk_filling | eval source_label=case(match(sourcetype,\"df\"), \"Linux df\", match(sourcetype,\"vmstat\"), \"Linux vmstat\", match(sourcetype,\"cpu\"), \"Linux CPU\", match(sourcetype,\"iostat\"), \"Linux iostat\", match(sourcetype,\"access_combined\"), \"Apache Access\", match(sourcetype,\"servicenow\"), \"ServiceNow\", 1=1, sourcetype) | stats count by source_label | sort -count"
       }
     },
-    "ds_http_errors": {
+    "ds_disk_io": {
       "type": "ds.search",
-      "name": "HTTP Response Times Over Time",
+      "name": "Disk I/O Utilization Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" host=MON-ATL-01 | eval is_error=if(status>=500, 1, 0) | timechart span=1h avg(is_error) as error_rate | eval error_rate=round(error_rate*100, 1)"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:iostat\" host=MON-ATL-01 | timechart span=1h avg(pctUtil) as \"Disk I/O Utilization %\""
       }
     },
     "ds_key_evidence": {
@@ -225,18 +225,18 @@
         "seriesColors": ["#7B56DB", "#00D2FF", "#DC4E41", "#53A051", "#F8BE34", "#009CEB"]
       }
     },
-    "viz_http_errors": {
+    "viz_disk_io": {
       "type": "splunk.line",
-      "title": "HTTP Error Rate (%)",
+      "title": "Disk I/O Utilization (%)",
       "dataSources": {
-        "primary": "ds_http_errors"
+        "primary": "ds_disk_io"
       },
       "options": {
         "legendDisplay": "off",
         "nullValueDisplay": "zero",
         "backgroundColor": "transparent",
         "xAxisTitleVisibility": "hide",
-        "yAxisTitleText": "Error Rate %",
+        "yAxisTitleText": "Disk I/O Utilization %",
         "yAxisTitleVisibility": "show",
         "seriesColors": ["#DC4E41"]
       },
@@ -335,7 +335,7 @@
         "position": { "x": 750, "y": 670, "w": 450, "h": 350 }
       },
       {
-        "item": "viz_http_errors",
+        "item": "viz_disk_io",
         "type": "block",
         "position": { "x": 0, "y": 1020, "w": 1200, "h": 300 }
       },

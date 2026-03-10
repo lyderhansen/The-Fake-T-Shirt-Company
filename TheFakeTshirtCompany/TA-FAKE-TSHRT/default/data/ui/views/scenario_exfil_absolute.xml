@@ -10,28 +10,28 @@
       "type": "ds.search",
       "name": "Total Exfil Events",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | stats count as total"
+        "query": "index=fake_tshrt demo_id=exfil | stats count as total"
       }
     },
     "ds_kpi_sourcetypes": {
       "type": "ds.search",
       "name": "Distinct Sourcetypes",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | stats dc(sourcetype) as total"
+        "query": "index=fake_tshrt demo_id=exfil | stats dc(sourcetype) as total"
       }
     },
     "ds_kpi_hosts": {
       "type": "ds.search",
       "name": "Distinct Hosts",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | stats dc(host) as total"
+        "query": "index=fake_tshrt demo_id=exfil | stats dc(host) as total"
       }
     },
     "ds_kpi_users": {
       "type": "ds.search",
       "name": "Distinct Users",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | spath userIdentity.userName | spath userPrincipalName | spath identity | eval u=coalesce(user, userIdentity.userName, userPrincipalName, identity) | where isnotnull(u) | stats dc(u) as total"
+        "query": "index=fake_tshrt demo_id=exfil | spath userIdentity.userName | spath userPrincipalName | spath identity | eval u=coalesce(user, userIdentity.userName, userPrincipalName, identity) | where isnotnull(u) | stats dc(u) as total"
       }
     },
     "ds_attack_flow_sankey": {
@@ -52,112 +52,112 @@
       "type": "ds.search",
       "name": "14-Day Attack Timeline by Source Category",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"Firewall (ASA)\", match(sourcetype,\"aws:cloudtrail\"), \"AWS CloudTrail\", match(sourcetype,\"google:gcp\"), \"GCP Audit\", match(sourcetype,\"azure:aad\"), \"Entra ID\", match(sourcetype,\"o365:management\"), \"M365 Activity\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"WinEventLog\"), \"Windows Events\", match(sourcetype,\"meraki\"), \"Meraki Network\", match(sourcetype,\"servicenow\"), \"ServiceNow\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux Metrics\", 1=1, \"Other\") | timechart span=1d count by source_cat"
+        "query": "index=fake_tshrt demo_id=exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"Firewall (ASA)\", match(sourcetype,\"aws:cloudtrail\"), \"AWS CloudTrail\", match(sourcetype,\"google:gcp\"), \"GCP Audit\", match(sourcetype,\"azure:aad\"), \"Entra ID\", match(sourcetype,\"o365:management\"), \"M365 Activity\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"WinEventLog\"), \"Windows Events\", match(sourcetype,\"meraki\"), \"Meraki Network\", match(sourcetype,\"servicenow\"), \"ServiceNow\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux Metrics\", 1=1, \"Other\") | timechart span=1d count by source_cat"
       }
     },
     "ds_recon_port_scans": {
       "type": "ds.search",
       "name": "Reconnaissance Port Scan Targets",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | rex \"to\\s+\\w+:(?<dst_ip>[\\d.]+)\\/(?<dst_port>\\d+)\" | where isnotnull(dst_port) | stats count by dst_port | eval service=case(dst_port=\"3306\",\"MySQL (3306)\",dst_port=\"23\",\"Telnet (23)\",dst_port=\"5432\",\"PostgreSQL (5432)\",dst_port=\"1433\",\"MSSQL (1433)\",dst_port=\"22\",\"SSH (22)\",dst_port=\"445\",\"SMB (445)\",dst_port=\"3389\",\"RDP (3389)\",1=1,\"Port \".dst_port) | sort -count | head 10 | rename service as \"Target Service\" count as \"Scan Attempts\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | rex \"to\\s+\\w+:(?<dst_ip>[\\d.]+)\\/(?<dst_port>\\d+)\" | where isnotnull(dst_port) | stats count by dst_port | eval service=case(dst_port=\"3306\",\"MySQL (3306)\",dst_port=\"23\",\"Telnet (23)\",dst_port=\"5432\",\"PostgreSQL (5432)\",dst_port=\"1433\",\"MSSQL (1433)\",dst_port=\"22\",\"SSH (22)\",dst_port=\"445\",\"SMB (445)\",dst_port=\"3389\",\"RDP (3389)\",1=1,\"Port \".dst_port) | sort -count | head 10 | rename service as \"Target Service\" count as \"Scan Attempts\""
       }
     },
     "ds_recon_timeline": {
       "type": "ds.search",
       "name": "Reconnaissance Scan Volume Over Time",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | timechart span=4h count"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | timechart span=4h count"
       }
     },
     "ds_phishing_emails": {
       "type": "ds.search",
       "name": "Phishing Email Evidence",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:reporting:messagetrace\" | spath SenderAddress | spath RecipientAddress | spath Subject | spath Status | spath Operation | spath Reason | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day SenderAddress RecipientAddress Subject Status Operation Reason | sort day | rename day as \"Time\" SenderAddress as \"From\" RecipientAddress as \"To\" Operation as \"Action\" Reason as \"Detail\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:o365:reporting:messagetrace\" | spath SenderAddress | spath RecipientAddress | spath Subject | spath Status | spath Operation | spath Reason | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day SenderAddress RecipientAddress Subject Status Operation Reason | sort day | rename day as \"Time\" SenderAddress as \"From\" RecipientAddress as \"To\" Operation as \"Action\" Reason as \"Detail\""
       }
     },
     "ds_initial_o365": {
       "type": "ds.search",
       "name": "Initial Access O365 Activity Day 5",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/05/2026:00:00:00\" latest=\"01/06/2026:00:00:00\" | spath Operation | spath UserId | spath SourceFileName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Operation UserId SourceFileName | sort day | rename day as \"Time\" UserId as \"User\" SourceFileName as \"File\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/05/2026:00:00:00\" latest=\"01/06/2026:00:00:00\" | spath Operation | spath UserId | spath SourceFileName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Operation UserId SourceFileName | sort day | rename day as \"Time\" UserId as \"User\" SourceFileName as \"File\""
       }
     },
     "ds_network_sankey": {
       "type": "ds.search",
       "name": "Network Traffic Flow -- ASA by Subnet",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" | rex \"for\\s+\\w+:(?<src_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)\\/\" | rex \"to\\s+\\w+:(?<dst_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)\\/\" | where isnotnull(src_ip) AND isnotnull(dst_ip) | eval src_net=case(match(src_ip,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(src_ip,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(src_ip,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(src_ip,\"^172\\.16\\.\"), \"DMZ\", match(src_ip,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | eval dst_net=case(match(dst_ip,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(dst_ip,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(dst_ip,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(dst_ip,\"^172\\.16\\.\"), \"DMZ\", match(dst_ip,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | stats count as value by src_net dst_net | rename src_net as source dst_net as target | sort -value"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:cisco:asa\" | rex \"for\\s+\\w+:(?<src_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)\\/\" | rex \"to\\s+\\w+:(?<dst_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)\\/\" | where isnotnull(src_ip) AND isnotnull(dst_ip) | eval src_net=case(match(src_ip,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(src_ip,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(src_ip,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(src_ip,\"^172\\.16\\.\"), \"DMZ\", match(src_ip,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | eval dst_net=case(match(dst_ip,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(dst_ip,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(dst_ip,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(dst_ip,\"^172\\.16\\.\"), \"DMZ\", match(dst_ip,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | stats count as value by src_net dst_net | rename src_net as source dst_net as target | sort -value"
       }
     },
     "ds_lateral_entraid": {
       "type": "ds.search",
       "name": "Lateral Movement Entra ID Events",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:*\" earliest=\"01/06/2026:00:00:00\" latest=\"01/09/2026:00:00:00\" | spath operationName | spath identity | spath callerIpAddress | spath properties.riskLevel | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype operationName identity callerIpAddress properties.riskLevel | sort day | rename day as \"Time\" sourcetype as \"Source\" operationName as \"Operation\" identity as \"Identity\" callerIpAddress as \"IP\" properties.riskLevel as \"Risk\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:*\" earliest=\"01/06/2026:00:00:00\" latest=\"01/09/2026:00:00:00\" | spath operationName | spath identity | spath callerIpAddress | spath properties.riskLevel | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype operationName identity callerIpAddress properties.riskLevel | sort day | rename day as \"Time\" sourcetype as \"Source\" operationName as \"Operation\" identity as \"Identity\" callerIpAddress as \"IP\" properties.riskLevel as \"Risk\""
       }
     },
     "ds_persist_aws": {
       "type": "ds.search",
       "name": "Persistence AWS CloudTrail Activity",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/09/2026:00:00:00\" latest=\"01/12/2026:00:00:00\" | spath eventName | spath userIdentity.userName | spath requestParameters.bucketName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day eventName userIdentity.userName requestParameters.bucketName | sort day | rename day as \"Time\" eventName as \"Event\" userIdentity.userName as \"User\" requestParameters.bucketName as \"Bucket\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/09/2026:00:00:00\" latest=\"01/12/2026:00:00:00\" | spath eventName | spath userIdentity.userName | spath requestParameters.bucketName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day eventName userIdentity.userName requestParameters.bucketName | sort day | rename day as \"Time\" eventName as \"Event\" userIdentity.userName as \"User\" requestParameters.bucketName as \"Bucket\""
       }
     },
     "ds_persist_consent": {
       "type": "ds.search",
       "name": "Persistence Entra ID Audit Actions",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | spath operationName | spath properties.initiatedBy.user.userPrincipalName | spath properties.targetResources{}.displayName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName properties.initiatedBy.user.userPrincipalName properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Operation\" properties.initiatedBy.user.userPrincipalName as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:audit\" | spath operationName | spath properties.initiatedBy.user.userPrincipalName | spath properties.targetResources{}.displayName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName properties.initiatedBy.user.userPrincipalName properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Operation\" properties.initiatedBy.user.userPrincipalName as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
       }
     },
     "ds_exfil_o365": {
       "type": "ds.search",
       "name": "Exfiltration M365 File Operations",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath Operation | timechart span=4h count by Operation"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath Operation | timechart span=4h count by Operation"
       }
     },
     "ds_exfil_aws_s3": {
       "type": "ds.search",
       "name": "Exfiltration AWS S3 Operations",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath eventName | spath userIdentity.userName | stats count by eventName userIdentity.userName | sort -count | rename eventName as \"Operation\" userIdentity.userName as \"User\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath eventName | spath userIdentity.userName | stats count by eventName userIdentity.userName | sort -count | rename eventName as \"Operation\" userIdentity.userName as \"User\""
       }
     },
     "ds_exfil_evidence": {
       "type": "ds.search",
       "name": "Exfiltration Endpoint Process Evidence",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil (sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\") earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | rex \"Process Command Line:\\s*(?<cmdline>[^\\n]+)\" | rex \"CommandLine:\\s*(?<cmdline2>[^\\n]+)\" | rex \"Image:\\s*(?<process>[^\\n]+)\" | eval command=coalesce(cmdline,cmdline2) | eval process_name=coalesce(process,\"unknown\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | where isnotnull(command) | table day process_name command | sort day | rename day as \"Time\" process_name as \"Process\" command as \"Command Line\""
+        "query": "index=fake_tshrt demo_id=exfil (sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\") earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | rex \"Process Command Line:\\s*(?<cmdline>[^\\n]+)\" | rex \"CommandLine:\\s*(?<cmdline2>[^\\n]+)\" | rex \"Image:\\s*(?<process>[^\\n]+)\" | eval command=coalesce(cmdline,cmdline2) | eval process_name=coalesce(process,\"unknown\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | where isnotnull(command) | table day process_name command | sort day | rename day as \"Time\" process_name as \"Process\" command as \"Command Line\""
       }
     },
     "ds_exfil_risk": {
       "type": "ds.search",
       "name": "Exfiltration Entra ID Risk Detections",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:riskDetection\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath properties.riskEventType | spath properties.userDisplayName | spath properties.ipAddress | spath properties.riskLevel | spath properties.location.city | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day properties.userDisplayName properties.ipAddress properties.riskEventType properties.riskLevel properties.location.city | sort day | rename day as \"Time\" properties.userDisplayName as \"User\" properties.ipAddress as \"IP\" properties.riskEventType as \"Risk Type\" properties.riskLevel as \"Level\" properties.location.city as \"City\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:riskDetection\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | spath properties.riskEventType | spath properties.userDisplayName | spath properties.ipAddress | spath properties.riskLevel | spath properties.location.city | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day properties.userDisplayName properties.ipAddress properties.riskEventType properties.riskLevel properties.location.city | sort day | rename day as \"Time\" properties.userDisplayName as \"User\" properties.ipAddress as \"IP\" properties.riskEventType as \"Risk Type\" properties.riskLevel as \"Level\" properties.location.city as \"City\""
       }
     },
     "ds_response_servicenow": {
       "type": "ds.search",
       "name": "Incident Response ServiceNow Records",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:servicenow:*\" | rex \"number=\\\"(?<ticket>[^\\\"]+)\\\"\" | rex \"state=\\\"(?<state>[^\\\"]+)\\\"\" | rex \"close_notes=\\\"(?<notes>[^\\\"]+)\\\"\" | rex \"work_notes=\\\"(?<work>[^\\\"]+)\\\"\" | rex \"resolved_by_name=\\\"(?<resolver>[^\\\"]+)\\\"\" | eval detail=coalesce(notes,work,\"\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype ticket state resolver detail | sort day | rename day as \"Time\" sourcetype as \"Source\" ticket as \"Ticket\" state as \"State\" resolver as \"Resolved By\" detail as \"Details\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:servicenow:*\" | rex \"number=\\\"(?<ticket>[^\\\"]+)\\\"\" | rex \"state=\\\"(?<state>[^\\\"]+)\\\"\" | rex \"close_notes=\\\"(?<notes>[^\\\"]+)\\\"\" | rex \"work_notes=\\\"(?<work>[^\\\"]+)\\\"\" | rex \"resolved_by_name=\\\"(?<resolver>[^\\\"]+)\\\"\" | eval detail=coalesce(notes,work,\"\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype ticket state resolver detail | sort day | rename day as \"Time\" sourcetype as \"Source\" ticket as \"Ticket\" state as \"State\" resolver as \"Resolved By\" detail as \"Details\""
       }
     },
     "ds_response_entraid": {
       "type": "ds.search",
       "name": "Incident Response Entra ID Actions",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | spath operationName | spath properties.initiatedBy.user.userPrincipalName | spath properties.targetResources{}.displayName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName properties.initiatedBy.user.userPrincipalName properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Action\" properties.initiatedBy.user.userPrincipalName as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:audit\" | spath operationName | spath properties.initiatedBy.user.userPrincipalName | spath properties.targetResources{}.displayName | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName properties.initiatedBy.user.userPrincipalName properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Action\" properties.initiatedBy.user.userPrincipalName as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
       }
     },
     "ds_cross_source_matrix": {
       "type": "ds.search",
       "name": "Cross-Source Correlation Matrix",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | eval day=strftime(_time,\"%Y-%m-%d\") | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"aws:cloudtrail\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP\", match(sourcetype,\"azure:aad\"), \"EntraID\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"WinEventLog\"), \"Windows\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux\", 1=1, \"Other\") | chart count over day by source_cat | sort day"
+        "query": "index=fake_tshrt demo_id=exfil | eval day=strftime(_time,\"%Y-%m-%d\") | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"aws:cloudtrail\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP\", match(sourcetype,\"azure:aad\"), \"EntraID\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"WinEventLog\"), \"Windows\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux\", 1=1, \"Other\") | chart count over day by source_cat | sort day"
       }
     },
     "ds_mitre_mapping": {

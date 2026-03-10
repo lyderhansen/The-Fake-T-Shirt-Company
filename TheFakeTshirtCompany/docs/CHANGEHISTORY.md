@@ -4,6 +4,40 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-10 ~14:00 UTC — Dashboard & data quality fixes (16 tasks)
+
+**Summary:** Fixed 16 dashboard and data quality issues — broken panels, field name mismatches, incorrect queries, missing extractions, makeresults replacements, and generator improvements.
+
+**Dashboard query fixes (11 dashboards):**
+- `discovery_itops.xml` — Perfmon `avg(value)` → `avg(Value)` in CPU and Memory panels
+- `discovery_security_overview.xml` — DNS Blocked Domains `Domain` → `domain`
+- `scenario_cpu_runaway.xml` — Perfmon `value` → `Value` in 3 panels + scoped HTTP Error Rate to `demo_id=cpu_runaway`
+- `scenario_ddos_attack.xml` — Fixed invalid `perc()` function → `sum()/count` calculation + replaced makeresults Attack Duration with real data query
+- `scenario_dead_letter_pricing.xml` — Replaced makeresults Incident Duration with real data query + fixed invalid `perc()` in HTTP Error Rate
+- `scenario_disk_filling.xml` — Replaced empty HTTP Error Rate (MON-ATL-01 has no web traffic) with Disk I/O Utilization (`FAKE:iostat`)
+- `scenario_exfil.xml` — 20× `demo_id exfil` → `demo_id=exfil` (freetext → field syntax)
+- `scenario_exfil_absolute.xml` — 20× `demo_id exfil` → `demo_id=exfil` (freetext → field syntax)
+- `scenario_memory_leak.xml` — Replaced Perfmon panels with Linux metrics (`FAKE:vmstat`, `FAKE:cpu`) since WEB-01 is Linux
+- `scenario_phishing_test.xml` — Replaced makeresults Click Rate with real data + added 2 new panels (Credential Submitters table, Phishing Recipients by Location pie)
+- `scenario_ransomware_attempt.xml` — Replaced empty ASA query with WinEventLog 4625 (failed network logons) for Lateral Movement panel
+
+**Config fixes (props.conf, transforms.conf):**
+- `props.conf` — Meraki: renamed `EVAL-type` to `EVAL-vendor_severity` to stop overwriting original `type` field (broke `type=association` queries)
+- `props.conf` — FAKE:df: fixed reversed `FIELDALIAS-mount`, removed non-existent `FIELDALIAS-filesystem`, fixed `EVAL-storage_used_percent`
+- `transforms.conf` — Fixed `extract_linux_df_fields` regex to match actual generator output (`mount=... TotalGB=...` instead of `Filesystem=... Size=...`)
+
+**Generator fixes:**
+- `generate_aws.py` — Bounded exfil `demo_id` tagging to days 7-13 (was `day >= 7` with no upper bound, leaking beyond scenario)
+- `generate_linux.py` — Added multiple mount points per host (was single `/` for all); added `LINUX_MOUNT_POINTS` dict with realistic per-host mounts
+
+**New documentation:**
+- `docs/reference/demo_id_logic.md` — Reference doc explaining how demo_id is applied across all generators
+- `docs/plans/2026-03-10-dashboard-data-quality-fixes.md` — Implementation plan for all 16 tasks
+
+**Decision:** Kill Chain panel (scenario_exfil) stays makeresults — it's narrative/linkgraph content, not event data.
+
+---
+
 ## 2026-03-09 ~12:00 UTC — Fix hardcoded dates in phishing_test scenario
 
 **Affected files:**

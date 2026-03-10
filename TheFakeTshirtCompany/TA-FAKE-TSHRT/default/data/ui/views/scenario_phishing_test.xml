@@ -31,7 +31,7 @@
       "type": "ds.search",
       "name": "Phishing Click Rate",
       "options": {
-        "query": "| makeresults | eval count=\"31%\" | fields count"
+        "query": "index=fake_tshrt demo_id=phishing_test | eval event_type=case(sourcetype=\"FAKE:o365:reporting:messagetrace\", \"email_sent\", sourcetype=\"FAKE:azure:aad:signin\", \"credential_submit\", 1=1, NULL) | where isnotnull(event_type) | stats dc(eval(if(event_type=\"email_sent\", recipient, NULL))) as emails_sent dc(eval(if(event_type=\"credential_submit\", identity, NULL))) as submitters | eval click_rate=round(submitters/emails_sent*100, 0).\"%\" | eval count=click_rate | fields count"
       }
     },
     "ds_email_timeline": {
@@ -60,6 +60,20 @@
       "name": "Key Evidence Timeline",
       "options": {
         "query": "index=fake_tshrt demo_id=phishing_test | eval evidence=coalesce(Subject, Operation, operationName, short_description, \"event\") | eval source_label=case(match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"cisco:umbrella\"), \"DNS\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"WinEventLog\"), \"WinEvent\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"azure:aad\"), \"EntraID\", 1=1, sourcetype) | table _time source_label host evidence | sort -_time | head 50 | rename source_label as \"Source\" host as \"Host\" evidence as \"Event\""
+      }
+    },
+    "ds_credential_submitters": {
+      "type": "ds.search",
+      "name": "Credential Submitters",
+      "options": {
+        "query": "index=fake_tshrt demo_id=phishing_test sourcetype=\"FAKE:azure:aad:signin\" | spath properties.userDisplayName | spath properties.ipAddress | stats count earliest(_time) as first_seen by properties.userDisplayName properties.ipAddress | sort first_seen | rename properties.userDisplayName as \"User\" properties.ipAddress as \"Source IP\" first_seen as \"Submission Time\" | fieldformat \"Submission Time\"=strftime('Submission Time', \"%Y-%m-%d %H:%M:%S\")"
+      }
+    },
+    "ds_browser_launches": {
+      "type": "ds.search",
+      "name": "Browser Launches (Endpoint Evidence)",
+      "options": {
+        "query": "index=fake_tshrt demo_id=phishing_test sourcetype=\"FAKE:WinEventLog\" EventCode=4688 | rex \"New Process Name:\\s+(?<process>[^\\r\\n]+)\" | rex \"Account Name:\\s+(?<user>\\S+)\" max_match=2 | stats count by user process | sort -count | rename user as \"User\" process as \"Browser Process\" count as \"Launches\""
       }
     }
   },
@@ -205,6 +219,32 @@
       },
       "showProgressBar": true,
       "showLastUpdated": true
+    },
+    "viz_credential_submitters": {
+      "type": "splunk.table",
+      "title": "Credential Submitters",
+      "dataSources": {
+        "primary": "ds_credential_submitters"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_browser_launches": {
+      "type": "splunk.table",
+      "title": "Browser Launches (Endpoint Evidence)",
+      "dataSources": {
+        "primary": "ds_browser_launches"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
     }
   },
   "inputs": {
@@ -274,14 +314,24 @@
         "position": { "x": 0, "y": 670, "w": 450, "h": 350 }
       },
       {
+        "item": "viz_credential_submitters",
+        "type": "block",
+        "position": { "x": 450, "y": 670, "w": 750, "h": 350 }
+      },
+      {
+        "item": "viz_browser_launches",
+        "type": "block",
+        "position": { "x": 0, "y": 1020, "w": 1200, "h": 350 }
+      },
+      {
         "item": "viz_evidence_header",
         "type": "block",
-        "position": { "x": 0, "y": 1020, "w": 1200, "h": 50 }
+        "position": { "x": 0, "y": 1370, "w": 1200, "h": 50 }
       },
       {
         "item": "viz_key_evidence",
         "type": "block",
-        "position": { "x": 0, "y": 1070, "w": 1200, "h": 400 }
+        "position": { "x": 0, "y": 1420, "w": 1200, "h": 400 }
       }
     ]
   }

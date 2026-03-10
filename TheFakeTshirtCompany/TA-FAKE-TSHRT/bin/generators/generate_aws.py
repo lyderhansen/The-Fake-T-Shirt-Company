@@ -625,7 +625,7 @@ def aws_config_put_evaluations(base_date: str, day: int, hour: int, active_scena
     compliance = "COMPLIANT"
 
     # During exfil persistence phase, iam-user-no-mfa goes NON_COMPLIANT
-    if active_scenarios and "exfil" in active_scenarios and day >= 7 and rule == "iam-user-no-mfa":
+    if active_scenarios and "exfil" in active_scenarios and 7 <= day <= 13 and rule == "iam-user-no-mfa":
         compliance = "NON_COMPLIANT"
 
     svc = AWS_SERVICE_ROLES["svc-deployment"]

@@ -73,7 +73,7 @@
       "type": "ds.search",
       "name": "DNS Blocked Domains",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:umbrella:dns\" action=Blocked src=$src_token$ | stats count by Domain | sort -count | head 15"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:umbrella:dns\" action=Blocked src=$src_token$ | stats count by domain | sort -count | head 15"
       }
     },
     "ds_auth_failures_by_user": {

@@ -31,21 +31,21 @@
       "type": "ds.search",
       "name": "Peak CPU Usage",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Processor\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Processor)) counter=\"% Processor Time\" instance=_Total host=SQL-PROD-01 | stats max(value) as count | eval count=round(count, 0) | fields count"
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Processor\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Processor)) counter=\"% Processor Time\" instance=_Total host=SQL-PROD-01 | stats max(Value) as count | eval count=round(count, 0) | fields count"
       }
     },
     "ds_cpu_timeline": {
       "type": "ds.search",
       "name": "CPU Usage Over Time (SQL-PROD-01)",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Processor\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Processor)) counter=\"% Processor Time\" instance=_Total host=SQL-PROD-01 | timechart span=1h avg(value) as \"% CPU\""
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Processor\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Processor)) counter=\"% Processor Time\" instance=_Total host=SQL-PROD-01 | timechart span=1h avg(Value) as \"% CPU\""
       }
     },
     "ds_memory_timeline": {
       "type": "ds.search",
       "name": "Memory Usage Over Time (SQL-PROD-01)",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Memory\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Memory)) counter=\"Available MBytes\" host=SQL-PROD-01 | timechart span=1h avg(value) as \"Available MBytes\""
+        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Memory\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Memory)) counter=\"Available MBytes\" host=SQL-PROD-01 | timechart span=1h avg(Value) as \"Available MBytes\""
       }
     },
     "ds_cross_source": {
@@ -73,7 +73,7 @@
       "type": "ds.search",
       "name": "HTTP Error Rate Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval is_error=if(status>=500, 1, 0) | timechart span=1h avg(is_error) as error_rate | eval error_rate=round(error_rate*100, 1)"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" demo_id=cpu_runaway | eval is_error=if(status>=500, 1, 0) | timechart span=1h sum(is_error) as errors count as total | eval error_rate=round(errors/total*100, 1)"
       }
     },
     "ds_key_evidence": {

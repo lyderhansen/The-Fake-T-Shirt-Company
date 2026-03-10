@@ -66,7 +66,7 @@
       "type": "ds.search",
       "name": "Lateral Movement Attempts",
       "options": {
-        "query": "index=fake_tshrt demo_id=ransomware_attempt sourcetype=\"FAKE:cisco:asa\" src=10.30.30.20 dest=10.30.30.* | stats count by src dest action | sort -count | rename src as \"Source\" dest as \"Target\" action as \"Action\""
+        "query": "index=fake_tshrt demo_id=ransomware_attempt sourcetype=\"FAKE:WinEventLog\" EventCode=4625 | rex \"Source Network Address:\\s+(?<src_ip>\\S+)\" | rex \"Account Name:\\s+(?<target_account>\\S+)\" | rex \"ComputerName=(?<target_host>[^\\s\\.]+)\" | stats count by src_ip target_host target_account | sort -count | rename src_ip as \"Source IP\" target_host as \"Target Host\" target_account as \"Target Account\" count as \"Attempts\""
       }
     }
   },

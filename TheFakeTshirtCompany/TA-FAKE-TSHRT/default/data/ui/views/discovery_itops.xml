@@ -38,14 +38,14 @@
       "type": "ds.search",
       "name": "CPU Usage Over Time by Host",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" OR sourcetype=\"FAKE:Perfmon:Generic\" object=Processor counter=\"% Processor Time\" instance=_Total | timechart span=1h avg(value) by host"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" OR sourcetype=\"FAKE:Perfmon:Generic\" object=Processor counter=\"% Processor Time\" instance=_Total | timechart span=1h avg(Value) by host"
       }
     },
     "ds_memory_timeline": {
       "type": "ds.search",
       "name": "Memory Usage Over Time by Host",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" OR sourcetype=\"FAKE:Perfmon:Generic\" object=Memory counter=\"Available MBytes\" | timechart span=1h avg(value) by host"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" OR sourcetype=\"FAKE:Perfmon:Generic\" object=Memory counter=\"Available MBytes\" | timechart span=1h avg(Value) by host"
       }
     },
     "ds_disk_usage": {

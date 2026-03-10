@@ -31,7 +31,7 @@
       "type": "ds.search",
       "name": "Attack Duration",
       "options": {
-        "query": "| makeresults | eval count=\"28 hrs\" | fields count"
+        "query": "index=fake_tshrt demo_id=ddos_attack | stats min(_time) as first max(_time) as last | eval duration_hrs=round((last-first)/3600, 0) | eval count=duration_hrs.\" hrs\" | fields count"
       }
     },
     "ds_attack_timeline": {
@@ -66,7 +66,7 @@
       "type": "ds.search",
       "name": "HTTP Error Rate Over Time",
       "options": {
-        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" demo_id=ddos_attack | eval is_error=if(status>=500, 1, 0) | timechart span=1h perc(is_error) as error_rate"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" demo_id=ddos_attack | eval is_error=if(status>=500, 1, 0) | timechart span=1h sum(is_error) as errors count as total | eval error_rate=round(errors/total*100, 1)"
       }
     },
     "ds_key_evidence": {

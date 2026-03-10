@@ -31,21 +31,21 @@
       "type": "ds.search",
       "name": "Peak Memory Usage",
       "options": {
-        "query": "index=fake_tshrt demo_id=memory_leak sourcetype=\"FAKE:Perfmon:Memory\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Memory) counter=\"Available MBytes\" host=WEB-01 | stats min(value) as min_free | eval count=round((1 - min_free/16384)*100, 0) | fields count"
+        "query": "index=fake_tshrt sourcetype=\"FAKE:vmstat\" host=WEB-01 | eval memFreeMB=tonumber(memFreeMB) | stats min(memFreeMB) as min_free | eval count=round((1 - min_free/16384)*100, 0) | fields count"
       }
     },
     "ds_memory_timeline": {
       "type": "ds.search",
       "name": "Memory Available Over Time (WEB-01)",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Memory\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Memory)) counter=\"Available MBytes\" host=WEB-01 | timechart span=1h avg(value) as \"Available MBytes\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:vmstat\" host=WEB-01 | eval memFreeMB=tonumber(memFreeMB) | timechart span=1h avg(memFreeMB) as \"Available Memory (MB)\""
       }
     },
     "ds_cpu_timeline": {
       "type": "ds.search",
       "name": "CPU Usage Over Time (WEB-01)",
       "options": {
-        "query": "index=fake_tshrt (sourcetype=\"FAKE:Perfmon:Processor\" OR (sourcetype=\"FAKE:Perfmon:Generic\" object=Processor)) counter=\"% Processor Time\" instance=_Total host=WEB-01 | timechart span=1h avg(value) as \"% CPU\""
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cpu\" host=WEB-01 | eval cpu_used=100-tonumber(pctIdle) | timechart span=1h avg(cpu_used) as \"% CPU\""
       }
     },
     "ds_cross_source": {

@@ -93,12 +93,22 @@ def memory_metric(ts: str, host: str, ram_min: int, ram_max: int, hour_mult: flo
     return line
 
 
-def disk_metric(ts: str, host: str, demo_id: str = "",
-                disk_pct_override: Optional[float] = None) -> str:
-    """Generate disk metric."""
-    total_gb = 500
+# Mount points per Linux host: list of (mount_path, total_gb)
+LINUX_MOUNT_POINTS = {
+    "WEB-01":         [("/", 500), ("/var/log", 100), ("/var/www", 200)],
+    "WEB-02":         [("/", 500), ("/var/log", 100), ("/var/www", 200)],
+    "MON-ATL-01":     [("/", 500), ("/var/log", 200), ("/data", 1000)],
+    "BASTION-BOS-01": [("/", 100), ("/var/log", 50)],
+    "SAP-PROD-01":    [("/", 500), ("/usr/sap", 300), ("/sapmnt", 200)],
+    "SAP-DB-01":      [("/", 500), ("/hana/data", 2000), ("/hana/log", 500)],
+}
 
-    if disk_pct_override is not None:
+
+def disk_metric(ts: str, host: str, demo_id: str = "",
+                disk_pct_override: Optional[float] = None,
+                mount: str = "/", total_gb: int = 500) -> str:
+    """Generate disk metric for a single mount point."""
+    if disk_pct_override is not None and mount == "/":
         used_pct = disk_pct_override
     else:
         used_pct = random.uniform(40, 70)
@@ -106,7 +116,7 @@ def disk_metric(ts: str, host: str, demo_id: str = "",
     used_gb = int(total_gb * used_pct / 100)
     avail_gb = total_gb - used_gb
 
-    line = f'{ts} host={host} mount=/ TotalGB={total_gb} UsedGB={used_gb} AvailGB={avail_gb} UsedPct={used_pct:.1f}'
+    line = f'{ts} host={host} mount={mount} TotalGB={total_gb} UsedGB={used_gb} AvailGB={avail_gb} UsedPct={used_pct:.1f}'
     if demo_id:
         line += f' demo_id={demo_id}'
     return line
@@ -232,7 +242,8 @@ def generate_host_interval(base_date: str, day: int, hour: int, minute: int,
                           hour_mult, cpu_adjustment, cpu_demo_id or disk_demo_id)],
         "vmstat": [memory_metric(ts, host, server.ram_baseline_min, server.ram_baseline_max,
                                 hour_mult, total_mb, mem_pct_override, swap_kb, mem_demo_id)],
-        "df": [disk_metric(ts, host, disk_demo_id, disk_pct_override)],
+        "df": [disk_metric(ts, host, disk_demo_id, disk_pct_override, mp, gb)
+               for mp, gb in LINUX_MOUNT_POINTS.get(host, [("/", 500)])],
         "iostat": [iostat_metric(ts, host, hour_mult, disk_demo_id or cpu_demo_id)],
         "interfaces": [network_metric(ts, host, hour_mult, network_multiplier, net_demo_id)],
     }

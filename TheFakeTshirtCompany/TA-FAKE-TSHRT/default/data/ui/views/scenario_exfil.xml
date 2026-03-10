@@ -10,28 +10,28 @@
       "type": "ds.search",
       "name": "Total Exfil Events",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | stats count as total"
+        "query": "index=fake_tshrt demo_id=exfil | stats count as total"
       }
     },
     "ds_kpi_sourcetypes": {
       "type": "ds.search",
       "name": "Distinct Sourcetypes",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | stats dc(sourcetype) as total"
+        "query": "index=fake_tshrt demo_id=exfil | stats dc(sourcetype) as total"
       }
     },
     "ds_kpi_hosts": {
       "type": "ds.search",
       "name": "Distinct Hosts",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | stats dc(host) as total"
+        "query": "index=fake_tshrt demo_id=exfil | stats dc(host) as total"
       }
     },
     "ds_kpi_users": {
       "type": "ds.search",
       "name": "Distinct Users",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | where isnotnull(user) | stats dc(user) as total"
+        "query": "index=fake_tshrt demo_id=exfil | where isnotnull(user) | stats dc(user) as total"
       }
     },
     "ds_attack_flow_sankey": {
@@ -52,112 +52,112 @@
       "type": "ds.search",
       "name": "14-Day Attack Timeline by Source Category",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"Firewall (ASA)\", match(sourcetype,\"aws\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP Audit\", match(sourcetype,\"azure:aad\"), \"Entra ID\", match(sourcetype,\"o365:management\"), \"M365 Activity\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"Sysmon\"), \"Sysmon\", match(sourcetype,\"WinEventLog\"), \"Windows Events\", match(sourcetype,\"umbrella\"), \"Secure Access\", match(sourcetype,\"meraki\"), \"Meraki Network\", match(sourcetype,\"cisco:aci\"), \"ACI\", match(sourcetype,\"cisco:ios\"), \"Catalyst\", match(sourcetype,\"servicenow\"), \"ServiceNow\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux Metrics\", 1=1, \"Other\") | timechart span=1d count by source_cat"
+        "query": "index=fake_tshrt demo_id=exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"Firewall (ASA)\", match(sourcetype,\"aws\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP Audit\", match(sourcetype,\"azure:aad\"), \"Entra ID\", match(sourcetype,\"o365:management\"), \"M365 Activity\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"Sysmon\"), \"Sysmon\", match(sourcetype,\"WinEventLog\"), \"Windows Events\", match(sourcetype,\"umbrella\"), \"Secure Access\", match(sourcetype,\"meraki\"), \"Meraki Network\", match(sourcetype,\"cisco:aci\"), \"ACI\", match(sourcetype,\"cisco:ios\"), \"Catalyst\", match(sourcetype,\"servicenow\"), \"ServiceNow\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux Metrics\", 1=1, \"Other\") | timechart span=1d count by source_cat"
       }
     },
     "ds_recon_port_scans": {
       "type": "ds.search",
       "name": "Reconnaissance Port Scan Targets",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | where isnotnull(dest_port) | stats count by dest_port | eval service=case(dest_port=\"3306\",\"MySQL (3306)\",dest_port=\"23\",\"Telnet (23)\",dest_port=\"5432\",\"PostgreSQL (5432)\",dest_port=\"1433\",\"MSSQL (1433)\",dest_port=\"22\",\"SSH (22)\",dest_port=\"445\",\"SMB (445)\",dest_port=\"3389\",\"RDP (3389)\",1=1,\"Port \".dest_port) | sort -count | head 10 | rename service as \"Target Service\" count as \"Scan Attempts\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | where isnotnull(dest_port) | stats count by dest_port | eval service=case(dest_port=\"3306\",\"MySQL (3306)\",dest_port=\"23\",\"Telnet (23)\",dest_port=\"5432\",\"PostgreSQL (5432)\",dest_port=\"1433\",\"MSSQL (1433)\",dest_port=\"22\",\"SSH (22)\",dest_port=\"445\",\"SMB (445)\",dest_port=\"3389\",\"RDP (3389)\",1=1,\"Port \".dest_port) | sort -count | head 10 | rename service as \"Target Service\" count as \"Scan Attempts\""
       }
     },
     "ds_recon_timeline": {
       "type": "ds.search",
       "name": "Reconnaissance Scan Volume Over Time",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | timechart span=4h count"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:cisco:asa\" earliest=\"01/01/2026:00:00:00\" latest=\"01/05/2026:00:00:00\" | timechart span=4h count"
       }
     },
     "ds_phishing_emails": {
       "type": "ds.search",
       "name": "Phishing Email Evidence",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:reporting:messagetrace\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day SenderAddress RecipientAddress Subject Status | sort day | rename day as \"Time\" SenderAddress as \"From\" RecipientAddress as \"To\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:o365:reporting:messagetrace\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day SenderAddress RecipientAddress Subject Status | sort day | rename day as \"Time\" SenderAddress as \"From\" RecipientAddress as \"To\""
       }
     },
     "ds_initial_o365": {
       "type": "ds.search",
       "name": "Initial Access O365 Activity Day 5",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/05/2026:00:00:00\" latest=\"01/06/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Operation user file_name | sort day | rename day as \"Time\" file_name as \"File\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/05/2026:00:00:00\" latest=\"01/06/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Operation user file_name | sort day | rename day as \"Time\" file_name as \"File\""
       }
     },
     "ds_network_sankey": {
       "type": "ds.search",
       "name": "Network Traffic Flow -- ASA by Subnet",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:cisco:asa\" | where isnotnull(src) AND isnotnull(dest) | eval src_net=case(match(src,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(src,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(src,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(src,\"^172\\.16\\.\"), \"DMZ\", match(src,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | eval dest_net=case(match(dest,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(dest,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(dest,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(dest,\"^172\\.16\\.\"), \"DMZ\", match(dest,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | stats count as value by src_net dest_net | rename src_net as source dest_net as target | sort -value"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:cisco:asa\" | where isnotnull(src) AND isnotnull(dest) | eval src_net=case(match(src,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(src,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(src,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(src,\"^172\\.16\\.\"), \"DMZ\", match(src,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | eval dest_net=case(match(dest,\"^10\\.10\\.\"), \"Boston (10.10.x)\", match(dest,\"^10\\.20\\.\"), \"Atlanta (10.20.x)\", match(dest,\"^10\\.30\\.\"), \"Austin (10.30.x)\", match(dest,\"^172\\.16\\.\"), \"DMZ\", match(dest,\"^185\\.220\\.\"), \"Threat Actor\", 1=1, \"External\") | stats count as value by src_net dest_net | rename src_net as source dest_net as target | sort -value"
       }
     },
     "ds_lateral_entraid": {
       "type": "ds.search",
       "name": "Lateral Movement Entra ID Events",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:*\" earliest=\"01/06/2026:00:00:00\" latest=\"01/09/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype operationName user src properties.riskLevel | sort day | rename day as \"Time\" sourcetype as \"Source\" operationName as \"Operation\" properties.riskLevel as \"Risk\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:*\" earliest=\"01/06/2026:00:00:00\" latest=\"01/09/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype operationName user src properties.riskLevel | sort day | rename day as \"Time\" sourcetype as \"Source\" operationName as \"Operation\" properties.riskLevel as \"Risk\""
       }
     },
     "ds_persist_aws": {
       "type": "ds.search",
       "name": "Persistence AWS CloudTrail Activity",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/09/2026:00:00:00\" latest=\"01/12/2026:00:00:00\" NOT eventName=PutEvaluations | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | eval detail=coalesce(requestParameters.userName, requestParameters.policyArn, requestParameters.secretId, \"\") | table day eventName user detail src | sort day | rename day as \"Time\" eventName as \"Event\" user as \"User\" detail as \"Detail\" src as \"Source IP\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/09/2026:00:00:00\" latest=\"01/12/2026:00:00:00\" NOT eventName=PutEvaluations | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | eval detail=coalesce(requestParameters.userName, requestParameters.policyArn, requestParameters.secretId, \"\") | table day eventName user detail src | sort day | rename day as \"Time\" eventName as \"Event\" user as \"User\" detail as \"Detail\" src as \"Source IP\""
       }
     },
     "ds_persist_consent": {
       "type": "ds.search",
       "name": "Persistence Entra ID Audit Actions",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName user properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Operation\" user as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:audit\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName user properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Operation\" user as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
       }
     },
     "ds_exfil_o365": {
       "type": "ds.search",
       "name": "Exfiltration M365 File Operations",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | timechart span=4h count by Operation"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:o365:management:activity\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | timechart span=4h count by Operation"
       }
     },
     "ds_exfil_aws_s3": {
       "type": "ds.search",
       "name": "Exfiltration AWS S3 Operations",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" NOT eventName=PutEvaluations | timechart span=4h count by eventName"
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:aws:cloudtrail\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" NOT eventName=PutEvaluations | timechart span=4h count by eventName"
       }
     },
     "ds_exfil_evidence": {
       "type": "ds.search",
       "name": "Exfiltration Endpoint Process Evidence",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil (sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\") earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | where isnotnull(CommandLine) OR isnotnull(Image) | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Image CommandLine user dest | sort day | rename day as \"Time\" Image as \"Process\" CommandLine as \"Command Line\""
+        "query": "index=fake_tshrt demo_id=exfil (sourcetype=\"FAKE:WinEventLog\" OR sourcetype=\"FAKE:WinEventLog:Sysmon\") earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | where isnotnull(CommandLine) OR isnotnull(Image) | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day Image CommandLine user dest | sort day | rename day as \"Time\" Image as \"Process\" CommandLine as \"Command Line\""
       }
     },
     "ds_exfil_risk": {
       "type": "ds.search",
       "name": "Exfiltration Entra ID Risk Detections",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:riskDetection\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day user src properties.riskEventType properties.riskLevel properties.location.city | sort day | rename day as \"Time\" user as \"User\" src as \"IP\" properties.riskEventType as \"Risk Type\" properties.riskLevel as \"Level\" properties.location.city as \"City\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:riskDetection\" earliest=\"01/12/2026:00:00:00\" latest=\"01/15/2026:00:00:00\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day user src properties.riskEventType properties.riskLevel properties.location.city | sort day | rename day as \"Time\" user as \"User\" src as \"IP\" properties.riskEventType as \"Risk Type\" properties.riskLevel as \"Level\" properties.location.city as \"City\""
       }
     },
     "ds_response_servicenow": {
       "type": "ds.search",
       "name": "Incident Response ServiceNow Records",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:servicenow:*\" | eval detail=coalesce(close_notes, work_notes, \"\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype number dv_state short_description dv_assigned_to detail | sort day | rename day as \"Time\" sourcetype as \"Source\" number as \"Ticket\" dv_state as \"State\" short_description as \"Description\" dv_assigned_to as \"Assigned To\" detail as \"Details\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:servicenow:*\" | eval detail=coalesce(close_notes, work_notes, \"\") | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day sourcetype number dv_state short_description dv_assigned_to detail | sort day | rename day as \"Time\" sourcetype as \"Source\" number as \"Ticket\" dv_state as \"State\" short_description as \"Description\" dv_assigned_to as \"Assigned To\" detail as \"Details\""
       }
     },
     "ds_response_entraid": {
       "type": "ds.search",
       "name": "Incident Response Entra ID Actions",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil sourcetype=\"FAKE:azure:aad:audit\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName user properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Action\" user as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
+        "query": "index=fake_tshrt demo_id=exfil sourcetype=\"FAKE:azure:aad:audit\" | eval day=strftime(_time,\"%Y-%m-%d %H:%M\") | table day operationName user properties.targetResources{}.displayName | sort day | rename day as \"Time\" operationName as \"Action\" user as \"Initiated By\" properties.targetResources{}.displayName as \"Target\""
       }
     },
     "ds_cross_source_matrix": {
       "type": "ds.search",
       "name": "Cross-Source Correlation Matrix",
       "options": {
-        "query": "index=fake_tshrt demo_id exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"aws\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP\", match(sourcetype,\"azure:aad\"), \"EntraID\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"Sysmon\"), \"Sysmon\", match(sourcetype,\"WinEventLog\"), \"WinEvent\", match(sourcetype,\"umbrella\"), \"Umbrella\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"cisco:aci\"), \"ACI\", match(sourcetype,\"cisco:ios\"), \"Catalyst\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux\", 1=1, \"Other\") | timechart span=1d count by source_cat"
+        "query": "index=fake_tshrt demo_id=exfil | eval source_cat=case(match(sourcetype,\"cisco:asa\"), \"ASA\", match(sourcetype,\"aws\"), \"AWS\", match(sourcetype,\"google:gcp\"), \"GCP\", match(sourcetype,\"azure:aad\"), \"EntraID\", match(sourcetype,\"o365:management\"), \"M365\", match(sourcetype,\"o365:reporting\"), \"Exchange\", match(sourcetype,\"Sysmon\"), \"Sysmon\", match(sourcetype,\"WinEventLog\"), \"WinEvent\", match(sourcetype,\"umbrella\"), \"Umbrella\", match(sourcetype,\"meraki\"), \"Meraki\", match(sourcetype,\"cisco:aci\"), \"ACI\", match(sourcetype,\"cisco:ios\"), \"Catalyst\", match(sourcetype,\"servicenow\"), \"SNOW\", match(sourcetype,\"mssql\"), \"MSSQL\", match(sourcetype,\"cisco:webex\"), \"Webex\", match(sourcetype,\"cpu|interfaces|iostat|vmstat\"), \"Linux\", 1=1, \"Other\") | timechart span=1d count by source_cat"
       }
     },
     "ds_mitre_mapping": {
