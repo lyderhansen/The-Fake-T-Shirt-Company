@@ -4,6 +4,28 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-10 ~16:30 UTC — Fix OS/host logic errors and dashboard improvements
+
+**OS/host logic fix:**
+- `generate_wineventlog.py` — Moved IIS events (W3SVC) from WEB-01/WEB-02 (Linux) to APP-BOS-01 (Windows IIS server). Linux servers cannot generate Windows Event Log or run IIS.
+
+**Dashboard fixes (discovery_itops.xml):**
+- "Disk Usage by Host" bar chart — Replaced broken `rangeValue` DSL in `seriesColors` (caused empty chart) with SPL `eval status=case(...)` + `fieldColors` for green/yellow/red coloring
+- "Windows Events by Host & LogName" column chart — Filtered out workstations (`NOT host=*-WS-*`) reducing 608 rows to 9 servers, and switched to `chart` for proper stacked format
+
+**Audit completed (no issues found):**
+- `generate_perfmon.py` — correctly uses `WINDOWS_SERVERS`
+- `generate_sysmon.py` — correctly uses Windows-only `SYSMON_SERVERS` dict
+- `generate_mssql.py` — correctly targets `SQL-PROD-01` only
+- `generate_linux.py` — correctly uses `LINUX_SERVERS`
+- `generate_access.py` — correctly targets WEB-01/WEB-02 only
+- All 10 scenarios — correct OS/host mapping verified
+
+**Backlog:**
+- Exfil scenario registry lists `sysmon` as source but `exfil.py` has no sysmon event generation (needs review)
+
+---
+
 ## 2026-03-10 ~14:00 UTC — Dashboard & data quality fixes (16 tasks)
 
 **Summary:** Fixed 16 dashboard and data quality issues — broken panels, field name mismatches, incorrect queries, missing extractions, makeresults replacements, and generator improvements.

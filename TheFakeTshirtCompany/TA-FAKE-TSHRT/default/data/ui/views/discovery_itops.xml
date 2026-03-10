@@ -66,7 +66,7 @@
       "type": "ds.search",
       "name": "Windows Events by LogName",
       "options": {
-        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" by host source | rename source as LogName | sort -count"
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" NOT host=*-WS-* by host source | rename source as LogName | chart sum(count) by host LogName"
       }
     },
     "ds_infra_by_sourcetype": {
@@ -231,19 +231,16 @@
         "primary": "ds_disk_usage"
       },
       "options": {
-        "seriesColors": ["> primary | seriesByName('used_pct') | rangeValue(diskColorConfig)"],
+        "fieldColors": {
+          "normal": "#53A051",
+          "warning": "#F8BE34",
+          "critical": "#DC4E41"
+        },
         "legendDisplay": "off",
         "xAxisTitleText": "% Used",
         "xAxisTitleVisibility": "show",
         "yAxisTitleVisibility": "hide",
         "backgroundColor": "transparent"
-      },
-      "context": {
-        "diskColorConfig": [
-          { "value": "#53A051", "to": 70 },
-          { "value": "#F8BE34", "from": 70, "to": 85 },
-          { "value": "#DC4E41", "from": 85 }
-        ]
       },
       "showProgressBar": true
     },

@@ -829,7 +829,7 @@
 		"ds_9KYZwnOj": {
 			"name": "Overall signal copy 2",
 			"options": {
-				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=30m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
 			},
 			"type": "ds.search"
 		},
@@ -858,7 +858,7 @@
 		"ds_H2OQj9kx": {
 			"name": "Connected Clients",
 			"options": {
-				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n\n\n| eval id=case(match(area,\"Break Room\"),\"break_room\",\n    match(area,\"Lobby\"),\"lobby\", \n    match(area,\"Exec Reception\"),\"security\",\n    match(area,\"Reception\"),\"reception\", \n    match(area,\"Shipping\"),\"meeting_room_shipping\", \n    match(area,\"Operations\"),\"Security\",\n    match(area,\"Cafeteria\"),\"meeting_room_beacon\",\n    match(area,\"Finance East\"),\"server_room\",\n    match(area,\"Finance West\"),\"meeting_room_harbor\",\n    match(area,\"HR\"),\"parking\",\n    match(area,\"Marketing\"),\"corridor\",\n    match(area,\"CEO Office\"),\"outline\",\n    match(area,\"Legal\"),\"elevator\",\n    1==1, \"aaa\") \n| timechart span=10m sum(eventData.clientCount) as clients by id limit=10",
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n\n\n| eval id=case(match(area,\"Break Room\"),\"break_room\",\n    match(area,\"Lobby\"),\"lobby\", \n    match(area,\"Exec Reception\"),\"security\",\n    match(area,\"Reception\"),\"reception\", \n    match(area,\"Shipping\"),\"meeting_room_shipping\", \n    match(area,\"Operations\"),\"Security\",\n    match(area,\"Cafeteria\"),\"meeting_room_beacon\",\n    match(area,\"Finance East\"),\"server_room\",\n    match(area,\"Finance West\"),\"meeting_room_harbor\",\n    match(area,\"HR\"),\"parking\",\n    match(area,\"Marketing\"),\"corridor\",\n    match(area,\"CEO Office\"),\"outline\",\n    match(area,\"Legal\"),\"elevator\",\n    1==1, \"aaa\") \n| timechart span=30m sum(eventData.clientCount) as clients by id limit=10",
 				"queryParameters": {
 					"earliest": "$global_time.earliest$",
 					"latest": "$global_time.latest$"
@@ -884,7 +884,7 @@
 		"ds_La6bNUTw": {
 			"name": "Overall signal",
 			"options": {
-				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=30m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
 			},
 			"type": "ds.search"
 		},
@@ -925,7 +925,7 @@
 		"ds_TPbSgZdj": {
 			"name": "Overall signal copy 1",
 			"options": {
-				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=5m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
+				"query": "index=fake_tshrt sourcetype=\"fake:merak*\" signalQuality sourcetype=\"FAKE:meraki:accesspoints:health\" host=AP-bos-1f* OR host=AP-bos-2f* OR host=AP-bos-3f* NOT area IN (\"Engineering East\",\"Engineering West\",\"Break Room 3F\")\n| eval snr=tonumber('eventData.signalQuality.snr')\n| eval rssi=tonumber('eventData.signalQuality.rssi')\n| eval latency=tonumber('eventData.latencyStats.voiceTraffic.avg')\n| timechart span=30m\n    avg(snr) as avg_snr\n    avg(rssi) as avg_rssi\n    avg(latency) as avg_latency"
 			},
 			"type": "ds.search"
 		},

@@ -1322,21 +1322,19 @@ def generate_baseline_sql_events(base_date: str, day: int, hour: int) -> List[st
 
 
 def generate_baseline_iis_events(base_date: str, day: int, hour: int) -> List[str]:
-    """Generate baseline IIS events for web servers."""
+    """Generate baseline IIS events for APP-BOS-01 (the IIS/.NET API server)."""
     events = []
-    web_servers = ["WEB-01", "WEB-02"]
+    iis_server = "APP-BOS-01"
 
     # IIS service start on day 0
     if day == 0 and hour == 6:
-        for server in web_servers:
-            events.append(event_iis(base_date, day, hour, 0, random.randint(10, 30), server,
-                                    1073, "Information",
-                                    "World Wide Web Publishing Service (W3SVC) successfully registered."))
+        events.append(event_iis(base_date, day, hour, 0, random.randint(10, 30), iis_server,
+                                1073, "Information",
+                                "World Wide Web Publishing Service (W3SVC) successfully registered."))
 
     # Occasional worker process recycling (low frequency)
     if random.random() < 0.01:
-        server = random.choice(web_servers)
-        events.append(event_iis(base_date, day, hour, random.randint(0, 59), random.randint(0, 59), server,
+        events.append(event_iis(base_date, day, hour, random.randint(0, 59), random.randint(0, 59), iis_server,
                                 5060, "Information",
                                 "A worker process with process id of '4592' serving application pool 'DefaultAppPool' was shutdown due to worker process recycling."))
 
