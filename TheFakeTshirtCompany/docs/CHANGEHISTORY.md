@@ -4,6 +4,15 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-10 ~19:30 UTC — Null out empty demo_id for AWS Billing CSV sourcetype
+
+**props.conf:**
+- Added `EVAL-demo_id = if(demo_id="", null(), demo_id)` to `[FAKE:aws:billing:cur]` stanza
+- CSV auto-extraction via `HEADER_FIELD_LINE_NUMBER = 1` always extracts `demo_id` column, including empty values — this EVAL nulls them out so `demo_id=""` no longer appears in Splunk searches
+- Only affects `aws:billing:cur` — the only CSV-based sourcetype with a `demo_id` column header
+
+---
+
 ## 2026-03-10 ~19:00 UTC — Fix empty demo_id fields + Overview table height
 
 **overview.xml:**
