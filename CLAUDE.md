@@ -15,6 +15,7 @@
 - **Never document unverified information.** When looking up external links (Splunkbase apps, vendor documentation, API references), verify that the URL actually leads to the correct resource before including it in any file. If a link cannot be confirmed, ASK the user instead of guessing.
 - **If you can't find it, say so.** Do not fabricate or assume Splunkbase app IDs, vendor documentation URLs, or API endpoint paths. Wrong documentation is worse than no documentation.
 - **When in doubt, ask.** If web searches or URL fetches return unexpected results, 404 errors, or content that doesn't match what you expected, stop and ask the user what to do rather than proceeding with potentially incorrect information.
+- **Ask questions when not sure.** Do not guess or assume. If not 100% certain a change is correct, ask the user before making it. Uncertain items go to backlog for joint review.
 
 ## Documentation Language
 

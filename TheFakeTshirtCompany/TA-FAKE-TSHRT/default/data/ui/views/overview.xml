@@ -52,7 +52,7 @@
       "type": "ds.search",
       "name": "Scenario Summary Table",
       "options": {
-        "query": "index=fake_tshrt demo_id=* | stats count dc(sourcetype) as sources min(_time) as first_seen max(_time) as last_seen by demo_id | eval category=case(demo_id==\"exfil\" OR demo_id==\"ransomware_attempt\",\"Security\", demo_id==\"memory_leak\" OR demo_id==\"cpu_runaway\" OR demo_id==\"disk_filling\",\"Operations\", 1=1,\"Network\") | eval _color_rank=case(demo_id==\"exfil\",1, demo_id==\"ransomware_attempt\",2, demo_id==\"memory_leak\",3, demo_id==\"cpu_runaway\",4, demo_id==\"disk_filling\",5, demo_id==\"firewall_misconfig\",6, demo_id==\"certificate_expiry\",7) | eval first_seen=strftime(first_seen,\"%Y-%m-%d\"), last_seen=strftime(last_seen,\"%Y-%m-%d\") | rename demo_id as \"Scenario\" count as \"Events\" sources as \"Sourcetypes\" first_seen as \"First Seen\" last_seen as \"Last Seen\" category as \"Category\" | sort Category Scenario"
+        "query": "index=fake_tshrt demo_id=* | stats count dc(sourcetype) as sources min(_time) as first_seen max(_time) as last_seen by demo_id | eval category=case(demo_id==\"exfil\" OR demo_id==\"ransomware_attempt\" OR demo_id==\"phishing_test\",\"Security\", demo_id==\"memory_leak\" OR demo_id==\"cpu_runaway\" OR demo_id==\"disk_filling\" OR demo_id==\"dead_letter_pricing\",\"Operations\", 1=1,\"Network\") | eval _color_rank=case(demo_id==\"exfil\",1, demo_id==\"ransomware_attempt\",2, demo_id==\"phishing_test\",3, demo_id==\"memory_leak\",4, demo_id==\"cpu_runaway\",5, demo_id==\"disk_filling\",6, demo_id==\"dead_letter_pricing\",7, demo_id==\"ddos_attack\",8, demo_id==\"firewall_misconfig\",9, demo_id==\"certificate_expiry\",10) | eval first_seen=strftime(first_seen,\"%Y-%m-%d\"), last_seen=strftime(last_seen,\"%Y-%m-%d\") | rename demo_id as \"Scenario\" count as \"Events\" sources as \"Sourcetypes\" first_seen as \"First Seen\" last_seen as \"Last Seen\" category as \"Category\" | sort Category Scenario"
       }
     },
     "ds_data_catalog": {
@@ -205,11 +205,14 @@
         "scenarioRowColors": [
           { "from": 0, "to": 1.5, "value": "#DC4E41" },
           { "from": 1.5, "to": 2.5, "value": "#F1813F" },
-          { "from": 2.5, "to": 3.5, "value": "#F8BE34" },
-          { "from": 3.5, "to": 4.5, "value": "#FF677B" },
-          { "from": 4.5, "to": 5.5, "value": "#7B56DB" },
-          { "from": 5.5, "to": 6.5, "value": "#009CEB" },
-          { "from": 6.5, "to": 8, "value": "#00CDAF" }
+          { "from": 2.5, "to": 3.5, "value": "#FF677B" },
+          { "from": 3.5, "to": 4.5, "value": "#F8BE34" },
+          { "from": 4.5, "to": 5.5, "value": "#E8A435" },
+          { "from": 5.5, "to": 6.5, "value": "#7B56DB" },
+          { "from": 6.5, "to": 7.5, "value": "#AE8CFF" },
+          { "from": 7.5, "to": 8.5, "value": "#009CEB" },
+          { "from": 8.5, "to": 9.5, "value": "#00CDAF" },
+          { "from": 9.5, "to": 11, "value": "#53A051" }
         ]
       },
       "showProgressBar": true,

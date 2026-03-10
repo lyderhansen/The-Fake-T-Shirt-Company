@@ -4,6 +4,19 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-10 ~18:00 UTC — Dashboard fixes: Overview scenario table + IT Ops panels
+
+**overview.xml:**
+- Scenario Summary table: Added missing `_color_rank` for `ddos_attack`, `dead_letter_pricing`, `phishing_test` (3 of 10 rows had no background color)
+- Fixed category classification: `phishing_test` → Security, `dead_letter_pricing` → Operations (both were incorrectly classified as "Network")
+- Extended `scenarioRowColors` from 7 to 10 entries to cover all scenarios
+
+**discovery_itops.xml:**
+- "Disk Usage by Host" bar chart: Replaced broken `rangeValue` DSL in `seriesColors` with `fieldColors` + SPL `eval status=case(...)` — chart was rendering empty
+- "Windows Events by Host & LogName" column chart: Filtered workstations (`NOT host=*-WS-*`), reducing 608 rows to 9 servers for readable stacked chart
+
+---
+
 ## 2026-03-10 ~16:30 UTC — Fix OS/host logic errors and dashboard improvements
 
 **OS/host logic fix:**
