@@ -4,10 +4,16 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
-## 2026-03-10 ~19:30 UTC — Null out empty demo_id for AWS Billing CSV sourcetype
+## 2026-03-10 ~20:00 UTC — Fix IDX_demo_id extraction for AWS Billing CSV sourcetype
 
-**props.conf:**
-- Added `EVAL-demo_id = if(demo_id="", null(), demo_id)` to `[FAKE:aws:billing:cur]` stanza
+**transforms.conf:**
+- Added `[extract_demo_id_indexed_csv]` transform — regex `,"([^",]+)"\s*$` matches non-empty last CSV field (e.g. `,"ddos_attack"`) but not empty `,""`
+- Existing `extract_demo_id_indexed` only matches JSON/KV format, which doesn't apply to CSV data
+
+**props.conf (`[FAKE:aws:billing:cur]`):**
+- Changed `TRANSFORMS-demo_id` from `extract_demo_id_indexed` to `extract_demo_id_indexed_csv` for correct index-time IDX_demo_id extraction from CSV
+- Removed redundant `EXTRACT-demo_id` — CSV auto-extraction via `HEADER_FIELD_LINE_NUMBER = 1` handles search-time demo_id field
+- Added `EVAL-demo_id = if(demo_id="", null(), demo_id)` to null out empty demo_id from CSV auto-extraction
 - CSV auto-extraction via `HEADER_FIELD_LINE_NUMBER = 1` always extracts `demo_id` column, including empty values — this EVAL nulls them out so `demo_id=""` no longer appears in Splunk searches
 - Only affects `aws:billing:cur` — the only CSV-based sourcetype with a `demo_id` column header
 
