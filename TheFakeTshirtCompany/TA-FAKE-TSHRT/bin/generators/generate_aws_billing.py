@@ -319,8 +319,9 @@ def generate_aws_billing_logs(
                 "product/serviceName": service_name,
                 "resourceTags/user:Name": resource_tag,
                 "resourceTags/user:Environment": environment,
-                "demo_id": demo_id,
             }
+            if demo_id:
+                row["demo_id"] = demo_id
             all_rows.append(row)
 
         if not quiet:

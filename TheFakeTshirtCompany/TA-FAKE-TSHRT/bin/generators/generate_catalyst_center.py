@@ -231,8 +231,9 @@ def _generate_device_health(start_date: str, day: int, hour: int,
         "packetPool": round(rng.uniform(70, 90), 1),
         "packetPoolHealth": 10 if cpu_util < 50 else (9 if cpu_util < 70 else 7),
         "timestamp": ts,
-        "demo_id": demo_id,
     }
+    if demo_id:
+        event["demo_id"] = demo_id
 
     return sk, event
 
@@ -317,8 +318,9 @@ def _generate_network_health(start_date: str, day: int, hour: int,
             }
         ],
         "timestamp": ts,
-        "demo_id": demo_id,
     }
+    if demo_id:
+        event["demo_id"] = demo_id
 
     return sk, event
 
@@ -398,8 +400,9 @@ def _generate_client_health(start_date: str, day: int, hour: int,
             },
         ],
         "timestamp": ts,
-        "demo_id": demo_id,
     }
+    if demo_id:
+        event["demo_id"] = demo_id
 
     return sk, event
 
@@ -463,8 +466,9 @@ def _generate_issue(start_date: str, day: int, hour: int,
         "suggestedActions": actions,
         "impactedHosts": [],
         "timestamp": ts,
-        "demo_id": demo_id,
     }
+    if demo_id:
+        event["demo_id"] = demo_id
 
     return sk, event
 

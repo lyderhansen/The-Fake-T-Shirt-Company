@@ -4,6 +4,28 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-10 ~19:00 UTC — Fix empty demo_id fields + Overview table height
+
+**overview.xml:**
+- Increased `viz_scenario_table` height from 300px to 460px for better readability with 10 scenarios
+- Adjusted y-positions of subsequent panels (catalog header, data catalog, navigation) to accommodate
+
+**generate_aci.py:**
+- Fixed unconditional `demo_id` assignment in `_generate_fault()`, `_generate_event()`, `_generate_audit()` — now only sets `demo_id` when non-empty
+- Prevents spurious `"demo_id": ""` in all 3 ACI sourcetypes (fault, event, audit)
+
+**generate_catalyst_center.py:**
+- Fixed unconditional `"demo_id": demo_id` in all 4 event builders (device health, network health, client health, issues)
+- Prevents spurious `"demo_id": ""` in all 4 Catalyst Center sourcetypes
+
+**generate_aws_billing.py:**
+- Fixed unconditional `"demo_id": demo_id` in billing row generation
+- Prevents spurious `"demo_id": ""` in aws:billing:cur sourcetype
+
+**Verification:** Generated ACI (1831 events), Catalyst Center (1476 events) with `--scenarios=none --days=1`. Confirmed 0 occurrences of `demo_id` in baseline output across all 7 output files.
+
+---
+
 ## 2026-03-10 ~18:00 UTC — Dashboard fixes: Overview scenario table + IT Ops panels
 
 **overview.xml:**

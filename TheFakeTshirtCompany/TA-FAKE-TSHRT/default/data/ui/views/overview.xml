@@ -315,22 +315,22 @@
       {
         "item": "viz_scenario_table",
         "type": "block",
-        "position": { "x": 0, "y": 700, "w": 1200, "h": 300 }
+        "position": { "x": 0, "y": 700, "w": 1200, "h": 460 }
       },
       {
         "item": "viz_catalog_header",
         "type": "block",
-        "position": { "x": 0, "y": 1000, "w": 1200, "h": 80 }
+        "position": { "x": 0, "y": 1160, "w": 1200, "h": 80 }
       },
       {
         "item": "viz_data_catalog",
         "type": "block",
-        "position": { "x": 0, "y": 1080, "w": 1200, "h": 500 }
+        "position": { "x": 0, "y": 1240, "w": 1200, "h": 500 }
       },
       {
         "item": "viz_navigation",
         "type": "block",
-        "position": { "x": 0, "y": 1580, "w": 1200, "h": 150 }
+        "position": { "x": 0, "y": 1740, "w": 1200, "h": 150 }
       }
     ]
   }

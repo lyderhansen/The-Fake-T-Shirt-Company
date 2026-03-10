@@ -438,7 +438,8 @@ def _generate_fault(start_date: str, day: int, hour: int,
         }
     }
 
-    fault["demo_id"] = demo_id
+    if demo_id:
+        fault["demo_id"] = demo_id
 
     sort_key = _sort_ts(start_date, day, hour)
     return sort_key, fault
@@ -518,7 +519,8 @@ def _generate_event(start_date: str, day: int, hour: int,
         }
     }
 
-    event["demo_id"] = demo_id
+    if demo_id:
+        event["demo_id"] = demo_id
 
     sort_key = _sort_ts(start_date, day, hour)
     return sort_key, event
@@ -597,7 +599,8 @@ def _generate_audit(start_date: str, day: int, hour: int,
         }
     }
 
-    audit["demo_id"] = demo_id
+    if demo_id:
+        audit["demo_id"] = demo_id
 
     sort_key = _sort_ts(start_date, day, hour)
     return sort_key, audit
