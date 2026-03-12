@@ -1,0 +1,5010 @@
+
+<dashboard version="2" theme="dark">
+    <label>Splunk Use Cases</label>
+    <description></description>
+    <definition><![CDATA[
+{
+	"title": "Splunk Use Cases",
+	"description": "",
+	"inputs": {
+		"input_global_trp": {
+			"options": {
+				"defaultValue": "2026-01-01T00:00:00.000Z,2026-01-15T00:00:00.000Z",
+				"token": "global_time"
+			},
+			"title": "Global Time Range",
+			"type": "input.timerange"
+		}
+	},
+	"defaults": {
+		"dataSources": {
+			"ds.search": {
+				"options": {
+					"queryParameters": {
+						"earliest": "$global_time.earliest$",
+						"latest": "$global_time.latest$"
+					}
+				}
+			}
+		},
+		"visualizations": {
+			"global": {
+				"showProgressBar": true
+			}
+		}
+	},
+	"visualizations": {
+		"viz_0qo14Nvc": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_4RJIZ23c"
+			},
+			"options": {
+				"center": [
+					33.849215225823556,
+					-3.3274342761594653
+				],
+				"zoom": 1.0569349047342274
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Dest IP",
+			"type": "splunk.map"
+		},
+		"viz_B6vQqZBS": {
+			"options": {
+				"icon": "splunk-enterprise-kvstore://697bc7ff17c11d103c089250",
+				"showValue": false
+			},
+			"type": "splunk.singlevalueicon"
+		},
+		"viz_BrSC75Gt": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_PZK9jYCZ"
+			},
+			"options": {
+				"majorColor": "#62b3b2",
+				"sparklineDisplay": "before"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Executed Connections",
+			"type": "splunk.singlevalue"
+		},
+		"viz_EgT3amZ4": {
+			"dataSources": {
+				"primary": "ds_gW3RtdkR"
+			},
+			"title": "Different hosts",
+			"type": "splunk.singlevalue"
+		},
+		"viz_Le6eARo6": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_VkrjTKGG"
+			},
+			"options": {
+				"majorColor": "#ffffff",
+				"sparklineDisplay": "before",
+				"trendColor": "#ffffff"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Events over time",
+			"type": "splunk.singlevalue"
+		},
+		"viz_NxXBKhxp": {
+			"dataSources": {
+				"primary": "ds_5ENgTRB8"
+			},
+			"title": "Dest with most events",
+			"type": "splunk.table"
+		},
+		"viz_POJ5vCQV": {
+			"dataSources": {
+				"primary": "ds_WQb12s6I"
+			},
+			"title": "Different sourcetypes",
+			"type": "splunk.singlevalue"
+		},
+		"viz_PXAcSR4l": {
+			"options": {
+				"icon": "splunk-enterprise-kvstore://697bc83117c11d103c089251",
+				"showValue": false
+			},
+			"type": "splunk.singlevalueicon"
+		},
+		"viz_QYxrF9Zv": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_e9svVC25"
+			},
+			"options": {
+				"majorColor": "#4fa484",
+				"sparklineDisplay": "before",
+				"trendColor": "#ffffff"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Allowed Connections",
+			"type": "splunk.singlevalue"
+		},
+		"viz_XGUAq8QM": {
+			"dataSources": {
+				"primary": "ds_0sYasD3M"
+			},
+			"options": {
+				"dataValuesDisplay": "off",
+				"legendDisplay": "right",
+				"legendTruncation": "ellipsisMiddle",
+				"overlayFields": [
+					"bytes"
+				],
+				"seriesColorsByField": {
+					"_time": "#7B56DB",
+					"allowed": "#4fa484",
+					"blocked": "#af575a",
+					"executed": "#62b3b2",
+					"teardown": "#5a4575"
+				},
+				"showIndependentYRanges": false,
+				"showOverlayY2Axis": true,
+				"showRoundedY2AxisLabels": false,
+				"showSplitSeries": false,
+				"showY2MajorGridLines": true,
+				"stackMode": "stacked",
+				"xAxisLabelRotation": 0,
+				"xAxisTitleVisibility": "show",
+				"y2AxisAbbreviation": "auto",
+				"y2AxisTitleVisibility": "show",
+				"yAxisAbbreviation": "auto",
+				"yAxisScale": "linear",
+				"yAxisTitleVisibility": "show"
+			},
+			"type": "splunk.column"
+		},
+		"viz_a5v0gEYI": {
+			"dataSources": {
+				"primary": "ds_6WjVDkNb"
+			},
+			"options": {
+				"columnFormat": {
+					"host": {
+						"width": 205
+					},
+					"source": {
+						"width": 249
+					}
+				}
+			},
+			"type": "splunk.table"
+		},
+		"viz_avg_delivery_time": {
+			"dataSources": {
+				"primary": "ds_avg_delivery_time"
+			},
+			"options": {
+				"majorColor": "#f2b827",
+				"unit": " hrs",
+				"unitPosition": "after"
+			},
+			"title": "Avg Delivery Time",
+			"type": "splunk.singlevalue"
+		},
+		"viz_avg_items_per_order": {
+			"dataSources": {
+				"primary": "ds_avg_items_per_order"
+			},
+			"options": {
+				"majorColor": "#006d9c",
+				"numberPrecision": 1
+			},
+			"title": "Avg Items/Order",
+			"type": "splunk.singlevalue"
+		},
+		"viz_avg_order_value": {
+			"dataSources": {
+				"primary": "ds_avg_order_value"
+			},
+			"options": {
+				"majorColor": "#006d9c",
+				"numberPrecision": 2,
+				"unit": "$",
+				"unitPosition": "before"
+			},
+			"title": "Avg Order Value",
+			"type": "splunk.singlevalue"
+		},
+		"viz_browser_breakdown": {
+			"dataSources": {
+				"primary": "ds_browser_breakdown"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "By Browser",
+			"type": "splunk.pie"
+		},
+		"viz_cYDIHTKP": {
+			"dataSources": {
+				"primary": "ds_AQ84nVuq"
+			},
+			"options": {},
+			"type": "splunk.table"
+		},
+		"viz_cart_abandonment": {
+			"dataSources": {
+				"primary": "ds_cart_abandonment"
+			},
+			"options": {
+				"majorColor": "#dc4e41",
+				"numberPrecision": 1,
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Cart Abandonment",
+			"type": "splunk.singlevalue"
+		},
+		"viz_category_trend": {
+			"dataSources": {
+				"primary": "ds_category_trend"
+			},
+			"options": {
+				"legendDisplay": "right",
+				"xAxisTitleVisibility": "hide"
+			},
+			"title": "Category Trend",
+			"type": "splunk.line"
+		},
+		"viz_conversion_rate": {
+			"dataSources": {
+				"primary": "ds_conversion_rate"
+			},
+			"options": {
+				"majorColor": "#53a051",
+				"numberPrecision": 1,
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Conversion Rate",
+			"type": "splunk.singlevalue"
+		},
+		"viz_cp2B9yOM": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_vGkkFAWv"
+			},
+			"options": {
+				"majorColor": "#5a4575",
+				"sparklineDisplay": "before"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Teardown Connections",
+			"type": "splunk.singlevalue"
+		},
+		"viz_cuHKZ5DI": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_p3Bg19YC"
+			},
+			"options": {
+				"majorColor": "#af575a",
+				"sparklineDisplay": "before"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Blocked Connections",
+			"type": "splunk.singlevalue"
+		},
+		"viz_delivery_by_region": {
+			"dataSources": {
+				"primary": "ds_delivery_by_region"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				]
+			},
+			"title": "Delivery Time by Region",
+			"type": "splunk.bar"
+		},
+		"viz_device_breakdown": {
+			"dataSources": {
+				"primary": "ds_device_breakdown"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "By Device",
+			"type": "splunk.pie"
+		},
+		"viz_fulfillment_timeline": {
+			"dataSources": {
+				"primary": "ds_fulfillment_timeline"
+			},
+			"options": {},
+			"title": "Recent Order Fulfillment",
+			"type": "splunk.table"
+		},
+		"viz_gu3s9qqn": {
+			"options": {
+				"fillColor": "#100f0f80",
+				"rx": 50,
+				"strokeColor": "#708794",
+				"strokeDashStyle": 4,
+				"strokeOpacity": 0.9,
+				"strokeWidth": 7
+			},
+			"type": "splunk.rectangle"
+		},
+		"viz_http_status": {
+			"dataSources": {
+				"primary": "ds_http_status"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "HTTP Status",
+			"type": "splunk.pie"
+		},
+		"viz_incident_table": {
+			"dataSources": {
+				"primary": "ds_incident_table"
+			},
+			"options": {},
+			"title": "Incident Log",
+			"type": "splunk.table"
+		},
+		"viz_itops_avg_cpu": {
+			"dataSources": {
+				"primary": "ds_itops_avg_cpu"
+			},
+			"options": {
+				"backgroundColor": "#53a051",
+				"majorColor": "#ffffff",
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Avg CPU",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_critical_hosts": {
+			"dataSources": {
+				"primary": "ds_itops_critical_hosts"
+			},
+			"options": {
+				"backgroundColor": "#dc4e41",
+				"majorColor": "#ffffff"
+			},
+			"title": "🔴 Critical",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_endpoint_avg_cpu": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_avg_cpu"
+			},
+			"options": {
+				"backgroundColor": "#53a051",
+				"majorColor": "#ffffff",
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Avg CPU",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_endpoint_avg_mem": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_avg_mem"
+			},
+			"options": {
+				"backgroundColor": "#006d9c",
+				"majorColor": "#ffffff",
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Avg Memory",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_endpoint_count": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_count"
+			},
+			"options": {
+				"backgroundColor": "#006d9c",
+				"majorColor": "#ffffff"
+			},
+			"title": "💻 Endpoints",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_endpoint_cpu_dist": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_cpu_dist"
+			},
+			"options": {
+				"seriesColors": [
+					"#006d9c"
+				]
+			},
+			"title": "💻 CPU Distribution",
+			"type": "splunk.column"
+		},
+		"viz_itops_endpoint_critical": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_critical"
+			},
+			"options": {
+				"backgroundColor": "#dc4e41",
+				"majorColor": "#ffffff"
+			},
+			"title": "🔴 Critical",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_endpoint_mem_dist": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_mem_dist"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				]
+			},
+			"title": "💻 Memory Distribution",
+			"type": "splunk.column"
+		},
+		"viz_itops_endpoint_top_cpu": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_top_cpu"
+			},
+			"options": {},
+			"title": "🔥 Top CPU Consumers",
+			"type": "splunk.table"
+		},
+		"viz_itops_endpoint_top_mem": {
+			"dataSources": {
+				"primary": "ds_itops_endpoint_top_mem"
+			},
+			"options": {},
+			"title": "🔥 Top Memory Consumers",
+			"type": "splunk.table"
+		},
+		"viz_itops_http_errors": {
+			"dataSources": {
+				"primary": "ds_itops_http_errors"
+			},
+			"options": {
+				"backgroundColor": "#f8be34",
+				"majorColor": "#ffffff"
+			},
+			"title": "HTTP Errors",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_recent_events": {
+			"dataSources": {
+				"primary": "ds_itops_recent_events"
+			},
+			"options": {},
+			"title": "Recent Server Events",
+			"type": "splunk.table"
+		},
+		"viz_itops_server_count": {
+			"dataSources": {
+				"primary": "ds_itops_server_count"
+			},
+			"options": {
+				"backgroundColor": "#006d9c",
+				"majorColor": "#ffffff"
+			},
+			"title": "🏢 Servers",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_server_cpu_time": {
+			"dataSources": {
+				"primary": "ds_itops_server_cpu_time"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"DC-01": "#006d9c",
+					"DC-02": "#4fa484",
+					"FILE-01": "#5a4575",
+					"SQL-01": "#f8be34"
+				}
+			},
+			"title": "🏢 Server CPU Over Time",
+			"type": "splunk.line"
+		},
+		"viz_itops_server_disk": {
+			"dataSources": {
+				"primary": "ds_itops_server_disk"
+			},
+			"options": {
+				"seriesColors": [
+					"#7B56DB",
+					"#009CEB"
+				],
+				"showYAxisExtendedRange": false,
+				"stackMode": "stacked"
+			},
+			"title": "Server Disk Usage",
+			"type": "splunk.bar"
+		},
+		"viz_itops_server_health": {
+			"dataSources": {
+				"primary": "ds_itops_server_health"
+			},
+			"options": {},
+			"title": "🏢 Server Health Status",
+			"type": "splunk.table"
+		},
+		"viz_itops_server_mem_time": {
+			"dataSources": {
+				"primary": "ds_itops_server_mem_time"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"DC-01": "#006d9c",
+					"DC-02": "#4fa484",
+					"FILE-01": "#5a4575",
+					"SQL-01": "#f8be34"
+				}
+			},
+			"title": "🏢 Server Memory Over Time",
+			"type": "splunk.line"
+		},
+		"viz_itops_total_hosts": {
+			"dataSources": {
+				"primary": "ds_itops_total_hosts"
+			},
+			"options": {
+				"backgroundColor": "#5a4575",
+				"majorColor": "#ffffff"
+			},
+			"title": "Total Hosts",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_web_avg_response": {
+			"dataSources": {
+				"primary": "ds_itops_web_avg_response"
+			},
+			"options": {
+				"backgroundColor": "#53a051",
+				"majorColor": "#ffffff",
+				"unit": " ms",
+				"unitPosition": "after"
+			},
+			"title": "Avg Response",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_web_error_rate": {
+			"dataSources": {
+				"primary": "ds_itops_web_error_rate"
+			},
+			"options": {
+				"backgroundColor": "#dc4e41",
+				"majorColor": "#ffffff",
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Error Rate",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_web_http_status": {
+			"dataSources": {
+				"primary": "ds_itops_web_http_status"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"2xx Success": "#53a051",
+					"3xx Redirect": "#006d9c",
+					"4xx Client Error": "#f8be34",
+					"5xx Server Error": "#dc4e41"
+				},
+				"showDonutHole": true
+			},
+			"title": "HTTP Status",
+			"type": "splunk.pie"
+		},
+		"viz_itops_web_p95_response": {
+			"dataSources": {
+				"primary": "ds_itops_web_p95_response"
+			},
+			"options": {
+				"backgroundColor": "#f8be34",
+				"majorColor": "#ffffff",
+				"unit": " ms",
+				"unitPosition": "after"
+			},
+			"title": "P95 Response",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_web_req_sec": {
+			"dataSources": {
+				"primary": "ds_itops_web_req_sec"
+			},
+			"options": {
+				"backgroundColor": "#006d9c",
+				"majorColor": "#ffffff",
+				"unit": "/s",
+				"unitPosition": "after"
+			},
+			"title": "Requests",
+			"type": "splunk.singlevalue"
+		},
+		"viz_itops_web_requests_time": {
+			"dataSources": {
+				"primary": "ds_itops_web_requests_time"
+			},
+			"options": {
+				"seriesColors": [
+					"#006d9c"
+				]
+			},
+			"title": "🌐 Requests Over Time",
+			"type": "splunk.area"
+		},
+		"viz_itops_web_response_time": {
+			"dataSources": {
+				"primary": "ds_itops_web_response_time"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Avg (ms)": "#53a051",
+					"P95 (ms)": "#dc4e41"
+				}
+			},
+			"title": "🌐 Response Time Trend",
+			"type": "splunk.line"
+		},
+		"viz_itops_web_slowest_uri": {
+			"dataSources": {
+				"primary": "ds_itops_web_slowest_uri"
+			},
+			"options": {},
+			"title": "🐢 Slowest URIs",
+			"type": "splunk.table"
+		},
+		"viz_itops_win_events_type": {
+			"dataSources": {
+				"primary": "ds_itops_win_events_type"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Account Changes": "#f8be34",
+					"Authentication": "#006d9c",
+					"Other": "#708794",
+					"Process Creation": "#53a051"
+				},
+				"showDonutHole": true
+			},
+			"title": "Windows Events",
+			"type": "splunk.pie"
+		},
+		"viz_iw1bZ9XC": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_tCfq542K"
+			},
+			"options": {
+				"stackMode": "stacked"
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Events",
+			"type": "splunk.area"
+		},
+		"viz_journey_time_distribution": {
+			"dataSources": {
+				"primary": "ds_journey_time_distribution"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				]
+			},
+			"title": "Time to Purchase",
+			"type": "splunk.column"
+		},
+		"viz_k11zynFG": {
+			"dataSources": {
+				"primary": "ds_VpLRNMgU"
+			},
+			"options": {
+				"columnFormat": {
+					"source": {
+						"width": 346
+					}
+				}
+			},
+			"type": "splunk.table"
+		},
+		"viz_onLdwisR": {
+			"options": {
+				"fontFamily": "Splunk Data Sans",
+				"fontSize": "extraLarge",
+				"markdown": "# Demo Environment"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_order_status": {
+			"dataSources": {
+				"primary": "ds_order_status"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "Order Status",
+			"type": "splunk.pie"
+		},
+		"viz_orders_over_time": {
+			"dataSources": {
+				"primary": "ds_orders_over_time"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				],
+				"xAxisTitleVisibility": "hide"
+			},
+			"title": "Orders Over Time",
+			"type": "splunk.line"
+		},
+		"viz_orders_per_hour": {
+			"dataSources": {
+				"primary": "ds_orders_per_hour"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				]
+			},
+			"title": "Orders by Hour",
+			"type": "splunk.column"
+		},
+		"viz_pBGytsZy": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_7P0YDyNj"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"type": "splunk.pie"
+		},
+		"viz_pageviews_to_purchase": {
+			"dataSources": {
+				"primary": "ds_pageviews_to_purchase"
+			},
+			"options": {
+				"seriesColors": [
+					"#006d9c"
+				]
+			},
+			"title": "Pageviews to Purchase",
+			"type": "splunk.column"
+		},
+		"viz_payment_methods": {
+			"dataSources": {
+				"primary": "ds_payment_methods"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "Payment Methods",
+			"type": "splunk.pie"
+		},
+		"viz_q6WWCzRj": {
+			"dataSources": {
+				"primary": "ds_nk5FmglV"
+			},
+			"description": "",
+			"title": "Src with most events",
+			"type": "splunk.table"
+		},
+		"viz_qbaONAhp": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_jWbtsC5E"
+			},
+			"options": {
+				"showInternalFields": false
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Top 10 Source IP",
+			"type": "splunk.table"
+		},
+		"viz_readme_cpurunaway": {
+			"options": {
+				"markdown": "# Network Scenarios\n\n## DDoS Attack (Days 18-19)\ndemo_id=ddos_attack | Target: WEB-01 (172.16.1.10)\n\n```\nVolumetric HTTP flood from botnet targeting DMZ web servers.\nService degradation and partial outage. Requires --days=19+.\n```\n\n```\nSources: access, orders, asa, catalyst_center, perfmon, linux,\nmeraki, aws, aws_billing, catalyst, aci, servicenow, sap\n```\n\n---\n\n## Firewall Misconfig (Day 6)\ndemo_id=firewall_misconfig | Target: FW-EDGE-01\n\n```\nACL misconfiguration blocks inbound DMZ traffic.\n2-hour outage: 10:15 - 12:05.\nRoot cause: human error (network admin push).\n```\n\n```\nSources: asa, servicenow, catalyst\n```\n\n---\n\n## Certificate Expiry (Day 13)\ndemo_id=certificate_expiry | Target: FW-EDGE-01\n\n```\nSSL certificate expires causing 7-hour outage (00:00-07:00).\nPreventable with monitoring.\n```\n\n```\nSources: asa, access, servicenow\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_exfil": {
+			"options": {
+				"markdown": "# Exfil -- APT Data Exfiltration\nCategory: Attack | Days: 0-13 | demo_id=exfil\n\n```\nThreat Actor: 185.220.101.42 (Frankfurt, AS205100)\nInitial Target: jessica.brown (IT Admin, Atlanta)\nPrimary Target: alex.miller (Finance, Boston)\nAttack Path:   ATL (compromise) -> BOS (exfil)\n```\n\n```\nDAY  TIME   EVENT\n---------------------------------------------------------------\nRECONNAISSANCE (Days 0-3)\n 0   14:00  Port scanning from 185.220.101.42\n 0   16:42  Phishing email to jessica.brown\n            (from security@rnicrosoft-security.com)\n 0   20-23h Peak scanning (45-65 events/hr)\n1-3  daily  Continued scanning + Entra ID\n            password spray against alex.miller\n\nINITIAL ACCESS (Day 4)\n 4   09:14  Jessica clicks phishing link (ATL)\n 4   10:10  Sysmon: msedge.exe DNS -> threat IP\n 4   10:22  PowerShell payload drops (encoded)\n 4   10:23  C2 callback to 185.220.101.42:443\n 4   10:15  Entra ID: jessica login from threat IP\n 4   22:00  Mailbox access via OWA from threat IP\n 4   23:00  Mailbox search: password, admin, vpn,\n            azure, aws, credentials\n 4   23:45  Inbox rule: forward to protonmail.com\n\nLATERAL MOVEMENT (Days 5-7)\n 5   10:15  Password reset email for alex.miller\n 5   11:15  AD enumeration (net view, Domain Admins)\n 6   02:22  jessica resets alex.miller password\n 6   02:23  Deletes alex.miller MFA (Entra ID)\n 6   02:25  First alex.miller login from threat IP\n 6   02:26  Registers new MFA on alex's account\n 6   14:30  Mimikatz: sekurlsa::logonpasswords\n 6   14:35  SMB lateral to DC-BOS-01, FILE-BOS-01\n 7   09:45  Arrives at alex's BOS workstation\n 7   09:46  Maps \\\\FILE-BOS-01\\finance$ share\n\nPERSISTENCE (Days 8-10)\n 8   02:15  Registry Run key persistence (svchost)\n 8   02:16  Scheduled task: WindowsHealthCheck\n 8   10:45  AWS: IAM user svc-datasync created\n 8   10:46  AWS: AdministratorAccess attached\n 8   10:00  GCP: SA svc-gcs-sync created\n 8   11:00  alex.miller added to Domain Admins\n 8   10:00  GuardDuty: MaliciousIPCaller alert\n 9   14:10  7z.exe compresses Finance data (batch 1)\n 9   11:00  MSSQL: xp_cmdshell from alex.miller\n10   03:10  More batches compressed (batch 2-4)\n\nEXFILTRATION (Days 11-13)\n11   01:15  rclone.exe -> GCP Storage + AWS S3\n11   01-03h ASA: large TCP sessions to threat IP\n            (500MB-2.5GB each, 3-4/hour)\n11   10:00  GuardDuty: S3 Exfiltration alert\n12   02:22  rclone batches 2-3 exfiltrated\n12   04:30  sec.admin revokes alex sessions\n12   04:35  alex.miller confirmed compromised\n12   14:30  sec.admin removes jessica inbox rule\n12         ServiceNow: 3 incidents (P1+P2+P2)\n13   01:30  Final batch exfiltrated (~4.1GB total)\n13   01:45  Cleanup: del data_batch_*.zip\n```\n\n```\nAffected Sources (19)\nasa, aws, gcp, entraid, exchange, wineventlog, sysmon,\noffice_audit, meraki, secure_access, mssql, linux,\nperfmon, servicenow, webex, webex_api, aws_billing,\nguardduty, aci, catalyst\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_fwmisconfig": {
+			"options": {
+				"markdown": "# Ops Scenarios\n\n## Memory Leak (Days 7-10)\ndemo_id=memory_leak | Target: WEB-01 (172.16.1.10)\n\n```\nGradual memory exhaustion -> OOM crash Day 9 at 14:00.\nManual restart required.\n\nDAY  MEMORY   STATUS\n---------------------------------------------------------------\n 7   74%      Degrading, response times rising\n 8   82-85%   Warning threshold, users complaining\n 9   92-99%   OOM crash at 14:00, restart at 15:00\n10   45%      Service restored, monitoring\n```\n\n```\nSources: access, orders, servicebus, linux, asa, sap,\ncatalyst_center, servicenow, aws\n```\n\n---\n\n## CPU Runaway (Days 11-12)\ndemo_id=cpu_runaway | Target: SQL-PROD-01 (10.10.20.30)\n\n```\nStuck SQL backup job -> 100% CPU -> DB connection failures\n-> web errors. Manual fix Day 12 at 10:30.\n```\n\n```\nSources: access, orders, perfmon, catalyst_center, sap, mssql,\nwineventlog, servicenow, aci, gcp, aws\n```\n\n---\n\n## Disk Filling (Days 1-5)\ndemo_id=disk_filling | Target: MON-ATL-01 (10.20.20.30)\n\n```\nAtlanta monitoring server disk: 45% -> 98% over 5 days.\nSources: access, orders, linux, servicenow, sap\n```\n\n---\n\n## Dead Letter Pricing (Day 16)\ndemo_id=dead_letter_pricing | Target: WEB-01 (ServiceBus)\n\n```\nServiceBus dead-letter queue causes 4-6 hours of wrong\nproduct pricing on web store. Requires --days=16+.\nSources: access, orders, servicebus, sap, servicenow\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_infra_network": {
+			"options": {
+				"markdown": "## Locations\n\n```\nLOCATION     CODE  TYPE           EMPLOYEES  NETWORK\n---------------------------------------------------------------\nBoston, MA   BOS   Headquarters   ~93        10.10.x.x\nAtlanta, GA  ATL   IT/Regional    ~43        10.20.x.x\nAustin, TX   AUS   Sales/Eng      ~39        10.30.x.x\n```\n\n## Network Architecture\n\n```\nSEGMENT              CIDR               PURPOSE\n---------------------------------------------------------------\nBOS Servers          10.10.20.0/24      DC, SQL, File, App, SAP\nBOS Users (Wired)    10.10.30.0/23      Workstations\nBOS Users (WiFi)     10.10.40.0/23      Wireless clients\nBOS Management       10.10.10.0/24      Bastion, network mgmt\nDMZ                  172.16.1.0/24      Web servers (WEB-01/02)\nATL Servers          10.20.20.0/24      DC, Backup, Monitoring\nATL Users            10.20.30.0/24      Workstations\nAUS Users            10.30.30.0/24      Workstations (no servers)\nVPN Pool             10.250.0.0/24      Remote access (.10-.209)\n```\n\n## Cloud\n\n```\nPLATFORM    ACCOUNT/PROJECT              REGION\n---------------------------------------------------------------\nAWS         123456789012                 us-east-1\nGCP         faketshirtcompany-prod-01    us-central1\nAzure       theTshirtCompany.com         (Entra ID tenant)\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_infra_servers": {
+			"options": {
+				"markdown": "# Infrastructure -- Servers (13 total)\n\n## Boston HQ (10.10.x.x) -- 10 servers\n\n```\nHOSTNAME         IP            OS       ROLE\n---------------------------------------------------------------\nDC-BOS-01        10.10.20.10   Windows  Domain Controller\nDC-BOS-02        10.10.20.11   Windows  Domain Controller\nFILE-BOS-01      10.10.20.20   Windows  File Server\nSQL-PROD-01      10.10.20.30   Windows  SQL Database\nAPP-BOS-01       10.10.20.40   Windows  e-Commerce API (IIS)\nSAP-PROD-01      10.10.20.60   Linux    SAP Application Server\nSAP-DB-01        10.10.20.61   Linux    SAP HANA Database\nBASTION-BOS-01   10.10.10.10   Linux    Bastion Host (mgmt)\nWEB-01           172.16.1.10   Linux    Web Server (DMZ)\nWEB-02           172.16.1.11   Linux    Web Server (DMZ)\n```\n\n## Atlanta Hub (10.20.x.x) -- 3 servers\n\n```\nHOSTNAME         IP            OS       ROLE\n---------------------------------------------------------------\nDC-ATL-01        10.20.20.10   Windows  Domain Controller\nBACKUP-ATL-01    10.20.20.20   Windows  Backup Server\nMON-ATL-01       10.20.20.30   Linux    Monitoring Server\n```\n\nAustin (10.30.x.x) -- 0 servers (branch office, no local infra)",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_memleak": {
+			"options": {
+				"markdown": "# Ransomware Attempt\nCategory: Attack | Days: 8-9 | demo_id=ransomware_attempt\n\n```\nPROPERTY             VALUE\n---------------------------------------------------------------\nTarget               Brooklyn White (Sales Engineer, Austin)\nTarget IP            10.30.30.20\nVector               Malicious email attachment\nOutcome              Blocked by EDR within 10 minutes\nDuration             ~2 hours total incident\n```\n\n```\nAffected Sources: asa, exchange, wineventlog, meraki,\nservicenow, office_audit, sysmon, secure_access, entraid\n```\n\n```\nindex=fake_tshrt demo_id=ransomware_attempt\n| stats count by sourcetype | sort -count\n```\n\n---\n\n# Phishing Test\nCategory: Attack | Days: 21-23 | demo_id=phishing_test\n\n```\nPROPERTY             VALUE\n---------------------------------------------------------------\nTarget               All 175 employees\nPurpose              IT awareness campaign (post-exfil)\nMethod               Simulated phishing emails\nTracking             Click rates per department/location\nRequires             --days=23 or higher\n```\n\n```\nAffected Sources: exchange, secure_access, office_audit,\nwineventlog, servicenow, entraid\n```\n\n```\nindex=fake_tshrt demo_id=phishing_test\n| stats count by sourcetype | sort -count\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_overview": {
+			"options": {
+				"markdown": "# The Fake T-Shirt Company\n## Multi-Domain Demo Environment\n\nA comprehensive Splunk demo environment generating correlated\nsynthetic logs across 24 data sources and 40+ sourcetypes.\nSimulates a fictional e-commerce company with 175 employees\nacross 3 US locations and 13 servers.\n\n```\nUSE CASE        DESCRIPTION\n---------------------------------------------------------------\nSecurity        SOC monitoring, threat detection, incident\n                response, MITRE ATT&CK mapping, phishing\n\nIT-Ops          Server health, CPU/memory monitoring,\n                application performance, capacity planning\n\nBusiness        E-commerce analytics, conversion funnels,\n                revenue tracking, customer journeys\n\nNetwork         Firewall analysis, SD-WAN, traffic patterns,\n                VPN monitoring, outage detection\n\nCollaboration   Webex meetings, email trace, Office 365\n                audit, user activity\n```\n\n```\nPROPERTY        VALUE\n---------------------------------------------------------------\nOrganization    theTshirtCompany.com\nTenant ID       af23e456-7890-1234-5678-abcdef012345\nTime Period     January 1-14, 2026 (default)\nData Sources    24 generators, 40+ sourcetypes\nScenarios       10 (Attack, IT-Ops, Network)\nEmployees       175 across 3 locations\nServers         13 across 2 locations\nIndex           fake_tshrt (FAKE: sourcetype prefix)\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_searches": {
+			"options": {
+				"markdown": "# Key Searches\n\n## Find Scenario Events\n\n```\nindex=fake_tshrt demo_id=exfil\nindex=fake_tshrt demo_id=ransomware_attempt\nindex=fake_tshrt demo_id=phishing_test\nindex=fake_tshrt demo_id=memory_leak\nindex=fake_tshrt demo_id=cpu_runaway\nindex=fake_tshrt demo_id=disk_filling\nindex=fake_tshrt demo_id=dead_letter_pricing\nindex=fake_tshrt demo_id=ddos_attack\nindex=fake_tshrt demo_id=firewall_misconfig\nindex=fake_tshrt demo_id=certificate_expiry\n```\n\n## Track Threat Actor\n\n```\nindex=fake_tshrt (src=185.220.101.42 OR dest=185.220.101.42)\n| stats count by sourcetype, action\n```\n\n## Compromised User Activity\n\n```\nindex=fake_tshrt (user=\"alex.miller\" OR src=10.10.30.55)\n| timechart span=1h count by sourcetype\n```\n\n## Cross-Source Correlation\n\n```\nindex=fake_tshrt demo_id=*\n| stats count by demo_id, sourcetype\n| sort demo_id, -count\n```\n\n## Scenario Overview (tstats)\n\n```\n| tstats count WHERE index=fake_tshrt IDX_demo_id=*\n  BY IDX_demo_id, sourcetype\n| rename IDX_demo_id AS demo_id\n| sort demo_id, -count\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_sources_business": {
+			"options": {
+				"markdown": "## Business, ERP & ITSM\n\n```\nSOURCE          SOURCETYPE                   DESCRIPTION\n---------------------------------------------------------------\nOrders          FAKE:retail:orders           E-commerce transactions:\n                                             customer, products, pricing\n\nServiceBus      FAKE:azure:servicebus        Order processing queue,\n                                             dead-letter monitoring\n\nSAP S/4HANA     FAKE:sap:auditlog            ERP audit: VA01 (orders),\n                                             VL01N (delivery), VF01\n                                             (billing), MM01 (material)\n\nServiceNow      FAKE:servicenow:incident     ITSM incidents correlated\n                                             with all scenarios\n\nWebex Events    FAKE:cisco:webex:events       Meeting join/leave events\nWebex History   FAKE:cisco:webex:meetings:*   Meeting summaries\nWebex API       FAKE:cisco:webex:*            Room/device telemetry\n```\n\n```\nCorrelation: tshirtcid links web sessions -> orders -> ServiceBus -> SAP\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_sources_cloud": {
+			"options": {
+				"markdown": "## Cloud & Security\n\n```\nSOURCE              SOURCETYPE\n--------------------------------------------------\nAWS CloudTrail      FAKE:aws:cloudtrail\nAWS Billing         FAKE:aws:billing:cur\nAWS GuardDuty       FAKE:aws:cloudwatch:guardduty\nGCP Audit           FAKE:google:gcp:pubsub:message\nCisco Secure Access FAKE:cisco:umbrella:dns\n                    FAKE:cisco:umbrella:proxy\n                    FAKE:cisco:umbrella:firewall\n                    FAKE:cisco:umbrella:audit\nCatalyst Center     FAKE:cisco:catalyst:\n                    devicehealth/networkhealth/\n                    clienthealth/issue\n```\n\nAWS covers IAM, S3, EC2, console\nlogins. GCP covers Compute, Storage,\nIAM. Secure Access provides DNS,\nproxy, and cloud firewall logs for\nall users and locations.",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_sources_identity": {
+			"options": {
+				"markdown": "## Identity & Email\n\n```\nSOURCE            SOURCETYPE\n--------------------------------------------\nEntra Sign-in     FAKE:azure:aad:signin\nEntra Audit       FAKE:azure:aad:audit\nExchange          FAKE:ms:o365:reporting:\n                  messagetrace\nOffice 365 Audit  FAKE:o365:management:\n                  activity\n```\n\nEntra ID covers user auth, MFA,\nConditional Access, geo-location,\nand risk scoring. Exchange provides\nemail trace with spam/phishing\nfiltering. O365 Audit covers\nSharePoint, OneDrive, Teams, and\nadmin activity.",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_sources_linux": {
+			"options": {
+				"markdown": "## Linux & Web\n\n```\nSOURCE          SOURCETYPE\n----------------------------------------------\nLinux CPU       FAKE:cpu\nLinux Memory    FAKE:vmstat\nLinux Disk      FAKE:df\nLinux I/O       FAKE:iostat\nLinux Network   FAKE:interfaces\nLinux Auth      FAKE:linux:auth\nWeb Access      FAKE:access_combined\n```\n\nWeb access logs include session_id\n(tshirtcid cookie) and response_time\n(ms) for end-to-end correlation with\norders and ServiceBus.",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_sources_network": {
+			"options": {
+				"markdown": "# Data Sources\n\n## Network\n\n```\nSOURCE              SOURCETYPE                    DESCRIPTION\n---------------------------------------------------------------\nCisco ASA           FAKE:cisco:asa                Perimeter firewall (FW-EDGE-01):\n                                                  connections, ACL, NAT, VPN, IDS\n\nMeraki MX           FAKE:meraki:mx                SD-WAN gateways: firewall, VPN,\n                                                  URLs, IDS, health metrics\n\nMeraki MR           FAKE:meraki:mr                Wireless APs (36): association,\n                                                  802.1X, rogue AP detection\n\nMeraki MS           FAKE:meraki:ms                Switches (11): port status, STP,\n                                                  802.1X port authentication\n\nMeraki MV           FAKE:meraki:mv                Cameras (15): motion/person\n                                                  detection, analytics, health\n\nMeraki MT           FAKE:meraki:mt                Sensors (52): temp, humidity,\n                                                  door, water leak\n\nCisco Catalyst      FAKE:cisco:ios                Campus LAN switches (IOS-XE):\n                                                  all 3 sites, core/dist/access\n\nCisco ACI           FAKE:cisco:aci:fault          Data center fabric (Boston DC):\n                    FAKE:cisco:aci:event           spine/leaf, faults, events, audit\n                    FAKE:cisco:aci:audit\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_sources_windows": {
+			"options": {
+				"markdown": "## Windows\n\n```\nSOURCE          SOURCETYPE\n----------------------------------------------\nWinEventLog     FAKE:WinEventLog\nSysmon          FAKE:WinEventLog:Sysmon\nPerfmon         FAKE:perfmon\nMSSQL           FAKE:mssql:errorlog\n```\n\n```\nKey WinEventLog Event Codes\nCODE    DESCRIPTION\n----------------------------------------------\n4624    Successful logon\n4625    Failed logon\n4648    Explicit credentials used\n4672    Special privileges assigned\n4688    Process creation\n4720    User account created\n4732    Member added to group\n1074    Planned system shutdown\n6008    Unexpected shutdown\n```\n\n```\nKey Sysmon Event IDs\nCODE    DESCRIPTION\n----------------------------------------------\n1       Process creation\n3       Network connection\n7       Image loaded\n11      File created\n13      Registry value set\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_readme_timeline": {
+			"options": {
+				"markdown": "# Scenario Timeline\n\n```\nSCENARIO               CATEGORY  DAYS    TARGET\n---------------------------------------------------------------\nData Exfiltration      Attack    1-14    Alex Miller (Finance)\nRansomware Attempt     Attack    8-9     Brooklyn White (Sales)\nPhishing Test          Attack    21-23   All employees\nDisk Filling           Ops       1-5     MON-ATL-01\nMemory Leak            Ops       7-10    WEB-01\nCPU Runaway            Ops       11-12   SQL-PROD-01\nDead Letter Pricing    Ops       16      WEB-01 (ServiceBus)\nFirewall Misconfig     Network   6       FW-EDGE-01\nCertificate Expiry     Network   13      FW-EDGE-01\nDDoS Attack            Network   18-19   WEB-01\n```\n\n```\n14-Day View (default --days=14):\n\n           1  2  3  4  5  6  7  8  9 10 11 12 13 14\n           -  -  -  -  -  -  -  -  -  -  -  -  -  -\nEXFIL      +  +  +  *  X  X  X  X  X  #  #  #  #  .\nDISK       +  *  X  X  #  .  .  .  .  .  .  .  .  .\nFWMSCFG    .  .  .  .  .  #  .  .  .  .  .  .  .  .\nMEMLEAK    .  .  .  .  .  .  +  *  #  *  .  .  .  .\nRANSOM     .  .  .  .  .  .  .  *  #  .  .  .  .  .\nCPURUN     .  .  .  .  .  .  .  .  .  .  #  X  .  .\nCERTEXP    .  .  .  .  .  .  .  .  .  .  .  .  #  .\n           -  -  -  -  -  -  -  -  -  -  -  -  -  -\n\n.  Baseline       No scenario activity\n+  Early          Initial signs, reconnaissance\n*  Active         Scenario in progress\nX  Escalating     Growing impact, degradation\n#  CRITICAL       Peak impact, outage, breach\n\nScenarios on days 15+ (phishing, dead_letter, ddos)\nrequire --days=23 or higher.\n```",
+				"fontSize": "large",
+				"fontColor": "#C3CBD4"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_repeat_customers": {
+			"dataSources": {
+				"primary": "ds_repeat_customers"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "New vs Repeat",
+			"type": "splunk.pie"
+		},
+		"viz_repeat_rate": {
+			"dataSources": {
+				"primary": "ds_repeat_rate"
+			},
+			"options": {
+				"majorColor": "#53a051",
+				"numberPrecision": 1,
+				"unit": "%",
+				"unitPosition": "after"
+			},
+			"title": "Repeat Customer %",
+			"type": "splunk.singlevalue"
+		},
+		"viz_response_time_trend": {
+			"dataSources": {
+				"primary": "ds_response_time_trend"
+			},
+			"options": {
+				"legendDisplay": "top",
+				"seriesColors": [
+					"#006d9c",
+					"#dc4e41"
+				]
+			},
+			"title": "Response Time Trend",
+			"type": "splunk.line"
+		},
+		"viz_revenue_by_day": {
+			"dataSources": {
+				"primary": "ds_revenue_by_day"
+			},
+			"options": {
+				"seriesColors": [
+					"#1a9035"
+				]
+			},
+			"title": "Revenue by Day of Week",
+			"type": "splunk.column"
+		},
+		"viz_revenue_loss": {
+			"dataSources": {
+				"primary": "ds_revenue_loss"
+			},
+			"options": {
+				"majorColor": "#dc4e41",
+				"unit": "$",
+				"unitPosition": "before"
+			},
+			"title": "Est. Revenue Loss",
+			"type": "splunk.singlevalue"
+		},
+		"viz_revenue_over_time": {
+			"dataSources": {
+				"primary": "ds_revenue_over_time"
+			},
+			"options": {
+				"seriesColors": [
+					"#1a9035"
+				],
+				"xAxisTitleVisibility": "hide"
+			},
+			"title": "Revenue Over Time",
+			"type": "splunk.area"
+		},
+		"viz_sales_by_category": {
+			"dataSources": {
+				"primary": "ds_sales_by_category"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "Sales by Category",
+			"type": "splunk.pie"
+		},
+		"viz_sales_funnel": {
+			"dataSources": {
+				"primary": "ds_sales_funnel"
+			},
+			"options": {},
+			"title": "Sales Funnel",
+			"type": "splunk.table"
+		},
+		"viz_sankey": {
+			"dataSources": {
+				"primary": "ds_sankey"
+			},
+			"options": {},
+			"title": "Customer Journey Flow",
+			"type": "splunk.sankey"
+		},
+		"viz_sec_allowed_conn": {
+			"dataSources": {
+				"primary": "ds_sec_allowed_conn"
+			},
+			"options": {
+				"backgroundColor": "#4fa484",
+				"majorColor": "#ffffff"
+			},
+			"title": "Allowed Connections",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_auth_by_app": {
+			"dataSources": {
+				"primary": "ds_sec_auth_by_app"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "Auth by Application",
+			"type": "splunk.pie"
+		},
+		"viz_sec_aws_buckets": {
+			"dataSources": {
+				"primary": "ds_sec_aws_buckets"
+			},
+			"options": {
+				"seriesColors": [
+					"#f58518"
+				]
+			},
+			"title": "S3 Bucket Activity",
+			"type": "splunk.bar"
+		},
+		"viz_sec_aws_events": {
+			"dataSources": {
+				"primary": "ds_sec_aws_events"
+			},
+			"options": {
+				"backgroundColor": "#f58518",
+				"majorColor": "#ffffff"
+			},
+			"title": "AWS Events",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_aws_s3": {
+			"dataSources": {
+				"primary": "ds_sec_aws_s3"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"GetObject": "#53a051",
+					"PutObject": "#f58518"
+				},
+				"showDonutHole": true
+			},
+			"title": "AWS S3 Operations",
+			"type": "splunk.pie"
+		},
+		"viz_sec_blocked_conn": {
+			"dataSources": {
+				"primary": "ds_sec_blocked_conn"
+			},
+			"options": {
+				"backgroundColor": "#af575a",
+				"majorColor": "#ffffff"
+			},
+			"title": "Blocked Connections",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_blocked_table": {
+			"dataSources": {
+				"primary": "ds_sec_blocked_table"
+			},
+			"options": {},
+			"title": "Blocked Connections",
+			"type": "splunk.table"
+		},
+		"viz_sec_ca_status": {
+			"dataSources": {
+				"primary": "ds_sec_ca_status"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"failure": "#dc4e41",
+					"notApplied": "#708794",
+					"success": "#53a051"
+				},
+				"showDonutHole": true
+			},
+			"title": "Conditional Access Status",
+			"type": "splunk.pie"
+		},
+		"viz_sec_cloud_over_time": {
+			"dataSources": {
+				"primary": "ds_sec_cloud_over_time"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"AWS": "#f58518",
+					"GCP": "#4285f4"
+				},
+				"stackMode": "stacked"
+			},
+			"title": "Cloud Activity Over Time",
+			"type": "splunk.area"
+		},
+		"viz_sec_cloud_total": {
+			"dataSources": {
+				"primary": "ds_sec_cloud_total"
+			},
+			"options": {
+				"backgroundColor": "#5a4575",
+				"majorColor": "#ffffff"
+			},
+			"title": "Cloud Events",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_cloud_users": {
+			"dataSources": {
+				"primary": "ds_sec_cloud_users"
+			},
+			"options": {},
+			"title": "Cloud Users & Service Accounts",
+			"type": "splunk.table"
+		},
+		"viz_sec_compromised_count": {
+			"dataSources": {
+				"primary": "ds_sec_compromised_count"
+			},
+			"options": {
+				"backgroundColor": "#dc4e41",
+				"majorColor": "#ffffff"
+			},
+			"title": "🚨 Compromised",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_compromised_users": {
+			"dataSources": {
+				"primary": "ds_sec_compromised_users"
+			},
+			"options": {},
+			"title": "🚨 Compromised Accounts",
+			"type": "splunk.table"
+		},
+		"viz_sec_email_direction": {
+			"dataSources": {
+				"primary": "ds_sec_email_direction"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Inbound": "#006d9c",
+					"Intra-org": "#53a051",
+					"Outbound": "#f2b827"
+				},
+				"showDonutHole": true
+			},
+			"title": "Mail Direction",
+			"type": "splunk.pie"
+		},
+		"viz_sec_email_over_time": {
+			"dataSources": {
+				"primary": "ds_sec_email_over_time"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Delivered": "#53a051",
+					"Failed": "#f8be34",
+					"FilteredAsSpam": "#dc4e41"
+				},
+				"stackMode": "stacked"
+			},
+			"title": "Email Volume by Status",
+			"type": "splunk.area"
+		},
+		"viz_sec_email_rules": {
+			"dataSources": {
+				"primary": "ds_sec_email_rules"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				]
+			},
+			"title": "Transport Rules Triggered",
+			"type": "splunk.bar"
+		},
+		"viz_sec_email_source": {
+			"dataSources": {
+				"primary": "ds_sec_email_source"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Calendar notification": "#5a4575",
+					"External inbound": "#006d9c",
+					"External outbound": "#f2b827",
+					"Internal relay": "#53a051",
+					"Spam filter": "#dc4e41",
+					"System notification": "#708794"
+				},
+				"showDonutHole": true
+			},
+			"title": "Source Context",
+			"type": "splunk.pie"
+		},
+		"viz_sec_email_spam": {
+			"dataSources": {
+				"primary": "ds_sec_email_spam"
+			},
+			"options": {
+				"backgroundColor": "#dc4e41",
+				"majorColor": "#ffffff"
+			},
+			"title": "Blocked/Spam",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_email_status": {
+			"dataSources": {
+				"primary": "ds_sec_email_status"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Delivered": "#53a051",
+					"Failed": "#f8be34",
+					"FilteredAsSpam": "#dc4e41"
+				},
+				"showDonutHole": true
+			},
+			"title": "Delivery Status",
+			"type": "splunk.pie"
+		},
+		"viz_sec_email_suspicious": {
+			"dataSources": {
+				"primary": "ds_sec_email_suspicious"
+			},
+			"options": {},
+			"title": "Suspicious Senders",
+			"type": "splunk.table"
+		},
+		"viz_sec_email_total": {
+			"dataSources": {
+				"primary": "ds_sec_email_total"
+			},
+			"options": {
+				"backgroundColor": "#006d9c",
+				"majorColor": "#ffffff"
+			},
+			"title": "Total Emails",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_events_over_time": {
+			"dataSources": {
+				"primary": "ds_sec_events_over_time"
+			},
+			"options": {
+				"legendDisplay": "right",
+				"stackMode": "stacked"
+			},
+			"title": "Security Events Over Time",
+			"type": "splunk.area"
+		},
+		"viz_sec_failed_by_user": {
+			"dataSources": {
+				"primary": "ds_sec_failed_by_user"
+			},
+			"options": {},
+			"title": "Failed Logins by User",
+			"type": "splunk.table"
+		},
+		"viz_sec_failed_logins": {
+			"dataSources": {
+				"primary": "ds_sec_failed_logins"
+			},
+			"options": {
+				"backgroundColor": "#dc4e41",
+				"majorColor": "#ffffff"
+			},
+			"title": "Failed Logins",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_foreign_attacks": {
+			"dataSources": {
+				"primary": "ds_sec_foreign_attacks"
+			},
+			"options": {},
+			"title": "⚠️ Foreign Login Attempts",
+			"type": "splunk.table"
+		},
+		"viz_sec_foreign_count": {
+			"dataSources": {
+				"primary": "ds_sec_foreign_count"
+			},
+			"options": {
+				"backgroundColor": "#f8be34",
+				"majorColor": "#ffffff"
+			},
+			"title": "⚠️ Foreign Attempts",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_fw_actions": {
+			"dataSources": {
+				"primary": "ds_sec_fw_actions"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"allowed": "#4fa484",
+					"blocked": "#dc4e41",
+					"executed": "#62b3b2",
+					"teardown": "#5a4575"
+				},
+				"showDonutHole": true
+			},
+			"title": "Firewall Actions",
+			"type": "splunk.pie"
+		},
+		"viz_sec_gcp_events": {
+			"dataSources": {
+				"primary": "ds_sec_gcp_events"
+			},
+			"options": {
+				"backgroundColor": "#4285f4",
+				"majorColor": "#ffffff"
+			},
+			"title": "GCP Events",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_gcp_services": {
+			"dataSources": {
+				"primary": "ds_sec_gcp_services"
+			},
+			"options": {
+				"seriesColors": [
+					"#4285f4"
+				]
+			},
+			"title": "GCP by Service",
+			"type": "splunk.bar"
+		},
+		"viz_sec_geo_map": {
+			"dataSources": {
+				"primary": "ds_sec_geo_map"
+			},
+			"options": {
+				"center": [
+					30,
+					0
+				],
+				"zoom": 1.5
+			},
+			"title": "Source IP Locations",
+			"type": "splunk.map"
+		},
+		"viz_sec_login_countries": {
+			"dataSources": {
+				"primary": "ds_sec_login_countries"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"FR": "#f2b827",
+					"RU": "#dc4e41",
+					"US": "#53a051"
+				},
+				"showDonutHole": true
+			},
+			"title": "Logins by Country",
+			"type": "splunk.pie"
+		},
+		"viz_sec_login_errors": {
+			"dataSources": {
+				"primary": "ds_sec_login_errors"
+			},
+			"options": {},
+			"title": "Login Error Codes",
+			"type": "splunk.table"
+		},
+		"viz_sec_login_locations": {
+			"dataSources": {
+				"primary": "ds_sec_login_locations"
+			},
+			"options": {
+				"seriesColors": [
+					"#f2b827"
+				]
+			},
+			"title": "Login by City",
+			"type": "splunk.bar"
+		},
+		"viz_sec_mfa_methods": {
+			"dataSources": {
+				"primary": "ds_sec_mfa_methods"
+			},
+			"options": {
+				"seriesColorsByField": {
+					"Microsoft Authenticator": "#53a051",
+					"Phone call": "#006d9c",
+					"Previously satisfied": "#708794",
+					"TOTP": "#f2b827"
+				},
+				"showDonutHole": true
+			},
+			"title": "MFA Methods",
+			"type": "splunk.pie"
+		},
+		"viz_sec_mfa_total": {
+			"dataSources": {
+				"primary": "ds_sec_mfa_total"
+			},
+			"options": {
+				"backgroundColor": "#53a051",
+				"majorColor": "#ffffff"
+			},
+			"title": "MFA Logins",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_phishing_blocked": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_blocked"
+			},
+			"options": {
+				"backgroundColor": "#53a05190",
+				"majorColor": "#ffffff"
+			},
+			"title": "✅ Blocked",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_phishing_delivered": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_delivered"
+			},
+			"options": {
+				"backgroundColor": "#dc4e4190",
+				"majorColor": "#ffffff"
+			},
+			"title": "🔴 Delivered",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_phishing_emails": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_emails"
+			},
+			"options": {
+				"backgroundColor": "#00000090"
+			},
+			"title": "🚨 Suspicious Phishing Emails",
+			"type": "splunk.table"
+		},
+		"viz_sec_phishing_keywords": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_keywords"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"seriesColors": [
+					"#f8be34"
+				]
+			},
+			"title": "Phishing Keywords",
+			"type": "splunk.bar"
+		},
+		"viz_sec_phishing_over_time": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_over_time"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"seriesColorsByField": {
+					"Blocked": "#53a051",
+					"Delivered": "#dc4e41"
+				},
+				"stackMode": "stacked"
+			},
+			"title": "Phishing Activity Over Time",
+			"type": "splunk.area"
+		},
+		"viz_sec_phishing_senders": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_senders"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"seriesColors": [
+					"#dc4e41"
+				]
+			},
+			"title": "Top Phishing Domains",
+			"type": "splunk.bar"
+		},
+		"viz_sec_phishing_status": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_status"
+			},
+			"options": {
+				"backgroundColor": "#00000090",
+				"seriesColorsByField": {
+					"Blocked": "#53a051",
+					"Delivered": "#dc4e41",
+					"Failed": "#f8be34"
+				},
+				"showDonutHole": true
+			},
+			"title": "Phishing by Status",
+			"type": "splunk.pie"
+		},
+		"viz_sec_phishing_targets": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_targets"
+			},
+			"options": {
+				"backgroundColor": "#00000090"
+			},
+			"title": "🎯 Top Phishing Targets",
+			"type": "splunk.table"
+		},
+		"viz_sec_phishing_total": {
+			"dataSources": {
+				"primary": "ds_sec_phishing_total"
+			},
+			"options": {
+				"backgroundColor": "#5a457590",
+				"majorColor": "#ffffff"
+			},
+			"title": "🎣 Phishing Attempts",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_severity_warnings": {
+			"dataSources": {
+				"primary": "ds_sec_severity_warnings"
+			},
+			"options": {
+				"backgroundColor": "#f8be34",
+				"majorColor": "#ffffff"
+			},
+			"title": "Warnings",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_top_dest_ports": {
+			"dataSources": {
+				"primary": "ds_sec_top_dest_ports"
+			},
+			"options": {
+				"seriesColors": [
+					"#5a4575"
+				]
+			},
+			"title": "Top Destination Ports",
+			"type": "splunk.bar"
+		},
+		"viz_sec_top_src_ips": {
+			"dataSources": {
+				"primary": "ds_sec_top_src_ips"
+			},
+			"options": {
+				"overlayFields": [
+					"Bytes"
+				],
+				"seriesColors": [
+					"#006d9c",
+					"#af575a",
+					"#009CEB"
+				],
+				"showOverlayY2Axis": true,
+				"y2AxisTitleVisibility": "show"
+			},
+			"title": "Top Source IPs",
+			"type": "splunk.bar"
+		},
+		"viz_sec_total_events": {
+			"dataSources": {
+				"primary": "ds_sec_total_events"
+			},
+			"options": {
+				"backgroundColor": "#53a051",
+				"majorColor": "#ffffff"
+			},
+			"title": "Total Events",
+			"type": "splunk.singlevalue"
+		},
+		"viz_sec_traffic_interface": {
+			"dataSources": {
+				"primary": "ds_sec_traffic_interface"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "Traffic by Zone",
+			"type": "splunk.pie"
+		},
+		"viz_sec_unique_src_ips": {
+			"dataSources": {
+				"primary": "ds_sec_unique_src_ips"
+			},
+			"options": {
+				"backgroundColor": "#006d9c",
+				"majorColor": "#ffffff"
+			},
+			"title": "Unique Source IPs",
+			"type": "splunk.singlevalue"
+		},
+		"viz_shipping_breakdown": {
+			"dataSources": {
+				"primary": "ds_shipping_breakdown"
+			},
+			"options": {
+				"showDonutHole": true
+			},
+			"title": "Domestic vs International",
+			"type": "splunk.pie"
+		},
+		"viz_taSlB1UT": {
+			"options": {
+				"markdown": "## Architecture Overview\n\n```\nproject/\n├── main_generate.sh              # Master orchestrator (auto-selects sources from scenario)\n├── shared/\n│   ├── config.sh                 # Global defaults, paths, colors\n│   ├── company.sh                # Organization data (users, servers, threat actor)\n│   ├── products.sh               # Product catalog (50 IT t-shirts)\n│   ├── customers.sh              # Customer pool (500 customers, international)\n│   ├── session_utils.sh          # Session/order ID generation, journeys\n│   ├── time_utils.sh             # Cross-platform timestamp functions\n│   └── output_utils.sh           # File handling, short_path(), DONE/FAIL status\n├── scenarios/\n│   ├── registry.sh               # Scenario definitions & helper functions\n│   ├── attack/\n│   │   ├── exfil.sh              # ASA events\n│   │   ├── exfil_entraid.sh      # Entra ID events (v2.2 - enhanced realism)\n│   │   ├── exfil_exchange.sh     # Exchange Message Trace events (NEW)\n│   │   ├── exfil_aws.sh          # AWS CloudTrail events\n│   │   ├── exfil_gcp.sh          # GCP Audit events\n│   │   ├── exfil_perfmon.sh      # Windows Perfmon anomalies\n│   │   ├── exfil_wineventlog.sh  # Windows Event Log events\n│   │   └── exfil_linux.sh        # Linux metric anomalies\n│   ├── ops/\n│   │   ├── memory_leak_linux.sh  # Linux metrics for WEB-01\n│   │   ├── memory_leak_asa.sh    # ASA timeout/reset events\n│   │   ├── cpu_runaway_perfmon.sh    # SQL-PROD-01 CPU/Memory metrics\n│   │   ├── cpu_runaway_wineventlog.sh # SQL Server events (833, 17883, 3041)\n│   │   ├── cpu_runaway_access.sh     # Response time degradation\n│   │   └── cpu_runaway_asa.sh        # Connection timeouts/resets\n│   └── network/\n│       └── firewall_misconfig_asa.sh  # Firewall misconfiguration\n├── baseline/\n│   ├── baseline_asa.sh           # Cisco ASA baseline\n│   ├── baseline_entraid.sh       # Entra ID baseline\n│   ├── baseline_exchange.sh      # Exchange Message Trace baseline (NEW)\n│   ├── baseline_aws.sh           # AWS CloudTrail baseline\n│   ├── baseline_gcp.sh           # GCP Audit baseline\n│   ├── baseline_perfmon.sh       # Windows Perfmon baseline\n│   ├── baseline_wineventlog.sh   # Windows Event Log baseline\n│   ├── baseline_linux.sh         # Linux metrics baseline\n│   └── baseline_access.sh        # Web access logs baseline\n├── generators/\n│   ├── generate_asa.sh           # Cisco ASA generator\n│   ├── generate_entraid.sh       # Entra ID generator\n│   ├── generate_exchange.sh      # Exchange Message Trace generator (NEW)\n│   ├── generate_aws.sh           # AWS CloudTrail generator\n│   ├── generate_gcp.sh           # GCP Audit generator\n│   ├── generate_perfmon.sh       # Windows Perfmon generator\n│   ├── generate_wineventlog.sh   # Windows Event Log generator\n│   ├── generate_linux.sh         # Linux metrics generator\n│   ├── generate_access.sh        # Web access logs → creates order_registry.json\n│   ├── generate_servicebus.sh    # Azure Service Bus events (reads registry)\n│   ├── generate_orders.sh        # Retail order records (reads registry)\n│   └── generate_customer_lookup.sh  # Customer lookup CSV generator\n├── splunk/\n│   └── lookups/\n│       └── customer_lookup.csv   # Customer name lookup for Splunk\n└── output/\n    ├── network/\n    │   └── cisco_asa.log\n    ├── cloud/\n    │   ├── entraid_signin.json\n    │   ├── entraid_audit.json\n    │   ├── aws_cloudtrail.json\n    │   ├── gcp_audit.json\n    │   └── exchange_message_trace.json  # NEW\n    ├── windows/\n    │   ├── perfmon_processor.log\n    │   ├── perfmon_memory.log\n    │   ├── perfmon_logicaldisk.log\n    │   ├── wineventlog_security.log\n    │   ├── wineventlog_system.log\n    │   └── wineventlog_application.log  # SQL Server events (cpu_runaway)\n    ├── linux/\n    │   ├── cpu.log\n    │   ├── vmstat.log\n    │   ├── df.log\n    │   ├── iostat.log\n    │   └── interfaces.log\n    ├── web/\n    │   ├── access_combined.log\n    │   ├── order_registry.json   # Intermediate file for correlation\n    │   └── .order_sequence       # Order ID sequence (hidden, per-run)\n    ├── servicebus/\n    │   └── servicebus_events.json\n    └── retail/\n        └── orders.json\n```\n\n---\n\n## Data Sources\n\n### Implementation Status\n\n| Source | Baseline | Generator | Scenarios | Status |\n|--------|----------|-----------|-----------|--------|\n| Cisco ASA | ✅ | ✅ | exfil, memory_leak, firewall_misconfig, cpu_runaway | **Complete** |\n| Entra ID | ✅ | ✅ | exfil | **Complete** |\n| Exchange Online | ✅ | ✅ | exfil | **Complete** ⭐ NEW |\n| AWS CloudTrail | ✅ | ✅ | exfil | **Complete** |\n| GCP Audit | ✅ | ✅ | exfil | **Complete** |\n| Windows Perfmon | ✅ | ✅ | exfil, cpu_runaway | **Complete** |\n| Windows Event Log | ✅ | ✅ | exfil, cpu_runaway | **Complete** |\n| Linux Metrics | ✅ | ✅ | exfil, memory_leak | **Complete** |\n| Web Access Logs | ✅ | ✅ | memory_leak, firewall_misconfig, cpu_runaway | **Complete** ⭐ |\n| Azure Service Bus | N/A | ✅ | (inherits from access) | **Complete** ⭐ |\n| Retail Orders | N/A | ✅ | (inherits from access) | **Complete** ⭐ |"
+			},
+			"type": "splunk.markdown"
+		},
+		"viz_top_cities": {
+			"dataSources": {
+				"primary": "ds_top_cities"
+			},
+			"options": {
+				"seriesColors": [
+					"#f8be34"
+				]
+			},
+			"title": "Top Cities",
+			"type": "splunk.bar"
+		},
+		"viz_top_products": {
+			"dataSources": {
+				"primary": "ds_top_products"
+			},
+			"options": {
+				"seriesColors": [
+					"#006d9c"
+				]
+			},
+			"title": "Top 10 Products",
+			"type": "splunk.bar"
+		},
+		"viz_top_regions": {
+			"dataSources": {
+				"primary": "ds_top_regions"
+			},
+			"options": {
+				"seriesColors": [
+					"#f2b827"
+				]
+			},
+			"title": "Top Regions",
+			"type": "splunk.bar"
+		},
+		"viz_top_search_terms": {
+			"dataSources": {
+				"primary": "ds_top_search_terms"
+			},
+			"options": {
+				"seriesColors": [
+					"#53a051"
+				]
+			},
+			"title": "Top Search Terms",
+			"type": "splunk.bar"
+		},
+		"viz_total_downtime": {
+			"dataSources": {
+				"primary": "ds_total_downtime"
+			},
+			"options": {
+				"majorColor": "#f8be34",
+				"unit": " min",
+				"unitPosition": "after"
+			},
+			"title": "Total Downtime",
+			"type": "splunk.singlevalue"
+		},
+		"viz_total_orders": {
+			"dataSources": {
+				"primary": "ds_total_orders"
+			},
+			"options": {
+				"majorColor": "#5a4575"
+			},
+			"title": "Total Orders",
+			"type": "splunk.singlevalue"
+		},
+		"viz_total_revenue": {
+			"dataSources": {
+				"primary": "ds_total_revenue"
+			},
+			"options": {
+				"majorColor": "#1a9035",
+				"unit": "$",
+				"unitPosition": "before"
+			},
+			"title": "Total Revenue",
+			"type": "splunk.singlevalue"
+		},
+		"viz_total_shipping": {
+			"dataSources": {
+				"primary": "ds_total_shipping"
+			},
+			"options": {
+				"majorColor": "#006d9c",
+				"unit": "$",
+				"unitPosition": "before"
+			},
+			"title": "Shipping Revenue",
+			"type": "splunk.singlevalue"
+		},
+		"viz_traffic_with_outages": {
+			"dataSources": {
+				"primary": "ds_traffic_with_outages"
+			},
+			"options": {
+				"annotationLabel": "> annotation | seriesByName('label')",
+				"annotationX": "> annotation | seriesByName('label')",
+				"seriesColors": [
+					"#1a9035",
+					"#dc4e41"
+				],
+				"xAxisTitleVisibility": "hide"
+			},
+			"title": "Traffic (with Outages)",
+			"type": "splunk.area"
+		},
+		"viz_unique_customers": {
+			"dataSources": {
+				"primary": "ds_unique_customers"
+			},
+			"options": {
+				"majorColor": "#f2b827"
+			},
+			"title": "Unique Customers",
+			"type": "splunk.singlevalue"
+		},
+		"viz_uwn3hU49": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_NpyNGYzT"
+			},
+			"options": {
+				"splitByLayout": "trellis",
+				"trellisColumns": 2,
+				"trellisRowHeight": 100
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Severity Level (NOT info)",
+			"type": "splunk.singlevalue"
+		},
+		"viz_v71N74CH": {
+			"dataSources": {
+				"primary": "ds_v6bfOS5r"
+			},
+			"title": "Different sources",
+			"type": "splunk.singlevalue"
+		},
+		"viz_waG5JAgg": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_PtOI2adz"
+			},
+			"options": {
+				"center": [
+					14.231639075230007,
+					26.149110000000064
+				],
+				"zoom": 1.0569349047342278
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Source IP",
+			"type": "splunk.map"
+		},
+		"viz_xj3FCdmR": {
+			"containerOptions": {},
+			"dataSources": {
+				"primary": "ds_VaI1szAm"
+			},
+			"options": {
+				"showInternalFields": false
+			},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Top 10 Dest IP",
+			"type": "splunk.table"
+		},
+		"viz_yjMycQBt": {
+			"containerOptions": {},
+			"context": {},
+			"dataSources": {
+				"primary": "ds_x216uVgk"
+			},
+			"options": {},
+			"showLastUpdated": false,
+			"showProgressBar": true,
+			"title": "Events",
+			"type": "splunk.singlevalue"
+		}
+	},
+	"dataSources": {
+		"ds_0sYasD3M": {
+			"name": "events over tim and bytes",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action IN (allowed,teardown,blocked,executed)\n| timechart span=10m c by action\n| join _time \n    [search index=fake_tshrt sourcetype=\"FAKE:cisco:asa\"  bytes=*\n    | timechart span=10m sum(bytes) as bytes ]",
+				"queryParameters": {
+					"sampleRatio": 1
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_4RJIZ23c": {
+			"name": "Map iplocation DEST ip",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" dest=*\n| iplocation dest\n| geostats c by Country",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_5ENgTRB8": {
+			"name": "Dest with most events",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" dest=* \n| stats c sum(bytes) as bytes by dest\n| sort - c",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_6WjVDkNb": {
+			"name": "hosts",
+			"options": {
+				"query": "| tstats c where index=fake_tshrt by host\n| sort - c"
+			},
+			"type": "ds.search"
+		},
+		"ds_7P0YDyNj": {
+			"name": "Action Over Time copy 2",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=*\n| stats c by action",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_AQ84nVuq": {
+			"name": "Sourcetype",
+			"options": {
+				"query": "| tstats c where index=fake_tshrt by sourcetype\n| sort - c"
+			},
+			"type": "ds.search"
+		},
+		"ds_NpyNGYzT": {
+			"name": "Count severity_level",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" severity_level=* severity_level!=informational\n| stats c by severity_level\n",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_PZK9jYCZ": {
+			"name": "Executed over time",
+			"options": {
+				"extend": "ds_0sYasD3M",
+				"query": "| table _time executed"
+			},
+			"type": "ds.chain"
+		},
+		"ds_PtOI2adz": {
+			"name": "Map iplocation SRC",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=*\n| iplocation src\n| geostats c by Country",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_VaI1szAm": {
+			"name": "Top 10 dest ip table",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" dest=*\n| iplocation dest\n| stats c as Events sparkline by Country\n| sort - Events\n| head 20",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_VkrjTKGG": {
+			"name": "Events over time",
+			"options": {
+				"query": "| tstats c where index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" by _time span=10m\n| timechart sum(c) span=10m",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_VpLRNMgU": {
+			"name": "sources",
+			"options": {
+				"query": "| tstats c where index=fake_tshrt by source\n| sort - c"
+			},
+			"type": "ds.search"
+		},
+		"ds_WQb12s6I": {
+			"name": "Sourcetypes",
+			"options": {
+				"query": "| tstats dc(sourcetype) where index=fake_tshrt",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_avg_delivery_time": {
+			"name": "Avg Delivery Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=statusHistory{}.status output=statuses | spath path=statusHistory{}.timestamp output=timestamps | eval created_idx=mvfind(statuses,\"created\"), delivered_idx=mvfind(statuses,\"delivered\") | eval created_time=strptime(mvindex(timestamps,created_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval delivered_time=strptime(mvindex(timestamps,delivered_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval total_hours=round((delivered_time-created_time)/3600,1) | stats avg(total_hours) as avg_delivery_hours | eval avg_delivery_hours=round(avg_delivery_hours,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_avg_items_per_order": {
+			"name": "Avg Items Per Order",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=items{} output=items | eval item_count=mvcount(items) | stats avg(item_count) as avg_items",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_avg_order_value": {
+			"name": "Avg Order Value",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=pricing.total output=total | stats avg(total) as avg_order_value",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_browser_breakdown": {
+			"name": "Browser Breakdown",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval browser=case(match(useragent,\"Chrome\"),\"Chrome\",match(useragent,\"Safari\") AND NOT match(useragent,\"Chrome\"),\"Safari\",match(useragent,\"Firefox\"),\"Firefox\",match(useragent,\"Edge\"),\"Edge\",1=1,\"Other\") | stats count as Visits by browser",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_cart_abandonment": {
+			"name": "Cart Abandonment",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" tshirtcid=* | stats max(eval(if(uri=\"/cart\",1,0))) as cart, max(eval(if(uri=\"/checkout/complete\",1,0))) as complete by tshirtcid | stats sum(cart) as carts, sum(complete) as purchases | eval cart_abandonment=round(((carts-purchases)/carts)*100,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_category_trend": {
+			"name": "Category Trend",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=items{} output=items | mvexpand items | spath input=items | timechart span=1d sum(lineTotal) by category",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_conversion_rate": {
+			"name": "Conversion Rate",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats dc(eval(if(uri=\"/\", session_id, null()))) as homepage, dc(eval(if(uri=\"/checkout/complete\", session_id, null()))) as completed | eval conversion_rate=round((completed/homepage)*100,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_delivery_by_region": {
+			"name": "Delivery Time by Region",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=statusHistory{}.status output=statuses | spath path=statusHistory{}.timestamp output=timestamps | spath path=shippingAddress.region output=region | eval created_idx=mvfind(statuses,\"created\"), delivered_idx=mvfind(statuses,\"delivered\") | eval created_time=strptime(mvindex(timestamps,created_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval delivered_time=strptime(mvindex(timestamps,delivered_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval total_hours=round((delivered_time-created_time)/3600,1) | stats avg(total_hours) as \"Avg Hours\" by region | sort - \"Avg Hours\" | head 10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_device_breakdown": {
+			"name": "Device Breakdown",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval device=case(match(useragent,\"iPhone|Android.*Mobile\"),\"Mobile\",match(useragent,\"iPad|Android(?!.*Mobile)\"),\"Tablet\",1=1,\"Desktop\") | stats count as Visits by device",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_e9svVC25": {
+			"name": "Allowed over time",
+			"options": {
+				"extend": "ds_0sYasD3M",
+				"query": "| table _time allowed"
+			},
+			"type": "ds.chain"
+		},
+		"ds_fulfillment_timeline": {
+			"name": "Order Fulfillment Timeline",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=orderId | spath path=statusHistory{}.status output=statuses | spath path=statusHistory{}.timestamp output=timestamps | spath path=shippingAddress.region output=region | eval created_idx=mvfind(statuses,\"created\"), shipped_idx=mvfind(statuses,\"shipped\"), delivered_idx=mvfind(statuses,\"delivered\") | eval created_time=strptime(mvindex(timestamps,created_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval shipped_time=strptime(mvindex(timestamps,shipped_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval delivered_time=strptime(mvindex(timestamps,delivered_idx),\"%Y-%m-%dT%H:%M:%SZ\") | eval processing_hrs=round((shipped_time-created_time)/3600,1) | eval delivery_hrs=round((delivered_time-shipped_time)/3600,1) | eval total_hrs=round((delivered_time-created_time)/3600,1) | table orderId region processing_hrs delivery_hrs total_hrs | sort - total_hrs | head 15 | rename orderId as \"Order ID\", region as \"Region\", processing_hrs as \"Processing (hrs)\", delivery_hrs as \"Shipping (hrs)\", total_hrs as \"Total (hrs)\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_gW3RtdkR": {
+			"name": "host",
+			"options": {
+				"query": "| tstats dc(host) where index=fake_tshrt",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_http_status": {
+			"name": "HTTP Status",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats count as Requests by status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_incident_table": {
+			"name": "Incident Log",
+			"options": {
+				"query": "| makeresults count=2 | streamstats count as id | eval data=case(id=1,\"2026-01-07 11:15,2026-01-07 11:55,WEB-01,Memory Exhaustion,45,$464\",id=2,\"2026-01-10 14:15,2026-01-10 14:45,WEB-01,CPU Runaway,45,$464\") | rex field=data \"(?<Start>[^,]+),(?<End>[^,]+),(?<System>[^,]+),(?<Cause>[^,]+),(?<Duration>[^,]+),(?<Loss>[^,]+)\" | table Start End System Cause Duration Loss | rename Duration as \"Duration (min)\", Loss as \"Revenue Loss\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_avg_cpu": {
+			"name": "IT-Ops - Avg CPU",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" | stats avg(Value) as avg_cpu | eval avg_cpu=round(avg_cpu,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_critical_hosts": {
+			"name": "IT-Ops - Critical Hosts",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" | stats avg(Value) as cpu by host | where cpu > 80 | stats count as critical",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_avg_cpu": {
+			"name": "IT-Ops - Endpoint Avg CPU",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as avg_cpu | eval avg_cpu=round(avg_cpu,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_avg_mem": {
+			"name": "IT-Ops - Endpoint Avg Memory",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" counter=\"% Committed Bytes In Use\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as avg_mem | eval avg_mem=round(avg_mem,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_count": {
+			"name": "IT-Ops - Endpoint Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" host=\"LAPTOP-*\" | stats dc(host) as endpoints",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_cpu_dist": {
+			"name": "IT-Ops - Endpoint CPU Distribution",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as cpu by host | eval bucket=case(cpu<20,\"0-20%\",cpu<40,\"20-40%\",cpu<60,\"40-60%\",cpu<80,\"60-80%\",1=1,\"80-100%\") | stats count as Hosts by bucket | sort bucket",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_critical": {
+			"name": "IT-Ops - Critical Endpoints",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as cpu by host | where cpu > 80 | stats count as critical",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_mem_dist": {
+			"name": "IT-Ops - Endpoint Memory Distribution",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" counter=\"% Committed Bytes In Use\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as mem by host | eval bucket=case(mem<20,\"0-20%\",mem<40,\"20-40%\",mem<60,\"40-60%\",mem<80,\"60-80%\",1=1,\"80-100%\") | stats count as Hosts by bucket | sort bucket",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_top_cpu": {
+			"name": "IT-Ops - Top CPU Endpoints",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as CPU sparkline(avg(Value)) as Trend by host | sort - CPU | head 10 | eval CPU=round(CPU,1).\"%\" | rename host as Endpoint",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_endpoint_top_mem": {
+			"name": "IT-Ops - Top Memory Endpoints",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" counter=\"% Committed Bytes In Use\" NOT  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | stats avg(Value) as Memory sparkline(avg(Value)) as Trend by host | sort - Memory | head 10 | eval Memory=round(Memory,1).\"%\" | rename host as Endpoint",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_http_errors": {
+			"name": "IT-Ops - HTTP Errors",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" status>=400 | stats count as errors",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_recent_events": {
+			"name": "IT-Ops - Recent Server Events",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" \n| eval status=case(EventCode=4625, \"🔴 Failed\", EventCode=4624, \"🟢 Success\", 1=1, \"🔵 Info\") \n| rex \"New Logon:\\n\\s+Security ID:\\s+(?<Security_id>.*?)\\n\\s+Account Name:\\s+(?<user>.*?)\\n\"\n| table _time status signature ComputerName user \n| sort - _time \n| head 15 \n| rename signature as Event, ComputerName as Server, user as User",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_server_count": {
+			"name": "IT-Ops - Server Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" host IN (\"DC-*\",\"SQL-*\",\"FILE-*\") OR sourcetype IN (\"cpu\") | stats dc(host) as servers",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_server_cpu_time": {
+			"name": "IT-Ops - Server CPU Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" counter=\"% Processor Time\" index=fake_tshrt sourcetype=\"FAKE:Perfmon*\" host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)| timechart span=1h avg(Value) by host",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_server_disk": {
+			"name": "IT-Ops - Server Disk Space",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:LogicalDisk\" counter=\"% Free Space\"  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01) | stats avg(Value) as \"Free %\" by host | eval \"Used %\"=round(100-'Free %',1) | sort - \"Used %\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_server_health": {
+			"name": "IT-Ops - Server Health Table",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon*\" host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01) | eval metric=case(counter=\"% Processor Time\",\"CPU\",counter=\"% Committed Bytes In Use\",\"Memory\",counter=\"% Free Space\",\"Disk\") | stats avg(Value) as value by host metric | eval value=round(value,1) | xyseries host metric value | eval Status=case(CPU>80 OR Memory>85, \"🔴 Critical\", CPU>60 OR Memory>70, \"🟡 Warning\", 1=1, \"🟢 Healthy\") | eval CPU=CPU.\"%\", Memory=Memory.\"%\", Disk=Disk.\"% free\" | table host CPU Memory Disk Status | rename host as Server",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_server_mem_time": {
+			"name": "IT-Ops - Server Memory Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Memory\" counter=\"% Committed Bytes In Use\"  host IN (SQL-PROD-01,FILE-BOS-01,DC-BOS-02,DC-BOS-01,DC-ATL-01)  | timechart span=1h avg(Value) by host",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_total_hosts": {
+			"name": "IT-Ops - Total Hosts",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:Perfmon:Processor\" | stats dc(host) as total_hosts",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_avg_response": {
+			"name": "IT-Ops - Web Avg Response",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats avg(response_time) as avg_response | eval avg_response=round(avg_response,0)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_error_rate": {
+			"name": "IT-Ops - Web Error Rate",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats count(eval(status>=400)) as errors, count as total | eval error_rate=round((errors/total)*100,2)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_http_status": {
+			"name": "IT-Ops - HTTP Status Distribution",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval status_group=case(status<300,\"2xx Success\",status<400,\"3xx Redirect\",status<500,\"4xx Client Error\",1=1,\"5xx Server Error\") | stats count by status_group",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_p95_response": {
+			"name": "IT-Ops - Web P95 Response",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats perc95(response_time) as p95_response | eval p95_response=round(p95_response,0)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_req_sec": {
+			"name": "IT-Ops - Web Requests/sec",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats count as total | eval req_per_sec=round(total/1209600,2)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_requests_time": {
+			"name": "IT-Ops - Requests Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | timechart span=1h count as Requests",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_response_time": {
+			"name": "IT-Ops - Web Response Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | timechart span=1h avg(response_time) as \"Avg (ms)\" perc95(response_time) as \"P95 (ms)\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_web_slowest_uri": {
+			"name": "IT-Ops - Slowest URIs",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | stats avg(response_time) as \"Avg (ms)\" perc95(response_time) as \"P95 (ms)\" count as Requests by uri | sort - \"Avg (ms)\" | head 10 | eval \"Avg (ms)\"=round('Avg (ms)',0), \"P95 (ms)\"=round('P95 (ms)',0) | rename uri as URI",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_itops_win_events_type": {
+			"name": "IT-Ops - Windows Events by Type",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:WinEventLog\" | eval event_type=case(EventCode IN (4624,4625,4648), \"Authentication\", EventCode IN (4720,4722,4732), \"Account Changes\", EventCode=4688, \"Process Creation\", 1=1, \"Other\") | stats count by event_type",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_jWbtsC5E": {
+			"name": "top 10 Country",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=*\n| iplocation src\n| stats c as Events sparkline by Country\n| sort - Events\n| head ",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_journey_time_distribution": {
+			"name": "Journey Time Distribution",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" tshirtcid=* | stats earliest(_time) as start, latest(_time) as end, max(eval(if(uri=\"/checkout/complete\",1,0))) as bought by tshirtcid | where bought=1 | eval mins=round((end-start)/60,0) | eval bucket=case(mins<=2,\"0-2m\",mins<=5,\"3-5m\",mins<=10,\"6-10m\",mins<=20,\"11-20m\",1=1,\"20m+\") | stats count as Buyers by bucket | sort bucket",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_nk5FmglV": {
+			"name": "Src with most events",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=* \n| stats c sum(bytes) as bytes by src\n| sort - c",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_order_status": {
+			"name": "Order Status",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=status | stats count as Orders by status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_orders_over_time": {
+			"name": "Orders Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | timechart span=1h count as Orders",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_orders_per_hour": {
+			"name": "Orders by Hour",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | eval hour=strftime(_time, \"%H\") | stats count as Orders by hour | sort hour",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_p3Bg19YC": {
+			"name": "Blocked over time",
+			"options": {
+				"extend": "ds_0sYasD3M",
+				"query": "| table _time blocked"
+			},
+			"type": "ds.chain"
+		},
+		"ds_pageviews_to_purchase": {
+			"name": "Pageviews to Purchase",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" tshirtcid=* | stats count as pv, max(eval(if(uri=\"/checkout/complete\",1,0))) as bought by tshirtcid | where bought=1 | eval bucket=case(pv<=3,\"1-3\",pv<=5,\"4-5\",pv<=7,\"6-7\",pv<=10,\"8-10\",1=1,\"10+\") | stats count as Buyers by bucket | sort bucket",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_payment_methods": {
+			"name": "Payment Methods",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=payment.method output=method | stats count as Orders by method",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_repeat_customers": {
+			"name": "New vs Repeat",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=customer.customerId output=cid | stats count by cid | eval type=if(count>1,\"Repeat\",\"New\") | stats count as Customers by type",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_repeat_rate": {
+			"name": "Repeat Customer Rate",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=customer.customerId output=cid | stats count by cid | stats count(eval(count>1)) as repeat, count as total | eval repeat_rate=round((repeat/total)*100,1)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_response_time_trend": {
+			"name": "Response Time Trend",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | timechart span=1h avg(response_time) as \"Avg (ms)\", perc95(response_time) as \"P95 (ms)\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_revenue_by_day": {
+			"name": "Revenue by Day",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=pricing.total output=total | eval day=strftime(_time, \"%A\") | stats sum(total) as Revenue by day | eval sort=case(day=\"Monday\",1,day=\"Tuesday\",2,day=\"Wednesday\",3,day=\"Thursday\",4,day=\"Friday\",5,day=\"Saturday\",6,day=\"Sunday\",7) | sort sort | fields - sort",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_revenue_loss": {
+			"name": "Revenue Loss",
+			"options": {
+				"query": "| makeresults | eval total_revenue_loss=928",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_revenue_over_time": {
+			"name": "Revenue Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=pricing.total output=total | timechart span=1h sum(total) as Revenue",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sales_by_category": {
+			"name": "Sales by Category",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=items{} output=items | mvexpand items | spath input=items | stats sum(lineTotal) as Revenue by category",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sales_funnel": {
+			"name": "Sales Funnel",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | eval stage=case(uri=\"/\", \"1. Homepage\", match(uri, \"^/products/category\"), \"2. Category\", match(uri, \"^/products/\"), \"3. Product\", uri=\"/cart\" OR match(uri,\"^/cart/\"), \"4. Cart\", uri=\"/checkout\", \"5. Checkout\", uri=\"/checkout/complete\", \"6. Complete\") | search stage=* | stats dc(session_id) as Sessions by stage | sort stage",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sankey": {
+			"name": "Customer Journey Sankey",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" tshirtcid=* | eval stage=case(uri=\"/\", \"1-Home\", match(uri, \"^/products/category\"), \"2-Category\", match(uri, \"^/products/\"), \"3-Product\", uri=\"/cart\" OR match(uri,\"^/cart/\"), \"4-Cart\", uri=\"/checkout\", \"5-Checkout\", uri=\"/checkout/complete\", \"6-Complete\") | search stage=* | sort 0 tshirtcid, _time | streamstats current=f last(stage) as prev by tshirtcid | where isnotnull(prev) AND stage!=prev | stats count as value by prev, stage | rename prev as source, stage as target | where value>10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_allowed_conn": {
+			"name": "SOC - Allowed Connections Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=allowed | stats count as allowed_connections",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_auth_by_app": {
+			"name": "SOC - Auth Events by Application",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.appDisplayName output=app | stats count by app",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_aws_buckets": {
+			"name": "SOC - AWS S3 Bucket Activity",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" eventSource=\"s3.amazonaws.com\" | spath path=requestParameters.bucketName output=bucket | stats count as Operations by bucket | sort - Operations | rename bucket as Bucket",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_aws_events": {
+			"name": "SOC - AWS Events Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" | stats count as aws_events",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_aws_s3": {
+			"name": "SOC - AWS S3 Operations",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:aws:cloudtrail\" eventSource=\"s3.amazonaws.com\" | stats count by eventName | rename eventName as Operation",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_blocked_conn": {
+			"name": "SOC - Blocked Connections Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked | stats count as blocked_connections",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_blocked_table": {
+			"name": "SOC - Blocked Connections Detail",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=blocked | stats count as Blocked sum(bytes) as Bytes by src dest dest_port | sort - Blocked | head 15 | rename src as \"Source IP\", dest as \"Dest IP\", dest_port as \"Port\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_ca_status": {
+			"name": "SOC - Conditional Access Status",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.conditionalAccessStatus output=ca_status | stats count by ca_status | rename ca_status as \"CA Status\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_cloud_over_time": {
+			"name": "SOC - Cloud Events Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype IN (\"fake:aws:cloudtrail\", \"fake:google:gcp:pubsub:audit:admin_activity\") | eval cloud=case(sourcetype=\"FAKE:aws:cloudtrail\", \"AWS\", sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity\", \"GCP\") | timechart span=1h count by cloud",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_cloud_total": {
+			"name": "SOC - Total Cloud Events",
+			"options": {
+				"query": "index=fake_tshrt sourcetype IN (\"aws:cloudtrail\", \"google:gcp:pubsub:audit:admin_activity\") | stats count as total_cloud_events",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_cloud_users": {
+			"name": "SOC - Cloud Users Service Accounts",
+			"options": {
+				"query": "index=fake_tshrt sourcetype IN (\"fake:aws:cloudtrail\", \"fake:google:gcp:pubsub:audit:admin_activity\") | eval user=coalesce('userIdentity.arn', 'protoPayload.authenticationInfo.principalEmail'), cloud=case(sourcetype=\"FAKE:aws:cloudtrail\", \"AWS\", 1=1, \"GCP\") | stats count as Events dc(eventName) as \"Unique Ops\" by user cloud | sort - Events | head 15 | rename user as \"User/Service Account\", cloud as Cloud",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_compromised_count": {
+			"name": "SOC - Compromised Accounts Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.userPrincipalName output=user | spath path=properties.status.errorCode output=errorCode | spath path=properties.location.countryOrRegion output=country | stats dc(country) as unique_countries values(errorCode) as error_codes by user | where unique_countries > 1 | search error_codes=0 | stats count as compromised",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_compromised_users": {
+			"name": "SOC - Compromised Account Detection",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.userPrincipalName output=user | spath path=properties.status.errorCode output=errorCode | spath path=properties.location.countryOrRegion output=country | stats dc(country) as unique_countries values(country) as countries values(errorCode) as error_codes count as attempts by user | where unique_countries > 1 | search error_codes=0 | eval countries=mvjoin(countries, \", \"), error_codes=mvjoin(error_codes, \", \"), status=\"🔴 COMPROMISED\" | table status user countries error_codes attempts | rename status as Status, user as User, countries as Countries, error_codes as \"Error Codes\", attempts as Attempts",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_direction": {
+			"name": "SOC - Email by Direction",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" | stats count by Directionality",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_over_time": {
+			"name": "SOC - Email Over Time by Status",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" | timechart span=1h count by Status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_rules": {
+			"name": "SOC - Transport Rules Triggered",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" TransportRule!=\"\" | stats count by TransportRule | sort - count | rename TransportRule as \"Transport Rule\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_source": {
+			"name": "SOC - Email Source Context",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" | stats count by SourceContext | sort - count",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_spam": {
+			"name": "SOC - Spam/Blocked Emails",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (Status=\"FilteredAsSpam\" OR Status=\"Failed\" OR action=\"blocked\") | stats count as blocked_emails",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_status": {
+			"name": "SOC - Email Status Breakdown",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" | stats count by Status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_suspicious": {
+			"name": "SOC - Suspicious Email Senders",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*pharmacy*\" OR Status=\"FilteredAsSpam\") | stats count as Messages values(Subject) as Subjects by SenderAddress | sort - Messages | head 15 | rename SenderAddress as Sender",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_email_total": {
+			"name": "SOC - Total Emails",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" | stats count as total_emails",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_events_over_time": {
+			"name": "SOC - Events Over Time by Source",
+			"options": {
+				"query": "index=fake_tshrt sourcetype IN (\"fake:cisco:asa\", \"fake:azure:aad:signin\", \"fake:aws:cloudtrail\", \"fake:WinEventLog\") | timechart span=1h count by sourcetype",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_failed_by_user": {
+			"name": "SOC - Failed Logins by User",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" action=failure | stats count as Failures sparkline by identity | sort - Failures | head 15 | rename identity as User",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_failed_logins": {
+			"name": "SOC - Failed Logins Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" \n| eval action = if('status.errorCode'==0,\"success\",\"failure\") \n| search action=failure \n| stats count as failed_logins",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_foreign_attacks": {
+			"name": "SOC - Foreign Attack Attempts",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" location!=US | spath path=properties.userPrincipalName output=user | spath path=properties.status.errorCode output=errorCode | spath path=properties.location.city output=city | eval status=case(errorCode=\"0\", \"🔴 SUCCESS - COMPROMISED\", errorCode=\"50126\", \"✅ Blocked - Wrong Password\", errorCode=\"50076\", \"✅ Blocked - MFA Required\", errorCode=\"53003\", \"✅ Blocked - Conditional Access\", 1=1, \"⚠️ Other\") | table _time user location city status errorCode | rename location as Country, city as City, errorCode as \"Error Code\", user as User, status as Status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_foreign_count": {
+			"name": "SOC - Foreign Attempts Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" location!=US | stats count as foreign_attempts",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_fw_actions": {
+			"name": "SOC - Firewall Actions Distribution",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" action=* | stats count by action",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_gcp_events": {
+			"name": "SOC - GCP Events Count",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity\" | stats count as gcp_events",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_gcp_services": {
+			"name": "SOC - GCP Activity by Service",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:google:gcp:pubsub:audit:admin_activity\" | stats count by dvc | sort - count | rename dvc as Service",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_geo_map": {
+			"name": "SOC - Geographic Source IPs",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=* | iplocation src | geostats count by Country",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_login_countries": {
+			"name": "SOC - Logins by Country",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | stats count by location | sort - count | rename location as Country",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_login_errors": {
+			"name": "SOC - Login Error Codes",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.status.errorCode output=error_code | eval error_desc=case(error_code=\"0\", \"Success\", error_code=\"50126\", \"Invalid credentials\", error_code=\"50076\", \"MFA required\", error_code=\"53003\", \"Blocked by CA\", error_code=\"50074\", \"Strong auth required\", 1=1, \"Other\") | stats count by error_code error_desc | sort - count | rename error_code as \"Error Code\", error_desc as Description",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_login_locations": {
+			"name": "SOC - Login Locations",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.location.city output=city | stats count as Logins by city | sort - Logins",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_mfa_methods": {
+			"name": "SOC - MFA Methods Used",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.mfaDetail.authMethod output=mfa_method | search mfa_method=* | stats count by mfa_method | rename mfa_method as \"MFA Method\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_mfa_total": {
+			"name": "SOC - MFA Logins Total",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:azure:aad:signin\" | spath path=properties.mfaDetail.authMethod output=mfa_method | search mfa_method=* | stats count as mfa_logins",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_blocked": {
+			"name": "SOC - Phishing Blocked",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Status=\"FilteredAsSpam\" OR Subject=\"*URGENT*Verify*\" OR Subject=\"*won*$*\" OR Subject=\"*Action Required*\") (Status=\"FilteredAsSpam\" OR action=\"blocked\") | stats count as blocked",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_delivered": {
+			"name": "SOC - Phishing Delivered",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Subject=\"*URGENT*Verify*\" OR Subject=\"*won*$*\" OR Subject=\"*Action Required*\") Status=\"Delivered\" | stats count as delivered",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_emails": {
+			"name": "SOC - Suspicious Phishing Emails",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\") | eval risk=case(match(SenderAddress,\"m1crosoft\"), \"Critical\", match(SenderAddress,\"amaz0n\"), \"Critical\", match(SenderAddress,\"secure-banking\"), \"High\", match(SenderAddress,\"lottery\"), \"Medium\", 1=1, \"Medium\") | table _time risk SenderAddress RecipientAddress Subject Status | sort - _time | head 20 | rename SenderAddress as Sender, RecipientAddress as Recipient, risk as Risk",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_keywords": {
+			"name": "SOC - Phishing Subject Keywords",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Status=\"FilteredAsSpam\" OR Subject=\"*URGENT*\" OR Subject=\"*won*\" OR Subject=\"*Verify*\" OR Subject=\"*Action Required*\" OR Subject=\"*90%*\") | eval keyword=case(match(Subject,\"(?i)urgent\"), \"URGENT\", match(Subject,\"(?i)won\"), \"Prize/Lottery\", match(Subject,\"(?i)verify\"), \"Verify Account\", match(Subject,\"(?i)action required\"), \"Action Required\", match(Subject,\"(?i)90%|offer\"), \"Fake Offer\", match(Subject,\"(?i)suspicious\"), \"Suspicious Activity\", 1=1, \"Other\") | stats count by keyword | sort - count",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_over_time": {
+			"name": "SOC - Phishing Over Time",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Status=\"FilteredAsSpam\" OR Subject=\"*URGENT*Verify*\" OR Subject=\"*won*$*\" OR Subject=\"*Action Required*\") | eval status=if(Status=\"FilteredAsSpam\" OR action=\"blocked\", \"Blocked\", \"Delivered\") | timechart span=1h count by status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_senders": {
+			"name": "SOC - Top Phishing Senders",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\") | rex field=SenderAddress \"@(?<sender_domain>.+)\" | stats count as Emails by sender_domain | sort - Emails | head 10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_status": {
+			"name": "SOC - Phishing by Status",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Status=\"FilteredAsSpam\" OR Subject=\"*URGENT*Verify*\" OR Subject=\"*won*$*\" OR Subject=\"*Action Required*\") | eval phish_status=case(Status=\"FilteredAsSpam\", \"Blocked\", Status=\"Delivered\", \"Delivered\", Status=\"Failed\", \"Failed\", 1=1, Status) | stats count by phish_status",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_targets": {
+			"name": "SOC - Top Phishing Targets",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Status=\"FilteredAsSpam\" OR Subject=\"*URGENT*Verify*\" OR Subject=\"*won*$*\" OR Subject=\"*Action Required*\") | stats count as Attempts dc(SenderAddress) as \"Unique Senders\" by RecipientAddress | sort - Attempts | head 15 | rename RecipientAddress as \"Target User\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_phishing_total": {
+			"name": "SOC - Phishing Total",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:o365:reporting:messagetrace\" (SenderAddress=\"*lottery*\" OR SenderAddress=\"*secure-banking*\" OR SenderAddress=\"*amaz0n*\" OR SenderAddress=\"*nigeria*\" OR SenderAddress=\"*pharmacy*\" OR SenderAddress=\"*m1crosoft-secure*\" OR Status=\"FilteredAsSpam\" OR Subject=\"*URGENT*Verify*\" OR Subject=\"*won*$*\" OR Subject=\"*Action Required*\") | stats count as phishing_total",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_severity_warnings": {
+			"name": "SOC - Severity Warnings",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" severity_level IN (warning, notification) | stats count as warnings",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_top_dest_ports": {
+			"name": "SOC - Top Destination Ports",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" dest_port=* | stats count as Connections by dest_port | sort - Connections | head 10 | rename dest_port as Port",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_top_src_ips": {
+			"name": "SOC - Top Source IPs",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=* | stats count as Events sum(bytes) as Bytes by src | sort - Events | head 10 | rename src as \"Source IP\"",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_total_events": {
+			"name": "SOC - Total Security Events",
+			"options": {
+				"query": "index=fake_tshrt sourcetype IN (\"cisco:asa\", \"azure:aad:signin\", \"azure:aad:audit\", \"aws:cloudtrail\", \"WinEventLog\") | stats count as total_events",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_traffic_interface": {
+			"name": "SOC - Traffic by Interface",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" dest_interface=* | stats count as Connections by dest_interface | rename dest_interface as Interface",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_sec_unique_src_ips": {
+			"name": "SOC - Unique Source IPs",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:cisco:asa\" src=* | stats dc(src) as unique_ips",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_shipping_breakdown": {
+			"name": "Shipping Cost Breakdown",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=pricing.shipping output=shipping | spath path=shippingAddress.country output=country | eval shipping_type=if(country=\"United States\",\"Domestic ($8)\",\"International ($15)\") | stats count as Orders sum(shipping) as Revenue by shipping_type",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_tCfq542K": {
+			"name": "Events",
+			"options": {
+				"query": "| tstats c where index=fake_tshrt by _time sourcetype span=1h\n| timechart sum(c) span=1h by sourcetype limit=25",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_top_cities": {
+			"name": "Top Cities",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=shippingAddress.city output=city | spath path=pricing.total output=total | stats sum(total) as Revenue by city | sort -Revenue | head 10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_top_products": {
+			"name": "Top Products",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=items{} output=items | mvexpand items | spath input=items | stats sum(lineTotal) as Revenue by name | sort -Revenue | head 10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_top_regions": {
+			"name": "Top Regions",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=shippingAddress.region output=region | spath path=pricing.total output=total | stats sum(total) as Revenue by region | sort -Revenue | head 10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_top_search_terms": {
+			"name": "Top Search Terms",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" uri=\"/api/v1/search*\" | rex field=uri \"q=(?<term>[^&]+)\" | stats count as Searches by term | sort -Searches | head 10",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_total_downtime": {
+			"name": "Total Downtime",
+			"options": {
+				"query": "| makeresults | eval total_downtime=90",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_total_orders": {
+			"name": "Total Orders",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | stats dc(orderId) as total_orders",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_total_revenue": {
+			"name": "Total Revenue",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=pricing.total output=total | stats sum(total) as total_revenue | eval total_revenue=round(total_revenue,0)",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_total_shipping": {
+			"name": "Total Shipping Revenue",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=pricing.shipping output=shipping | stats sum(shipping) as total_shipping",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_traffic_with_outages": {
+			"name": "Traffic with Outages",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:access_combined\" | timechart span=15m count as Traffic \n| eval Outage=if(Traffic<20 AND strftime(_time,\"%H\")>=\"08\" AND strftime(_time,\"%H\")<=\"20\", 400, null())",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_unique_customers": {
+			"name": "Unique Customers",
+			"options": {
+				"query": "index=fake_tshrt sourcetype=\"FAKE:online:order\" | spath path=customer.customerId output=cid | stats dc(cid) as unique_customers",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_v6bfOS5r": {
+			"name": "Source",
+			"options": {
+				"query": "| tstats dc(source) where index=fake_tshrt",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		},
+		"ds_vGkkFAWv": {
+			"name": "Teardown over time",
+			"options": {
+				"extend": "ds_0sYasD3M",
+				"query": "| table _time teardown"
+			},
+			"type": "ds.chain"
+		},
+		"ds_x216uVgk": {
+			"name": "Total Events",
+			"options": {
+				"query": "| tstats c where index=fake_tshrt ",
+				"queryParameters": {
+					"earliest": "$global_time.earliest$",
+					"latest": "$global_time.latest$"
+				}
+			},
+			"type": "ds.search"
+		}
+	},
+	"layout": {
+		"globalInputs": [
+			"input_global_trp"
+		],
+		"layoutDefinitions": {
+			"layout_1": {
+				"options": {
+					"display": "fit-to-width",
+					"height": 2500,
+					"width": 2560
+				},
+				"structure": [
+					{
+						"item": "viz_uwn3hU49",
+						"position": {
+							"h": 260,
+							"w": 490,
+							"x": 2050,
+							"y": 20
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_pBGytsZy",
+						"position": {
+							"h": 350,
+							"w": 490,
+							"x": 2050,
+							"y": 300
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_QYxrF9Zv",
+						"position": {
+							"h": 110,
+							"w": 340,
+							"x": 610,
+							"y": 20
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_cuHKZ5DI",
+						"position": {
+							"h": 110,
+							"w": 340,
+							"x": 1330,
+							"y": 20
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_cp2B9yOM",
+						"position": {
+							"h": 110,
+							"w": 340,
+							"x": 970,
+							"y": 20
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_BrSC75Gt",
+						"position": {
+							"h": 110,
+							"w": 340,
+							"x": 1690,
+							"y": 20
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_Le6eARo6",
+						"position": {
+							"h": 110,
+							"w": 570,
+							"x": 20,
+							"y": 20
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_waG5JAgg",
+						"position": {
+							"h": 860,
+							"w": 920,
+							"x": 1620,
+							"y": 680
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_qbaONAhp",
+						"position": {
+							"h": 420,
+							"w": 640,
+							"x": 960,
+							"y": 680
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_xj3FCdmR",
+						"position": {
+							"h": 420,
+							"w": 640,
+							"x": 960,
+							"y": 1120
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_0qo14Nvc",
+						"position": {
+							"h": 860,
+							"w": 920,
+							"x": 20,
+							"y": 680
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_q6WWCzRj",
+						"position": {
+							"h": 450,
+							"w": 400,
+							"x": 20,
+							"y": 1570
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_NxXBKhxp",
+						"position": {
+							"h": 450,
+							"w": 420,
+							"x": 420,
+							"y": 1570
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_XGUAq8QM",
+						"position": {
+							"h": 500,
+							"w": 2010,
+							"x": 20,
+							"y": 150
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			},
+			"layout_62M1zu9b": {
+				"options": {
+					"display": "fit-to-width",
+					"height": 9802,
+					"width": 2560
+				},
+				"structure": [
+					{
+						"item": "viz_readme_overview",
+						"position": {
+							"x": 0,
+							"y": 0,
+							"w": 1270,
+							"h": 1020
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_timeline",
+						"position": {
+							"x": 1290,
+							"y": 0,
+							"w": 1270,
+							"h": 1020
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_exfil",
+						"position": {
+							"x": 0,
+							"y": 1040,
+							"w": 2560,
+							"h": 1854
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_memleak",
+						"position": {
+							"x": 0,
+							"y": 2914,
+							"w": 1270,
+							"h": 1474
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_fwmisconfig",
+						"position": {
+							"x": 1290,
+							"y": 2914,
+							"w": 1270,
+							"h": 1474
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_cpurunaway",
+						"position": {
+							"x": 0,
+							"y": 4408,
+							"w": 1270,
+							"h": 1166
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_infra_servers",
+						"position": {
+							"x": 1290,
+							"y": 4408,
+							"w": 1270,
+							"h": 1166
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_infra_network",
+						"position": {
+							"x": 0,
+							"y": 5594,
+							"w": 1270,
+							"h": 930
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_sources_network",
+						"position": {
+							"x": 1290,
+							"y": 5594,
+							"w": 1270,
+							"h": 930
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_sources_identity",
+						"position": {
+							"x": 0,
+							"y": 6544,
+							"w": 840,
+							"h": 952
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_sources_cloud",
+						"position": {
+							"x": 860,
+							"y": 6544,
+							"w": 840,
+							"h": 952
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_sources_windows",
+						"position": {
+							"x": 1720,
+							"y": 6544,
+							"w": 840,
+							"h": 952
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_sources_linux",
+						"position": {
+							"x": 0,
+							"y": 7516,
+							"w": 1270,
+							"h": 712
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_sources_business",
+						"position": {
+							"x": 1290,
+							"y": 7516,
+							"w": 1270,
+							"h": 712
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_readme_searches",
+						"position": {
+							"x": 0,
+							"y": 8248,
+							"w": 2560,
+							"h": 1234
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_B6vQqZBS",
+						"position": {
+							"x": 1155,
+							"y": 9502,
+							"w": 250,
+							"h": 250
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			},
+			"layout_9liMCFXM": {
+				"options": {
+					"display": "fit-to-width",
+					"height": 3000,
+					"width": 2560
+				},
+				"structure": [
+					{
+						"item": "viz_total_revenue",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_total_orders",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 640,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_avg_order_value",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 320,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_unique_customers",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 960,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_conversion_rate",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 1280,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_cart_abandonment",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 1600,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_avg_items_per_order",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 1920,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_repeat_rate",
+						"position": {
+							"h": 80,
+							"w": 320,
+							"x": 2240,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_revenue_over_time",
+						"position": {
+							"h": 200,
+							"w": 1280,
+							"x": 0,
+							"y": 90
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_orders_over_time",
+						"position": {
+							"h": 200,
+							"w": 1280,
+							"x": 1280,
+							"y": 90
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_revenue_by_day",
+						"position": {
+							"h": 320,
+							"w": 853,
+							"x": 0,
+							"y": 300
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_orders_per_hour",
+						"position": {
+							"h": 320,
+							"w": 855,
+							"x": 853,
+							"y": 300
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_category_trend",
+						"position": {
+							"h": 320,
+							"w": 855,
+							"x": 1702,
+							"y": 300
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sales_funnel",
+						"position": {
+							"h": 350,
+							"w": 580,
+							"x": 0,
+							"y": 620
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_journey_time_distribution",
+						"position": {
+							"h": 350,
+							"w": 960,
+							"x": 580,
+							"y": 620
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_pageviews_to_purchase",
+						"position": {
+							"h": 350,
+							"w": 1020,
+							"x": 1540,
+							"y": 620
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sankey",
+						"position": {
+							"h": 580,
+							"w": 2560,
+							"x": 0,
+							"y": 970
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_top_products",
+						"position": {
+							"h": 220,
+							"w": 512,
+							"x": 0,
+							"y": 1550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sales_by_category",
+						"position": {
+							"h": 220,
+							"w": 512,
+							"x": 510,
+							"y": 1550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_top_search_terms",
+						"position": {
+							"h": 220,
+							"w": 512,
+							"x": 1020,
+							"y": 1550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_order_status",
+						"position": {
+							"h": 220,
+							"w": 512,
+							"x": 1530,
+							"y": 1550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_http_status",
+						"position": {
+							"h": 220,
+							"w": 512,
+							"x": 2040,
+							"y": 1550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_device_breakdown",
+						"position": {
+							"h": 250,
+							"w": 512,
+							"x": 0,
+							"y": 1770
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_browser_breakdown",
+						"position": {
+							"h": 250,
+							"w": 512,
+							"x": 510,
+							"y": 1770
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_top_regions",
+						"position": {
+							"h": 250,
+							"w": 512,
+							"x": 1020,
+							"y": 1770
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_top_cities",
+						"position": {
+							"h": 250,
+							"w": 512,
+							"x": 1530,
+							"y": 1770
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_payment_methods",
+						"position": {
+							"h": 250,
+							"w": 512,
+							"x": 2040,
+							"y": 1770
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_repeat_customers",
+						"position": {
+							"h": 300,
+							"w": 430,
+							"x": 0,
+							"y": 2020
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_response_time_trend",
+						"position": {
+							"h": 300,
+							"w": 1030,
+							"x": 430,
+							"y": 2020
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_traffic_with_outages",
+						"position": {
+							"h": 300,
+							"w": 1100,
+							"x": 1460,
+							"y": 2020
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_revenue_loss",
+						"position": {
+							"h": 220,
+							"w": 260,
+							"x": 0,
+							"y": 2320
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_total_downtime",
+						"position": {
+							"h": 220,
+							"w": 260,
+							"x": 260,
+							"y": 2320
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_incident_table",
+						"position": {
+							"h": 220,
+							"w": 2040,
+							"x": 520,
+							"y": 2320
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_total_shipping",
+						"position": {
+							"h": 200,
+							"w": 320,
+							"x": 0,
+							"y": 2550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_avg_delivery_time",
+						"position": {
+							"h": 200,
+							"w": 320,
+							"x": 320,
+							"y": 2550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_delivery_by_region",
+						"position": {
+							"h": 400,
+							"w": 600,
+							"x": 640,
+							"y": 2550
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_shipping_breakdown",
+						"position": {
+							"h": 200,
+							"w": 640,
+							"x": 0,
+							"y": 2750
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_fulfillment_timeline",
+						"position": {
+							"h": 400,
+							"w": 1320,
+							"x": 1240,
+							"y": 2550
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			},
+			"layout_BIpuSW1C": {
+				"options": {
+					"display": "fit-to-width",
+					"height": 4000,
+					"width": 2560
+				},
+				"structure": [
+					{
+						"item": "viz_sec_total_events",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_failed_logins",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 430,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_blocked_conn",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 852,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_allowed_conn",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 1278,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_unique_src_ips",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 1704,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_severity_warnings",
+						"position": {
+							"h": 100,
+							"w": 430,
+							"x": 2130,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_events_over_time",
+						"position": {
+							"h": 300,
+							"w": 2560,
+							"x": 0,
+							"y": 110
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_fw_actions",
+						"position": {
+							"h": 300,
+							"w": 640,
+							"x": 0,
+							"y": 420
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_auth_by_app",
+						"position": {
+							"h": 300,
+							"w": 640,
+							"x": 640,
+							"y": 420
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_failed_by_user",
+						"position": {
+							"h": 300,
+							"w": 640,
+							"x": 1280,
+							"y": 420
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_blocked_table",
+						"position": {
+							"h": 300,
+							"w": 640,
+							"x": 1920,
+							"y": 420
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_geo_map",
+						"position": {
+							"h": 500,
+							"w": 1280,
+							"x": 0,
+							"y": 730
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_top_src_ips",
+						"position": {
+							"h": 250,
+							"w": 640,
+							"x": 1280,
+							"y": 730
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_top_dest_ports",
+						"position": {
+							"h": 250,
+							"w": 640,
+							"x": 1920,
+							"y": 730
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_login_locations",
+						"position": {
+							"h": 250,
+							"w": 640,
+							"x": 1280,
+							"y": 980
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_traffic_interface",
+						"position": {
+							"h": 250,
+							"w": 640,
+							"x": 1920,
+							"y": 980
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_total",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 0,
+							"y": 1280
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_spam",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 320,
+							"y": 1280
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_direction",
+						"position": {
+							"h": 250,
+							"w": 400,
+							"x": 640,
+							"y": 1280
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_rules",
+						"position": {
+							"h": 250,
+							"w": 500,
+							"x": 1040,
+							"y": 1280
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_suspicious",
+						"position": {
+							"h": 250,
+							"w": 1020,
+							"x": 1540,
+							"y": 1280
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_status",
+						"position": {
+							"h": 150,
+							"w": 320,
+							"x": 0,
+							"y": 1380
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_source",
+						"position": {
+							"h": 150,
+							"w": 320,
+							"x": 320,
+							"y": 1380
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_email_over_time",
+						"position": {
+							"h": 250,
+							"w": 2560,
+							"x": 0,
+							"y": 1540
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_cloud_total",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 0,
+							"y": 1840
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_aws_events",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 320,
+							"y": 1840
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_gcp_events",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 640,
+							"y": 1840
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_aws_s3",
+						"position": {
+							"h": 250,
+							"w": 400,
+							"x": 960,
+							"y": 1840
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_gcp_services",
+						"position": {
+							"h": 250,
+							"w": 600,
+							"x": 1360,
+							"y": 1840
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_aws_buckets",
+						"position": {
+							"h": 250,
+							"w": 600,
+							"x": 1960,
+							"y": 1840
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_cloud_over_time",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 0,
+							"y": 2100
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_cloud_users",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 1280,
+							"y": 2100
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_mfa_total",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 0,
+							"y": 2400
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_foreign_count",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 0,
+							"y": 2510
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_compromised_count",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 0,
+							"y": 2620
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_mfa_methods",
+						"position": {
+							"h": 320,
+							"w": 400,
+							"x": 320,
+							"y": 2400
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_ca_status",
+						"position": {
+							"h": 320,
+							"w": 400,
+							"x": 720,
+							"y": 2400
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_login_countries",
+						"position": {
+							"h": 320,
+							"w": 400,
+							"x": 1120,
+							"y": 2400
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_login_errors",
+						"position": {
+							"h": 320,
+							"w": 1040,
+							"x": 1520,
+							"y": 2400
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_foreign_attacks",
+						"position": {
+							"h": 300,
+							"w": 1280,
+							"x": 0,
+							"y": 2730
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_compromised_users",
+						"position": {
+							"h": 300,
+							"w": 1280,
+							"x": 1280,
+							"y": 2730
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_total",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 0,
+							"y": 3080
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_blocked",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 320,
+							"y": 3080
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_delivered",
+						"position": {
+							"h": 100,
+							"w": 320,
+							"x": 640,
+							"y": 3080
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_status",
+						"position": {
+							"h": 300,
+							"w": 400,
+							"x": 960,
+							"y": 3080
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_senders",
+						"position": {
+							"h": 300,
+							"w": 600,
+							"x": 1360,
+							"y": 3080
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_keywords",
+						"position": {
+							"h": 300,
+							"w": 600,
+							"x": 1960,
+							"y": 3080
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_over_time",
+						"position": {
+							"h": 250,
+							"w": 2560,
+							"x": 0,
+							"y": 3390
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_targets",
+						"position": {
+							"h": 300,
+							"w": 1280,
+							"x": 0,
+							"y": 3650
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_sec_phishing_emails",
+						"position": {
+							"h": 300,
+							"w": 1280,
+							"x": 1280,
+							"y": 3650
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			},
+			"layout_T2FbUgRI": {
+				"structure": [
+					{
+						"item": "viz_yjMycQBt",
+						"position": {
+							"h": 133,
+							"w": 308,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_iw1bZ9XC",
+						"position": {
+							"h": 369,
+							"w": 1200,
+							"x": 0,
+							"y": 133
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_cYDIHTKP",
+						"position": {
+							"h": 496,
+							"w": 416,
+							"x": 0,
+							"y": 502
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_taSlB1UT",
+						"position": {
+							"h": 803,
+							"w": 1200,
+							"x": 0,
+							"y": 998
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_POJ5vCQV",
+						"position": {
+							"h": 133,
+							"w": 321,
+							"x": 308,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_k11zynFG",
+						"position": {
+							"h": 496,
+							"w": 484,
+							"x": 416,
+							"y": 502
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_v71N74CH",
+						"position": {
+							"h": 133,
+							"w": 312,
+							"x": 629,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_a5v0gEYI",
+						"position": {
+							"h": 496,
+							"w": 300,
+							"x": 900,
+							"y": 502
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_EgT3amZ4",
+						"position": {
+							"h": 133,
+							"w": 259,
+							"x": 941,
+							"y": 0
+						},
+						"type": "block"
+					}
+				],
+				"type": "grid"
+			},
+			"layout_bB9YnRHj": {
+				"structure": [],
+				"type": "grid"
+			},
+			"layout_f8uba7Q6": {
+				"options": {
+					"backgroundColor": "transparent",
+					"backgroundImage": {
+						"opacity": 0.7,
+						"sizeType": "auto",
+						"src": "splunk-enterprise-kvstore://697bcbe017c11d103c089258",
+						"x": 0,
+						"y": 0
+					},
+					"height": 1000,
+					"width": 2000
+				},
+				"structure": [
+					{
+						"item": "viz_PXAcSR4l",
+						"position": {
+							"h": 390,
+							"w": 420,
+							"x": 780,
+							"y": 300
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_gu3s9qqn",
+						"position": {
+							"h": 360,
+							"w": 480,
+							"x": 1460,
+							"y": 60
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_onLdwisR",
+						"position": {
+							"h": 70,
+							"w": 460,
+							"x": 1490,
+							"y": 210
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			},
+			"layout_gXpAZqhB": {
+				"options": {
+					"display": "fit-to-width",
+					"height": 2200,
+					"width": 2560
+				},
+				"structure": [
+					{
+						"item": "viz_itops_total_hosts",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 0,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_server_count",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 426,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_count",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 852,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_avg_cpu",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 1278,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_critical_hosts",
+						"position": {
+							"h": 100,
+							"w": 426,
+							"x": 1704,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_http_errors",
+						"position": {
+							"h": 100,
+							"w": 430,
+							"x": 2130,
+							"y": 0
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_server_cpu_time",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 0,
+							"y": 110
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_server_mem_time",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 1280,
+							"y": 110
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_server_health",
+						"position": {
+							"h": 200,
+							"w": 2560,
+							"x": 0,
+							"y": 370
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_server_disk",
+						"position": {
+							"h": 250,
+							"w": 640,
+							"x": 0,
+							"y": 580
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_win_events_type",
+						"position": {
+							"h": 250,
+							"w": 500,
+							"x": 640,
+							"y": 580
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_recent_events",
+						"position": {
+							"h": 250,
+							"w": 1420,
+							"x": 1140,
+							"y": 580
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_avg_response",
+						"position": {
+							"h": 100,
+							"w": 640,
+							"x": 0,
+							"y": 880
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_p95_response",
+						"position": {
+							"h": 100,
+							"w": 640,
+							"x": 640,
+							"y": 880
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_req_sec",
+						"position": {
+							"h": 100,
+							"w": 640,
+							"x": 1280,
+							"y": 880
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_error_rate",
+						"position": {
+							"h": 100,
+							"w": 640,
+							"x": 1920,
+							"y": 880
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_response_time",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 0,
+							"y": 990
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_http_status",
+						"position": {
+							"h": 250,
+							"w": 500,
+							"x": 1280,
+							"y": 990
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_slowest_uri",
+						"position": {
+							"h": 250,
+							"w": 780,
+							"x": 1780,
+							"y": 990
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_web_requests_time",
+						"position": {
+							"h": 200,
+							"w": 2560,
+							"x": 0,
+							"y": 1250
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_avg_cpu",
+						"position": {
+							"h": 100,
+							"w": 853,
+							"x": 0,
+							"y": 1500
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_avg_mem",
+						"position": {
+							"h": 100,
+							"w": 854,
+							"x": 853,
+							"y": 1500
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_critical",
+						"position": {
+							"h": 100,
+							"w": 853,
+							"x": 1707,
+							"y": 1500
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_cpu_dist",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 0,
+							"y": 1610
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_mem_dist",
+						"position": {
+							"h": 250,
+							"w": 1280,
+							"x": 1280,
+							"y": 1610
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_top_cpu",
+						"position": {
+							"h": 300,
+							"w": 1280,
+							"x": 0,
+							"y": 1870
+						},
+						"type": "block"
+					},
+					{
+						"item": "viz_itops_endpoint_top_mem",
+						"position": {
+							"h": 300,
+							"w": 1280,
+							"x": 1280,
+							"y": 1870
+						},
+						"type": "block"
+					}
+				],
+				"type": "absolute"
+			}
+		},
+		"options": {},
+		"tabs": {
+			"items": [
+				{
+					"label": "Welcome",
+					"layoutId": "layout_f8uba7Q6"
+				},
+				{
+					"label": "Info",
+					"layoutId": "layout_T2FbUgRI"
+				},
+				{
+					"label": "Network",
+					"layoutId": "layout_1"
+				},
+				{
+					"label": "Business",
+					"layoutId": "layout_9liMCFXM"
+				},
+				{
+					"label": "Security",
+					"layoutId": "layout_BIpuSW1C"
+				},
+				{
+					"label": "IT-Ops",
+					"layoutId": "layout_gXpAZqhB"
+				},
+				{
+					"label": "Readme",
+					"layoutId": "layout_62M1zu9b"
+				}
+			]
+		}
+	},
+	"applicationProperties": {}
+}
+]]></definition>
+</dashboard>

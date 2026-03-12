@@ -4,6 +4,57 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-03-11 ~20:00 UTC — Exfil scenario: add SafeLinks + InboxRule events, fix all SPL queries
+
+**bin/generators/generate_office_audit.py:**
+- Added SafeLinks URL click event (Day 4, ~14:32) for Jessica Brown clicking phishing link
+  - Operation=SafeLinksUrlClicked, RecordType=41, demo_id=exfil
+- Added New-InboxRule forwarding rule event (Day 5, ~09:15) from threat actor IP
+  - Operation=New-InboxRule, RecordType=1, forwarding to sec-alerts-fwd@protonmail.com, demo_id=exfil
+- Updated docstring to reflect new timeline events
+
+**docs/scenarios/exfil.md (12 fixes):**
+- Fixed `sender=` to `SenderAddress=` (Exchange field name)
+- Fixed SafeLinks query: moved from Exchange (wrong sourcetype) to Office Audit (`FAKE:o365:management:activity`)
+- Fixed Entra ID login query: `user=jessica.brown location=Germany` to `"properties.userPrincipalName"="jessica.brown@*" location=DE`
+- Fixed `EventID=4625` to `EventCode=4625` (WinEventLog field name)
+- Fixed InboxRule query: moved from Exchange to Office Audit with `Operation="New-InboxRule"`
+- Fixed GuardDuty finding type: `Persistence:IAMUser/UserPermissions` to `Persistence:IAMUser/AnomalousBehavior`
+- Fixed all GuardDuty queries: `detail.type` to `type`, `detail.severity` to `severity`, `detail.resource.resourceType` to `resource.resourceType`
+- Fixed all AWS Billing field names: `lineItem.productCode` to `lineItem_ProductCode`, `lineItem.unblendedCost` to `lineItem_UnblendedCost`
+- Updated Log Sources table: Exchange no longer lists forwarding rule, Office Audit now lists SafeLinks + forwarding rule
+- Updated Summary Table: Day 4 includes SafeLinks, Day 5-7 includes forwarding rule
+- Updated talking points for Day 4 (SafeLinks mention) and Days 5-7 (forwarding rule mention)
+
+**Verification:** Generator produces 19,497 events with 1 SafeLinks + 1 InboxRule exfil event correctly placed in timeline.
+
+---
+
+## 2026-03-11 ~14:00 UTC — Rewrite Readme tab in splunk_use_cases.xml + fix SPL bugs
+
+**splunk_use_cases.xml (Readme tab — all 15 markdown panels rewritten):**
+- Updated all server names/IPs to match current architecture (DC-BOS-01, DC-BOS-02, FILE-BOS-01, APP-BOS-01, SAP-PROD-01, SAP-DB-01, BASTION-BOS-01, DC-ATL-01, BACKUP-ATL-01, MON-ATL-01)
+- Fixed all network IPs from old 10.0.x.x to correct 10.10.x.x (BOS), 10.20.x.x (ATL), 10.30.x.x (AUS)
+- Updated sourcetypes from `:demo` suffix to `FAKE:` prefix throughout
+- Expanded from 4 scenarios to all 10 (added ransomware_attempt, phishing_test, disk_filling, dead_letter_pricing, ddos_attack, certificate_expiry)
+- Reorganized scenario panels: Exfil (detailed with full day-by-day timeline from exfil.py), Attack (ransomware+phishing), Ops (memory_leak+cpu_runaway+disk_filling+dead_letter), Network (ddos+firewall_misconfig+certificate_expiry)
+- Updated data sources from "10+" to full 24 generators/40+ sourcetypes (added Meraki, Catalyst, ACI, Secure Access, Catalyst Center, Sysmon, MSSQL, SAP, ServiceNow, Webex, Office Audit)
+- Added all 3 locations with correct employee counts and network segments
+- Updated cloud accounts (GCP project name, correct AWS account)
+- Fixed key searches with correct IPs (alex.miller=10.10.30.55) and added tstats example
+- Set `fontSize: "large"` and `fontColor: "#C3CBD4"` on all 15 markdown panels for better readability
+- Replaced Unicode severity indicators (░▒▓█) in Scenario Timeline with ASCII (.+*X#) for clearer distinction
+- Reorganized layout: Exfil panel full-width (2560px), Key Searches full-width, other sections balanced 2-column, data sources 3-column
+- Recalculated all 15 panel heights to eliminate internal scrollbars (content-based sizing: ~22px/line with `fontSize=large`)
+- Total Readme tab layout height: 9802px
+
+**splunk_use_cases.xml (SPL bug fixes in other tabs):**
+- ds_VkrjTKGG: Fixed lowercase `sourcetype=fake:cisco:asa` to `sourcetype="FAKE:cisco:asa"`
+- ds_VaI1szAm: Fixed `| head ` (missing number) to `| head 20`
+- ds_0sYasD3M: Removed hardcoded `earliest="0"` to use global time range
+
+---
+
 ## 2026-03-10 ~20:00 UTC — Fix IDX_demo_id extraction for AWS Billing CSV sourcetype
 
 **transforms.conf:**

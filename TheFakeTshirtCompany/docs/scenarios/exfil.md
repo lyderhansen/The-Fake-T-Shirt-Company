@@ -82,7 +82,7 @@ Frankfurt (Threat Actor) -> Atlanta (Initial Access) -> Boston (Target) -> AWS/G
 |------------|-------|--------|
 | ASA | Port scans blocked | `index=fake_tshrt sourcetype="FAKE:cisco:asa" src=185.220.101.42 "%ASA-4-106023"` |
 | ASA | Threat detection | `index=fake_tshrt sourcetype="FAKE:cisco:asa" "%ASA-4-733100" OR "%ASA-4-733101"` |
-| Exchange | Phishing sent | `index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" sender=*rnicrosoft-security.com` |
+| Exchange | Phishing sent | `index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" SenderAddress=*rnicrosoft-security.com` |
 
 **Talking point:**
 > "Here we see early indicators of reconnaissance. An external IP (185.220.101.42) from Germany is scanning our perimeter ports. Simultaneously, we see a phishing email sent to our IT admin Jessica Brown. This is classic APT behavior - patient preparation before the actual attack."
@@ -92,7 +92,7 @@ Frankfurt (Threat Actor) -> Atlanta (Initial Access) -> Boston (Target) -> AWS/G
 ### Day 4: Initial Access
 
 **What happens:**
-- Jessica Brown clicks phishing link
+- Jessica Brown clicks phishing link (SafeLinks URL click logged)
 - Credentials harvested
 - Attacker gains access to Jessica's email
 
@@ -103,11 +103,11 @@ Frankfurt (Threat Actor) -> Atlanta (Initial Access) -> Boston (Target) -> AWS/G
 | Log Source | Event | Search |
 |------------|-------|--------|
 | ASA | Inbound connection | `index=fake_tshrt sourcetype="FAKE:cisco:asa" src=185.220.101.42 "%ASA-6-302013"` |
-| Exchange | Safe Links click | `index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" SafeLinksPolicy jessica.brown` |
-| Entra ID | Suspicious login | `index=fake_tshrt sourcetype="FAKE:azure:aad:signin" user=jessica.brown location=Germany` |
+| Office Audit | SafeLinks click | `index=fake_tshrt sourcetype="FAKE:o365:management:activity" Operation="SafeLinksUrlClicked" demo_id=exfil` |
+| Entra ID | Suspicious login | `index=fake_tshrt sourcetype="FAKE:azure:aad:signin" "properties.userPrincipalName"="jessica.brown@*" location=DE` |
 
 **Talking point:**
-> "Day 4 is the turning point. Jessica clicks the link and her credentials are stolen. We see an inbound connection from the threat actor IP, and a suspicious login from Germany to her account. From this moment, the attacker has a foothold in the network."
+> "Day 4 is the turning point. Jessica clicks the link -- we can see the SafeLinks URL click event in the Office 365 audit log. Her credentials are stolen. We see an inbound connection from the threat actor IP, and a suspicious login from Germany to her account. From this moment, the attacker has a foothold in the network."
 
 ---
 
@@ -147,15 +147,15 @@ This is the key escalation step. Jessica Brown is an IT Administrator -- she has
 |------------|-------|--------|
 | ASA | Cross-site probing | `index=fake_tshrt sourcetype="FAKE:cisco:asa" acl=cross_site_policy action=deny` |
 | ASA | Internal ACL denies | `index=fake_tshrt sourcetype="FAKE:cisco:asa" acl=server_segment_acl action=deny` |
-| WinEventLog | Failed logon | `index=fake_tshrt sourcetype="FAKE:WinEventLog" EventID=4625 src=10.20.30.15` |
+| WinEventLog | Failed logon | `index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4625 src=10.20.30.15` |
 | WinEventLog | Password reset | `index=fake_tshrt sourcetype="FAKE:WinEventLog" EventCode=4724 demo_id=exfil` |
 | Entra ID | MFA deleted | `index=fake_tshrt sourcetype="FAKE:azure:aad:audit" "Admin deleted authentication method" demo_id=exfil` |
 | Entra ID | MFA registered | `index=fake_tshrt sourcetype="FAKE:azure:aad:audit" "User registered security info" demo_id=exfil` |
-| Exchange | Forwarding rule | `index=fake_tshrt sourcetype="FAKE:ms:o365:reporting:messagetrace" InboxRule jessica.brown forward` |
+| Office Audit | Forwarding rule | `index=fake_tshrt sourcetype="FAKE:o365:management:activity" Operation="New-InboxRule" demo_id=exfil` |
 | GCP Audit | Bucket recon | `index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" protoPayload.methodName="storage.buckets.getIamPolicy"` |
 
 **Talking point:**
-> "Now we see lateral movement. The attacker uses Jessica's credentials to probe Boston servers via SD-WAN. But the real pivot happens at 2 AM on Day 6. Jessica is an IT Admin -- she can reset passwords but has no access to financial data. Alex Miller is in Finance with access to everything the attacker wants. So the attacker uses Jessica's admin rights to reset Alex's password, delete his MFA, and register a new authenticator. In 11 minutes, they go from IT admin access to Finance access. This is why role separation and privileged access monitoring matter."
+> "Now we see lateral movement. On Day 5, the attacker creates a forwarding rule on Jessica's mailbox -- any security notifications get forwarded to an external address. Then they start probing Boston servers via SD-WAN. But the real pivot happens at 2 AM on Day 6. Jessica is an IT Admin -- she can reset passwords but has no access to financial data. Alex Miller is in Finance with access to everything the attacker wants. So the attacker uses Jessica's admin rights to reset Alex's password, delete his MFA, and register a new authenticator. In 11 minutes, they go from IT admin access to Finance access. This is why role separation and privileged access monitoring matter."
 
 ---
 
@@ -177,7 +177,7 @@ This is the key escalation step. Jessica Brown is an IT Administrator -- she has
 | 8 | 10:45 | AWS: CreateUser `svc-datasync` | CloudTrail |
 | 8 | 10:46 | AWS: AttachUserPolicy AdministratorAccess | CloudTrail |
 | 8 | ~11:00 | GuardDuty: UnauthorizedAccess:IAMUser/MaliciousIPCaller | GuardDuty |
-| 8 | ~11:00 | GuardDuty: Persistence:IAMUser/UserPermissions | GuardDuty |
+| 8 | ~11:00 | GuardDuty: Persistence:IAMUser/AnomalousBehavior | GuardDuty |
 | 8 | 11:00 | GCP: CreateServiceAccountKey | GCP Audit |
 | 8+ | ongoing | AWS Config: IAM MFA rule NON_COMPLIANT | CloudTrail |
 | 9 | 10:00 | AWS: GetSecretValue (DB credentials) from threat IP | CloudTrail |
@@ -190,13 +190,13 @@ This is the key escalation step. Jessica Brown is an IT Administrator -- she has
 | AWS CloudTrail | IAM user created | `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=CreateUser` |
 | AWS CloudTrail | Admin policy | `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=AttachUserPolicy` |
 | AWS CloudTrail | Secrets Manager | `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=GetSecretValue sourceIPAddress=185.220.101.42` |
-| AWS GuardDuty | IAM findings | `index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" detail.type=*IAMUser* demo_id=exfil` |
+| AWS GuardDuty | IAM findings | `index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" type=*IAMUser* demo_id=exfil` |
 | GCP Audit | Service account | `index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" protoPayload.methodName=*CreateServiceAccountKey*` |
 | GCP Audit | Log recon | `index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" protoPayload.methodName=*ListLogEntries* protoPayload.requestMetadata.callerIp=185.220.101.42` |
 | Linux vmstat | WEB-01 anomaly | `index=fake_tshrt sourcetype="FAKE:vmstat" host=WEB-01 demo_id=exfil` |
 
 **Talking point:**
-> "This is the persistence phase. The attacker creates a backdoor IAM user 'svc-datasync' with full administrator access. GuardDuty fires two findings: MaliciousIPCaller and UserPermissions. In GCP, a service account key is created. On Day 9, the attacker uses the stolen credentials to fetch database secrets from AWS Secrets Manager. Day 10 at 10pm, they query GCP Cloud Logging to check if anyone noticed their SA creation -- that's operational security awareness."
+> "This is the persistence phase. The attacker creates a backdoor IAM user 'svc-datasync' with full administrator access. GuardDuty fires two findings: MaliciousIPCaller and AnomalousBehavior. In GCP, a service account key is created. On Day 9, the attacker uses the stolen credentials to fetch database secrets from AWS Secrets Manager. Day 10 at 10pm, they query GCP Cloud Logging to check if anyone noticed their SA creation -- that's operational security awareness."
 
 ---
 
@@ -236,8 +236,8 @@ This is the key escalation step. Jessica Brown is an IT Administrator -- she has
 | Log Source | Event | Search |
 |------------|-------|--------|
 | AWS CloudTrail | S3 GetObject | `index=fake_tshrt sourcetype="FAKE:aws:cloudtrail" eventName=GetObject demo_id=exfil` |
-| AWS GuardDuty | S3 exfil finding | `index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" detail.type=*S3*Anomalous* demo_id=exfil` |
-| AWS Billing | Cost anomaly | `index=fake_tshrt sourcetype="FAKE:aws:billing:cur" lineItem.productCode=AmazonS3 demo_id=exfil` |
+| AWS GuardDuty | S3 exfil finding | `index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" type=*S3*Anomalous* demo_id=exfil` |
+| AWS Billing | Cost anomaly | `index=fake_tshrt sourcetype="FAKE:aws:billing:cur" lineItem_ProductCode=AmazonS3 demo_id=exfil` |
 | GCP Audit | Storage access | `index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" protoPayload.methodName="storage.objects.get" demo_id=exfil` |
 | GCP Audit | BigQuery export | `index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" protoPayload.methodName=*TableDataService.List* protoPayload.requestMetadata.callerIp=185.220.101.42` |
 | GCP Audit | Cover tracks | `index=fake_tshrt sourcetype="FAKE:google:gcp:pubsub:message" protoPayload.methodName="storage.objects.delete" protoPayload.requestMetadata.callerIp=185.220.101.42` |
@@ -282,8 +282,8 @@ This is the key escalation step. Jessica Brown is an IT Administrator -- she has
 | AWS GuardDuty | `FAKE:aws:cloudwatch:guardduty` | IAM + S3 threat findings (5 findings total) |
 | AWS Billing | `FAKE:aws:billing:cur` | Cost anomaly -- S3 transfer + request spike |
 | GCP Audit | `FAKE:google:gcp:pubsub:message` | SA creation, BigQuery export, audit log recon, cover tracks |
-| Exchange | `FAKE:ms:o365:reporting:messagetrace` | Phishing email delivery, forwarding rule |
-| Office Audit | `FAKE:o365:management:activity` | SafeLinks click events, file access |
+| Exchange | `FAKE:ms:o365:reporting:messagetrace` | Phishing email delivery |
+| Office Audit | `FAKE:o365:management:activity` | SafeLinks click (Day 4), forwarding rule (Day 5), file access |
 | WinEventLog | `FAKE:WinEventLog` | Failed logons (4625), process creation (4688), password reset (4724), account changed (4738) |
 | Sysmon | `FAKE:XmlWinEventLog:Microsoft-Windows-Sysmon/Operational` | Credential access, suspicious processes |
 | Perfmon | `FAKE:perfmon` | Server metric anomalies during staging |
@@ -302,8 +302,8 @@ This is the key escalation step. Jessica Brown is an IT Administrator -- she has
 | Day | Phase | Key Event | Primary Logs |
 |-----|-------|-----------|--------------|
 | 1-3 | Recon | Port scanning, phishing sent | ASA deny, Exchange |
-| 4 | Access | Jessica clicks link | ASA inbound, Entra ID |
-| 5-7 | Lateral | ATL->BOS movement, Day 6 credential pivot (Jessica resets Alex's password + MFA), GCP bucket recon | ASA ACL, WinEventLog 4724/4738, Entra ID Audit, GCP Audit |
+| 4 | Access | Jessica clicks link, SafeLinks URL click | ASA inbound, Entra ID, Office Audit |
+| 5-7 | Lateral | Forwarding rule (Day 5), ATL->BOS movement, Day 6 credential pivot (Jessica resets Alex's password + MFA), GCP bucket recon | Office Audit, ASA ACL, WinEventLog 4724/4738, Entra ID Audit, GCP Audit |
 | 8-10 | Persist | AWS/GCP backdoors, GuardDuty alerts, Secrets Manager, log recon | CloudTrail, GuardDuty, GCP Audit |
 | 11-13 | Exfil | Data theft 01:00-05:00, BigQuery export, cover tracks, billing spike | S3/GCS access, GuardDuty, Billing, ASA bytes |
 
@@ -359,14 +359,14 @@ index=fake_tshrt sourcetype="FAKE:cisco:asa" demo_id=exfil
 ### GuardDuty threat findings
 ```spl
 index=fake_tshrt sourcetype="FAKE:aws:cloudwatch:guardduty" demo_id=exfil
-| table _time, detail.type, detail.severity, detail.resource.resourceType
+| table _time, type, severity, resource.resourceType
 | sort _time
 ```
 
 ### AWS billing anomaly
 ```spl
 index=fake_tshrt sourcetype="FAKE:aws:billing:cur" demo_id=exfil
-| stats sum(lineItem.unblendedCost) AS cost by lineItem.productCode
+| stats sum(lineItem_UnblendedCost) AS cost by lineItem_ProductCode
 | sort - cost
 ```
 

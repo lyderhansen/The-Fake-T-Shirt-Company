@@ -457,7 +457,9 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
     """Generate exfil scenario events for M365.
 
     Timeline:
-        Day 4 (Initial Access): 5-8 FileAccessed on Finance SharePoint from threat IP
+        Day 4 (Initial Access): SafeLinks click (Jessica clicks phishing URL),
+            5-8 FileAccessed on Finance SharePoint from threat IP
+        Day 5 (Lateral): New-InboxRule forwarding rule on Jessica's mailbox
         Days 5-7 (Lateral): Accessing HR Portal, Engineering, Executive docs
         Days 8-10 (Persistence): SharingSet on Finance docs to external email
         Days 11-13 (Exfil): Bulk FileDownloaded (40-80/night, 01:00-05:00)
@@ -471,6 +473,29 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
         return events
 
     if phase == "initial_access" and day == 4:
+        # Day 4, ~14:30: Jessica clicks phishing link — SafeLinks URL click event
+        if hour == 14 and jessica:
+            ts = ts_iso(start_date, day, 14, 32, random.randint(0, 59))
+            event = {
+                "CreationTime": ts,
+                "Id": str(uuid.uuid4()),
+                "Operation": "SafeLinksUrlClicked",
+                "OrganizationId": ORG_ID,
+                "RecordType": 41,
+                "UserKey": _generate_user_key(jessica.username),
+                "UserType": 0,
+                "Workload": "ThreatIntelligence",
+                "UserId": jessica.email,
+                "SourceFileName": "Action Required: Verify your account security",
+                "ObjectId": "https://rnicrosoft-security.com/verify?token=a8f3d9c2",
+                "ClientIP": jessica.ip_address,
+                "UserAgent": random.choice(USER_AGENTS[:3]),
+                "ResultStatus": "Allowed",
+                "ResultStatusDetail": "URLNotInBlockList",
+                "demo_id": "exfil",
+            }
+            events.append(event)
+
         # Day 4: Initial access to Finance SharePoint
         if 9 <= hour <= 17:
             count = random.randint(1, 2)
@@ -491,6 +516,32 @@ def _exfil_events_for_hour(start_date: str, day: int, hour: int) -> List[Dict[st
                 events.append(event)
 
     elif phase == "lateral" and 5 <= day <= 7:
+        # Day 5, ~09:15: Attacker creates forwarding rule on Jessica's mailbox
+        if day == 5 and hour == 9 and jessica:
+            ts = ts_iso(start_date, day, 9, 15, random.randint(0, 59))
+            event = {
+                "CreationTime": ts,
+                "Id": str(uuid.uuid4()),
+                "Operation": "New-InboxRule",
+                "OrganizationId": ORG_ID,
+                "RecordType": 1,  # ExchangeAdmin
+                "UserKey": _generate_user_key(jessica.username),
+                "UserType": 0,
+                "Workload": "Exchange",
+                "UserId": jessica.email,
+                "ClientIP": THREAT_IP,
+                "ObjectId": "",
+                "ResultStatus": "True",
+                "Parameters": [
+                    {"Name": "Name", "Value": "Security Notifications"},
+                    {"Name": "ForwardTo", "Value": "sec-alerts-fwd@protonmail.com"},
+                    {"Name": "MarkAsRead", "Value": "True"},
+                    {"Name": "StopProcessingRules", "Value": "True"},
+                ],
+                "demo_id": "exfil",
+            }
+            events.append(event)
+
         # Days 5-7: jessica.brown (compromised IT admin) accesses other department sites
         # Attacker uses jessica's credentials for lateral movement before pivoting to alex
         if jessica and 10 <= hour <= 16:

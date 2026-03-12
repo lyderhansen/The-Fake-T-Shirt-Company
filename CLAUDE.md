@@ -544,8 +544,3 @@ index=fake_tshrt sourcetype="FAKE:perfmon" demo_host="SQL-PROD-01" | timechart a
 
 ## Future Enhancements
 
-Planned generators:
-- Palo Alto firewall
-- CrowdStrike EDR
-- Okta authentication
-- Kubernetes logs
