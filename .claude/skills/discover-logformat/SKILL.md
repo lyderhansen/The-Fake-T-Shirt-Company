@@ -267,11 +267,10 @@ generated_by: "discover-logformat v0.1.0-mvp"
 source:
   id: {{ source_id }}
   display_name: "{{ source_id humanized — replace underscores with spaces and title-case }}"
-  vendor: unknown
-  product: unknown
+  vendor: {{ findings.vendor or "unknown" }}
+  product: {{ findings.product or "unknown" }}
   description: >
-    Draft discovery for {{ source_id }} produced from an offline log sample
-    of {{ line_count }} lines. No external research was performed in the MVP.
+    {{ findings.vendor_description or ( "Draft discovery for " + source_id + " produced from a log sample of " + line_count + " lines." ) }}
 
 category: {{ category }}
 source_groups: []
@@ -322,8 +321,17 @@ generator_hints:
     proposed: []
 
 research_metadata:
-  sources_consulted: []
-  total_research_time_sec: 0
+  sources_consulted:
+{{# for each source in findings.research.sources_consulted: }}
+    - url: "{{ source.url }}"
+      kind: {{ source.kind }}
+      trust: {{ source.trust }}
+      retrieved_at: "{{ source.retrieved_at }}"
+{{#   if source.note: }}
+      note: "{{ source.note }}"
+{{#   endif }}
+{{# endfor }}
+  total_research_time_sec: {{ findings.research.elapsed_sec }}
   overall_confidence: {{ findings.overall_confidence }}
   unresolved_questions: []
 ```
@@ -337,7 +345,7 @@ Write `.planning/discover/<source_id>/REPORT.md` using this template. Substitute
 
 **Generated:** {{ now_utc_human }}
 **Overall confidence:** {{ findings.overall_confidence }}
-**Plan version:** v1 MVP (offline only)
+**Plan version:** v2 (research-enabled)
 
 ## Summary
 Draft discovery produced from an offline log sample of {{ line_count }} lines. No external research was performed. This is the minimum-viable output — expect gaps in vendor metadata, CIM alignment, and scenario suggestions. Review SPEC.yaml and fill in manually before running `/add-generator`.
@@ -360,7 +368,17 @@ Draft discovery produced from an offline log sample of {{ line_count }} lines. N
 {{# endfor }}
 
 ## Sources Consulted
-None — offline MVP run. Web research is deferred to Plan v2.
+{{# if findings.research.sources_consulted is empty: }}
+None — run was offline (`--no-search` with no `--doc` URLs, or Phase B skipped).
+{{# else: }}
+| # | URL | Kind | Trust | Retrieved |
+|---|---|---|---|---|
+{{#   for i, source in enumerate(findings.research.sources_consulted): }}
+| {{ i+1 }} | {{ source.url }} | {{ source.kind }} | {{ source.trust }} | {{ source.retrieved_at }} |
+{{#   endfor }}
+
+Total research time: {{ findings.research.elapsed_sec }} seconds.
+{{# endif }}
 
 ## Next Steps
 1. Review `SPEC.yaml` and correct any obviously wrong guesses (vendor, product, timestamp format, field types).
