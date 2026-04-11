@@ -1,0 +1,12 @@
+ts=2026-01-05T08:14:22Z level=info component=auth user=alice.reyes action=login result=success
+ts=2026-01-05T08:14:27Z level=info component=auth user=bob.nguyen action=login result=success
+ts=2026-01-05T08:15:03Z level=warn component=api user=alice.reyes action=export_csv result=denied reason=quota_exceeded
+ts=2026-01-05T08:15:44Z level=info component=api user=bob.nguyen action=query_customers result=success rows=128
+ts=2026-01-05T08:16:12Z level=error component=worker user=system action=enqueue_job result=failure reason=redis_timeout
+ts=2026-01-05T08:16:58Z level=info component=auth user=carol.lee action=login result=success
+ts=2026-01-05T08:17:31Z level=info component=api user=carol.lee action=upload_file result=success rows=1
+ts=2026-01-05T08:18:05Z level=warn component=auth user=unknown action=login result=failure reason=bad_password
+ts=2026-01-05T08:18:47Z level=info component=worker user=system action=dequeue_job result=success
+ts=2026-01-05T08:19:22Z level=info component=api user=alice.reyes action=query_orders result=success rows=42
+ts=2026-01-05T08:20:01Z level=info component=api user=bob.nguyen action=delete_record result=success
+ts=2026-01-05T08:20:38Z level=error component=auth user=system action=rotate_keys result=failure reason=hsm_unreachable
