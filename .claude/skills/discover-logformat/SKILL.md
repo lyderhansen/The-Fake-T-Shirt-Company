@@ -141,4 +141,143 @@ This struct is the input to Phase E. Do not write any files yet.
 
 ## Phase E — Artifact writing
 
-*(Populated in Task 5.)*
+Convert the in-memory `Findings` from Phase C into three files on disk. All paths are relative to the current working directory.
+
+### E.1 Create the output directory
+
+Create the directory `.planning/discover/<source_id>/samples/` if it does not already exist. (Collision was already refused in A.4, so this directory is guaranteed empty here.)
+
+### E.2 Copy the sample
+
+Copy the file passed via `--sample=<path>` to `.planning/discover/<source_id>/samples/user_provided.log` byte-for-byte. Do not modify line endings, encoding, or content.
+
+### E.3 Write `SPEC.yaml`
+
+Write `.planning/discover/<source_id>/SPEC.yaml` using this template. Substitute the `{{ }}` placeholders with values from `Findings`. Use ISO-8601 UTC for `generated_at`. Preserve the ordering of top-level keys shown below.
+
+```yaml
+schema_version: 1
+generated_at: "{{ now_utc_iso8601 }}"
+generated_by: "discover-logformat v0.1.0-mvp"
+
+source:
+  id: {{ source_id }}
+  display_name: "{{ source_id humanized — replace underscores with spaces and title-case }}"
+  vendor: unknown
+  product: unknown
+  description: >
+    Draft discovery for {{ source_id }} produced from an offline log sample
+    of {{ line_count }} lines. No external research was performed in the MVP.
+
+category: {{ category }}
+source_groups: []
+
+format:
+  type: {{ format.type }}
+  line_break: "\n"
+  timestamp:
+    field: null
+    format: null
+  encoding: utf-8
+  confidence: {{ format.confidence }}
+
+sourcetype:
+  name: "{{ sourcetype.name }}"
+  category_path: "{{ category }}/{{ source_id }}.log"
+  confidence: {{ sourcetype.confidence }}
+
+fields:
+{{# for each field in Findings.fields: }}
+  - name: {{ field.name }}
+    type: {{ field.type }}
+    required: {{ field.required }}
+    example: "{{ field.example }}"
+    confidence: {{ field.confidence }}
+{{# endfor }}
+
+sample_events:
+{{# for each event in Findings.sample_events (up to 3): }}
+  - raw: |
+      {{ event.raw }}
+    parsed:
+{{#   for each key, value in event.parsed: }}
+      {{ key }}: "{{ value }}"
+{{#   endfor }}
+    source_url: null
+{{# endfor }}
+
+generator_hints:
+  suggested_module_name: generate_{{ source_id }}
+  suggested_function_name: generate_{{ source_id }}_logs
+  volume_category: {{ category }}
+  baseline_events_per_day: 1000
+  dependencies: []
+  multi_file: false
+  scenarios:
+    existing: []
+    proposed: []
+
+research_metadata:
+  sources_consulted: []
+  total_research_time_sec: 0
+  overall_confidence: {{ findings.overall_confidence }}
+  unresolved_questions: []
+```
+
+### E.4 Write `REPORT.md`
+
+Write `.planning/discover/<source_id>/REPORT.md` using this template. Substitute the `{{ }}` placeholders.
+
+```markdown
+# Discovery Report: {{ source_id }}
+
+**Generated:** {{ now_utc_human }}
+**Overall confidence:** {{ findings.overall_confidence }}
+**Plan version:** v1 MVP (offline only)
+
+## Summary
+Draft discovery produced from an offline log sample of {{ line_count }} lines. No external research was performed. This is the minimum-viable output — expect gaps in vendor metadata, CIM alignment, and scenario suggestions. Review SPEC.yaml and fill in manually before running `/add-generator`.
+
+## Format
+- **Type:** {{ format.type }}
+- **Confidence:** {{ format.confidence }}
+- **Evidence:** Pattern matched on {{ matched_line_count }} of {{ line_count }} sample lines.
+
+## Sourcetype
+- **Suggested:** `{{ sourcetype.name }}`
+- **Confidence:** {{ sourcetype.confidence }}
+- **Rationale:** Heuristic `<source_id>:events` — not derived from vendor docs or an existing TA.
+
+## Fields (all {{ field_count }})
+| Name | Type | Required | Confidence | Example |
+|---|---|---|---|---|
+{{# for each field in Findings.fields: }}
+| {{ field.name }} | {{ field.type }} | {{ field.required }} | {{ field.confidence }} | {{ field.example }} |
+{{# endfor }}
+
+## Sources Consulted
+None — offline MVP run. Web research is deferred to Plan v2.
+
+## Next Steps
+1. Review `SPEC.yaml` and correct any obviously wrong guesses (vendor, product, timestamp format, field types).
+2. Run `/add-generator {{ source_id }}` to scaffold the Python generator.
+3. If you want a more thorough draft, wait for Plan v2 which adds `--doc=<url>` and proactive research.
+```
+
+### E.5 Print the handoff message
+
+After all three files are written, print this message to the user:
+
+```
+✅ Discovery complete for '{{ source_id }}' (Plan v1 MVP).
+
+Artifacts written to .planning/discover/{{ source_id }}/:
+  • SPEC.yaml       (machine-readable draft, schema_version 1)
+  • REPORT.md       (human-readable summary)
+  • samples/user_provided.log  (copy of the input sample)
+
+Overall confidence: {{ findings.overall_confidence }}
+
+Next step: review REPORT.md, edit SPEC.yaml if needed, then run:
+  /add-generator {{ source_id }}
+```
