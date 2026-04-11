@@ -62,7 +62,7 @@ No existing files are modified in Plan v1. The MVP is strictly additive.
 
 ## Task Index
 
-- [ ] **Task 1 — Scaffold skill directory and SKILL.md frontmatter** *(pending content fill)*
+- [ ] **Task 1 — Scaffold skill directory and SKILL.md frontmatter**
 - [ ] **Task 2 — Create canary fixture** *(pending content fill)*
 - [ ] **Task 3 — Define canary success criteria** *(pending content fill)*
 - [ ] **Task 4 — SKILL.md Phase A (input) + Phase C (format analysis)** *(pending content fill)*
@@ -75,4 +75,112 @@ Task bodies will be filled in across subsequent plan-writing commits. When all s
 
 ## Tasks
 
-<!-- Task bodies added incrementally in follow-up commits. Each task will specify exact files, exact content to write, and how to verify the result. -->
+### Task 1 — Scaffold skill directory and SKILL.md frontmatter
+
+**Goal:** Create the skill directory and an empty-but-valid `SKILL.md` with frontmatter and the three phase section headers. After this task, running `/discover-logformat` would match as a skill but do nothing useful yet. This is the "hello world" shell.
+
+**Files:**
+- Create: `.claude/skills/discover-logformat/` (directory)
+- Create: `.claude/skills/discover-logformat/SKILL.md`
+
+- [ ] **Step 1: Verify skill directory does not already exist**
+
+Run:
+```bash
+ls .claude/skills/discover-logformat/ 2>&1
+```
+
+Expected: `ls: .claude/skills/discover-logformat/: No such file or directory`
+
+If the directory already exists, STOP and consult with the user — we must not accidentally overwrite existing work.
+
+- [ ] **Step 2: Create the skill directory**
+
+Run:
+```bash
+mkdir -p .claude/skills/discover-logformat
+```
+
+Expected: silent success. Verify with `ls .claude/skills/discover-logformat/` which should show an empty directory.
+
+- [ ] **Step 3: Create `SKILL.md` with frontmatter and section headers**
+
+Write the file `.claude/skills/discover-logformat/SKILL.md` with exactly this content:
+
+````markdown
+---
+name: discover-logformat
+description: Analyze a log sample to produce a draft SPEC.yaml for adding a new data source. Use when you have raw log lines from a new source and want a structured format analysis before scaffolding a generator.
+version: 0.1.0-mvp
+metadata:
+  argument-hint: "<source_id> --sample=<path>"
+---
+
+# discover-logformat — MVP (Plan v1)
+
+Analyze a provided log sample and produce a draft `SPEC.yaml` plus minimal `REPORT.md` under `.planning/discover/<source_id>/`. This MVP version is **offline only** — it does not perform web research, ask confidence questions, or update `add-generator`. Those capabilities arrive in later plan iterations.
+
+**What this skill does:**
+1. Validates inputs and derives a normalized `source_id`.
+2. Reads the sample file, detects the log format, and extracts a best-effort field list.
+3. Writes a draft `SPEC.yaml`, a short `REPORT.md`, and copies the sample to `samples/user_provided.log`.
+
+**What this skill does NOT do yet (deferred to later plan iterations):**
+- Web research (Phase B)
+- Confidence gates or interactive Q&A (Phase D)
+- `props_draft.conf` generation
+- Scenario suggestions
+- Collision handling (v1 refuses to overwrite an existing directory — see Phase A)
+
+**Source of truth for the full design:** `docs/superpowers/specs/2026-04-11-discover-logformat-design.md`
+
+---
+
+## Phase A — Input validation and normalization
+
+*(Populated in Task 4.)*
+
+## Phase C — Format analysis
+
+*(Populated in Task 4.)*
+
+## Phase E — Artifact writing
+
+*(Populated in Task 5.)*
+````
+
+- [ ] **Step 4: Verify the file parses as a valid skill**
+
+Run:
+```bash
+head -10 .claude/skills/discover-logformat/SKILL.md
+```
+
+Expected: the frontmatter between `---` markers is visible, starting with `name: discover-logformat`. Confirm the `name`, `description`, `version`, and `metadata.argument-hint` fields are present.
+
+Run:
+```bash
+wc -l .claude/skills/discover-logformat/SKILL.md
+```
+
+Expected: approximately 35–45 lines.
+
+- [ ] **Step 5: Commit**
+
+Run:
+```bash
+git add .claude/skills/discover-logformat/SKILL.md
+git commit -m "$(cat <<'MSG'
+feat(discover-logformat): scaffold skill with frontmatter and phase headers
+
+Task 1 of the discover-logformat MVP plan. Creates the skill directory
+and an empty-but-valid SKILL.md containing frontmatter plus section
+headers for Phase A, Phase C, and Phase E. Phases will be populated
+in subsequent tasks. MVP is offline-only; research and Q&A deferred.
+
+Plan: docs/superpowers/plans/2026-04-11-discover-logformat.md
+MSG
+)"
+```
+
+Expected: single-file commit. Verify with `git log --oneline -1`.
