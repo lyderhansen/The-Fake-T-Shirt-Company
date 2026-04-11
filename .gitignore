@@ -4,6 +4,12 @@
 /Supporting TA
 TheFakeTshirtCompany/docs/graphic/BGs/test.svg
 TheFakeTshirtCompany/docs/reference/cyber-vision-ds.pdf
+TheFakeTshirtCompany/docs/Splunk-8.2.12-SearchReference.pdf
 /.playwright-mcp
 /TheFakeTshirtCompany/.superpowers
 /TheFakeTshirtCompany/TA-FAKE-TSHRT/bin/.playwright-mcp
+/build
+/.claude/worktrees
+/.claude/scheduled_tasks.lock
+/TheFakeTshirtCompany/TA-FAKE-TSHRT/local/data
+/TheFakeTshirtCompany/TA-FAKE-TSHRT/local/savedsearches.conf
