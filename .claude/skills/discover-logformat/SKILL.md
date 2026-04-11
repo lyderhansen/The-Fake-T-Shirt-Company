@@ -150,7 +150,24 @@ Pass this to Phase C.
 
 ## Phase C — Format analysis
 
-Analyze the sample lines loaded in Phase A. Produce an in-memory `Findings` structure with format, sourcetype, field catalog, and sample events. No files are written in this phase.
+Analyze whatever samples are available. In v2, samples can come from TWO sources:
+
+1. **User-provided samples** — the file at `--sample=<path>`, if given. Loaded in Phase A.
+2. **Research-found samples** — the `ResearchFindings.samples_found[]` list from Phase B.
+
+Build the working sample set as the deduplicated union of both lists (order: user samples first, then research samples). Deduplicate by exact line match. Cap the combined set at 500 lines.
+
+If the combined set is **non-empty**, run C.1 through C.5 as normal.
+
+If the combined set is **empty** (user gave only `--description`, and research found no log lines — only field descriptions and vendor text), switch to **metadata-only mode**:
+- Set `format.type = "unknown"` and `format.confidence = 0.0`.
+- Skip C.1 entirely.
+- Skip C.2 field extraction from samples. Instead, populate `fields[]` from `ResearchFindings.field_hints[]` — each hint becomes a field with `type: string`, `required: false`, `example: null`, `confidence: 0.7` (the hints came from vendor docs, not frequency analysis).
+- Run C.3 sourcetype suggestion as normal.
+- Run C.4 category lookup as normal.
+- Run C.5 with an empty `sample_events[]`.
+
+Produce the `Findings` struct either way.
 
 ### C.1 Detect format
 
@@ -170,6 +187,8 @@ Test each sample line against the patterns below in order. The first matching pa
 If fewer than 10 lines are available, cap `format.confidence` at `0.7` regardless of the match fraction.
 
 ### C.2 Extract fields
+
+Operate on the combined sample set defined in the Phase C preamble (user samples + research samples, deduplicated, capped at 500 lines).
 
 Based on the detected format, extract a field catalog:
 
@@ -211,12 +230,16 @@ Use this lookup keyed on tokens in the `source_id` (first match wins):
 ### C.5 Build the `Findings` struct (in memory)
 
 At the end of Phase C, you have an in-memory object with:
-- `format`: `{type, confidence}`
+- `format`: `{type, confidence}` — `type: "unknown"` and `confidence: 0.0` in metadata-only mode
 - `sourcetype`: `{name, confidence}`
 - `category`
-- `fields`: list of `{name, type, required, example, confidence}`
-- `sample_events`: up to 3 original lines with their parsed representation
-- `overall_confidence`: the mean of `format.confidence`, `sourcetype.confidence`, and the mean field confidence
+- `fields`: list of `{name, type, required, example, confidence}` — may originate from samples OR from `ResearchFindings.field_hints[]` in metadata-only mode
+- `sample_events`: up to 3 original lines with their parsed representation (empty in metadata-only mode)
+- `vendor`: copied from `ResearchFindings.vendor_hint` if present, else `"unknown"`
+- `product`: copied from `ResearchFindings.product_hint` if present, else `"unknown"`
+- `vendor_description`: copied from `ResearchFindings.description_hint` if present, else a default generic paragraph
+- `research`: the full `ResearchFindings` struct from Phase B (passed through for Phase E to read)
+- `overall_confidence`: the mean of `format.confidence`, `sourcetype.confidence`, and the mean field confidence. In metadata-only mode, exclude `format.confidence` from the mean so a 0.0 does not tank the overall score.
 
 This struct is the input to Phase E. Do not write any files yet.
 
