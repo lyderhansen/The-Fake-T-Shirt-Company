@@ -67,7 +67,7 @@ No existing files are modified in Plan v1. The MVP is strictly additive.
 - [ ] **Task 3 — Define canary success criteria**
 - [ ] **Task 4 — SKILL.md Phase A (input) + Phase C (format analysis)**
 - [ ] **Task 5 — SKILL.md Phase E (artifact writing)**
-- [ ] **Task 6 — Execute canary smoke test and record results** *(pending content fill)*
+- [ ] **Task 6 — Execute canary smoke test and record results**
 
 Task bodies will be filled in across subsequent plan-writing commits. When all six tasks are filled in, the plan moves to the "ready to execute" state.
 
@@ -748,3 +748,207 @@ Plan: docs/superpowers/plans/2026-04-11-discover-logformat.md
 MSG
 )"
 ```
+
+---
+
+### Task 6 — Execute canary smoke test and record results
+
+**Goal:** Run the completed skill against the canary fixture, verify every acceptance criterion from Task 3, fix any gaps, and record the result in `canary/README.md`. This is the MVP's only end-to-end test. It must pass before Plan v1 is considered done.
+
+This task is partly manual: a human or agent invokes the slash command and visually inspects the produced files.
+
+**Files:**
+- Read: `.claude/skills/discover-logformat/SKILL.md`
+- Read: `.claude/skills/discover-logformat/canary/README.md`
+- Create (during test): `.planning/discover/custom_internal_app/SPEC.yaml`
+- Create (during test): `.planning/discover/custom_internal_app/REPORT.md`
+- Create (during test): `.planning/discover/custom_internal_app/samples/user_provided.log`
+- Modify (record result): `.claude/skills/discover-logformat/canary/README.md`
+
+- [ ] **Step 1: Ensure no stale discovery directory exists**
+
+Run:
+```bash
+ls .planning/discover/custom_internal_app/ 2>&1
+```
+
+Expected: `ls: .planning/discover/custom_internal_app/: No such file or directory`
+
+If the directory exists, the canary has been run before. Delete it with `rm -rf .planning/discover/custom_internal_app` — this is safe because the directory is deterministic output, not hand-authored work.
+
+- [ ] **Step 2: Invoke the skill**
+
+Start a fresh Claude Code session in this repository, then run:
+
+```
+/discover-logformat custom_internal_app --sample=.claude/skills/discover-logformat/canary/custom_internal_app.log
+```
+
+The skill will:
+1. Validate flags (Phase A)
+2. Read 12 lines from the fixture
+3. Detect format as `kv` with high confidence
+4. Extract 6 required fields plus `reason` and `rows`
+5. Guess category as `unknown` (no token match) or similar
+6. Write SPEC.yaml, REPORT.md, samples/user_provided.log
+7. Print the handoff message
+
+Copy the handoff message output into scratch for later reference.
+
+- [ ] **Step 3: Verify artifact layout**
+
+Run:
+```bash
+find .planning/discover/custom_internal_app -type f | sort
+```
+
+Expected output exactly:
+```
+.planning/discover/custom_internal_app/REPORT.md
+.planning/discover/custom_internal_app/SPEC.yaml
+.planning/discover/custom_internal_app/samples/user_provided.log
+```
+
+- [ ] **Step 4: Verify the sample was copied byte-for-byte**
+
+Run:
+```bash
+diff .claude/skills/discover-logformat/canary/custom_internal_app.log \
+     .planning/discover/custom_internal_app/samples/user_provided.log
+```
+
+Expected: empty output (no diff). If there is any output, the copy step in Phase E.2 is buggy.
+
+- [ ] **Step 5: Verify SPEC.yaml against the canary criteria**
+
+Open `.planning/discover/custom_internal_app/SPEC.yaml` and check every row from the table in `.claude/skills/discover-logformat/canary/README.md` under "Expected SPEC.yaml contents". Each row is a pass/fail check.
+
+Concretely, run these greps:
+
+```bash
+grep -c "^schema_version: 1" .planning/discover/custom_internal_app/SPEC.yaml
+```
+Expected: `1`
+
+```bash
+grep -c "^  id: custom_internal_app" .planning/discover/custom_internal_app/SPEC.yaml
+```
+Expected: `1`
+
+```bash
+grep -c "^  type: kv" .planning/discover/custom_internal_app/SPEC.yaml
+```
+Expected: `1`
+
+```bash
+grep -E "^    - name: (ts|level|component|user|action|result)$" \
+     .planning/discover/custom_internal_app/SPEC.yaml | wc -l
+```
+Expected: `6` (all six required field names appear).
+
+```bash
+grep -c "baseline_events_per_day: 1000" .planning/discover/custom_internal_app/SPEC.yaml
+```
+Expected: `1`
+
+```bash
+grep -c "sources_consulted: \[\]" .planning/discover/custom_internal_app/SPEC.yaml
+```
+Expected: `1`
+
+- [ ] **Step 6: Verify REPORT.md against the canary criteria**
+
+Run:
+```bash
+grep -c "^# Discovery Report: custom_internal_app" .planning/discover/custom_internal_app/REPORT.md
+```
+Expected: `1`
+
+```bash
+grep -c "^## Format" .planning/discover/custom_internal_app/REPORT.md
+```
+Expected: `1`
+
+```bash
+grep -c "^## Fields" .planning/discover/custom_internal_app/REPORT.md
+```
+Expected: `1`
+
+```bash
+grep -c "None — offline MVP run" .planning/discover/custom_internal_app/REPORT.md
+```
+Expected: `1`
+
+```bash
+grep -c "/add-generator custom_internal_app" .planning/discover/custom_internal_app/REPORT.md
+```
+Expected: `1`
+
+- [ ] **Step 7: If anything failed, fix and retry**
+
+Failure modes and fixes:
+
+- **Missing file** → Phase E.1–E.4 logic is wrong. Re-read `SKILL.md` and check the instructions against the Phase E template.
+- **Format detected as something other than `kv`** → Phase C.1 pattern order is wrong. Verify the `kv` regex matches the fixture; the KV pattern should be tried after JSON/CEF/syslog/CSV.
+- **Fewer than 6 required fields extracted** → Phase C.2 field extraction for `kv` is buggy. Re-read the kv parsing instructions in `SKILL.md`.
+- **`baseline_events_per_day` is not `1000`** → the SPEC.yaml template in Phase E.3 is missing the hardcoded value.
+- **Collision refusal fired incorrectly** → A.4 check is wrong; verify `.planning/discover/custom_internal_app/` was actually empty before the run.
+
+After each fix, delete the generated artifacts (`rm -rf .planning/discover/custom_internal_app`) and rerun Step 2. Do not commit between failed attempts; commit only once the test passes.
+
+- [ ] **Step 8: Record the successful run**
+
+Once every assertion in Steps 3–6 passes, edit `.claude/skills/discover-logformat/canary/README.md` and replace the row
+
+```
+| *(not yet run)* | — | v1 MVP | — |
+```
+
+with a row using the current UTC date. Use the exact format:
+
+```
+| 2026-MM-DD | PASS | v1 MVP | first end-to-end run |
+```
+
+Substitute `YYYY-MM-DD` for the actual date of the test run (use `date -u +"%Y-%m-%d"`).
+
+- [ ] **Step 9: Commit the canary result**
+
+Run:
+```bash
+git add .claude/skills/discover-logformat/canary/README.md
+git commit -m "$(cat <<'MSG'
+test(discover-logformat): canary pass for custom_internal_app
+
+Task 6 of the discover-logformat MVP plan. First end-to-end run of
+the skill against the canary fixture. All acceptance criteria from
+canary/README.md pass: artifact layout, byte-identical sample copy,
+SPEC.yaml field assertions, REPORT.md section assertions. MVP is
+green.
+
+Plan: docs/superpowers/plans/2026-04-11-discover-logformat.md
+MSG
+)"
+```
+
+- [ ] **Step 10: Clean up the test artifacts**
+
+The generated `.planning/discover/custom_internal_app/` directory is test output — it should not be committed to git. Delete it:
+
+```bash
+rm -rf .planning/discover/custom_internal_app
+```
+
+Then verify that git status is clean:
+
+```bash
+git status
+```
+
+Expected: `nothing to commit, working tree clean` (aside from any unrelated uncommitted work).
+
+---
+
+## Plan completion criteria
+
+Plan v1 is complete when all six tasks above have their checkboxes filled in AND the final canary commit from Task 6 Step 9 exists in the git history. After completion, the next step is Plan v2 — adding Phase B (research). Create a new spec/plan document for that iteration; do NOT extend this plan in place.
