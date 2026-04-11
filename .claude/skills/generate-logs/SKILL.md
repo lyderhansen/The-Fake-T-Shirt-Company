@@ -10,58 +10,87 @@ metadata:
 
 Generate realistic synthetic log data using the TA-FAKE-TSHRT generators.
 
+## Output Modes
+
+By default, generators write to `bin/output/tmp/` (**test mode**, safe — Splunk does NOT monitor this). Use `--no-test` to write to `bin/output/` which Splunk's `inputs.conf` ingests.
+
+```bash
+--test       # Default. Writes to output/tmp/
+--no-test    # Production. Writes to output/ (Splunk-monitored)
+```
+
 ## Quick Commands
 
 ```bash
-cd TA-FAKE-TSHRT/TA-FAKE-TSHRT/bin
+cd TheFakeTshirtCompany/TA-FAKE-TSHRT/bin
 
-# All sources (14 days, default scenarios)
-python3 main_generate.py --all
+# All sources, test mode (default)
+python3 main_generate.py --all --scenarios=all --days=14
 
-# Specific sources only
+# Production run for Splunk ingestion
+python3 main_generate.py --all --scenarios=all --days=14 --no-test
+
+# Specific sources with one scenario
 python3 main_generate.py --sources=asa,entraid,aws --scenarios=exfil
 
 # High-volume demo (31 days)
-python3 main_generate.py --all --days=31 --orders-per-day=3000 --clients=40 --full-metrics
+python3 main_generate.py --all --days=31 --orders-per-day=3000 --clients=40 --full-metrics --no-test
 
-# Minimal test run
+# Minimal smoke test
 python3 main_generate.py --sources=asa --days=1 --quiet
 ```
 
-## Available Sources
+## Available Sources (26 generators)
 
 | Category | Sources |
 |----------|---------|
-| Network | `asa`, `meraki` |
-| Cloud | `aws`, `gcp`, `entraid` |
-| Windows | `wineventlog`, `perfmon` |
+| Network | `asa`, `meraki`, `catalyst`, `aci` |
+| Cloud/Security | `aws`, `aws_guardduty`, `aws_billing`, `gcp`, `entraid`, `secure_access`, `catalyst_center` |
+| Collaboration | `exchange`, `office_audit`, `webex_ta`, `webex_api` |
+| Windows | `wineventlog`, `perfmon`, `sysmon`, `mssql` |
 | Linux | `linux` |
 | Web/Retail | `access`, `orders`, `servicebus` |
-| Collaboration | `webex`, `webex_ta`, `webex_api` |
-| Email | `exchange` |
-| ITSM | `servicenow` |
+| ERP/ITSM | `sap`, `servicenow` |
+| OT/ICS | `cybervision` (Detroit plant, 21 OT assets) |
 
 ## Source Groups
 
-Use these shortcuts instead of listing individual sources:
+| Group | Expands to |
+|-------|------------|
+| `all` | All 26 sources |
+| `cloud` | aws, aws_guardduty, aws_billing, gcp, entraid, secure_access |
+| `network` | asa, meraki, catalyst, aci, cybervision |
+| `cisco` | asa, meraki, secure_access, catalyst, aci, catalyst_center, cybervision |
+| `campus` | catalyst, catalyst_center |
+| `datacenter` | aci |
+| `ot` | cybervision |
+| `windows` | wineventlog, perfmon, mssql, sysmon |
+| `linux` | linux |
+| `web` | access |
+| `office` | office_audit, exchange |
+| `email` | exchange |
+| `retail` | orders, servicebus |
+| `collaboration` | webex_ta, webex_api |
+| `erp` | sap |
+| `itsm` | servicenow |
 
-- `all` - Everything
-- `cloud` - aws, gcp, entraid
-- `network` - asa, meraki
-- `windows` - wineventlog, perfmon
-- `retail` - orders, servicebus
-- `collaboration` - webex, webex_ta, webex_api
+## Scenarios (11 implemented)
 
-## Scenarios
+| Scenario | Category | Days | Target |
+|----------|----------|------|--------|
+| `exfil` | attack | 1-14 | Alex Miller (Finance, Boston) |
+| `ransomware_attempt` | attack | 8-9 | Brooklyn White (Austin) |
+| `phishing_test` | attack | 21-23 | All employees (IT campaign) |
+| `ot_rogue_device` | attack | 8 | PLC-PRINT-01 (Detroit Zone-1) |
+| `memory_leak` | ops | 7-10 | WEB-01 |
+| `cpu_runaway` | ops | 11-12 | SQL-PROD-01 |
+| `disk_filling` | ops | 1-5 | MON-ATL-01 |
+| `dead_letter_pricing` | ops | 16 | WEB-01 (ServiceBus) |
+| `ddos_attack` | network | 18-19 | WEB-01 |
+| `firewall_misconfig` | network | 6 | FW-EDGE-01 |
+| `certificate_expiry` | network | 13 | FW-EDGE-01 |
 
-| Scenario | Category | Description |
-|----------|----------|-------------|
-| `exfil` | attack | APT data exfiltration (14 days) |
-| `cpu_runaway` | ops | SQL backup stuck causing 100% CPU |
-| `memory_leak` | ops | Application memory leak → OOM crash |
-| `disk_filling` | ops | Server disk gradually filling |
-| `firewall_misconfig` | network | Accidental traffic block |
-| `all` | - | All scenarios combined |
+Meta-values: `none`, `all`, `attack`, `ops`, `network`.
 
 ## Key Options
 
@@ -69,36 +98,49 @@ Use these shortcuts instead of listing individual sources:
 --start-date=YYYY-MM-DD  Start date (default: 2026-01-01)
 --days=N                 Number of days (default: 14)
 --scale=N.N              Volume multiplier (default: 1.0)
---scenarios=X,Y          Scenarios to include
+--scenarios=X,Y          Scenarios or category (default: none)
 --parallel=N             Worker threads (default: 4)
 --quiet                  Suppress progress output
+--test / --no-test       Output mode (default: --test)
 
 # Perfmon-specific
---clients=N              Client workstations (default: 5, max: 175)
---full-metrics           Include disk/network for clients
+--clients=N              Client workstations (default: 5, min: 5, max: 195)
+--client-interval=N      Minutes between non-scenario client metrics (default: 30)
+--full-metrics           Include disk/network for clients (increases volume)
 
 # Orders-specific
 --orders-per-day=N       Target daily orders (default: ~224)
+
+# Meraki-specific
+--meraki-health-interval Health metric frequency (5/10/15/30 min)
 ```
 
-## Output Structure
+**Note:** `scale` is ignored by `perfmon` (fixed intervals), `orders` (use `--orders-per-day`), and `servicebus` (1:1 with orders).
+
+## Output Structure (test mode)
 
 ```
-TA-FAKE-TSHRT/TA-FAKE-TSHRT/bin/output/
-├── network/      # cisco_asa.log, meraki_*.log
-├── cloud/        # aws, gcp, entraid, exchange, webex
-├── windows/      # perfmon, wineventlog
-├── linux/        # vmstat, df, iostat
-├── web/          # access_combined.log
-├── retail/       # orders.json, servicebus
-└── itsm/         # servicenow_incidents.log
+bin/output/tmp/
+├── network/      # cisco_asa, meraki_*, catalyst, aci
+├── cloud/        # aws, gcp, entraid, exchange, webex, secure_access, catalyst_center
+├── windows/      # perfmon, wineventlog, sysmon, mssql
+├── linux/        # vmstat, df, iostat, cpu, interfaces, auth
+├── web/          # access_combined
+├── retail/       # orders
+├── servicebus/   # azure servicebus
+├── erp/          # sap
+└── itsm/         # servicenow
 ```
 
 ## Splunk Filtering
 
-All scenario events include `demo_id` field:
+Splunk applies the `FAKE:` prefix to all sourcetypes at index time via `props.conf`/`transforms.conf`. Use the prefixed form in SPL:
 
 ```spl
-index=* demo_id=exfil | stats count by sourcetype
-index=* demo_id=cpu_runaway | timechart count
+index=fake_tshrt demo_id=exfil | stats count by sourcetype
+index=fake_tshrt sourcetype="FAKE:cisco:asa" | timechart count by action
+index=fake_tshrt sourcetype="FAKE:perfmon" demo_host="SQL-PROD-01" | timechart avg(Value) by counter
+index=fake_tshrt sourcetype="FAKE:cisco:cybervision:events" demo_id=ot_rogue_device
 ```
+
+All scenario events carry `demo_id=<scenario>` for easy filtering.
