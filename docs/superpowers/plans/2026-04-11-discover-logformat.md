@@ -63,7 +63,7 @@ No existing files are modified in Plan v1. The MVP is strictly additive.
 ## Task Index
 
 - [ ] **Task 1 — Scaffold skill directory and SKILL.md frontmatter**
-- [ ] **Task 2 — Create canary fixture** *(pending content fill)*
+- [ ] **Task 2 — Create canary fixture**
 - [ ] **Task 3 — Define canary success criteria** *(pending content fill)*
 - [ ] **Task 4 — SKILL.md Phase A (input) + Phase C (format analysis)** *(pending content fill)*
 - [ ] **Task 5 — SKILL.md Phase E (artifact writing)** *(pending content fill)*
@@ -184,3 +184,88 @@ MSG
 ```
 
 Expected: single-file commit. Verify with `git log --oneline -1`.
+
+---
+
+### Task 2 — Create canary fixture
+
+**Goal:** Hand-craft a small KV-format log file that represents a fictional internal application. This fixture is the only input the skill will process during the MVP canary run. Because it is hand-crafted, we know the exact ground truth: 6 fields, KV format, no timestamps inside the events.
+
+**Files:**
+- Create: `.claude/skills/discover-logformat/canary/custom_internal_app.log`
+
+- [ ] **Step 1: Verify canary directory does not already exist**
+
+Run:
+```bash
+ls .claude/skills/discover-logformat/canary/ 2>&1
+```
+
+Expected: `ls: .claude/skills/discover-logformat/canary/: No such file or directory`
+
+- [ ] **Step 2: Create the canary directory**
+
+Run:
+```bash
+mkdir -p .claude/skills/discover-logformat/canary
+```
+
+- [ ] **Step 3: Write the canary log fixture**
+
+Write the file `.claude/skills/discover-logformat/canary/custom_internal_app.log` with exactly this content (12 lines, KV format, no header, LF line endings):
+
+```
+ts=2026-01-05T08:14:22Z level=info component=auth user=alice.reyes action=login result=success
+ts=2026-01-05T08:14:27Z level=info component=auth user=bob.nguyen action=login result=success
+ts=2026-01-05T08:15:03Z level=warn component=api user=alice.reyes action=export_csv result=denied reason=quota_exceeded
+ts=2026-01-05T08:15:44Z level=info component=api user=bob.nguyen action=query_customers result=success rows=128
+ts=2026-01-05T08:16:12Z level=error component=worker user=system action=enqueue_job result=failure reason=redis_timeout
+ts=2026-01-05T08:16:58Z level=info component=auth user=carol.lee action=login result=success
+ts=2026-01-05T08:17:31Z level=info component=api user=carol.lee action=upload_file result=success rows=1
+ts=2026-01-05T08:18:05Z level=warn component=auth user=unknown action=login result=failure reason=bad_password
+ts=2026-01-05T08:18:47Z level=info component=worker user=system action=dequeue_job result=success
+ts=2026-01-05T08:19:22Z level=info component=api user=alice.reyes action=query_orders result=success rows=42
+ts=2026-01-05T08:20:01Z level=info component=api user=bob.nguyen action=delete_record result=success
+ts=2026-01-05T08:20:38Z level=error component=auth user=system action=rotate_keys result=failure reason=hsm_unreachable
+```
+
+Notes on the fixture design:
+- Format is pure KV, space-separated, unquoted values.
+- `ts` is an ISO-8601 timestamp embedded in the event (no syslog header).
+- Six base fields appear in every line: `ts`, `level`, `component`, `user`, `action`, `result`.
+- Two optional fields appear in some lines only: `reason` (errors/warnings) and `rows` (data queries).
+- Values contain no spaces or escape characters — keeps the parser test simple.
+
+- [ ] **Step 4: Verify the fixture**
+
+Run:
+```bash
+wc -l .claude/skills/discover-logformat/canary/custom_internal_app.log
+```
+
+Expected: `12 .claude/skills/discover-logformat/canary/custom_internal_app.log`
+
+Run:
+```bash
+head -1 .claude/skills/discover-logformat/canary/custom_internal_app.log
+```
+
+Expected: `ts=2026-01-05T08:14:22Z level=info component=auth user=alice.reyes action=login result=success`
+
+- [ ] **Step 5: Commit**
+
+Run:
+```bash
+git add .claude/skills/discover-logformat/canary/custom_internal_app.log
+git commit -m "$(cat <<'MSG'
+test(discover-logformat): add canary fixture custom_internal_app.log
+
+Task 2 of the discover-logformat MVP plan. Hand-crafted 12-line KV-format
+log fixture for the offline canary smoke test. Six base fields plus two
+conditional fields (reason, rows). Pure KV, no syslog header, unquoted
+values. Used as the sole input during Task 6 verification.
+
+Plan: docs/superpowers/plans/2026-04-11-discover-logformat.md
+MSG
+)"
+```
