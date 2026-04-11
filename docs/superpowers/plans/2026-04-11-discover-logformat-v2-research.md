@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the smallest useful research capability to `discover-logformat` — accept `--description=<text>` and `--doc=<url>` flags, perform a single WebSearch seed, WebFetch up to 3 URLs, and populate `research_metadata.sources_consulted` in the resulting `SPEC.yaml`. After this plan, the skill can enrich a sample-based draft with vendor context found on the web.
+**Goal:** Make web research a first-class input to `discover-logformat`. The skill must work usefully even when no log sample exists — research then becomes the primary source. Accept `--description=<text>`, `--doc=<url>`, and `--no-search` flags; make `--sample` optional; run Phase B research by default; use research-found samples and metadata to populate `SPEC.yaml` when user samples are absent or thin.
 
-**Architecture:** Additive — Phase B is inserted between Phase A (input validation) and Phase C (format analysis) in SKILL.md. Phase A is extended to parse the new flags. Phase C is unchanged. Phase E is updated only to populate `research_metadata` with real data instead of the placeholder empty lists. Version bumps `0.1.0-mvp` → `0.2.0-research`.
+**Architecture:** Phase B is inserted between Phase A (input validation) and Phase C (format analysis). Phase A is extended to parse new flags AND to require at least one of `{--sample, --doc, --description}` so the skill always has *something* to work on. Phase B runs unconditionally unless `--no-search` is set and writes its findings (vendor-doc URLs, extracted sample lines, vendor metadata hints) into a `ResearchFindings` sub-struct. Phase C is updated to merge user-provided samples with research-found samples before running its existing detection logic, and to gracefully fall back to "metadata-only" mode when no samples exist at all. Phase E is updated to populate `research_metadata.sources_consulted` with real data and to prefer research-discovered `source.vendor`/`source.product`/`source.description` over the previous hard-coded `unknown` values. Version bumps `0.1.0-mvp` → `0.2.0-research`.
 
 **Tech Stack:** Claude Code skill framework (markdown), WebSearch tool, WebFetch tool. No Python changes. No new dependencies.
 
@@ -26,30 +26,49 @@
 ## Scope — in and out
 
 **In scope for Plan v2:**
-- `--description=<text>` flag (required if no sample, otherwise optional seed)
-- `--doc=<url>` flag (optional, repeatable, each URL fetched via WebFetch)
-- `--no-search` flag (opt out of WebSearch entirely, useful for offline runs)
-- One WebSearch call using `<source_id> <description>` as query (skipped if `--no-search`)
-- Up to 3 WebFetch calls total — prioritize explicit `--doc` URLs, then top search results
+
+*Input handling:*
+- `--description=<text>` flag — free-text seed describing the source
+- `--doc=<url>` flag — vendor doc URL, repeatable, each fetched via WebFetch
+- `--no-search` flag — disable WebSearch entirely (does NOT disable `--doc` fetching)
+- `--sample` is now **optional** — the skill must accept at least one of `{--sample, --doc, --description}`, otherwise it prompts the user for at least one
+- Phase A rejects invocations where all three of `{--sample, --doc, --description}` are missing
+
+*Research pipeline (new Phase B):*
+- Runs by default. Skipped only when `--no-search` is set AND no `--doc` URLs were provided
+- One WebSearch call using `<source_id> <description>` as query (skipped if `--no-search`, still runs if `--description` is absent — query is then just `<source_id> log format`)
+- Up to 3 WebFetch calls total — prioritize explicit `--doc` URLs first, then top search results
+- For each fetched page, extract: (a) any code-fenced or monospaced lines that look like log events, (b) vendor/product mentions, (c) any field-description lists
 - Per-source `trust` score: `explicit-doc` = 1.0, `search-result` = 0.7
+- Returns a `ResearchFindings` sub-struct: `{samples_found[], vendor_hint, product_hint, description_hint, sources_consulted[], elapsed_sec}`
+
+*Phase C updates:*
+- When `--sample` is provided AND research found additional samples: use BOTH in format detection (user samples + research samples, deduplicated)
+- When `--sample` is absent but research found samples: run detection on research samples only
+- When no samples exist from either source (e.g. `--description` alone, research found only field lists): fall back to **metadata-only mode** — skip format detection, mark `format.type = "unknown"` with `format.confidence = 0.0`, populate `fields[]` from any field-description lists research found, leave `sample_events[]` empty
+
+*Phase E updates:*
 - `research_metadata.sources_consulted` populated with real `{url, kind, retrieved_at, trust}`
 - `research_metadata.total_research_time_sec` recorded as elapsed wall time for Phase B
-- `source.vendor`, `source.product`, `source.description` enriched from research content when available
-- Version bump in frontmatter
-- One new canary test: `custom_internal_app` re-run with `--no-search` (verifies flag gating works and existing path is unbroken)
-- Manual smoke test with real network: `/discover-logformat fortigate --description="Fortinet FortiGate traffic logs"` — recorded in canary/README.md
+- `source.vendor`, `source.product`, `source.description` prefer research hints over hard-coded `unknown`
+- REPORT.md "Sources Consulted" section lists the real URLs with trust and kind
+
+*Versioning & testing:*
+- Frontmatter `version: 0.1.0-mvp` → `0.2.0-research`
+- Canary: extend `custom_internal_app` test to ALSO run with `--no-search` and verify identical output to the v1 baseline (regression check on the offline path)
+- Canary: add new structural test for `fortigate` with real research (`--description="Fortinet FortiGate traffic logs"` on a clean run, asserting: (a) SPEC.yaml is written, (b) `sources_consulted[]` has ≥ 1 entry, (c) `source.vendor` is NOT `unknown`, (d) the handoff message mentions the real source_id)
 
 **Out of scope for Plan v2 (explicitly deferred):**
-- Iterative research loop (fetch-until-confidence-threshold)
-- `--min-sources`, `--max-research-time`, `--threshold` flags (v3)
-- Splunkbase scraping via Firecrawl MCP (v3)
-- `--ta=<splunkbase-id>` flag (v3)
-- Community forum fallback (v4)
-- Confidence gates + Q&A (v5)
-- Updating `add-generator` (v6)
-- Global promotion (v7)
-- Research that loops back into format detection (v3) — v2 research runs AFTER Phase C, not before
-- Research truncation handling — v2 caps each WebFetch at the tool's default page size
+- Iterative research loop with confidence-driven stopping (Plan v3)
+- `--min-sources`, `--max-research-time`, `--threshold` flags (Plan v3)
+- Splunkbase scraping via Firecrawl MCP (Plan v3)
+- `--ta=<splunkbase-id>` flag (Plan v3)
+- Community forum fallback (Plan v4)
+- Confidence gates + Q&A (Plan v5)
+- Updating `add-generator` to consume SPEC.yaml (Plan v6)
+- Global promotion to `~/.claude/skills/` (Plan v7)
+- Research page-content truncation handling — v2 accepts whatever WebFetch returns
+- Canary assertions on specific research content (non-deterministic) — v2 only asserts structural properties (files exist, non-empty lists, non-`unknown` values)
 
 ---
 
@@ -69,10 +88,11 @@ No new source files. Plan v2 is strictly additive markdown changes to two existi
 
 ## Task Index
 
-- [ ] **Task 1 — Extend Phase A to parse new flags** *(pending content fill)*
-- [ ] **Task 2 — Insert Phase B research section with minimal pipeline** *(pending content fill)*
-- [ ] **Task 3 — Update Phase E to populate real research_metadata** *(pending content fill)*
-- [ ] **Task 4 — Canary regression run (`--no-search`) + manual fortigate smoke test** *(pending content fill)*
+- [ ] **Task 1 — Extend Phase A (new flags + input requirement) and bump version** *(pending content fill)*
+- [ ] **Task 2 — Insert Phase B research pipeline section** *(pending content fill)*
+- [ ] **Task 3 — Update Phase C to merge samples and support metadata-only fallback** *(pending content fill)*
+- [ ] **Task 4 — Update Phase E to populate real research_metadata and enrich source fields** *(pending content fill)*
+- [ ] **Task 5 — Canary: regression `--no-search` run + structural fortigate research run** *(pending content fill)*
 
 Task bodies will be filled in across follow-up commits. When all four tasks are filled in, the plan is ready to execute.
 
