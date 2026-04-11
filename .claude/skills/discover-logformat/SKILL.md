@@ -81,6 +81,73 @@ If it is, **refuse to proceed in the MVP** and respond:
 
 If the directory does not exist or is empty, continue to Phase C.
 
+## Phase B — Research
+
+Gather external context for the source. Runs by default; the only way to skip Phase B entirely is when `--no-search` is set AND no `--doc` URLs were provided. Phase B produces a `ResearchFindings` struct that is merged into Phase C's analysis.
+
+### B.1 Decide whether Phase B runs
+
+- If `ExplicitInputs.no_search` is true AND `ExplicitInputs.doc_urls` is empty → skip Phase B entirely. Proceed to Phase C with an empty `ResearchFindings` struct.
+- Otherwise → proceed.
+
+### B.2 Start the Phase B clock
+
+Record the current UTC time as `phase_b_start`. The elapsed wall time between `phase_b_start` and the end of Phase B is recorded later as `research_metadata.total_research_time_sec`.
+
+### B.3 Fetch explicit `--doc` URLs
+
+For each URL in `ExplicitInputs.doc_urls`, call the `WebFetch` tool with a prompt like:
+
+> "Extract the log format, vendor, product, and any example log events. Return the raw event examples verbatim and a short list of field names with descriptions if visible."
+
+Record the URL in `sources_consulted` with `kind: explicit_doc`, `trust: 1.0`, and `retrieved_at` = current UTC ISO-8601 timestamp.
+
+Hard cap: fetch at most 3 URLs total across Phase B (explicit docs + search results combined). If `doc_urls` already contains 3 entries, skip B.4 entirely.
+
+### B.4 Seed WebSearch (unless `--no-search`)
+
+If `ExplicitInputs.no_search` is true → skip B.4.
+
+Otherwise, construct the search query:
+- If `description` is present: query = `"<source_id> <description> log format"`
+- If `description` is absent: query = `"<source_id> log format"`
+
+Call `WebSearch` once with that query.
+
+From the results, pick the top-ranked URLs whose domains look like vendor documentation (prefer `docs.<vendor>.com`, `help.<vendor>.com`, `<vendor>.com/*/docs/*` patterns; de-prioritize blog posts, Reddit, Stack Overflow). Fetch up to `(3 - len(doc_urls))` of them via `WebFetch` using the same extraction prompt as B.3.
+
+Record each fetched URL in `sources_consulted` with `kind: search_result`, `trust: 0.7`, and `retrieved_at` = current UTC ISO-8601 timestamp.
+
+### B.5 Extract findings from fetched pages
+
+For each successfully fetched page, collect:
+
+- **Sample log lines:** any monospaced, code-fenced, or otherwise clearly log-like lines shown as examples. Skip prose. Add each found line to `ResearchFindings.samples_found[]`, limited to at most 20 lines total across all sources.
+- **Vendor hint:** the vendor name (e.g. "Fortinet"). Record the first non-empty value in `ResearchFindings.vendor_hint`.
+- **Product hint:** the product name (e.g. "FortiGate"). Record the first non-empty value in `ResearchFindings.product_hint`.
+- **Description hint:** a one-sentence description of what the source is. Record the first non-empty value in `ResearchFindings.description_hint`.
+- **Field hints:** any explicit field-name tables or bullet lists with descriptions (e.g. "srcip — source IP address"). Record as `{name, description}` pairs in `ResearchFindings.field_hints[]`.
+
+Failed fetches are not fatal — record them in `sources_consulted` with `kind: <same>`, `trust: 0.0`, and a `note: "fetch failed"` key. Phase B never aborts the run; it always returns whatever it has.
+
+### B.6 Stop the Phase B clock and return
+
+Compute `elapsed_sec = now_utc - phase_b_start`. Build the `ResearchFindings` struct:
+
+```
+ResearchFindings {
+  samples_found: string[],
+  vendor_hint: string|null,
+  product_hint: string|null,
+  description_hint: string|null,
+  field_hints: [{name, description}],
+  sources_consulted: [{url, kind, trust, retrieved_at, note?}],
+  elapsed_sec: number
+}
+```
+
+Pass this to Phase C.
+
 ## Phase C — Format analysis
 
 Analyze the sample lines loaded in Phase A. Produce an in-memory `Findings` structure with format, sourcetype, field catalog, and sample events. No files are written in this phase.
