@@ -60,6 +60,30 @@ Must contain:
 
 Must be a byte-identical copy of `.claude/skills/discover-logformat/canary/custom_internal_app.log` (12 lines, same content).
 
+## Test: fortigate (research-enabled, structural)
+
+### Invocation
+
+```
+/discover-logformat fortigate --description="Fortinet FortiGate traffic logs"
+```
+
+This test runs Phase B with live WebSearch + WebFetch. Because search results are non-deterministic, assertions are STRUCTURAL only — we check that the pipeline ran and produced non-empty metadata, not that specific content was found.
+
+### Expected assertions
+
+| Check | Pass condition |
+|---|---|
+| Artifact layout | `SPEC.yaml`, `REPORT.md`, `samples/` directory must exist |
+| `research_metadata.sources_consulted` | Non-empty list (at least 1 `- url:` entry) |
+| `source.vendor` | NOT equal to `unknown` (research must have found something) |
+| `research_metadata.total_research_time_sec` | `> 0` |
+| REPORT.md "Sources Consulted" section | Contains at least one table row with a URL |
+
+### Failure modes
+
+If the test fails on the vendor check, research may have failed to extract a vendor hint — inspect REPORT.md for what it did find and decide whether to iterate Phase B.5 extraction rules.
+
 ## Test runs
 
 Update this section after each canary execution in Task 6.
@@ -67,3 +91,5 @@ Update this section after each canary execution in Task 6.
 | Date (UTC) | Result | Plan version | Notes |
 |---|---|---|---|
 | 2026-04-11 | PASS | v1 MVP | first end-to-end run |
+| 2026-04-11 | PASS | v2 research | custom_internal_app --no-search regression |
+| 2026-04-11 | PASS | v2 research | fortigate live research — 3 sources found |
