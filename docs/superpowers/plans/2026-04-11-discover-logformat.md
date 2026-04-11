@@ -64,7 +64,7 @@ No existing files are modified in Plan v1. The MVP is strictly additive.
 
 - [ ] **Task 1 — Scaffold skill directory and SKILL.md frontmatter**
 - [ ] **Task 2 — Create canary fixture**
-- [ ] **Task 3 — Define canary success criteria** *(pending content fill)*
+- [ ] **Task 3 — Define canary success criteria**
 - [ ] **Task 4 — SKILL.md Phase A (input) + Phase C (format analysis)** *(pending content fill)*
 - [ ] **Task 5 — SKILL.md Phase E (artifact writing)** *(pending content fill)*
 - [ ] **Task 6 — Execute canary smoke test and record results** *(pending content fill)*
@@ -264,6 +264,118 @@ Task 2 of the discover-logformat MVP plan. Hand-crafted 12-line KV-format
 log fixture for the offline canary smoke test. Six base fields plus two
 conditional fields (reason, rows). Pure KV, no syslog header, unquoted
 values. Used as the sole input during Task 6 verification.
+
+Plan: docs/superpowers/plans/2026-04-11-discover-logformat.md
+MSG
+)"
+```
+
+---
+
+### Task 3 — Define canary success criteria
+
+**Goal:** Write the "test oracle" — a README that spells out exactly what a passing canary run must produce. This file is written *before* the skill body in Tasks 4 and 5, so it can be used as an acceptance spec. It is also the living test record: the executor updates it in Task 6 with the date of the last successful run.
+
+**Files:**
+- Create: `.claude/skills/discover-logformat/canary/README.md`
+
+- [ ] **Step 1: Write `canary/README.md`**
+
+Write the file `.claude/skills/discover-logformat/canary/README.md` with exactly this content:
+
+````markdown
+# discover-logformat canary suite
+
+Manual smoke test for the offline MVP of `discover-logformat`.
+
+## Test: custom_internal_app (offline KV)
+
+### Invocation (executed by a human or agent)
+
+```
+/discover-logformat custom_internal_app --sample=.claude/skills/discover-logformat/canary/custom_internal_app.log
+```
+
+### Expected artifact layout
+
+After a successful run, the following files must exist:
+
+```
+.planning/discover/custom_internal_app/
+├── SPEC.yaml
+├── REPORT.md
+└── samples/
+    └── user_provided.log
+```
+
+### Expected SPEC.yaml contents (required fields)
+
+Minimum assertions on `SPEC.yaml`:
+
+| Field | Expected value |
+|---|---|
+| `schema_version` | `1` |
+| `source.id` | `custom_internal_app` |
+| `source.display_name` | any non-empty string |
+| `category` | any value from the allowed list in the spec (the MVP may leave this as `unknown`) |
+| `format.type` | `kv` |
+| `format.confidence` | ≥ `0.8` |
+| `sourcetype.name` | any non-empty string containing `custom_internal_app` or `internal:app` |
+| `fields` | list with at least 6 entries |
+| `fields[].name` must include | `ts`, `level`, `component`, `user`, `action`, `result` |
+| `sample_events` | list with at least 1 entry, each with a non-empty `raw` |
+| `generator_hints.suggested_module_name` | `generate_custom_internal_app` |
+| `generator_hints.suggested_function_name` | `generate_custom_internal_app_logs` |
+| `generator_hints.volume_category` | any non-empty string |
+| `generator_hints.baseline_events_per_day` | `1000` |
+| `generator_hints.scenarios.existing` | empty list `[]` (MVP has no scenario discovery) |
+| `generator_hints.scenarios.proposed` | empty list `[]` |
+| `research_metadata.sources_consulted` | empty list `[]` (offline MVP — no research) |
+| `research_metadata.overall_confidence` | any value between `0.0` and `1.0` |
+
+### Expected REPORT.md contents
+
+Must contain:
+- A top-level heading `# Discovery Report: custom_internal_app`
+- A `## Format` section stating the format is `kv`
+- A `## Fields` section listing at least the 6 required fields
+- A `## Sources Consulted` section stating "None — offline MVP run"
+- A `## Next Steps` section referencing `/add-generator custom_internal_app`
+
+### Expected samples/user_provided.log
+
+Must be a byte-identical copy of `.claude/skills/discover-logformat/canary/custom_internal_app.log` (12 lines, same content).
+
+## Test runs
+
+Update this section after each canary execution in Task 6.
+
+| Date (UTC) | Result | Plan version | Notes |
+|---|---|---|---|
+| *(not yet run)* | — | v1 MVP | — |
+````
+
+- [ ] **Step 2: Verify the file**
+
+Run:
+```bash
+wc -l .claude/skills/discover-logformat/canary/README.md
+```
+
+Expected: approximately 55–65 lines.
+
+- [ ] **Step 3: Commit**
+
+Run:
+```bash
+git add .claude/skills/discover-logformat/canary/README.md
+git commit -m "$(cat <<'MSG'
+test(discover-logformat): add canary success criteria
+
+Task 3 of the discover-logformat MVP plan. Defines the acceptance
+spec for the custom_internal_app canary test — required artifact
+layout, SPEC.yaml field assertions, REPORT.md sections, and a
+results table to be filled in during Task 6.
 
 Plan: docs/superpowers/plans/2026-04-11-discover-logformat.md
 MSG
