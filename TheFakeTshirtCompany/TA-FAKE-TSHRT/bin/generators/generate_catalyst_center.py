@@ -76,12 +76,51 @@ MANAGED_DEVICES = [
         "location": "/global/Atlanta-Hub/Floor-1",
         "site": "ATL",
     },
+    # Detroit plant - 3 Cisco IE3400 industrial switches
+    # Same devices also appear in cybervision:devices for cross-pivot by hostname
+    {
+        "name": "IE3400-DET-01",
+        "model": "IE-3400-8T2S",
+        "ipAddress": "10.40.102.10",
+        "macAddress": "aa:bb:cc:dd:ee:10",
+        "uuid": "a1b2c3d4-0010",
+        "osVersion": "17.9.4",
+        "deviceFamily": "Industrial Ethernet Switch",
+        "deviceType": "Cisco Catalyst IE3400 Rugged Series",
+        "location": "/global/Detroit-Plant/Zone-1-Printing",
+        "site": "DET",
+    },
+    {
+        "name": "IE3400-DET-02",
+        "model": "IE-3400-8T2S",
+        "ipAddress": "10.40.102.11",
+        "macAddress": "aa:bb:cc:dd:ee:11",
+        "uuid": "a1b2c3d4-0011",
+        "osVersion": "17.9.4",
+        "deviceFamily": "Industrial Ethernet Switch",
+        "deviceType": "Cisco Catalyst IE3400 Rugged Series",
+        "location": "/global/Detroit-Plant/Zone-2-Packaging",
+        "site": "DET",
+    },
+    {
+        "name": "IE3400-DET-03",
+        "model": "IE-3400-8T2S",
+        "ipAddress": "10.40.102.12",
+        "macAddress": "aa:bb:cc:dd:ee:12",
+        "uuid": "a1b2c3d4-0012",
+        "osVersion": "17.9.4",
+        "deviceFamily": "Industrial Ethernet Switch",
+        "deviceType": "Cisco Catalyst IE3400 Rugged Series",
+        "location": "/global/Detroit-Plant/OT-Mgmt",
+        "site": "DET",
+    },
 ]
 
 # Sites
 SITES = {
-    "BOS": {"siteId": "site-bos-001", "name": "Boston-HQ", "devices": 2, "wired_clients": 20, "wireless_clients": 73},
-    "ATL": {"siteId": "site-atl-001", "name": "Atlanta-Hub", "devices": 1, "wired_clients": 10, "wireless_clients": 33},
+    "BOS": {"siteId": "site-bos-001", "name": "Boston-HQ",     "devices": 2, "wired_clients": 20, "wireless_clients": 73},
+    "ATL": {"siteId": "site-atl-001", "name": "Atlanta-Hub",   "devices": 1, "wired_clients": 10, "wireless_clients": 33},
+    "DET": {"siteId": "site-det-001", "name": "Detroit-Plant", "devices": 3, "wired_clients": 25, "wireless_clients": 5},
 }
 
 # Issue templates

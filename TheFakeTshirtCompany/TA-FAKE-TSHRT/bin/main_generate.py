@@ -109,6 +109,7 @@ from generators.generate_aci import generate_aci_logs
 from generators.generate_catalyst_center import generate_catalyst_center_logs
 from generators.generate_aws_guardduty import generate_aws_guardduty_logs
 from generators.generate_aws_billing import generate_aws_billing_logs
+from generators.generate_cybervision import generate_cybervision_logs
 
 # =============================================================================
 # GENERATOR REGISTRY
@@ -140,6 +141,7 @@ GENERATORS: Dict[str, Callable] = {
     "catalyst_center": generate_catalyst_center_logs,
     "aws_guardduty": generate_aws_guardduty_logs,
     "aws_billing": generate_aws_billing_logs,
+    "cybervision": generate_cybervision_logs,
 }
 
 # Width for aligning generator name column in output (longest name + 1)
@@ -149,10 +151,11 @@ _GEN_NAME_WIDTH = max(len(n) for n in GENERATORS) + 1
 SOURCE_GROUPS = {
     "all": list(GENERATORS.keys()),
     "cloud": ["aws", "aws_guardduty", "aws_billing", "gcp", "entraid", "secure_access"],
-    "network": ["asa", "meraki", "catalyst", "aci"],
-    "cisco": ["asa", "meraki", "secure_access", "catalyst", "aci", "catalyst_center"],
+    "network": ["asa", "meraki", "catalyst", "aci", "cybervision"],
+    "cisco": ["asa", "meraki", "secure_access", "catalyst", "aci", "catalyst_center", "cybervision"],
     "campus": ["catalyst", "catalyst_center"],
     "datacenter": ["aci"],
+    "ot": ["cybervision"],
     "windows": ["wineventlog", "perfmon", "mssql", "sysmon"],
     "linux": ["linux"],
     "web": ["access"],
@@ -189,6 +192,7 @@ _EVENTS_PER_DAY = {
     "meraki":           57_711,
     "catalyst":          1_003,
     "aci":               1_494,
+    "cybervision":         970,    # Detroit OT plant baseline (~3k/3days)
     # Cloud/Security
     "aws":               1_627,
     "aws_guardduty":         6,
@@ -225,6 +229,7 @@ _THROUGHPUT_EPS = {
     "meraki":           90_000,
     "catalyst":         35_000,
     "aci":              35_000,
+    "cybervision":      30_000,
     "aws":              30_000,
     "aws_guardduty":     5_000,
     "aws_billing":       5_000,
@@ -536,7 +541,7 @@ Scenarios:
                          Sources: asa, meraki, access, linux, perfmon, servicenow
 
 Perfmon Options:
-  --clients N          Number of client workstations (default: 5, min: 5, max: 175)
+  --clients N          Number of client workstations (default: 5, min: 5, max: 195)
   --client-interval N  Minutes between metrics for non-scenario clients (default: 30, min: 5, max: 60)
                        Scenario-relevant users always use 5 min intervals
   --full-metrics       Include Disk/Network metrics for clients (more volume)
@@ -574,7 +579,7 @@ Output Directories:
 
     # Perfmon-specific options
     parser.add_argument("--clients", type=int, default=5,
-                        help="Number of client workstations for perfmon (default: 5, min: 5, max: 175)")
+                        help="Number of client workstations for perfmon (default: 5, min: 5, max: 195)")
     parser.add_argument("--client-interval", type=int, default=30,
                         help="Minutes between metrics for non-scenario clients (default: 30, min: 5, max: 60)")
     parser.add_argument("--full-metrics", action="store_true",

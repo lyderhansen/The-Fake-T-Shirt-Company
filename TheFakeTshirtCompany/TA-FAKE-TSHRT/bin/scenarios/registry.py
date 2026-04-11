@@ -161,6 +161,18 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         end_day=8,
         implemented=True
     ),
+
+    # Rogue contractor laptop on OT network (Detroit plant, Day 8 afternoon)
+    "ot_rogue_device": ScenarioDefinition(
+        name="ot_rogue_device",
+        sources=["cybervision"],
+        category="attack",
+        description="Unauthorized contractor laptop plugged into Zone-1 OT network at Detroit plant, attempting PLC program download (Day 8 14:00-16:30)",
+        demo_id="ot_rogue_device",
+        start_day=7,
+        end_day=7,
+        implemented=True
+    ),
 }
 
 ALL_SCENARIOS = list(SCENARIOS.keys())

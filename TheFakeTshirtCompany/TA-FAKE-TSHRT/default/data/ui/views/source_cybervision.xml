@@ -1,0 +1,347 @@
+<dashboard version="2" theme="dark">
+  <label>Source - Cisco Cyber Vision</label>
+  <description>OT/ICS visibility — Detroit plant assets, vulnerabilities, flows, and security events from Cisco Cyber Vision</description>
+  <definition><![CDATA[
+{
+  "title": "Source - Cisco Cyber Vision",
+  "description": "OT/ICS visibility — Detroit plant assets, vulnerabilities, flows, and security events from Cisco Cyber Vision",
+  "dataSources": {
+    "ds_total_events": {
+      "type": "ds.search",
+      "name": "Total CV Events Over Time",
+      "options": {
+        "query": "| tstats count where index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:*\" by _time span=1h"
+      }
+    },
+    "ds_device_count": {
+      "type": "ds.search",
+      "name": "Unique Devices",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:devices\" | dedup id | stats count"
+      }
+    },
+    "ds_vuln_count": {
+      "type": "ds.search",
+      "name": "CVE Catalog Size",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:vulnerabilities\" | dedup cve | stats count"
+      }
+    },
+    "ds_security_events": {
+      "type": "ds.search",
+      "name": "Security Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:events\" family=Security | stats count"
+      }
+    },
+    "ds_events_by_family": {
+      "type": "ds.search",
+      "name": "Events by Family Over Time",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:events\" | timechart span=1h count by family"
+      }
+    },
+    "ds_events_by_severity": {
+      "type": "ds.search",
+      "name": "Events by Severity",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:events\" | stats count by severity | sort severity"
+      }
+    },
+    "ds_events_by_type": {
+      "type": "ds.search",
+      "name": "Top Event Types",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:events\" | stats count by type | sort -count | head 10 | rename type as \"Event Type\""
+      }
+    },
+    "ds_devices_by_zone": {
+      "type": "ds.search",
+      "name": "Devices by IEC 62443 Zone",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:devices\" | dedup id | stats count by group.label | rename group.label as Zone | sort -count"
+      }
+    },
+    "ds_devices_by_vendor": {
+      "type": "ds.search",
+      "name": "Devices by Vendor",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:devices\" | dedup id | stats count by asset_vendor | sort -count"
+      }
+    },
+    "ds_risk_severity": {
+      "type": "ds.search",
+      "name": "Device Risk Severity",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:devices\" | dedup id | stats count by risk_score_severity"
+      }
+    },
+    "ds_vulns_by_severity": {
+      "type": "ds.search",
+      "name": "Vulnerabilities by Severity",
+      "options": {
+        "query": "index=fake_tshrt `cv_vulnerabilities_enriched` | stats count as Vulnerabilities by severity"
+      }
+    },
+    "ds_top_risky_assets": {
+      "type": "ds.search",
+      "name": "Top 10 Risky Assets",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:devices\" | dedup id sortby -_time | table label, asset_type, asset_vendor, asset_model, riskScore, risk_score_severity, vulnerabilitiesCount | sort -riskScore | head 10 | rename label as \"Asset\", asset_type as \"Type\", asset_vendor as \"Vendor\", asset_model as \"Model\", riskScore as \"Risk Score\", risk_score_severity as \"Severity\", vulnerabilitiesCount as \"Vulns\""
+      }
+    },
+    "ds_top_protocols": {
+      "type": "ds.search",
+      "name": "Top OT Protocols",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:activities\" | spath path=tags{} output=tag_objs | stats count by tag_objs | where match(tag_objs, \"Protocol\") | rex field=tag_objs \"label\\\":\\s*\\\"(?<proto>[^\\\"]+)\\\"\" | stats sum(count) as count by proto | sort -count | head 10"
+      }
+    },
+    "ds_top_flows": {
+      "type": "ds.search",
+      "name": "Top Device Pairs (Flows)",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:flows\" | stats sum(bytes) as bytes_total, sum(packets) as packets_total by left.label, right.label | sort -bytes_total | head 10 | rename left.label as Source, right.label as Destination, bytes_total as Bytes, packets_total as Packets"
+      }
+    },
+    "ds_sensors": {
+      "type": "ds.search",
+      "name": "CV Sensors Status",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:sensors\" | dedup name sortby -_time | table name, ip, model, status, enrollmentStatus | rename name as Name, ip as IP, model as Model, status as Status, enrollmentStatus as Enrollment"
+      }
+    },
+    "ds_sample_events": {
+      "type": "ds.search",
+      "name": "Recent Security Events",
+      "options": {
+        "query": "index=fake_tshrt sourcetype=\"FAKE:cisco:cybervision:events\" family=Security | table _time, type, severity, category, src_label, dest_label, message | sort -_time | head 30 | rename type as \"Type\", severity as \"Severity\", category as \"Category\", src_label as \"Source\", dest_label as \"Destination\", message as \"Message\""
+      }
+    }
+  },
+  "visualizations": {
+    "viz_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "# Source — Cisco Cyber Vision\n\n**Sourcetypes:** `FAKE:cisco:cybervision:devices` `:events` `:flows` `:activities` `:components` `:vulnerabilities` `:sensors` `:syslog` | **CV Center:** cv-center-det-01 (v5.1.2) | **Site:** Detroit Plant (21 OT assets)\n\n**Why monitor?** Passive deep-packet inspection for industrial protocols (Modbus, S7, CIP, OPC UA) gives visibility into PLCs, HMIs, robots, and drives that traditional IT tools cannot see. Detects unauthorized devices, firmware tampering, policy violations, and vulnerability exposure across IEC 62443 zones.",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_kpi_total_events": {
+      "type": "splunk.singlevalue",
+      "title": "Total Events",
+      "dataSources": { "primary": "ds_total_events" },
+      "options": {
+        "majorValue": "> sparklineValues | lastPoint()",
+        "sparklineValues": "> primary | seriesByName('count')",
+        "sparklineDisplay": "below",
+        "majorColor": "#00D2FF",
+        "backgroundColor": "transparent",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#00D2FF"
+      }
+    },
+    "viz_kpi_devices": {
+      "type": "splunk.singlevalue",
+      "title": "OT Devices",
+      "dataSources": { "primary": "ds_device_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#7B56DB",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_vulns": {
+      "type": "splunk.singlevalue",
+      "title": "Unique CVEs",
+      "dataSources": { "primary": "ds_vuln_count" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#F1813F",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_kpi_security": {
+      "type": "splunk.singlevalue",
+      "title": "Security Events",
+      "dataSources": { "primary": "ds_security_events" },
+      "options": {
+        "majorValue": "> primary | seriesByName('count') | lastPoint()",
+        "majorColor": "#DC4E41",
+        "backgroundColor": "transparent",
+        "sparklineDisplay": "off"
+      }
+    },
+    "viz_events_by_family": {
+      "type": "splunk.area",
+      "title": "Events by Family Over Time",
+      "dataSources": { "primary": "ds_events_by_family" },
+      "options": {
+        "stackMode": "stacked",
+        "legendDisplay": "right",
+        "nullValueDisplay": "zero",
+        "areaOpacity": 0.7,
+        "backgroundColor": "transparent",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleText": "Events / hour",
+        "yAxisTitleVisibility": "show",
+        "yAxisAbbreviation": "auto",
+        "seriesColors": ["#00D2FF", "#DC4E41"]
+      },
+      "showProgressBar": true
+    },
+    "viz_events_severity": {
+      "type": "splunk.pie",
+      "title": "Events by Severity",
+      "dataSources": { "primary": "ds_events_by_severity" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#53A051", "#F8BE34", "#F1813F", "#DC4E41"]
+      }
+    },
+    "viz_event_types": {
+      "type": "splunk.bar",
+      "title": "Top Event Types",
+      "dataSources": { "primary": "ds_events_by_type" },
+      "options": {
+        "seriesColors": ["#7B56DB"],
+        "legendDisplay": "off",
+        "xAxisTitleText": "Events",
+        "xAxisTitleVisibility": "show",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      },
+      "showProgressBar": true
+    },
+    "viz_devices_zone": {
+      "type": "splunk.pie",
+      "title": "Devices by Zone",
+      "dataSources": { "primary": "ds_devices_by_zone" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#00D2FF", "#7B56DB", "#53A051"]
+      }
+    },
+    "viz_devices_vendor": {
+      "type": "splunk.bar",
+      "title": "Devices by Vendor",
+      "dataSources": { "primary": "ds_devices_by_vendor" },
+      "options": {
+        "seriesColors": ["#009CEB"],
+        "legendDisplay": "off",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_risk_severity": {
+      "type": "splunk.pie",
+      "title": "Risk Severity Distribution",
+      "dataSources": { "primary": "ds_risk_severity" },
+      "options": {
+        "labelDisplay": "valuesAndPercentage",
+        "showDonutHole": true,
+        "seriesColors": ["#DC4E41", "#F1813F", "#F8BE34", "#53A051"]
+      }
+    },
+    "viz_vulns_severity": {
+      "type": "splunk.bar",
+      "title": "Vulnerabilities by Severity",
+      "dataSources": { "primary": "ds_vulns_by_severity" },
+      "options": {
+        "seriesColors": ["#DC4E41"],
+        "legendDisplay": "off",
+        "xAxisTitleVisibility": "hide",
+        "yAxisTitleVisibility": "hide",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_top_risky": {
+      "type": "splunk.table",
+      "title": "Top 10 Risky Assets",
+      "dataSources": { "primary": "ds_top_risky_assets" },
+      "options": { "count": 10, "showRowNumbers": false },
+      "showProgressBar": true
+    },
+    "viz_top_flows": {
+      "type": "splunk.table",
+      "title": "Top Device-to-Device Flows",
+      "dataSources": { "primary": "ds_top_flows" },
+      "options": { "count": 10, "showRowNumbers": false },
+      "showProgressBar": true
+    },
+    "viz_sensors": {
+      "type": "splunk.table",
+      "title": "CV Sensors",
+      "dataSources": { "primary": "ds_sensors" },
+      "options": { "count": 10, "showRowNumbers": false },
+      "showProgressBar": true
+    },
+    "viz_sample_header": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "### Recent Security Events",
+        "fontColor": "#C3CBD4"
+      }
+    },
+    "viz_sample_events": {
+      "type": "splunk.table",
+      "title": "Security Event Stream",
+      "dataSources": { "primary": "ds_sample_events" },
+      "options": { "count": 30, "showRowNumbers": false },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "title": "Time Range",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "1767225600,1769904000"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$global_time.earliest$",
+            "latest": "$global_time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "globalInputs": ["input_global_trp"],
+    "structure": [
+      { "item": "viz_header",        "type": "block", "position": { "x": 0,    "y": 0,    "w": 1200, "h": 200 } },
+      { "item": "viz_kpi_total_events","type": "block", "position": { "x": 0,    "y": 200,  "w": 300,  "h": 120 } },
+      { "item": "viz_kpi_devices",   "type": "block", "position": { "x": 300,  "y": 200,  "w": 300,  "h": 120 } },
+      { "item": "viz_kpi_vulns",     "type": "block", "position": { "x": 600,  "y": 200,  "w": 300,  "h": 120 } },
+      { "item": "viz_kpi_security",  "type": "block", "position": { "x": 900,  "y": 200,  "w": 300,  "h": 120 } },
+      { "item": "viz_events_by_family","type": "block", "position": { "x": 0,  "y": 320,  "w": 750,  "h": 320 } },
+      { "item": "viz_events_severity","type": "block", "position": { "x": 750, "y": 320,  "w": 450,  "h": 320 } },
+      { "item": "viz_event_types",   "type": "block", "position": { "x": 0,    "y": 640,  "w": 600,  "h": 300 } },
+      { "item": "viz_devices_zone",  "type": "block", "position": { "x": 600,  "y": 640,  "w": 300,  "h": 300 } },
+      { "item": "viz_risk_severity", "type": "block", "position": { "x": 900,  "y": 640,  "w": 300,  "h": 300 } },
+      { "item": "viz_devices_vendor","type": "block", "position": { "x": 0,    "y": 940,  "w": 600,  "h": 300 } },
+      { "item": "viz_vulns_severity","type": "block", "position": { "x": 600,  "y": 940,  "w": 600,  "h": 300 } },
+      { "item": "viz_top_risky",     "type": "block", "position": { "x": 0,    "y": 1240, "w": 1200, "h": 320 } },
+      { "item": "viz_top_flows",     "type": "block", "position": { "x": 0,    "y": 1560, "w": 750,  "h": 300 } },
+      { "item": "viz_sensors",       "type": "block", "position": { "x": 750,  "y": 1560, "w": 450,  "h": 300 } },
+      { "item": "viz_sample_header", "type": "block", "position": { "x": 0,    "y": 1860, "w": 1200, "h": 50  } },
+      { "item": "viz_sample_events", "type": "block", "position": { "x": 0,    "y": 1910, "w": 1200, "h": 400 } }
+    ]
+  }
+}
+  ]]></definition>
+</dashboard>

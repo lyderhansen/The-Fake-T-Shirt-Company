@@ -43,6 +43,7 @@ OUTPUT_DIRS = {
     "servicebus": OUTPUT_BASE / "servicebus",
     "itsm": OUTPUT_BASE / "itsm",
     "erp": OUTPUT_BASE / "erp",
+    "ot": OUTPUT_BASE / "ot",
 }
 
 # Output filenames (with subdirectory paths for organized structure)
@@ -123,6 +124,16 @@ GENERATOR_OUTPUT_FILES = {
         "network/meraki/meraki_org_security.json",
         "network/meraki/meraki_audit.json",
         "network/meraki/meraki_device_availability.json",
+    ],
+    "cybervision": [
+        "ot/cybervision/cybervision_devices.json",
+        "ot/cybervision/cybervision_components.json",
+        "ot/cybervision/cybervision_events.json",
+        "ot/cybervision/cybervision_flows.json",
+        "ot/cybervision/cybervision_activities.json",
+        "ot/cybervision/cybervision_vulnerabilities.json",
+        "ot/cybervision/cybervision_sensors.json",
+        "ot/cybervision/cybervision_syslog.log",
     ],
     # Cloud
     "aws": ["cloud/aws/aws_cloudtrail.json"],
@@ -317,6 +328,7 @@ def set_output_base(base_path: Path):
         "servicebus": OUTPUT_BASE / "servicebus",
         "itsm": OUTPUT_BASE / "itsm",
         "erp": OUTPUT_BASE / "erp",
+        "ot": OUTPUT_BASE / "ot",
     }
 
 

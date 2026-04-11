@@ -45,9 +45,13 @@ def _location_for_server(server_name: str):
     BOS servers return ["BOS", "AUS"] because Austin has no local DC --
     all Austin users authenticate against Boston DCs via SD-WAN.
     ATL servers return "ATL" (only Atlanta users).
+    Detroit servers (ENG-WS, HIST-DET, SCADA-DET) return "DET" for local logons;
+    Detroit users also authenticate against Boston DCs via SD-WAN for DC events.
     """
     if "ATL" in server_name:
         return "ATL"
+    if "DET" in server_name or server_name.startswith("ENG-WS-"):
+        return "DET"
     return ["BOS", "AUS"]  # Boston DCs serve both BOS and AUS users via SD-WAN
 
 
@@ -388,13 +392,14 @@ def build_wineventlog_client_list(num_clients: int) -> list:
 def _dc_for_client(client) -> str:
     """Select the domain controller for a client workstation based on location.
 
-    BOS and AUS clients authenticate against DC-BOS-01 or DC-BOS-02.
+    BOS, AUS and DET clients authenticate against DC-BOS-01 or DC-BOS-02.
+    (AUS and DET have no local DC — both use Boston DCs via SD-WAN tunnel.)
     ATL clients authenticate against DC-ATL-01.
     """
     loc = client.location
     if loc == "ATL":
         return "DC-ATL-01"
-    # BOS and AUS both use Boston DCs (AUS has no local DC, uses SD-WAN)
+    # BOS, AUS and DET all use Boston DCs via SD-WAN
     return random.choice(["DC-BOS-01", "DC-BOS-02"])
 
 

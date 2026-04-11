@@ -108,6 +108,11 @@ SYSMON_SERVERS = {
     "SQL-PROD-01": {"ip": "10.10.20.30", "location": "BOS", "role": "sql"},
     "APP-BOS-01": {"ip": "10.10.20.40", "location": "BOS", "role": "app"},
     "BACKUP-ATL-01": {"ip": "10.20.20.20", "location": "ATL", "role": "backup"},
+    # Detroit plant OT segment — engineering workstations, historian, SCADA
+    "ENG-WS-01":    {"ip": "10.40.20.50", "location": "DET", "role": "app"},
+    "ENG-WS-02":    {"ip": "10.40.20.51", "location": "DET", "role": "app"},
+    "HIST-DET-01":  {"ip": "10.40.20.30", "location": "DET", "role": "sql"},
+    "SCADA-DET-01": {"ip": "10.40.20.31", "location": "DET", "role": "app"},
 }
 
 # Server-specific baseline processes

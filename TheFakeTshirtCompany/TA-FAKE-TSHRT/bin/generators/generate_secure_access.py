@@ -67,9 +67,10 @@ ORG_LABEL = "FakeTShirtCo"
 
 # Tunnel device identifiers (per site, Umbrella CDFW tunnel)
 TUNNEL_DEVICES = {
-    "BOS": {"id": "tunnel-bos-001", "label": "BOS-HQ", "wan_ip": "203.0.113.10"},
-    "ATL": {"id": "tunnel-atl-001", "label": "ATL-HUB", "wan_ip": "203.0.113.20"},
-    "AUS": {"id": "tunnel-aus-001", "label": "AUS-OFF", "wan_ip": "203.0.113.30"},
+    "BOS": {"id": "tunnel-bos-001", "label": "BOS-HQ",   "wan_ip": "203.0.113.10"},
+    "ATL": {"id": "tunnel-atl-001", "label": "ATL-HUB",  "wan_ip": "203.0.113.20"},
+    "AUS": {"id": "tunnel-aus-001", "label": "AUS-OFF",  "wan_ip": "203.0.113.30"},
+    "DET": {"id": "tunnel-det-001", "label": "DET-PLNT", "wan_ip": "203.0.113.40"},
 }
 
 # DNS policy IDs

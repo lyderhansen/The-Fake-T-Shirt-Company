@@ -4,6 +4,226 @@ This file documents all project changes with date/time, affected files, and desc
 
 ---
 
+## 2026-04-11 ~11:30 UTC — Cyber Vision TA dashboards (source + scenario)
+
+**Files:**
+- `TheFakeTshirtCompany/TA-FAKE-TSHRT/default/data/ui/views/source_cybervision.xml` (new) — Dashboard Studio source view with KPIs (events, devices, CVEs, security events), events-by-family area chart, severity pie, top event types, devices by zone/vendor, risk severity, top-10 risky assets, top flows, sensors status, and recent security event stream
+- `TheFakeTshirtCompany/TA-FAKE-TSHRT/default/data/ui/views/scenario_ot_rogue_device.xml` (new) — Dashboard Studio scenario view for ot_rogue_device with rogue device inventory row, 5-min-bucket attack timeline, events by type, rogue flows, protocol activities, event-by-event sequence, and CEF syslog stream
+- `TheFakeTshirtCompany/TA-FAKE-TSHRT/default/data/ui/nav/default.xml` — added `OT / ICS` collection under both Sources and Scenarios
+
+**Verification:**
+- 22 devices (21 OT + 1 rogue laptop) ✅
+- Rogue scenario: 40 events + 56 activities + 1252 flows + 24 CEF syslog + 4 device snapshots ✅
+- CONTRACTOR-LAPTOP-01 renders with Critical riskScore=95, Dell Latitude 5540 ✅
+- 9 distinct event types in rogue scenario (new_device → suspicious_scan → variable_access → program_upload → policy_violation → cleartext_cred → controller_mode → ids_alert → unauthorized_device) ✅
+- Devices split by zone: Zone-1 Printing=10, OT Management=7, Zone-2 Packaging=4, Unauthorized=1 ✅
+
+---
+
+## 2026-04-11 ~11:00 UTC — Cyber Vision realism refactor (A+B+C+E)
+
+**Why:** Audit against the real Cisco TA (`Supporting TA/TA-cisco_cybervision`) exposed several gaps where our generator emitted fields/shapes that don't exist in real CV output. Fixed to match the real `/api/3.0/{devices,vulnerabilities,events}` endpoints so future work on dashboards/CIM mapping sees realistic data.
+
+**Files:**
+- `TheFakeTshirtCompany/TA-FAKE-TSHRT/bin/generators/generate_cybervision.py`
+  - Devices: added `dns[]` and `nt_host[]` arrays for Windows-based OT assets (ENG-WS, HIST-DET, SCADA-DET) — matches real CV passive SMB/NetBIOS discovery
+  - Vulnerabilities sourcetype: reverted from unrolled per-(device,CVE) rows to CVE catalog only (mirrors real `/api/3.0/vulnerabilities` endpoint which returns the catalog, not per-device data)
+  - Event templates: operator-initiated types (`program_upload`, `controller_mode`, `cleartext_cred`) now include `by First Last (email)` suffix in message body so the real TA's `EXTRACT-user` regex fires
+  - Added `CV_OPERATORS` list (4 Detroit plant engineers) as deterministic operator pool
+- `build/cisco_cybervision_app_for_splunk_fake/default/macros.conf`
+  - New `[cv_vulnerabilities_enriched]` macro that inlines the logic of the real "Populate CV Vulnerabilities Summary Index" saved search: spath-expand device.vulnerabilities[] via mvzip + mvexpand + rex, with enriched orig_host/dest/asset_type/asset_vendor/asset_model/asset_version context
+- `build/cisco_cybervision_app_for_splunk_fake/metadata/default.meta`
+  - Added `[macros] export = system`
+- `build/cisco_cybervision_app_for_splunk_fake/default/data/ui/views/{vulnerabities_overview,sensor_overview,global_overview,cyber_vision_syslog_vulnerability_overview}.xml`
+  - All 9 queries referencing `FAKE:cisco:cybervision:vulnerabilities` rewritten to call `` `cv_vulnerabilities_enriched` `` macro
+  - Post-macro filters (orig_host/asset_type/asset_vendor/dest) routed through `| search` to honor pipeline semantics
+
+**Verification (Splunk MCP, earliest=0):**
+- Device JSON has `dns`, `nt_host`, `ip`, `mac` as arrays; `tags[]` with `fw-version`/`model-ref`/`vendor-name` keys ✅
+- `FAKE:cisco:cybervision:vulnerabilities` contains 112 rows (8 CVEs × 14 days, catalog only — was 540 unrolled rows) ✅
+- `` `cv_vulnerabilities_enriched` `` produces 1416 enriched rows: Critical=472, High=708, Medium=236 ✅
+- Operator extraction: `user` populated for 640 events across 4 engineers (David Miller, Jason Reed, Ryan Campbell, Ethan Rivera) ✅
+- Dashboard query `` `cv_vulnerabilities_enriched` | search orig_host IN (...) asset_type IN (PLC) asset_vendor IN (Siemens) `` returns asset-enriched rows with model+version ✅
+
+---
+
+## 2026-04-11 ~10:00 UTC — Cyber Vision dashboard fixes (5 root causes)
+
+**Files:**
+- `build/cisco_cybervision_app_for_splunk_fake/lookups/cisco_cybervision_severity_lookup.csv` (new)
+- `build/cisco_cybervision_app_for_splunk_fake/lookups/cv_asset_lookup.csv` (new — 21 OT devices)
+- `build/cisco_cybervision_app_for_splunk_fake/default/transforms.conf` (new — lookup stanzas)
+- `build/cisco_cybervision_app_for_splunk_fake/metadata/default.meta` (export transforms/lookups = system)
+- `build/cisco_cybervision_app_for_splunk_fake/default/data/ui/views/cyber_vision_security_insights.xml`
+- `build/cisco_cybervision_app_for_splunk_fake/default/data/ui/views/cyber_vision_syslog_overview.xml`
+- `build/cisco_cybervision_app_for_splunk_fake/default/data/ui/views/cyber_vision_operational_summary_dashboard.xml`
+- `build/cisco_cybervision_app_for_splunk_fake/default/data/ui/views/security_insights_ds.xml`
+- `build/cisco_cybervision_app_for_splunk_fake/default/data/ui/views/cyber_vision_syslog_vulnerability_overview.xml`
+- `TheFakeTshirtCompany/TA-FAKE-TSHRT/default/props.conf` (risk_score_severity adds Critical tier)
+- `TheFakeTshirtCompany/TA-FAKE-TSHRT/bin/generators/generate_cybervision.py` (PLC-PRINT-01, PLC-CUTTER-01 risk > 80)
+- `build/cisco_cybervision_app_for_splunk_fake.tar.gz` (repackaged)
+
+**Fixes:**
+1. Missing lookups — created severity + asset lookup CSVs + transforms.conf + default.meta export
+2. Host dropdown — replaced `| metadata type=hosts` (returning all 200+ hosts) with CV sourcetype dedup (returns only CV centers) in 4 dashboards
+3. Syslog vulnerability panel — rewrote to query `FAKE:cisco:cybervision:vulnerabilities` by `dest` instead of broken `cat="Security Events"` filter
+4. Device components rename — rewrote operational summary panel to join `devices` ↔ `components` sourcetype on parentDevice (components array in device JSON is empty)
+5. Critical risk tier — props.conf EVAL now maps riskScore>=80 to "Critical"; bumped PLC-PRINT-01 to 82 and PLC-CUTTER-01 to 88
+
+**Verification (Splunk MCP, earliest=0):**
+- `risk_score_severity`: Critical=58, High=124, Medium=810, Low=900 ✅
+- `| inputlookup cisco_cybervision_severity_lookup` returns 4 rows ✅
+- `| inputlookup cv_asset_lookup` returns 21 rows ✅
+- Vulnerability panel for dest=10.40.100.10 returns 2 CVEs ✅
+- Components join returns 5 devices with MOD01-04 ✅
+- Host dropdown returns only `cv-center-det-01` ✅
+
+---
+
+## 2026-04-10 ~19:30 UTC — IT/OT correlation: Detroit servers, IE3400 in Catalyst Center, ASA vendor traffic
+
+Extends the Detroit plant with cross-source correlation so the same hostnames and IPs appear in multiple Cisco sourcetypes simultaneously.
+
+**#5 — Detroit Windows servers added to `bin/shared/company.py`**
+- `ENG-WS-01` (10.40.20.50) — OT Engineering Workstation
+- `ENG-WS-02` (10.40.20.51) — OT Engineering Workstation
+- `HIST-DET-01` (10.40.20.30) — OT Historian (AVEVA)
+- `SCADA-DET-01` (10.40.20.31) — OT SCADA Server (InTouch OMI)
+
+These 4 new Windows servers are automatically picked up by the WinEventLog, Perfmon, and Sysmon generators (after extending `SYSMON_SERVERS` dict and fixing `_location_for_server` and `_dc_for_client` in wineventlog to handle DET).
+
+**Files changed:**
+- `bin/shared/company.py` — 4 new entries in `_SERVER_DATA`
+- `bin/generators/generate_wineventlog.py` — `_location_for_server()` and `_dc_for_client()` now handle DET (routes to BOS DCs via SD-WAN, same as AUS)
+- `bin/generators/generate_sysmon.py` — 4 new entries in `SYSMON_SERVERS` dict
+
+**#3 — 3× Cisco IE3400 industrial switches added to Catalyst Center**
+- `IE3400-DET-01` (10.40.102.10) at `/global/Detroit-Plant/Zone-1-Printing`
+- `IE3400-DET-02` (10.40.102.11) at `/global/Detroit-Plant/Zone-2-Packaging`
+- `IE3400-DET-03` (10.40.102.12) at `/global/Detroit-Plant/OT-Mgmt`
+- New `DET` site entry in `SITES` dict (25 wired + 5 wireless clients)
+
+Same 3 switches also exist in `cisco:cybervision:devices` — provides cross-pivot by hostname across Catalyst Center device health and Cybervision asset inventory.
+
+**Files changed:**
+- `bin/generators/generate_catalyst_center.py` — 3 new entries in `MANAGED_DEVICES`, new DET site
+
+**#4 — ASA outbound OT vendor traffic**
+- New helper `asa_ot_vendor_traffic()` in `generate_asa.py` produces Built/Teardown pairs from Detroit OT servers (ENG-WS-*, HIST-DET-01, SCADA-DET-01) to vendor update/license servers on TCP 443
+- 8 vendor endpoints simulated: Siemens, Rockwell, Schneider, ABB, AVEVA, Microsoft Update (realistic IPs assigned)
+- Volume: ~2% of baseline ASA traffic (~2,000 events / 3 days), added outside the main if/elif ladder in `generate_baseline_hour()` so no other traffic types lose allocation
+- Enables IT/OT correlation: same ENG-WS/HIST hostnames appear in ASA logs (IP-indexed), WinEventLog (hostname), and Cybervision (label + IP)
+
+**Files changed:**
+- `bin/generators/generate_asa.py` — new `OT_VENDOR_ENDPOINTS`, `OT_OUTBOUND_HOSTS`, `asa_ot_vendor_traffic()`; call added in `generate_baseline_hour()`
+
+**Secure Access fix**
+- `generate_secure_access.py` — added `DET` entry to `TUNNEL_DEVICES` dict (fixed KeyError when Detroit users generated Umbrella tunnel traffic)
+
+**Verification (3-day `--all` run, 769,307 total events, 26/26 generators OK)**
+
+Cross-source correlation matrix (counts for each Detroit asset):
+
+| Asset | Cybervision | WinEventLog | Sysmon | Perfmon | ASA (by IP) | CatCenter |
+|---|:---:|---:|---:|---:|---:|---:|
+| ENG-WS-01 | 4 files | 19 | 366 | 12,096 | 689 | — |
+| ENG-WS-02 | 4 files | 25 | 366 | 12,096 | 738 | — |
+| HIST-DET-01 | 4 files | 23 | 366 | 12,096 | 719 | — |
+| SCADA-DET-01 | 4 files | 21 | 366 | 12,096 | 646 | — |
+| IE3400-DET-01 | 1 file | — | — | — | — | 864 |
+| IE3400-DET-02 | 1 file | — | — | — | — | 864 |
+| IE3400-DET-03 | 1 file | — | — | — | — | 864 |
+
+**Example cross-source SPL:**
+```spl
+index=fake_tshrt (ComputerName="ENG-WS-01" OR label="ENG-WS-01" OR "10.40.20.50")
+| stats count by sourcetype
+```
+returns events from: FAKE:cisco:cybervision:devices, :flows, :events, :activities, FAKE:WinEventLog, FAKE:WinEventLog:Sysmon, FAKE:Perfmon:*, FAKE:cisco:asa.
+
+---
+
+## 2026-04-10 ~18:00 UTC — Add Cisco Cyber Vision generator + Detroit OT plant location
+
+**New location: Detroit Printing & Fulfillment Plant (DET)**
+
+- `bin/shared/company.py`
+  - Added `DET` to `LOCATIONS` (Michigan, Manufacturing Plant, 1 floor, 20 employees)
+  - Added `DET` to `NETWORK_CONFIG` with 10.40.x.x prefix and OT-specific segments:
+    `ot_zone_1` 10.40.100.0/24 (Printing line), `ot_zone_2` 10.40.101.0/24 (Packaging), `ot_sensors` 10.40.102.0/24 (CV sensors + IE3400)
+  - Added `DET` to `NETWORK_IDS`
+  - Added 20 Detroit employees across Operations (16), Engineering (2), IT (1), including Plant Manager David Miller, OT/Controls Engineer Ethan Rivera, and shift supervisors. Total corp employees now 195.
+
+**New generator: `bin/generators/generate_cybervision.py`**
+
+- Produces 8 sourcetypes matching Cisco Cyber Vision REST API schema (ingested as `FAKE:cisco:cybervision:*`):
+  - devices, components, events, flows, activities, vulnerabilities, sensors (JSON)
+  - syslog (CEF format)
+- 21-device OT inventory for Detroit plant: Siemens S7-1500/1200, Rockwell ControlLogix, Schneider M580, HMIs (SIMATIC/Wonderware/Harmony), ABB IRC5 robot controllers, VFDs, Engineering Workstations, Historian (AVEVA), SCADA (InTouch OMI), 3× Cisco IE3400 industrial switches
+- 2 Cyber Vision sensors: IE3400-8T2S (embedded) + IC3000-2C2F-K9
+- CVE catalog of 8 real OT CVEs (CVE-2023-3595 Rockwell, CVE-2022-38465 Siemens, etc.) nested into affected devices
+- Volume baseline ~12k events/day weekday, ~7k weekend (OT runs 24/7 at reduced capacity)
+- Daily ±15% deterministic noise (seeded per-date hash)
+- Weekend factor 0.60 (production reduced on weekends)
+
+**New scenario: `ot_rogue_device`** (registered in `bin/scenarios/registry.py`)
+
+- Day 8 (2026-01-08) 14:00-16:30 — contractor laptop CONTRACTOR-LAPTOP-01 (10.40.100.200) plugged into Zone-1 unauthorized
+- 7 phases: device detection → network scan → variable access → program upload → program download BLOCKED → cleartext credential → manual disconnect
+- Generates ~340 events tagged with `demo_id=ot_rogue_device`: events, flows, activities, CEF syslog alerts
+- Category: attack
+
+**Generator registration**
+
+- `bin/main_generate.py`
+  - Imported `generate_cybervision_logs` and added to `GENERATORS` dict
+  - Added to source groups: `network`, `cisco`, and new group `ot`
+  - Added to `_EVENTS_PER_DAY` (12,000) and `_THROUGHPUT_EPS` (30,000)
+- `bin/shared/config.py`
+  - Added `ot` output category to `OUTPUT_DIRS` (static and `set_output_base()`)
+  - Added 8 cybervision files to `GENERATOR_OUTPUT_FILES` for tmp→output production sync
+
+**Splunk TA config (all 8 sourcetypes under `FAKE:cisco:cybervision:*`)**
+
+- `default/inputs.conf` — 8 new monitor stanzas pointing at `bin/output/ot/cybervision/*.{json,log}`, all writing to `index=fake_tshrt`, `host=cv-center-det-01`
+- `default/props.conf` — 8 stanzas ported from TA-cisco_cybervision with FAKE: prefix:
+  - JSON sourcetypes: `KV_MODE=json`, `lastActivity` (ms epoch) as timestamp, OT field extractions (asset_vendor/model/version), CIM mapping (asset_id, priority, zone, risk_score_severity, cve, cvss, url, signature, src/dest aliases)
+  - syslog sourcetype: CEF parsing via REPORT chain + severity lookup
+- `default/transforms.conf` — 4 new entries: CEF key=value parser, msg extractor, CEF header regex, severity lookup binding
+- `lookups/fake_cisco_cybervision_severity_lookup.csv` — severity_id → severity (Low/Medium/High/Very High)
+- `default/eventtypes.conf` — 3 new eventtypes: `fake_ot_cybervision`, `fake_ot_security`, `fake_ot_vulnerabilities`
+- `default/tags.conf` — CIM tags: network/asset/alert/attack/vulnerability/report
+
+**Verification**
+
+- Generator smoke-tested via `python3 bin/main_generate.py --sources=cybervision --days=14 --scenarios=ot_rogue_device`
+- 14-day run: 168,102 total events across 8 files, ~12k/day average, weekend reduction visible (6.2k-7.5k on Sat/Sun vs 10.4k-12.7k on weekdays)
+- Scenario injected 338 events on Day 8 (10 events, 313 flows, 15 activities, 6 CEF syslog entries)
+- All JSON files validated (line-by-line json.loads), INI validity confirmed via configparser
+- Production move verified: 8 files moved to output/
+
+**Docs**
+
+- `.gitignore`: added `TheFakeTshirtCompany/docs/reference/cyber-vision-ds.pdf`
+
+---
+
+## 2025-03-25 ~12:00 UTC — Fix generator counts and update README/CLAUDE.md
+
+**TheFakeTshirtCompany/TA-FAKE-TSHRT/README.md:**
+- Fixed generator count from 26 to 25 (actual count from GENERATORS dict)
+- Split single Webex entry into two: Webex Meetings/History and Webex API Events
+- Added missing CLI options: `--show-files`, `--quiet`/`-q`
+
+**CLAUDE.md:**
+- Fixed generator count from 24 to 25 in two places
+- Added aws_guardduty and aws_billing to Cloud/Security source listing
+- Removed obsolete `webex` from collaboration source listing
+- Updated `cloud` source group to include aws_guardduty, aws_billing
+- Updated `collaboration` source group to remove old `webex` entry
+
+---
+
 ## 2026-03-11 ~20:00 UTC — Exfil scenario: add SafeLinks + InboxRule events, fix all SPL queries
 
 **bin/generators/generate_office_audit.py:**

@@ -28,6 +28,9 @@
       <view name="scenario_certificate_expiry" />
       <view name="scenario_ddos_attack" />
     </collection>
+    <collection label="OT / ICS">
+      <view name="scenario_ot_rogue_device" />
+    </collection>
   </collection>
   <collection label="Sources">
     <collection label="Network">
@@ -63,6 +66,9 @@
       <view name="source_mssql" />
       <view name="source_servicenow" />
       <view name="source_sap" />
+    </collection>
+    <collection label="OT / ICS">
+      <view name="source_cybervision" />
     </collection>
   </collection>
   <a href="search">Search</a>

@@ -12,7 +12,7 @@ Includes:
     Buffer Cache Hit Ratio, Lock Waits/sec)
 
 Options:
-  --clients N          Number of client workstations (default: 5, min: 5, max: 175)
+  --clients N          Number of client workstations (default: 5, min: 5, max: 195)
   --client-interval N  Interval in minutes for non-scenario clients (default: 30, min: 5, max: 60)
   --full-metrics       Include Disk/Network metrics for clients (default: CPU/Memory only)
                        WARNING: Significantly increases output volume!
@@ -45,7 +45,7 @@ INTERVALS_PER_HOUR = 12
 # Client configuration
 DEFAULT_NUM_CLIENTS = 5
 MIN_CLIENTS = 5
-MAX_CLIENTS = 175  # All employees for full correlation
+MAX_CLIENTS = 195  # All employees for full correlation (BOS 93 + ATL 43 + AUS 39 + DET 20)
 CLIENT_RAM_MB = 16384  # 16GB for clients
 
 # Client interval configuration
@@ -497,7 +497,7 @@ def generate_perfmon_logs(
     """Generate Windows Performance Monitor logs.
 
     Args:
-        num_clients: Number of client workstations (default: 5, min: 5, max: 175)
+        num_clients: Number of client workstations (default: 5, min: 5, max: 195)
         client_interval: Interval in minutes for non-scenario clients (default: 30, min: 5, max: 60)
         full_metrics: Include Disk/Network metrics for clients (default: CPU/Memory only)
         scenarios: Scenario to apply (cpu_runaway affects SQL-PROD-01 on days 11-12)

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 175 employees across 3 US locations (Boston HQ, Atlanta Hub, Austin Office) and 13 servers, producing correlated events across 24 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT, Cisco Catalyst, Cisco ACI), cloud/security (AWS CloudTrail, GCP Audit, Entra ID, Cisco Secure Access), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Sysmon, Perfmon, MSSQL, Linux, Catalyst Center), ERP (SAP S/4HANA), ITSM (ServiceNow), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
+**The Fake T-Shirt Company (TA-FAKE-TSHRT)** is a Splunk Technical Add-on that generates realistic synthetic log data for demos and training. It simulates a fictional e-commerce company with 195 employees across 4 US locations (Boston HQ, Atlanta Hub, Austin Office, Detroit Plant) and 17 servers + 21 OT assets, producing correlated events across 26 data source generators with injectable security/ops/network scenarios. Generators are written in Python (stdlib only) and cover network (Cisco ASA, Meraki MX/MR/MS/MV/MT, Cisco Catalyst, Cisco ACI), cloud/security (AWS CloudTrail, GCP Audit, Entra ID, Cisco Secure Access), collaboration (Cisco Webex, Office 365 audit logs, Exchange), infrastructure (WinEventLog, Sysmon, Perfmon, MSSQL, Linux, Catalyst Center), ERP (SAP S/4HANA), ITSM (ServiceNow), OT/ICS (Cisco Cyber Vision), and retail (Apache access, orders, ServiceBus). Key directories and their purposes should be documented in the Repository Structure section below as they are created.
 
 ## Output Preferences
 
@@ -103,8 +103,11 @@ This 3-tier flow generates correlated ASA Built/Teardown events (~2% of baseline
 | Boston, MA | BOS | Headquarters | 3 | ~93 | 10.10.x.x |
 | Atlanta, GA | ATL | IT/Regional Hub | 2 | ~43 | 10.20.x.x |
 | Austin, TX | AUS | Sales/Engineering | 1 | ~39 | 10.30.x.x |
+| Detroit, MI | DET | Manufacturing Plant | 1 | ~20 | 10.40.x.x |
 
 **Note:** Austin has no local servers or DC. Austin users authenticate against DC-BOS-01/02 via SD-WAN tunnel and appear in DC-BOS WinEventLog auth events with 10.30.x.x source IPs (~30% of DC-BOS auth events).
+
+**Detroit Plant (DET):** Printing & fulfillment plant with IEC 62443-segmented OT network. Purdue-level segmentation: `ot_zone_1` 10.40.100.0/24 (printing line — PLCs, HMIs, robot arms), `ot_zone_2` 10.40.101.0/24 (packaging & utilities), `ot_sensors` 10.40.102.0/24 (Cisco IE3400 industrial switches + CV sensors). 21 OT assets (Siemens S7, Rockwell ControlLogix, Schneider M580, ABB IRC5, AVEVA Historian/SCADA) monitored by Cisco Cyber Vision. 20 plant employees (Operations, Engineering, IT).
 
 ## Repository Structure
 
@@ -115,7 +118,7 @@ The-Fake-T-Shirt-Company/
     │   ├── bin/                  # Python code
     │   │   ├── main_generate.py  # CLI orchestrator (parallel execution)
     │   │   ├── tui_generate.py   # Interactive TUI (curses-based)
-    │   │   ├── generators/       # 24 data source generators
+    │   │   ├── generators/       # 25 data source generators
     │   │   ├── scenarios/        # Scenario implementations + registry
     │   │   ├── shared/           # Config, company data, time utils
     │   │   └── output/           # Generated log files (gitignored)
@@ -160,15 +163,16 @@ The-Fake-T-Shirt-Company/
 
 ## Available Log Sources
 
-24 generators producing correlated log data. Dependencies: orders, servicebus, sap depend on access (via order_registry.json).
+26 generators producing correlated log data. Dependencies: orders, servicebus, sap depend on access (via order_registry.json).
 
 **Network:** asa (cisco:asa), meraki (meraki:mx/mr/ms/mv/mt), catalyst (cisco:ios), aci (cisco:aci:fault/event/audit)
-**Cloud/Security:** aws (aws:cloudtrail), gcp (google:gcp:pubsub:message), entraid (azure:aad:signin/audit), secure_access (cisco:umbrella:dns/proxy/firewall/audit), catalyst_center (cisco:catalyst:devicehealth/networkhealth/clienthealth/issue)
-**Collaboration:** exchange (ms:o365:reporting:messagetrace), office_audit (o365:management:activity), webex (cisco:webex:events), webex_ta (cisco:webex:meetings:history:*), webex_api (cisco:webex:*)
+**Cloud/Security:** aws (aws:cloudtrail), aws_guardduty (aws:cloudwatch:guardduty), aws_billing (aws:billing:cur), gcp (google:gcp:pubsub:message), entraid (azure:aad:signin/audit), secure_access (cisco:umbrella:dns/proxy/firewall/audit), catalyst_center (cisco:catalyst:devicehealth/networkhealth/clienthealth/issue)
+**Collaboration:** exchange (ms:o365:reporting:messagetrace), office_audit (o365:management:activity), webex_ta (cisco:webex:meetings:history:*), webex_api (cisco:webex:*)
 **Windows:** perfmon (perfmon), wineventlog (XmlWinEventLog), sysmon (XmlWinEventLog:Microsoft-Windows-Sysmon/Operational), mssql (mssql:errorlog)
 **Linux:** linux (linux:*)
 **Web/Retail:** access (access_combined), orders (retail:orders), servicebus (azure:servicebus)
 **ERP/ITSM:** sap (sap:auditlog), servicenow (servicenow:incident)
+**OT/ICS:** cybervision (cisco:cybervision:devices/components/events/flows/activities/vulnerabilities/sensors/syslog) — Detroit Plant, 21 OT assets, CEF syslog + JSON REST API events
 
 ## CLI Options
 
@@ -187,7 +191,7 @@ The-Fake-T-Shirt-Company/
 --no-test                Write to output/ (production - for Splunk ingestion)
 
 # Perfmon-specific
---clients=N              Client workstations (default: 5, max: 175)
+--clients=N              Client workstations (default: 5, max: 195)
 --full-metrics           Include disk/network for clients
 
 # Access/Orders-specific
@@ -210,11 +214,12 @@ The TUI also has a `[TEST]/[PROD]` toggle in the Configuration section.
 ### Source Groups
 
 - `all` - All sources
-- `cloud` - aws, gcp, entraid, secure_access
-- `network` - asa, meraki, catalyst, aci
-- `cisco` - asa, meraki, secure_access, catalyst, aci, catalyst_center
+- `cloud` - aws, aws_guardduty, aws_billing, gcp, entraid, secure_access
+- `network` - asa, meraki, catalyst, aci, cybervision
+- `cisco` - asa, meraki, secure_access, catalyst, aci, catalyst_center, cybervision
 - `campus` - catalyst, catalyst_center
 - `datacenter` - aci
+- `ot` - cybervision
 - `windows` - wineventlog, perfmon, mssql, sysmon
 - `linux` - linux
 - `web` - access
@@ -222,7 +227,7 @@ The TUI also has a `[TEST]/[PROD]` toggle in the Configuration section.
 - `email` - exchange
 - `retail` - orders, servicebus
 - `erp` - sap
-- `collaboration` - webex, webex_ta, webex_api
+- `collaboration` - webex_ta, webex_api
 - `itsm` - servicenow
 
 ### Common Commands
@@ -252,7 +257,7 @@ python3 bin/main_generate.py --all --days=31 --scenarios=all --orders-per-day=30
 
 ## Scenarios (bin/scenarios/)
 
-10 implemented scenarios injected into baseline traffic, tagged with `demo_id` field.
+11 implemented scenarios injected into baseline traffic, tagged with `demo_id` field.
 
 All scenarios add `demo_id=<scenario>` field for easy filtering in Splunk.
 
@@ -261,6 +266,7 @@ All scenarios add `demo_id=<scenario>` field for easy filtering in Splunk.
 | exfil | attack | 1-14 | Alex Miller (Finance, Boston) |
 | ransomware_attempt | attack | 8-9 | Brooklyn White (Sales, Austin) |
 | phishing_test | attack | 21-23 | All employees (IT awareness campaign) |
+| ot_rogue_device | attack | 8 | PLC-PRINT-01 (Detroit plant, Zone-1) |
 | memory_leak | ops | 7-10 | WEB-01 server |
 | cpu_runaway | ops | 11-12 | SQL-PROD-01 server |
 | disk_filling | ops | 1-5 | MON-ATL-01 server |
@@ -296,6 +302,13 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 - Target: All employees (post-exfil incident awareness training)
 - Outcome: Simulated phishing emails sent, click rates tracked
 - Affected sources: exchange, secure_access, office_audit, wineventlog, servicenow, entraid
+
+**ot_rogue_device** - Unauthorized contractor laptop on Detroit OT network (Day 8 14:00-16:30)
+- Target: PLC-PRINT-01 (Siemens S7-1500) in Zone-1 Printing line
+- Rogue asset: CONTRACTOR-LAPTOP-01 (Dell Latitude, 10.40.100.200) plugged directly into Zone-1 in violation of policy
+- Phases: device detection → network scan (all PLCs, Modbus/S7/CIP) → Modbus variable access → S7Plus program upload → S7Plus program download BLOCKED → cleartext credential → manual disconnect
+- Outcome: Detected immediately by CV, program download blocked by policy enforcement, operations team physically removes laptop
+- Affected sources: cybervision (devices, events, flows, activities, syslog CEF)
 
 ### Ops Scenarios
 
@@ -343,7 +356,7 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 - Name: The FAKE T-Shirt Company
 - Tenant: theTshirtCompany.com
 - Tenant ID: af23e456-7890-1234-5678-abcdef012345
-- Employees: ~175 across 3 locations
+- Employees: ~195 across 4 locations (Boston HQ, Atlanta Hub, Austin Office, Detroit Plant)
 
 ### Network (Per Location)
 
@@ -352,11 +365,13 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 | Boston (BOS) | 10.10.x.x | .30.0/23 | .40.0/23 | .20.0/24 | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
 | Atlanta (ATL) | 10.20.x.x | .30.0/24 | .40.0/24 | .20.0/24 | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
 | Austin (AUS) | 10.30.x.x | .30.0/24 | .40.0/24 | - | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
+| Detroit (DET) | 10.40.x.x | .30.0/24 | .40.0/24 | .20.0/24 | .60.0/24 | .70.0/24 | .50.0/24 | .80.0/24 |
 
 - Management (Boston): 10.10.10.0/24
 - DMZ (Boston): 172.16.1.0/24
 - VPN Pool: 10.250.0.0/24 (deterministic per-user via SHA256 hash, range .10-.209)
 - SD-WAN: AutoVPN mesh between all sites
+- **Detroit OT segments (IEC 62443, Purdue 0-3):** `ot_zone_1` 10.40.100.0/24 (Printing line — PLCs/HMIs/robots), `ot_zone_2` 10.40.101.0/24 (Packaging & utilities), `ot_sensors` 10.40.102.0/24 (IE3400 switches + CV sensors)
 
 ### Cloud
 - AWS Account: 123456789012 (us-east-1)
@@ -378,7 +393,7 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 - Location: Frankfurt, Germany
 - ASN: AS205100 (F3 Netze e.V.)
 
-### Key Servers (13 total)
+### Key Servers (17 total — 10 BOS + 3 ATL + 4 DET)
 
 **Boston HQ (10.10.x.x) — 10 servers:**
 
@@ -405,12 +420,46 @@ Affected sources: asa, aws, office_audit, linux, webex, webex_api, gcp, meraki, 
 
 **Austin (10.30.x.x) — 0 servers** (branch office, no local infrastructure)
 
+**Detroit Plant (10.40.x.x) — 4 Windows servers + 21 OT assets**
+
+The 4 Windows servers below live in `company.py` SERVERS and are picked up by WinEventLog, Perfmon, and Sysmon generators. The 21 OT assets live in the Cybervision generator inventory.
+
+| Hostname | IP | Role | OS |
+|----------|-----|------|-----|
+| ENG-WS-01 | 10.40.20.50 | OT Engineering Workstation | Windows |
+| ENG-WS-02 | 10.40.20.51 | OT Engineering Workstation | Windows |
+| HIST-DET-01 | 10.40.20.30 | OT Historian (AVEVA) | Windows |
+| SCADA-DET-01 | 10.40.20.31 | OT SCADA Server (InTouch OMI) | Windows |
+
+**OT assets** (inventory lives in `bin/generators/generate_cybervision.py`):
+
+| Category | Count | Examples |
+|---|---:|---|
+| PLCs | 5 | Siemens S7-1500/1200, Rockwell ControlLogix, Schneider M580 |
+| HMIs | 3 | SIMATIC Comfort Panel, FactoryTalk PanelView, Harmony |
+| Robot Controllers | 2 | ABB IRC5 M2004 (2×) |
+| Variable Frequency Drives | 3 | ABB ACS880, Siemens SINAMICS, Schneider Altivar |
+| IO Modules | 1 | Siemens ET 200SP |
+| Engineering Workstations | 2 | Windows 10 IoT LTSC (same as ENG-WS-01/02 above) |
+| Historian | 1 | AVEVA Historian 2020 R2 (same as HIST-DET-01 above) |
+| SCADA Server | 1 | AVEVA InTouch OMI 2020 R2 (same as SCADA-DET-01 above) |
+| Industrial Switches | 3 | Cisco Catalyst IE3400-8T2S (also in Catalyst Center) |
+| **Cyber Vision Sensors** | 2 | IE3400 (embedded) + IC3000-2C2F-K9 |
+
+Organized into IEC 62443 zones: **Zone-1-Printing** (criticalness=3), **Zone-2-Packaging** (criticalness=2), **OT-Mgmt** (criticalness=2). All monitored by `cv-center-det-01.faketshirtcompany.com` (simulated Cyber Vision Center 5.1.2).
+
+**IT/OT correlation** — same Detroit assets appear in multiple Cisco sourcetypes:
+- **ENG-WS-01/02, HIST-DET-01, SCADA-DET-01** → `cisco:cybervision:devices/flows/activities/events` + `WinEventLog` + `WinEventLog:Sysmon` + `Perfmon:*` + `cisco:asa` (outbound HTTPS to Siemens/Rockwell/ABB/AVEVA vendor servers on 443)
+- **IE3400-DET-01/02/03** → `cisco:cybervision:devices` (as Industrial Switch asset) + `cisco:catalyst:devicehealth` (as managed device in Catalyst Center)
+
+This enables cross-source pivoting: `index=fake_tshrt (ComputerName="ENG-WS-01" OR label="ENG-WS-01" OR "10.40.20.50") | stats count by sourcetype`.
+
 ## Shared Utilities (bin/shared/)
 
 | File | Purpose |
 |------|---------|
 | config.py | Global defaults, volume patterns, output paths, hour activity levels |
-| company.py | 175 employees, 3 locations, network architecture, IP ranges, cloud config |
+| company.py | 195 employees, 4 locations (incl. Detroit OT plant), network architecture, IP ranges, cloud config |
 | time_utils.py | Timestamp formatters, volume multipliers, scenario phase helpers |
 | products.py | 72 IT-themed products with pricing |
 | meeting_schedule.py | Shared Webex meeting schedule across generators |
@@ -538,7 +587,7 @@ index=fake_tshrt sourcetype="FAKE:perfmon" demo_host="SQL-PROD-01" | timechart a
 - Splunk index: `fake_tshrt`
 - **Splunk sourcetypes are prefixed with `FAKE:`** -- e.g., `FAKE:cisco:asa`, `FAKE:aws:cloudtrail`. Generators produce events with standard sourcetype names; Splunk's `props.conf`/`transforms.conf` apply the `FAKE:` prefix at index time. All SPL queries in documentation must use: `index=fake_tshrt sourcetype="FAKE:cisco:asa"`
 - All scenario events queryable via `demo_id` field in Splunk
-- 13 servers across 2 locations (10 Boston, 3 Atlanta), 175 employees across 3 locations
+- 17 corp servers across 3 locations (10 Boston, 3 Atlanta, 4 Detroit OT) + 21 OT assets at Detroit plant. 195 employees across 4 locations (Boston, Atlanta, Austin, Detroit)
 - SAP generator correlates with orders via `order_registry.json` (NDJSON format, one JSON object per line). tshirtcid (browser cookie UUID) is included in VA01/VL01N/VF01 event details and extracted via `extract_sap_tshirtcid` transform
 - Customer pool is dynamic: `pool_total = max(500, orders_per_day * days // 4)` targeting ~4 orders/customer. VIP = top 5% of pool driving 30% of traffic (Pareto). `customer_lookup.csv` covers 500 VIP customers only (CUST-00001 to CUST-00500)
 

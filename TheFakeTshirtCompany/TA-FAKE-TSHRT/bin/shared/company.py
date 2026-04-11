@@ -60,6 +60,16 @@ LOCATIONS = {
         "timezone": "America/Chicago",
         "employee_count": 39,
     },
+    "DET": {
+        "name": "Detroit",
+        "full_name": "Detroit Printing & Fulfillment Plant",
+        "state": "MI",
+        "type": "Manufacturing Plant",
+        "address": "4500 Industrial Parkway",
+        "floors": 1,
+        "timezone": "America/Detroit",
+        "employee_count": 20,
+    },
 }
 
 # =============================================================================
@@ -101,6 +111,21 @@ NETWORK_CONFIG = {
         "cameras": "10.30.70.0/24",
         "guest": "10.30.80.0/24",
     },
+    "DET": {
+        "prefix": "10.40",
+        "management": "10.40.10.0/24",
+        "servers": "10.40.20.0/24",       # Site local servers (Engineering WS, Historian)
+        "users_wired": "10.40.30.0/24",   # Office staff
+        "users_wifi": "10.40.40.0/24",
+        "voice": "10.40.50.0/24",
+        "iot": "10.40.60.0/24",
+        "cameras": "10.40.70.0/24",
+        "guest": "10.40.80.0/24",
+        # OT-specific segments (Purdue 0-3, IEC 62443 zones)
+        "ot_zone_1": "10.40.100.0/24",    # Zone-1: Printing line (PLCs, HMIs, IO)
+        "ot_zone_2": "10.40.101.0/24",    # Zone-2: Packaging/Utilities (PLCs, drives)
+        "ot_sensors": "10.40.102.0/24",   # Cyber Vision sensors + industrial switches
+    },
 }
 
 # Meraki Dashboard API Network IDs (per location)
@@ -108,6 +133,7 @@ NETWORK_IDS = {
     "BOS": "N_FakeTShirtCo_BOS",
     "ATL": "N_FakeTShirtCo_ATL",
     "AUS": "N_FakeTShirtCo_AUS",
+    "DET": "N_FakeTShirtCo_DET",
 }
 
 # Legacy internal prefixes (for backward compatibility)
@@ -949,6 +975,38 @@ _USER_DATA = {
     # AUSTIN OFFICE - FLOOR 1: FINANCE (1)
     # ==========================================================================
     "taylor.wong": ("user-taylor-wong-id", "Taylor Wong", "AUS", 1, "Finance", "Financial Analyst", "robert.wilson", False, True, "AUS-WS-TWONG01", "10.30.30.85", "device-twong-001", "68.105.12"),
+
+    # ==========================================================================
+    # DETROIT PLANT - FLOOR 1: OPERATIONS (16) — Plant mgr, supervisors, line operators, maintenance, QA, warehouse
+    # ==========================================================================
+    "david.miller": ("user-david-miller-id", "David Miller", "DET", 1, "Operations", "Plant Manager", "jennifer.davis", True, True, "DET-WS-DMILLER01", "10.40.30.10", "device-dmiller-001", "73.158.42"),
+    "nancy.garcia": ("user-nancy-garcia-id", "Nancy Garcia", "DET", 1, "Operations", "Shift Supervisor - Day", "david.miller", False, True, "DET-WS-NGARCIA01", "10.40.30.11", "device-ngarcia-001", "107.77.195"),
+    "tom.hernandez": ("user-tom-hernandez-id", "Tom Hernandez", "DET", 1, "Operations", "Shift Supervisor - Night", "david.miller", False, True, "DET-WS-THERNANDEZ01", "10.40.30.12", "device-thernandez-001", "108.28.163"),
+    "bruce.walker": ("user-bruce-walker-id", "Bruce Walker", "DET", 1, "Operations", "Production Line Operator", "nancy.garcia", False, False, "DET-WS-BWALKER01", "10.40.30.20", "device-bwalker-001", "174.63.88"),
+    "linda.hall": ("user-linda-hall-id", "Linda Hall", "DET", 1, "Operations", "Production Line Operator", "nancy.garcia", False, False, "DET-WS-LHALL01", "10.40.30.21", "device-lhall-001", "68.105.12"),
+    "frank.allen": ("user-frank-allen-id", "Frank Allen", "DET", 1, "Operations", "Production Line Operator", "nancy.garcia", False, False, "DET-WS-FALLEN01", "10.40.30.22", "device-fallen-001", "71.222.45"),
+    "diane.young": ("user-diane-young-id", "Diane Young", "DET", 1, "Operations", "Production Line Operator", "nancy.garcia", False, False, "DET-WS-DYOUNG01", "10.40.30.23", "device-dyoung-001", "73.158.42"),
+    "kyle.rivera": ("user-kyle-rivera-id", "Kyle Rivera", "DET", 1, "Operations", "Production Line Operator", "tom.hernandez", False, False, "DET-WS-KRIVERA01", "10.40.30.24", "device-krivera-001", "107.77.195"),
+    "rachel.king": ("user-rachel-king-id", "Rachel King", "DET", 1, "Operations", "Production Line Operator", "tom.hernandez", False, False, "DET-WS-RKING01", "10.40.30.25", "device-rking-001", "108.28.163"),
+    "greg.wright": ("user-greg-wright-id", "Greg Wright", "DET", 1, "Operations", "Production Line Operator", "tom.hernandez", False, False, "DET-WS-GWRIGHT01", "10.40.30.26", "device-gwright-001", "174.63.88"),
+    "mia.lopez": ("user-mia-lopez-id", "Mia Lopez", "DET", 1, "Operations", "Production Line Operator", "tom.hernandez", False, False, "DET-WS-MLOPEZ01", "10.40.30.27", "device-mlopez-001", "68.105.12"),
+    "carlos.nguyen": ("user-carlos-nguyen-id", "Carlos Nguyen", "DET", 1, "Operations", "Maintenance Technician", "david.miller", False, True, "DET-WS-CNGUYEN01", "10.40.30.30", "device-cnguyen-001", "71.222.45"),
+    "steve.adams": ("user-steve-adams-id", "Steve Adams", "DET", 1, "Operations", "Maintenance Technician", "carlos.nguyen", False, False, "DET-WS-SADAMS01", "10.40.30.31", "device-sadams-001", "73.158.42"),
+    "paul.baker": ("user-paul-baker-id", "Paul Baker", "DET", 1, "Operations", "Maintenance Technician", "carlos.nguyen", False, False, "DET-WS-PBAKER01", "10.40.30.32", "device-pbaker-001", "107.77.195"),
+    "angela.torres": ("user-angela-torres-id", "Angela Torres", "DET", 1, "Operations", "Quality Inspector", "david.miller", False, False, "DET-WS-ATORRES01", "10.40.30.35", "device-atorres-001", "108.28.163"),
+    "lisa.flores": ("user-lisa-flores-id", "Lisa Flores", "DET", 1, "Operations", "Quality Inspector", "angela.torres", False, False, "DET-WS-LFLORES01", "10.40.30.36", "device-lflores-001", "174.63.88"),
+    "samantha.price": ("user-samantha-price-id", "Samantha Price", "DET", 1, "Operations", "Warehouse & Shipping Coordinator", "david.miller", False, False, "DET-WS-SPRICE01", "10.40.30.40", "device-sprice-001", "68.105.12"),
+
+    # ==========================================================================
+    # DETROIT PLANT - FLOOR 1: ENGINEERING (2) — Plant & OT/Controls engineers
+    # ==========================================================================
+    "ryan.campbell": ("user-ryan-campbell-id", "Ryan Campbell", "DET", 1, "Engineering", "Plant Engineer", "richard.chen", False, True, "DET-WS-RCAMPBELL01", "10.40.30.50", "device-rcampbell-001", "71.222.45"),
+    "ethan.rivera": ("user-ethan-rivera-id", "Ethan Rivera", "DET", 1, "Engineering", "OT/Controls Engineer", "ryan.campbell", True, True, "DET-WS-ERIVERA01", "10.40.30.51", "device-erivera-001", "73.158.42"),
+
+    # ==========================================================================
+    # DETROIT PLANT - FLOOR 1: IT (1) — Site IT support
+    # ==========================================================================
+    "jason.reed": ("user-jason-reed-id", "Jason Reed", "DET", 1, "IT", "IT Site Support Specialist", "jessica.brown", False, True, "DET-WS-JREED01", "10.40.30.60", "device-jreed-001", "107.77.195"),
 }
 
 # Build User objects
@@ -1006,6 +1064,13 @@ _SERVER_DATA = {
     "DC-ATL-01": ("ATL", "windows", "Domain Controller", "10.20.20.10", 10, 30, 40, 60),
     "BACKUP-ATL-01": ("ATL", "windows", "Backup Server", "10.20.20.20", 15, 40, 50, 75),
     "MON-ATL-01": ("ATL", "linux", "Monitoring Server", "10.20.20.30", 20, 45, 60, 80),
+
+    # Detroit Plant - OT Management Segment (Windows servers in 10.40.20.0/24)
+    # These are also monitored by Cisco Cyber Vision and appear in cybervision:devices
+    "ENG-WS-01":     ("DET", "windows", "OT Engineering Workstation",      "10.40.20.50", 10, 30, 40, 60),
+    "ENG-WS-02":     ("DET", "windows", "OT Engineering Workstation",      "10.40.20.51", 10, 30, 40, 60),
+    "HIST-DET-01":   ("DET", "windows", "OT Historian (AVEVA)",            "10.40.20.30", 20, 45, 55, 75),
+    "SCADA-DET-01":  ("DET", "windows", "OT SCADA Server (InTouch OMI)",   "10.40.20.31", 25, 50, 60, 80),
 }
 
 SERVERS: Dict[str, Server] = {}

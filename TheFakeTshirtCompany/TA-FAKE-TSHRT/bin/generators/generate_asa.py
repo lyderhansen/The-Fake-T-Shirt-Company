@@ -575,6 +575,74 @@ NEW_SERVER_TRAFFIC = [
 APP_SERVER_IP = "10.10.20.40"   # APP-BOS-01
 SQL_SERVER_IP = "10.10.20.30"   # SQL-PROD-01
 
+# -----------------------------------------------------------------------------
+# OT VENDOR TRAFFIC (Detroit plant → Internet)
+# -----------------------------------------------------------------------------
+# Detroit OT servers periodically reach out to vendor update/licensing servers.
+# Used for IT/OT correlation: same Detroit hosts that appear in cybervision
+# also show up in ASA logs as outbound HTTPS sessions to these vendor IPs.
+
+OT_VENDOR_ENDPOINTS = [
+    # (vendor, FQDN, IP, description)
+    ("Siemens",   "support.industry.siemens.com", "144.217.154.10", "Siemens SIMATIC firmware/patches"),
+    ("Siemens",   "update.siemens.com",            "144.217.154.20", "Siemens license activation"),
+    ("Rockwell",  "compatibility.rockwellautomation.com", "208.68.58.10", "Rockwell ControlLogix update check"),
+    ("Rockwell",  "download.rockwellautomation.com",      "208.68.58.11", "Rockwell firmware download"),
+    ("Schneider", "download.schneider-electric.com",      "194.153.219.10", "Schneider M580 firmware"),
+    ("ABB",       "library.abb.com",                      "194.255.13.10",  "ABB robot controller docs/updates"),
+    ("AVEVA",     "sw.aveva.com",                         "52.158.209.10",  "AVEVA Historian/InTouch license check"),
+    ("Microsoft", "update.microsoft.com",                 "13.107.4.50",    "Windows Update (ENG-WS/HIST)"),
+]
+
+# Detroit OT servers that reach out to vendor endpoints
+OT_OUTBOUND_HOSTS = ["ENG-WS-01", "ENG-WS-02", "HIST-DET-01", "SCADA-DET-01"]
+
+
+def asa_ot_vendor_traffic(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
+    """Generate outbound HTTPS traffic from Detroit OT hosts to vendor endpoints.
+
+    Creates IT/OT correlation data: the same ENG-WS-01/HIST-DET-01 hosts that
+    appear in cisco:cybervision:devices show up here in ASA logs going to
+    Siemens/Rockwell/ABB/AVEVA update servers on 443.
+    """
+    events = []
+
+    host = random.choice(OT_OUTBOUND_HOSTS)
+    server = SERVERS.get(host)
+    if not server:
+        return events
+
+    vendor, fqdn, ext_ip, desc = random.choice(OT_VENDOR_ENDPOINTS)
+    src = server.ip
+    sp = random.randint(49152, 65535)
+    dst = ext_ip
+    dp = 443
+
+    cid = next_cid()
+    bytes_val = random.randint(5_000, 3_000_000)   # firmware downloads can be large
+    duration_secs = random.randint(2, 120)
+
+    if bytes_val > 0 and duration_secs == 0:
+        duration_secs = 1
+
+    total_start = minute * 60 + second
+    total_end = total_start + duration_secs
+    end_min = min(59, total_end // 60)
+    end_sec = total_end % 60 if end_min < 59 else 59
+
+    dur = f"0:{duration_secs // 60}:{duration_secs % 60}"
+    reason = weighted_teardown_reason()
+
+    start_ts = ts_syslog(base_date, day, hour, minute, second)
+    teardown_ts = ts_syslog(base_date, day, hour, end_min, end_sec)
+
+    pri6 = asa_pri(6)
+    direction = get_built_direction("inside", "outside")
+    events.append(f"{pri6}{start_ts} {ASA_HOSTNAME} %ASA-6-302013: Built {direction}TCP connection {cid} for inside:{src}/{sp} ({src}/{sp}) to outside:{dst}/{dp} ({dst}/{dp})")
+    events.append(f"{pri6}{teardown_ts} {ASA_HOSTNAME} %ASA-6-302014: Teardown TCP connection {cid} for inside:{src}/{sp} to outside:{dst}/{dp} duration {dur} bytes {bytes_val} {reason}")
+
+    return events
+
 
 def asa_new_server_traffic(base_date: str, day: int, hour: int, minute: int, second: int) -> List[str]:
     """Generate traffic to/from new infrastructure servers."""
@@ -1361,6 +1429,15 @@ def generate_baseline_hour(base_date: str, day: int, hour: int, event_count: int
         else:
             # Internal ACL denies (policy violations)
             events.append(asa_deny_internal(base_date, day, hour, minute, second))
+
+    # Detroit OT vendor outbound traffic (IT/OT correlation)
+    # ENG-WS-01/02, HIST-DET-01, SCADA-DET-01 → Siemens/Rockwell/ABB/AVEVA update servers
+    # ~2% of total baseline, flat across the hour
+    ot_vendor_count = max(1, event_count // 50)
+    for _ in range(ot_vendor_count):
+        events.extend(asa_ot_vendor_traffic(
+            base_date, day, hour, random.randint(0, 59), random.randint(0, 59)
+        ))
 
     # Background scan noise (scaled with traffic - more traffic = more scans)
     # Real internet-facing firewalls see ~5% background noise from scanners/bots
