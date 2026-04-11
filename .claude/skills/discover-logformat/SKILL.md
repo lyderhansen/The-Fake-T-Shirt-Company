@@ -1,9 +1,9 @@
 ---
 name: discover-logformat
 description: Analyze a log sample to produce a draft SPEC.yaml for adding a new data source. Use when you have raw log lines from a new source and want a structured format analysis before scaffolding a generator.
-version: 0.1.0-mvp
+version: 0.2.0-research
 metadata:
-  argument-hint: "<source_id> --sample=<path>"
+  argument-hint: "<source_id> [--sample=<path>] [--doc=<url>] [--description=<text>] [--no-search]"
 ---
 
 # discover-logformat — MVP (Plan v1)
@@ -32,16 +32,30 @@ Follow these instructions in order. Stop at the first failure and report it to t
 
 ### A.1 Parse arguments
 
-Expected invocation shape: `/discover-logformat <source_id> --sample=<path>`
+Expected invocation shape: `/discover-logformat <source_id> [flags...]`
 
 Required positional argument: `<source_id>`. If missing, respond:
-> "Missing `source_id`. Usage: `/discover-logformat <source_id> --sample=<path>`"
+> "Missing `source_id`. Usage: `/discover-logformat <source_id> [--sample=<path>] [--doc=<url>] [--description=<text>] [--no-search]`"
 
-Required flag: `--sample=<path>`. If missing, respond:
-> "The MVP version of this skill requires `--sample=<path>`. Research, docs, and Splunkbase inputs are deferred to a later plan iteration. For now, provide a raw log file."
+Recognized flags in v2:
+- `--sample=<path>` — path to a raw log file. Optional.
+- `--doc=<url>` — vendor doc URL, repeatable. Optional.
+- `--description=<text>` — free-text description used as a search seed. Optional.
+- `--no-search` — disable the WebSearch step. `--doc` URLs are still fetched.
 
-Any other flag (`--doc`, `--ta`, `--description`, `--interactive`, `--batch`, `--no-search`, `--threshold`, `--min-sources`, `--max-research-time`) is **not supported in the MVP**. If the user passes one of these flags, respond:
-> "Flag `<flag>` is not supported in the MVP. Only `--sample=<path>` is available in Plan v1. See `docs/superpowers/plans/2026-04-11-discover-logformat.md` for the roadmap."
+At least one of `--sample`, `--doc`, or `--description` MUST be present. If all three are missing, respond:
+> "I need at least one of `--sample`, `--doc`, or `--description` to work from. Please pick one:
+>   • `--sample=<path>` if you have raw log lines
+>   • `--doc=<url>` if you have a vendor documentation URL
+>   • `--description=<text>` if you only have a free-text description
+>
+> You can combine them. Rerun with at least one of these flags."
+
+Flags NOT yet supported in v2 (`--ta`, `--interactive`, `--batch`, `--threshold`, `--min-sources`, `--max-research-time`) should still be rejected:
+> "Flag `<flag>` is not supported yet. Current version is v2 (research). See `docs/superpowers/plans/` for the roadmap."
+
+Record which inputs were supplied — the result is an `ExplicitInputs` object:
+`{sample_path: string|null, doc_urls: string[], description: string|null, no_search: bool}`
 
 ### A.2 Normalize `source_id`
 
