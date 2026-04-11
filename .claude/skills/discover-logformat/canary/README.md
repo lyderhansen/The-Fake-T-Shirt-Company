@@ -66,4 +66,4 @@ Update this section after each canary execution in Task 6.
 
 | Date (UTC) | Result | Plan version | Notes |
 |---|---|---|---|
-| *(not yet run)* | — | v1 MVP | — |
+| 2026-04-11 | PASS | v1 MVP | first end-to-end run |
